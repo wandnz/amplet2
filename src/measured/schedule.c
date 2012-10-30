@@ -19,35 +19,12 @@
 
 #include <libwandevent.h>
 #include "schedule.h"
+#include "watchdog.h"
 
 
 
 static struct timeval get_next_schedule_time(char repeat, uint64_t start,
 	uint64_t end, uint64_t frequency);
-
-
-
-
-/*
- * Kill a test process that has run for too long.
- */
-static void kill_running_test(struct wand_timer_t *timer) {
-    schedule_item_t *item = (schedule_item_t *)timer->data;
-    kill_schedule_item_t *data;
-
-    assert(item->type == EVENT_CANCEL_TEST);
-
-    data = (kill_schedule_item_t *)item->data.kill;
-
-    /* TODO send SIGINT first like amp1 did? */
-    if ( killpg(data->pid, SIGKILL) < 0 ) {
-	perror("killpg");
-    }
-
-    free(data);
-    free(item);
-    free(timer);
-}
 
 
 
@@ -57,9 +34,6 @@ static void kill_running_test(struct wand_timer_t *timer) {
  */
 static void fork_test(wand_event_handler_t *ev_hdl) {
     pid_t pid;
-    schedule_item_t *item;
-    kill_schedule_item_t *kill;
-    struct wand_timer_t *timer;
 
     if ( (pid = fork()) < 0 ) {
 	perror("fork");
@@ -74,25 +48,8 @@ static void fork_test(wand_event_handler_t *ev_hdl) {
 	exit(1);
     }
 
-    /* schedule task to kill test process if it goes too long */
-    kill = (kill_schedule_item_t *)malloc(sizeof(kill_schedule_item_t));
-    kill->ev_hdl = ev_hdl;
-    kill->pid = pid;
-    
-    item = (schedule_item_t *)malloc(sizeof(schedule_item_t));
-    item->type = EVENT_CANCEL_TEST;
-    item->data.kill = kill;
-	
-    timer = (struct wand_timer_t *)malloc(sizeof(struct wand_timer_t));
-    timer->data = item;
-    timer->expire = wand_calc_expire(ev_hdl, 30, 0);
-    timer->callback = kill_running_test;
-    timer->prev = NULL;
-    timer->next = NULL;
-    wand_add_timer(ev_hdl, timer);
-
-    /* TODO remove timers should child complete ok */
-
+    /* schedule the watchdog to kill it if it takes too long */
+    add_test_watchdog(ev_hdl, pid);
 }
 
 
@@ -113,12 +70,12 @@ static void run_scheduled_test(struct wand_timer_t *timer) {
     /* reschedule the test again */
     next = get_next_schedule_time(data->repeat, data->start, data->end, 
 	    MS_FROM_TV(data->interval));
-    timer->expire = wand_calc_expire(data->ev_hdl, next.tv_sec, next.tv_usec);
+    timer->expire = wand_calc_expire(item->ev_hdl, next.tv_sec, next.tv_usec);
     timer->prev = NULL;
     timer->next = NULL;
-    wand_add_timer(data->ev_hdl, timer);
+    wand_add_timer(item->ev_hdl, timer);
 
-    fork_test(data->ev_hdl);
+    fork_test(item->ev_hdl);
 }
 
 
@@ -503,10 +460,10 @@ void read_schedule_file(wand_event_handler_t *ev_hdl) {
 	test->repeat = repeat[0];
 	test->start = start;
 	test->end = end;
-	test->ev_hdl = ev_hdl;
 	
 	item = (schedule_item_t *)malloc(sizeof(schedule_item_t));
 	item->type = EVENT_RUN_TEST;
+	item->ev_hdl = ev_hdl;
 	item->data.test = test;
 	
 	/* create the timer event for this test */

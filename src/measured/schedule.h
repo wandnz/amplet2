@@ -2,6 +2,7 @@
 #define _MEASURED_SCHEDULE_H
 
 #include <stdint.h>
+#include <libwandevent.h>
 
 
 /* number of seconds between checking the schedule file for changes */
@@ -46,7 +47,6 @@ typedef struct schedule_file_data {
  * Data block for scheduled test events.
  */
 typedef struct test_schedule_item {
-    wand_event_handler_t *ev_hdl;
     struct timeval interval;	    /* time between test runs */
     uint64_t start;
     uint64_t end;
@@ -54,7 +54,7 @@ typedef struct test_schedule_item {
     /* TODO destination (destinations?) */
     /* TODO test to run */
     /* TODO test parameters */
-    /* TODO special timing - not before, not after, chaining? */
+    /* TODO chaining? */
 
 } test_schedule_item_t;
 
@@ -62,22 +62,39 @@ typedef struct test_schedule_item {
  * Data block for limiting test event duration
  */ 
 typedef struct kill_schedule_item {
-    wand_event_handler_t *ev_hdl;
     pid_t pid;
 } kill_schedule_item_t;
 
+/*
+ *
+ */
 typedef enum {
     EVENT_CANCEL_TEST,
     EVENT_RUN_TEST,
 } event_type_t;
 
+/*
+ *
+ */
 typedef struct schedule_item {
     event_type_t type;
+    wand_event_handler_t *ev_hdl;
     union {
 	test_schedule_item_t *test;
 	kill_schedule_item_t *kill;
     } data;
 } schedule_item_t;
+
+/*
+ * Data block for currently running tests.
+ */
+struct running_test_t {
+    wand_event_handler_t *ev_hdl;
+    pid_t pid;			    /* pid of running test, used to match on */
+    struct wand_timer_t *timer;	    /* task scheduled to kill this test */
+    struct running_test_t *next;
+    struct running_test_t *prev;
+};
 
 void read_schedule_file(wand_event_handler_t *ev_hdl);
 void setup_schedule_refresh(wand_event_handler_t *ev_hdl);

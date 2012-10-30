@@ -17,9 +17,6 @@
 #include <time.h>
 #include <signal.h>
 
-//XXX testing child events
-#include <sys/types.h>
-#include <sys/wait.h>
 
 #if HAVE_SYS_INOTIFY_H
 #include <sys/inotify.h>
@@ -27,6 +24,7 @@
 
 #include <libwandevent.h>
 #include "schedule.h"
+#include "watchdog.h"
 
 wand_event_handler_t *ev_hdl;
 
@@ -46,22 +44,6 @@ static void usage(char *prog) {
  */
 static void stop_running(__attribute__((unused))struct wand_signal_t *signal) {
     ev_hdl->running = false;
-}
-
-
-
-/*
- * Test using SIGCHLD to know when and which children have completed so that
- * their scheduled timeout task can be removed from the list.
- * TODO move it somewhere more appropriate.
- */
-static void child_test(__attribute__((unused))struct wand_signal_t *signal) {
-    siginfo_t infop;
-    infop.si_pid = 0;
-    printf("CHILD terminated\n");
-    waitid(P_ALL, 0, &infop, WNOHANG | WEXITED);
-    printf("pid: %d\n", infop.si_pid);
-    /* TODO find in the list of events and remove the scheduled kill */
 }
 
 
@@ -118,7 +100,7 @@ int main(int argc, char *argv[]) {
     
     struct wand_signal_t signal_ev2;
     signal_ev2.signum = SIGCHLD;
-    signal_ev2.callback = child_test;
+    signal_ev2.callback = child_reaper;
     signal_ev2.data = NULL;
     wand_add_signal(&signal_ev2);
 
