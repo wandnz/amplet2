@@ -63,7 +63,6 @@ typedef struct kill_schedule_item {
     pid_t pid;
 } kill_schedule_item_t;
 
-#if 0
 typedef enum {
     EVENT_CANCEL_TEST,
     EVENT_RUN_TEST,
@@ -72,11 +71,10 @@ typedef enum {
 typedef struct schedule_item {
     event_type_t type;
     union {
-	test_schedule_item_t test;
-	kill_schedule_item_t kill;
+	test_schedule_item_t *test;
+	kill_schedule_item_t *kill;
     } data;
 } schedule_item_t;
-#endif
 
 void read_schedule_file(wand_event_handler_t *ev_hdl);
 void setup_schedule_refresh(wand_event_handler_t *ev_hdl);

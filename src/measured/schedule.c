@@ -11,6 +11,7 @@
 #include <errno.h>
 #include <limits.h>
 #include <signal.h>
+#include <assert.h>
 
 #if HAVE_SYS_INOTIFY_H
 #include <sys/inotify.h>
@@ -25,7 +26,12 @@
  * Kill a test process that has run for too long.
  */
 static void kill_running_test(struct wand_timer_t *timer) {
-    kill_schedule_item_t *data = (kill_schedule_item_t *)timer->data;
+    schedule_item_t *item = (schedule_item_t *)timer->data;
+    kill_schedule_item_t *data;
+
+    assert(item->type == EVENT_CANCEL_TEST);
+
+    data = (kill_schedule_item_t *)item->data.kill;
 
     /* TODO send SIGINT first like amp1 did? */
     if ( killpg(data->pid, SIGKILL) < 0 ) {
@@ -33,6 +39,7 @@ static void kill_running_test(struct wand_timer_t *timer) {
     }
 
     free(data);
+    free(item);
     free(timer);
 }
 
@@ -44,6 +51,7 @@ static void kill_running_test(struct wand_timer_t *timer) {
  */
 static void fork_test(wand_event_handler_t *ev_hdl) {
     pid_t pid;
+    schedule_item_t *item;
     kill_schedule_item_t *kill;
     struct wand_timer_t *timer;
 
@@ -55,7 +63,7 @@ static void fork_test(wand_event_handler_t *ev_hdl) {
 	/* TODO prepare environment */
 	/* TODO run pre test setup */
 	/* TODO run test */
-	execl("/bin/ping", "ping", "-c", "10", "localhost", NULL);
+	execl("/bin/ping", "ping", "-c", "5", "localhost", NULL);
 	perror("execl");
 	exit(1);
     }
@@ -64,9 +72,13 @@ static void fork_test(wand_event_handler_t *ev_hdl) {
     kill = (kill_schedule_item_t *)malloc(sizeof(kill_schedule_item_t));
     kill->ev_hdl = ev_hdl;
     kill->pid = pid;
+    
+    item = (schedule_item_t *)malloc(sizeof(schedule_item_t));
+    item->type = EVENT_CANCEL_TEST;
+    item->data.kill = kill;
 	
     timer = (struct wand_timer_t *)malloc(sizeof(struct wand_timer_t));
-    timer->data = kill;
+    timer->data = item;
     timer->expire = wand_calc_expire(ev_hdl, 30, 0);
     timer->callback = kill_running_test;
     timer->prev = NULL;
@@ -82,7 +94,12 @@ static void fork_test(wand_event_handler_t *ev_hdl) {
  * TODO start forking a real program to test with: ls, ping? 
  */
 static void run_scheduled_test(struct wand_timer_t *timer) {
-    test_schedule_item_t *data = (test_schedule_item_t *)timer->data;
+    schedule_item_t *item = (schedule_item_t *)timer->data;
+    test_schedule_item_t *data;
+
+    assert(item->type == EVENT_RUN_TEST);
+
+    data = (test_schedule_item_t *)item->data.test;
     
     printf("running a test at %d\n", (int)time(NULL));
 
@@ -104,21 +121,26 @@ static void run_scheduled_test(struct wand_timer_t *timer) {
 static void clear_test_schedule(wand_event_handler_t *ev_hdl) {
     struct wand_timer_t *timer = ev_hdl->timers;
     struct wand_timer_t *tmp;
+    schedule_item_t *item;
 
     while ( timer != NULL ) {
-	/* TODO check if this timer is related to a test or not - is there
-	 * any reason there will be a timer here we don't want to remove?
-	 * the schedule file check will re-add itself anyway - and this will
-	 * fail if we try to free() it currently anyway, not malloc'd
-	 * - maybe we have scheduled tasks to kill existing test processes, 
-	 * these need to be kept
-	 */
 	tmp = timer;
 	timer = timer->next;
-	wand_del_timer(ev_hdl, tmp);
-	if ( tmp->data != NULL )
-	    free(tmp->data);
-	free(tmp);
+	/* 
+	 * only remove future scheduled tests, need to leave any tasks that 
+	 * are watching currently executing tests
+	 */
+	if ( tmp->data != NULL ) {
+	    item = (schedule_item_t *)tmp->data;
+	    if ( item->type == EVENT_RUN_TEST ) {
+		wand_del_timer(ev_hdl, tmp);
+		if ( item->data.test != NULL ) {
+		    free(item->data.test);
+		}
+		free(item);
+		free(tmp);
+	    }
+	}
     }
 }
 
@@ -419,7 +441,8 @@ void read_schedule_file(wand_event_handler_t *ev_hdl) {
     FILE *in;
     char line[MAX_SCHEDULE_LINE];
     struct wand_timer_t *timer = NULL;
-    test_schedule_item_t *item = NULL;
+    schedule_item_t *item = NULL;
+    test_schedule_item_t *test = NULL;
 
     if ( (in = fopen(SCHEDULE_FILE, "r")) == NULL ) {
 	perror("error opening schedule file");
@@ -427,7 +450,7 @@ void read_schedule_file(wand_event_handler_t *ev_hdl) {
     }
 
     while ( fgets(line, sizeof(line), in) != NULL ) {
-	char *target, *test, *repeat, *params;
+	char *target, *testname, *repeat, *params;
 	long start, end, frequency;
 	struct timeval next;
 
@@ -440,7 +463,7 @@ void read_schedule_file(wand_event_handler_t *ev_hdl) {
 	/* read target,test,repeat,start,end,frequency,params */
 	if ( (target = strtok(line, ",")) == NULL )
 	    continue;
-	if ( (test = strtok(NULL, SCHEDULE_DELIMITER)) == NULL )
+	if ( (testname = strtok(NULL, SCHEDULE_DELIMITER)) == NULL )
 	    continue;
 	if ( (repeat = strtok(NULL, SCHEDULE_DELIMITER)) == NULL )
 	    continue;
@@ -462,14 +485,18 @@ void read_schedule_file(wand_event_handler_t *ev_hdl) {
 	/* TODO check params are valid */
 
 
-	printf("%s %s %s %ld %ld %ld %s\n", target, test, repeat, start, end, 
-		frequency, (params)?params:"NULL");
+	printf("%s %s %s %ld %ld %ld %s\n", target, testname, repeat, start, 
+		end, frequency, (params)?params:"NULL");
 
 	/* everything looks ok, populate the test info struct */
-	item = (test_schedule_item_t *)malloc(sizeof(test_schedule_item_t));
-	item->interval.tv_sec = S_FROM_MS(frequency);
-	item->interval.tv_usec = US_FROM_MS(frequency);
-	item->ev_hdl = ev_hdl;
+	test = (test_schedule_item_t *)malloc(sizeof(test_schedule_item_t));
+	test->interval.tv_sec = S_FROM_MS(frequency);
+	test->interval.tv_usec = US_FROM_MS(frequency);
+	test->ev_hdl = ev_hdl;
+	
+	item = (schedule_item_t *)malloc(sizeof(schedule_item_t));
+	item->type = EVENT_RUN_TEST;
+	item->data.test = test;
 	
 	/* create the timer event for this test */
 	timer = (struct wand_timer_t *)malloc(sizeof(struct wand_timer_t));
