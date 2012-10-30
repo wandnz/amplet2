@@ -48,6 +48,9 @@ typedef struct schedule_file_data {
 typedef struct test_schedule_item {
     wand_event_handler_t *ev_hdl;
     struct timeval interval;	    /* time between test runs */
+    uint64_t start;
+    uint64_t end;
+    char repeat;
     /* TODO destination (destinations?) */
     /* TODO test to run */
     /* TODO test parameters */

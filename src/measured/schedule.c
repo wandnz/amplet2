@@ -22,6 +22,12 @@
 
 
 
+static struct timeval get_next_schedule_time(char repeat, uint64_t start,
+	uint64_t end, uint64_t frequency);
+
+
+
+
 /*
  * Kill a test process that has run for too long.
  */
@@ -96,6 +102,7 @@ static void fork_test(wand_event_handler_t *ev_hdl) {
 static void run_scheduled_test(struct wand_timer_t *timer) {
     schedule_item_t *item = (schedule_item_t *)timer->data;
     test_schedule_item_t *data;
+    struct timeval next;
 
     assert(item->type == EVENT_RUN_TEST);
 
@@ -104,8 +111,9 @@ static void run_scheduled_test(struct wand_timer_t *timer) {
     printf("running a test at %d\n", (int)time(NULL));
 
     /* reschedule the test again */
-    timer->expire = wand_calc_expire(data->ev_hdl, data->interval.tv_sec, 
-	    data->interval.tv_usec);
+    next = get_next_schedule_time(data->repeat, data->start, data->end, 
+	    MS_FROM_TV(data->interval));
+    timer->expire = wand_calc_expire(data->ev_hdl, next.tv_sec, next.tv_usec);
     timer->prev = NULL;
     timer->next = NULL;
     wand_add_timer(data->ev_hdl, timer);
@@ -492,6 +500,9 @@ void read_schedule_file(wand_event_handler_t *ev_hdl) {
 	test = (test_schedule_item_t *)malloc(sizeof(test_schedule_item_t));
 	test->interval.tv_sec = S_FROM_MS(frequency);
 	test->interval.tv_usec = US_FROM_MS(frequency);
+	test->repeat = repeat[0];
+	test->start = start;
+	test->end = end;
 	test->ev_hdl = ev_hdl;
 	
 	item = (schedule_item_t *)malloc(sizeof(schedule_item_t));
