@@ -52,7 +52,8 @@ static void stop_running(__attribute__((unused))struct wand_signal_t *signal) {
  *
  */
 int main(int argc, char *argv[]) {
-    struct wand_signal_t signal_ev;
+    struct wand_signal_t sigint_ev;
+    struct wand_signal_t sigchld_ev;
 
     while ( 1 ) {
 	static struct option long_options[] = {
@@ -93,16 +94,15 @@ int main(int argc, char *argv[]) {
     assert(ev_hdl);
 
     /* set up a handler to deal with SIGINT so we can shutdown nicely */
-    signal_ev.signum = SIGINT;
-    signal_ev.callback = stop_running;
-    signal_ev.data = NULL;
-    wand_add_signal(&signal_ev);
+    sigint_ev.signum = SIGINT;
+    sigint_ev.callback = stop_running;
+    sigint_ev.data = NULL;
+    wand_add_signal(&sigint_ev);
     
-    struct wand_signal_t signal_ev2;
-    signal_ev2.signum = SIGCHLD;
-    signal_ev2.callback = child_reaper;
-    signal_ev2.data = NULL;
-    wand_add_signal(&signal_ev2);
+    sigchld_ev.signum = SIGCHLD;
+    sigchld_ev.callback = child_reaper;
+    sigchld_ev.data = ev_hdl;
+    wand_add_signal(&sigchld_ev);
 
     /* read the schedule file to create the initial test schedule */
     read_schedule_file(ev_hdl);
@@ -115,7 +115,8 @@ int main(int argc, char *argv[]) {
     /* if we get control back then it's time to tidy up */
     /* TODO clear schedule refresher */
     /* TODO clear schedule */
-    wand_del_signal(&signal_ev);
+    wand_del_signal(&sigint_ev);
+    wand_del_signal(&sigchld_ev);
     wand_destroy_event_handler(ev_hdl);
 
     return 0;

@@ -9,20 +9,12 @@
 #include "watchdog.h"
 
 
-/* 
- * list of information about running tests that can be used to tidy up the
- * watchdog timers once they complete
- */
-struct running_test_t *running = NULL;
-
-
 
 /*
  * Add a watchdog timer that will kill a test should it run too long.
  * TODO should different tests be able to run for different durations?
  */
 void add_test_watchdog(wand_event_handler_t *ev_hdl, pid_t pid) {
-    struct running_test_t *info;
     struct wand_timer_t *timer;
     schedule_item_t *item;
     kill_schedule_item_t *kill;
@@ -43,81 +35,37 @@ void add_test_watchdog(wand_event_handler_t *ev_hdl, pid_t pid) {
     timer->prev = NULL;
     timer->next = NULL;
     wand_add_timer(ev_hdl, timer);
-
-
-    /* add the running test information to the active list */
-    info = (struct running_test_t *)malloc(sizeof(struct running_test_t));
-    info->pid = pid;
-    info->timer = timer;
-    info->ev_hdl = ev_hdl;
-    
-    /* just stick it on the front of the list for now */
-    info->next = running;
-    info->prev = NULL;
-    if ( running != NULL )
-	running->prev = info;
-    running = info;
 }
+
 
 
 /* 
- * TODO need a reference to the event handler to search all events! 
- * Also, if the event has triggered it is no longer in this list (but this 
- * function still gets called (but that can be prevented by checking 
- * WIFEXITED vs WIFSIGNALED).
+ * Cancel the test watchdog when a test successfully completes. The task to
+ * terminate the test needs to be removed from the schedule.
  */
-#if 0
-static void cancel_test_watchdog2(pid_t pid) {
+static void cancel_test_watchdog(wand_event_handler_t *ev_hdl, pid_t pid) {
+    struct wand_timer_t *timer = ev_hdl->timers;
+    struct wand_timer_t *tmp;
+    schedule_item_t *item;
 
-}
-#endif
-
-
-/*
- * If a test completes for any reason then remove the associated kill task.
- *
- * TODO better to maintain running info, or search all timers in libwandevent
- * like we do to clear all events?
- *
- * TODO if a test ends properly, how do we remove the timer? We have the pid
- * and that's it - do we want to search all events to find the cancel one?
- */
-static void cancel_test_watchdog(pid_t pid) {
-    struct running_test_t *tmp = running;
-
-    /* find the running info for this particular test */
-    while ( tmp != NULL ) {
-	if ( tmp->pid == pid ) {
-
-	    /* if the timer hasn't fired, remove it so it won't */
-	    if ( tmp->timer->prev != (void*)0xdeadbeef ) {
-		wand_del_timer(tmp->ev_hdl, tmp->timer);
+    while ( timer != NULL ) {
+	tmp = timer;
+	timer = timer->next;
+	if ( tmp->data != NULL ) {
+	    item = (schedule_item_t *)tmp->data;
+	    if ( item->type == EVENT_CANCEL_TEST ) {
+		/* cancel this timer if it has the pid we want */
+		if ( item->data.kill->pid == pid ) {
+		    wand_del_timer(ev_hdl, tmp);
+		    if ( item->data.kill != NULL ) {
+			free(item->data.kill);
+		    }
+		    free(item);
+		    free(tmp);
+		    return;
+		}
 	    }
-
-	    /* free all the data associated with the watchdog */
-	    if ( tmp->timer->data != NULL ) {
-		schedule_item_t *item = (schedule_item_t *)tmp->timer->data;
-		assert(item->type == EVENT_CANCEL_TEST);
-		assert(item->data.kill);
-		free(item->data.kill);
-		free(item);
-	    }
-	    free(tmp->timer);
-
-	    /* update list of running tests */
-	    if ( tmp->prev != NULL ) {
-		tmp->prev->next = tmp->next;
-	    } else {
-		running = tmp->next;
-	    }
-
-	    if ( tmp->next != NULL ) {
-		tmp->next->prev = tmp->prev;
-	    }
-	    free(tmp);
-	    return;
 	}
-	tmp = tmp->next;
     }
     assert(0);
 }
@@ -125,8 +73,8 @@ static void cancel_test_watchdog(pid_t pid) {
 
 
 /*
- * Test using SIGCHLD to know when and which children have completed so that
- * their scheduled timeout task can be removed from the list.
+ * Trigger when receiving SIGCHLD to tidy up child processes (tests) and 
+ * remove any active watchdog tasks for that test.
  */
 void child_reaper(__attribute__((unused))struct wand_signal_t *signal) {
     siginfo_t infop;
@@ -137,7 +85,11 @@ void child_reaper(__attribute__((unused))struct wand_signal_t *signal) {
 
     /* find in the list of events and remove the scheduled kill */
     assert(infop.si_pid > 0);
-    cancel_test_watchdog(infop.si_pid);
+    if ( infop.si_pid > 0 && infop.si_code == CLD_EXITED ) {
+	cancel_test_watchdog(signal->data, infop.si_pid);
+    } else {
+	/* TODO do we want to report on killed tests? */
+    }
 }
 
 
@@ -148,17 +100,20 @@ void child_reaper(__attribute__((unused))struct wand_signal_t *signal) {
  */
 void kill_running_test(struct wand_timer_t *timer) {
     schedule_item_t *item = (schedule_item_t *)timer->data;
-    kill_schedule_item_t *data;
 
+    assert(item);
     assert(item->type == EVENT_CANCEL_TEST);
-
-    data = (kill_schedule_item_t *)item->data.kill;
-
-    assert(data->pid > 0);
+    assert(item->data.kill);
+    assert(item->data.kill->pid > 0);
 
     /* TODO send SIGINT first like amp1 did? killpg() vs kill() */
     /* kill the test */
-    if ( kill(data->pid, SIGKILL) < 0 ) {
+    if ( kill(item->data.kill->pid, SIGKILL) < 0 ) {
 	perror("kill");
     }
+
+    /* tidy up the watchdog timer that just fired, it is no longer needed */
+    free(item->data.kill);
+    free(item);
+    free(timer);
 }

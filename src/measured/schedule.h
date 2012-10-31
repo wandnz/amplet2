@@ -85,16 +85,6 @@ typedef struct schedule_item {
     } data;
 } schedule_item_t;
 
-/*
- * Data block for currently running tests.
- */
-struct running_test_t {
-    wand_event_handler_t *ev_hdl;
-    pid_t pid;			    /* pid of running test, used to match on */
-    struct wand_timer_t *timer;	    /* task scheduled to kill this test */
-    struct running_test_t *next;
-    struct running_test_t *prev;
-};
 
 void read_schedule_file(wand_event_handler_t *ev_hdl);
 void setup_schedule_refresh(wand_event_handler_t *ev_hdl);
