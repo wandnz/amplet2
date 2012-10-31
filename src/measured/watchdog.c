@@ -30,7 +30,7 @@ void add_test_watchdog(wand_event_handler_t *ev_hdl, pid_t pid) {
     /* schedule task to kill test process if it goes too long */
     timer = (struct wand_timer_t *)malloc(sizeof(struct wand_timer_t));
     timer->data = item;
-    timer->expire = wand_calc_expire(ev_hdl, 3, 0);
+    timer->expire = wand_calc_expire(ev_hdl, MAX_WATCHDOG_TIMER, 0);
     timer->callback = kill_running_test;
     timer->prev = NULL;
     timer->next = NULL;
@@ -83,8 +83,9 @@ void child_reaper(__attribute__((unused))struct wand_signal_t *signal) {
     waitid(P_ALL, 0, &infop, WNOHANG | WEXITED);
     printf("CHILD terminated, pid: %d\n", infop.si_pid);
 
-    /* find in the list of events and remove the scheduled kill */
     assert(infop.si_pid > 0);
+    
+    /* if the task ended normally then remove the scheduled kill */
     if ( infop.si_pid > 0 && infop.si_code == CLD_EXITED ) {
 	cancel_test_watchdog(signal->data, infop.si_pid);
     } else {
