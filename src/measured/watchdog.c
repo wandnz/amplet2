@@ -74,22 +74,33 @@ static void cancel_test_watchdog(wand_event_handler_t *ev_hdl, pid_t pid) {
 
 /*
  * Trigger when receiving SIGCHLD to tidy up child processes (tests) and 
- * remove any active watchdog tasks for that test.
+ * remove any active watchdog tasks for that test. Multiple children can
+ * finish at the same time, possibly causing libwandevent not to fire this
+ * event for every child, so loop around and consume all the children.
  */
 void child_reaper(__attribute__((unused))struct wand_signal_t *signal) {
     siginfo_t infop;
-    infop.si_pid = 0;
 
-    waitid(P_ALL, 0, &infop, WNOHANG | WEXITED);
-    printf("CHILD terminated, pid: %d\n", infop.si_pid);
+    while ( 1 ) {
+	/* set this to zero and then we can tell if waitid worked or not */
+	infop.si_pid = 0;
 
-    assert(infop.si_pid > 0);
-    
-    /* if the task ended normally then remove the scheduled kill */
-    if ( infop.si_pid > 0 && infop.si_code == CLD_EXITED ) {
-	cancel_test_watchdog(signal->data, infop.si_pid);
-    } else {
-	/* TODO do we want to report on killed tests? */
+	waitid(P_ALL, 0, &infop, WNOHANG | WEXITED);
+	printf("CHILD terminated, pid: %d\n", infop.si_pid);
+
+	/* no more children, we are done */
+	if ( infop.si_pid == 0 ) {
+	    return;
+	}
+	
+	assert(infop.si_pid > 0);
+
+	/* if the task ended normally then remove the scheduled kill */
+	if ( infop.si_pid > 0 && infop.si_code == CLD_EXITED ) {
+	    cancel_test_watchdog(signal->data, infop.si_pid);
+	} else {
+	    /* TODO do we want to report on killed tests? */
+	}
     }
 }
 
