@@ -85,10 +85,20 @@ void child_reaper(__attribute__((unused))struct wand_signal_t *signal) {
 	/* set this to zero and then we can tell if waitid worked or not */
 	infop.si_pid = 0;
 
-	waitid(P_ALL, 0, &infop, WNOHANG | WEXITED);
+	if ( waitid(P_ALL, 0, &infop, WNOHANG | WEXITED) < 0 ) {
+	    /* because we loop to consume all children, sometimes we can 
+	     * call this function in response to a SIGCHLD but there are no
+	     * children of this process left running - that's ok.
+	     */
+	    if ( errno != ECHILD ) {
+		perror("waitid");
+	    }
+	    return;
+	}
+
 	printf("CHILD terminated, pid: %d\n", infop.si_pid);
 
-	/* no more children, we are done */
+	/* actually, nothing terminated, we are done */
 	if ( infop.si_pid == 0 ) {
 	    return;
 	}
