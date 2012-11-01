@@ -20,63 +20,7 @@
 #include <libwandevent.h>
 #include "schedule.h"
 #include "watchdog.h"
-
-
-
-static struct timeval get_next_schedule_time(char repeat, uint64_t start,
-	uint64_t end, uint64_t frequency);
-
-
-
-/*
- * Test function to investigate forking, rescheduling, setting maximum 
- * execution timers etc.
- */
-static void fork_test(wand_event_handler_t *ev_hdl) {
-    pid_t pid;
-
-    if ( (pid = fork()) < 0 ) {
-	perror("fork");
-	return;
-    } else if ( pid == 0 ) {
-	/* child, prepare the environment and run the test functions */
-	/* TODO prepare environment */
-	/* TODO run pre test setup */
-	/* TODO run test */
-	execl("/bin/ping", "ping", "-c", "5", "localhost", NULL);
-	perror("execl");
-	exit(1);
-    }
-
-    /* schedule the watchdog to kill it if it takes too long */
-    add_test_watchdog(ev_hdl, pid);
-}
-
-
-/*
- * TODO start forking a real program to test with: ls, ping? 
- */
-static void run_scheduled_test(struct wand_timer_t *timer) {
-    schedule_item_t *item = (schedule_item_t *)timer->data;
-    test_schedule_item_t *data;
-    struct timeval next;
-
-    assert(item->type == EVENT_RUN_TEST);
-
-    data = (test_schedule_item_t *)item->data.test;
-    
-    printf("running a test at %d\n", (int)time(NULL));
-
-    /* reschedule the test again */
-    next = get_next_schedule_time(data->repeat, data->start, data->end, 
-	    MS_FROM_TV(data->interval));
-    timer->expire = wand_calc_expire(item->ev_hdl, next.tv_sec, next.tv_usec);
-    timer->prev = NULL;
-    timer->next = NULL;
-    wand_add_timer(item->ev_hdl, timer);
-
-    fork_test(item->ev_hdl);
-}
+#include "test.h"
 
 
 
@@ -333,7 +277,7 @@ static time_t get_period_start(char repeat) {
  *
  * TODO what sizes do we want to use for time values?
  */
-static struct timeval get_next_schedule_time(char repeat, uint64_t start,
+struct timeval get_next_schedule_time(char repeat, uint64_t start,
 	uint64_t end, uint64_t frequency) {
 
     time_t period_start, period_end, test_end;
@@ -393,6 +337,10 @@ static struct timeval get_next_schedule_time(char repeat, uint64_t start,
  *
  * TODO this is currently in the old schedule file format, do we want to update
  * or change this format at all?
+ *
+ * TODO maybe a config dir similar to apache enable-sites etc? read everything
+ * in that dir as a config file and then we can turn things on and off easily,
+ * or add new tests without having to edit/transfer a monolithic file.
  *
  * TODO how to deal with multiple tests at the same time that can handle
  * multiple destinations? Do we want to keep a list of all the tests so
