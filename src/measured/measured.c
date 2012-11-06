@@ -25,9 +25,15 @@
 #include <libwandevent.h>
 #include "schedule.h"
 #include "watchdog.h"
+#include "test.h"
 
 wand_event_handler_t *ev_hdl;
 
+
+
+/*
+ *
+ */
 static void usage(char *prog) {
     fprintf(stderr, "Usage: %s [-dvx]\n", prog);
     fprintf(stderr, "\n");
@@ -87,6 +93,11 @@ int main(int argc, char *argv[]) {
 	};
     }
 
+    /* load all the test modules */
+    if ( register_tests(AMP_TEST_DIRECTORY) == -1) {
+	fprintf(stderr, "Registering tests failed\n");
+	return -1;
+    }
 
     /* set up event handlers */
     wand_event_init();
@@ -99,6 +110,7 @@ int main(int argc, char *argv[]) {
     sigint_ev.data = NULL;
     wand_add_signal(&sigint_ev);
     
+    /* set up handler to deal with SIGCHLD so we can tidy up after tests */
     sigchld_ev.signum = SIGCHLD;
     sigchld_ev.callback = child_reaper;
     sigchld_ev.data = ev_hdl;
@@ -118,6 +130,9 @@ int main(int argc, char *argv[]) {
     wand_del_signal(&sigint_ev);
     wand_del_signal(&sigchld_ev);
     wand_destroy_event_handler(ev_hdl);
+
+    /* clear out all the test modules that were registered */
+    unregister_tests();
 
     return 0;
 }

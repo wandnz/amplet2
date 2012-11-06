@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <libwandevent.h>
+#include "test.h"
 
 
 /* number of seconds between checking the schedule file for changes */
@@ -10,9 +11,10 @@
 #define MAX_SCHEDULE_LINE 1024
 #define SCHEDULE_DELIMITER ","
 
-/* TODO move config file defines elsewhere */
+/* TODO move config file defines elsewhere, point at sensible places */
 #define AMP_CONFIG_DIR "/tmp/brendonj"
 #define SCHEDULE_FILE AMP_CONFIG_DIR "/schedule"
+#define AMP_TEST_DIRECTORY AMP_CONFIG_DIR "/tests/"
 
 #define US_FROM_MS(x) (((x) % 1000)*1000)
 #define MS_TRUNC(x)   (((int)(x)/1000)*1000)
@@ -51,6 +53,7 @@ typedef struct test_schedule_item {
     uint64_t start;
     uint64_t end;
     char repeat;
+    test_type_t test_id;
     /* TODO destination (destinations?) */
     /* TODO test to run */
     /* TODO test parameters */

@@ -366,6 +366,7 @@ void read_schedule_file(wand_event_handler_t *ev_hdl) {
 	char *target, *testname, *repeat, *params;
 	long start, end, frequency;
 	struct timeval next;
+	test_type_t test_id;
 
 	/* ignore comments and blank lines */
 	if ( line[0] == '#'  || line[0] == '\n' ) {
@@ -393,7 +394,11 @@ void read_schedule_file(wand_event_handler_t *ev_hdl) {
 
 	/* TODO check target is valid */
 
-	/* TODO check test is valid */
+	/* check test is valid */
+	if ( (test_id = get_test_id(testname)) == AMP_TEST_INVALID ) {
+	    /* TODO log error */
+	    continue;
+	}
 
 	/* TODO check params are valid */
 
@@ -408,6 +413,7 @@ void read_schedule_file(wand_event_handler_t *ev_hdl) {
 	test->repeat = repeat[0];
 	test->start = start;
 	test->end = end;
+	test->test_id = test_id;
 	
 	item = (schedule_item_t *)malloc(sizeof(schedule_item_t));
 	item->type = EVENT_RUN_TEST;
