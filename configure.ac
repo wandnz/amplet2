@@ -9,8 +9,10 @@ AC_CONFIG_HEADERS([config.h])
 
 # Checks for programs.
 AC_PROG_CC
+AC_PROG_LIBTOOL
 
 # Checks for libraries.
+AC_SEARCH_LIBS(dlopen, dl)
 
 # Checks for header files.
 AC_CHECK_HEADERS([stdlib.h, sys/inotify.h])
@@ -26,7 +28,35 @@ if test "$event_found" = 0; then
     AC_MSG_ERROR(Required library libwandevent not found; use LDFLAGS to specify library location)
 fi
 
+# Checks to enable the various tests in AMP
+AC_ARG_ENABLE(skeleton,
+    AC_HELP_STRING([--enable-skeleton], 
+	[Enable the skeleton test (default: yes)]),
+    [case "${enableval}" in
+    true) ;&
+    yes) want_skeleton_test=true ;;
+    false) ;&
+    no)	 want_skeleton_test=false ;;
+    *) AC_MSG_ERROR(bad value ${enableval} for --enable-skeleton) ;;
+    esac],
+    [want_skeleton_test=true])
+# using AM_CONDITIONAL propagates this value through to all Makefile.am files
+AM_CONDITIONAL(WANT_SKELETON_TEST, [test x"$want_skeleton_test" = xtrue])
+
+
 AC_CONFIG_FILES([Makefile
                  src/Makefile
-                 src/measured/Makefile])
+                 src/measured/Makefile
+                 src/measured/tests/Makefile
+                 src/measured/tests/skeleton/Makefile])
 AC_OUTPUT
+
+reportopt() {
+    if test x"$2" = xtrue -o x"$2" = xyes -o x"$2" = x1; then
+	AC_MSG_NOTICE([$1: Yes])
+    else
+	AC_MSG_NOTICE([$1: No])
+	    fi
+}
+
+reportopt "Compiled with skeleton test support" $want_skeleton_test
