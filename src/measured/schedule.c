@@ -27,7 +27,7 @@
 /*
  * Walk the list of timers and remove all those that are scheduled tests.
  */
-static void clear_test_schedule(wand_event_handler_t *ev_hdl) {
+void clear_test_schedule(wand_event_handler_t *ev_hdl) {
     struct wand_timer_t *timer = ev_hdl->timers;
     struct wand_timer_t *tmp;
     schedule_item_t *item;

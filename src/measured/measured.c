@@ -55,11 +55,34 @@ static void stop_running(__attribute__((unused))struct wand_signal_t *signal) {
 
 
 /*
+ * If measured gets sent a SIGHUP then it should reload all the available
+ * test modules and then re-read the schedule file taking into account the
+ * new list of available tests.
+ */
+static void reload(__attribute__((unused))struct wand_signal_t *signal) {
+    /* cancel all scheduled tests (let running ones finish) */
+    clear_test_schedule(signal->data);
+
+    /* reload all test modules */
+    unregister_tests();
+    if ( register_tests(AMP_TEST_DIRECTORY) == -1) {
+	fprintf(stderr, "Registering tests failed\n");
+	exit(1);
+    }
+
+    /* re-read schedule file */
+    read_schedule_file(signal->data);
+}
+
+
+
+/*
  *
  */
 int main(int argc, char *argv[]) {
     struct wand_signal_t sigint_ev;
     struct wand_signal_t sigchld_ev;
+    struct wand_signal_t sighup_ev;
 
     while ( 1 ) {
 	static struct option long_options[] = {
@@ -115,6 +138,12 @@ int main(int argc, char *argv[]) {
     sigchld_ev.callback = child_reaper;
     sigchld_ev.data = ev_hdl;
     wand_add_signal(&sigchld_ev);
+    
+    /* set up handler to deal with SIGHUP to reload available tests */
+    sighup_ev.signum = SIGHUP;
+    sighup_ev.callback = reload;
+    sighup_ev.data = ev_hdl;
+    wand_add_signal(&sighup_ev);
 
     /* read the schedule file to create the initial test schedule */
     read_schedule_file(ev_hdl);
@@ -126,9 +155,11 @@ int main(int argc, char *argv[]) {
 
     /* if we get control back then it's time to tidy up */
     /* TODO clear schedule refresher */
-    /* TODO clear schedule */
+    /* TODO what to do about scheduled tasks such as watchdogs? */
+    clear_test_schedule(ev_hdl);
     wand_del_signal(&sigint_ev);
     wand_del_signal(&sigchld_ev);
+    wand_del_signal(&sighup_ev);
     wand_destroy_event_handler(ev_hdl);
 
     /* clear out all the test modules that were registered */
