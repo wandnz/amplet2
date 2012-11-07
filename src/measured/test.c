@@ -144,6 +144,7 @@ int register_tests(char *location) {
 	if ( (error = dlerror()) != NULL ) {
 	    /* it doesn't have this function, it's not one of ours, ignore */
 	    printf("failed to find register_test");
+	    dlclose(hdl);
 	    continue;
 	}
 
@@ -152,6 +153,7 @@ int register_tests(char *location) {
 	if ( new_test == NULL ) {
 	    /* TODO log error */
 	    printf("didn't get useful struct from register_test");
+	    dlclose(hdl);
 	    continue;
 	}
 
