@@ -1,6 +1,6 @@
 EXTRA_DIST=*.h
 
-testdir=$(test_install_dir)
+testdir=$(prefix)/tests/
 
 bin_PROGRAMS=skeleton
 skeleton_SOURCES=skeleton.c
