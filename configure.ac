@@ -43,12 +43,28 @@ AC_ARG_ENABLE(skeleton,
 # using AM_CONDITIONAL propagates this value through to all Makefile.am files
 AM_CONDITIONAL(WANT_SKELETON_TEST, [test x"$want_skeleton_test" = xtrue])
 
+AC_ARG_ENABLE(skeleton_callback,
+    AC_HELP_STRING([--enable-skeleton-callback], 
+	[Enable the skeleton callback test (default: yes)]),
+    [case "${enableval}" in
+    true) ;&
+    yes) want_skeleton_callback_test=true ;;
+    false) ;&
+    no)	 want_skeleton_callback_test=false ;;
+    *) AC_MSG_ERROR(bad value ${enableval} for --enable-skeleton-callback) ;;
+    esac],
+    [want_skeleton_callback_test=true])
+# using AM_CONDITIONAL propagates this value through to all Makefile.am files
+AM_CONDITIONAL(WANT_SKELETON_CALLBACK_TEST, 
+	[test x"$want_skeleton_callback_test" = xtrue])
+
 
 AC_CONFIG_FILES([Makefile
                  src/Makefile
                  src/measured/Makefile
                  src/measured/tests/Makefile
-                 src/measured/tests/skeleton/Makefile])
+                 src/measured/tests/skeleton/Makefile
+                 src/measured/tests/skeleton_callback/Makefile])
 AC_OUTPUT
 
 reportopt() {
@@ -60,3 +76,4 @@ reportopt() {
 }
 
 reportopt "Compiled with skeleton test support" $want_skeleton_test
+reportopt "Compiled with skeleton callback test support" $want_skeleton_callback_test

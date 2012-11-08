@@ -3,3 +3,7 @@ SUBDIRS=
 if WANT_SKELETON_TEST
 SUBDIRS+=skeleton
 endif
+
+if WANT_SKELETON_CALLBACK_TEST
+SUBDIRS+=skeleton_callback
+endif
