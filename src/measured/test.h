@@ -4,16 +4,19 @@
 #include <stdint.h>
 #include <libwandevent.h>
 
+
 /* TODO move elsewhere to more global config file */
 #define MAX_PATH_LENGTH 10000
 
 typedef enum {
     AMP_TEST_INVALID,
     AMP_TEST_SKELETON,
+    AMP_TEST_SKELETON_CALLBACK,
     AMP_TEST_ICMP,
     AMP_TEST_LAST,
 } test_type_t;
 
+struct test_schedule_item;
 
 
 typedef struct test {
@@ -63,7 +66,7 @@ typedef struct test {
      * negotiated or calculated values as command line options to the test
      * binary. This function is also responsible for starting the test.
      */
-    void (*run_callback)(/*test_info_t *info*/);
+    void (*run_callback)(const struct test_schedule_item * const info);
 
     /*
      * A string containing the name of the binary that should be run to perform

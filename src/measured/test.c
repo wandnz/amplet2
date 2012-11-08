@@ -13,7 +13,37 @@
 #include "schedule.h"
 #include "watchdog.h"
 #include "test.h"
+#include "amp_exec.h"
 
+
+
+/* 
+ * XXX
+ * TODO how to do destinations on the command line? talk to shane tomorrow! 
+ * XXX
+ */
+#if 0
+void amp_exec_test(test_schedule_item_t *item) {
+    char full_path[MAX_PATH_LENGTH];
+    test_t *test;
+    
+    assert(item);
+    assert(item->test_id < AMP_TEST_LAST);
+    assert(amp_tests[item->test_id]);
+    
+    test = amp_tests[item->test_id];
+
+    strcpy(full_path, AMP_TEST_DIRECTORY);
+    strcat(full_path, test->run_binary);
+
+    printf("Running test: %s (%s)\n", test->name, full_path);
+    execl(full_path, test->run_binary, NULL);
+
+    /* should not get to this point */
+    perror("execl");
+    exit(1);
+}
+#endif
 
 
 /*
@@ -21,8 +51,15 @@
  * execution timers etc.
  * TODO maybe just move the contents of this into run_scheduled_test()?
  */
-static void fork_test(wand_event_handler_t *ev_hdl,test_schedule_item_t *test) {
+static void fork_test(wand_event_handler_t *ev_hdl,test_schedule_item_t *item) {
     pid_t pid;
+    test_t *test;
+
+    assert(item);
+    assert(item->test_id < AMP_TEST_LAST);
+    assert(amp_tests[item->test_id]);
+    
+    test = amp_tests[item->test_id];
 
     if ( (pid = fork()) < 0 ) {
 	perror("fork");
@@ -39,13 +76,30 @@ static void fork_test(wand_event_handler_t *ev_hdl,test_schedule_item_t *test) {
 	/* TODO prepare environment */
 	/* TODO run pre test setup */
 	/* TODO run test */
-	execl("/bin/ping", "ping", "-c", "5", "localhost", NULL);
-	perror("execl");
+	//execl("/bin/ping", "ping", "-c", "5", "localhost", NULL);
+
+	if ( test->run_callback == NULL ) {
+	    /* if there is no callback just run the binary directly */
+	    /*
+	    char full_path[MAX_PATH_LENGTH];
+	    strcpy(full_path, AMP_TEST_DIRECTORY);
+	    strcat(full_path, test->run_binary);
+	    printf("Running test: %s (%s)\n", test->name, full_path);
+	    execl(full_path, test->run_binary, NULL);
+	    perror("execl");
+	    */
+	    amp_exec_test(item, NULL);
+	} else {
+	    /* the callback will be responsible for running the binary */
+	    test->run_callback(item);
+	}
+
+	fprintf(stderr, "%s test failed to run, aborting.\n", test->name);
 	exit(1);
     }
 
     /* schedule the watchdog to kill it if it takes too long */
-    add_test_watchdog(ev_hdl, pid);
+    add_test_watchdog(ev_hdl, pid, test->max_duration);
 }
 
 
