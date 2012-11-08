@@ -15,6 +15,7 @@
 #define AMP_CONFIG_DIR "/tmp/brendonj"
 #define SCHEDULE_FILE AMP_CONFIG_DIR "/schedule"
 #define AMP_TEST_DIRECTORY AMP_CONFIG_DIR "/tests/"
+#define MAX_TEST_ARGS 128
 
 #define US_FROM_MS(x) (((x) % 1000)*1000)
 #define MS_TRUNC(x)   (((int)(x)/1000)*1000)
@@ -57,6 +58,7 @@ typedef struct test_schedule_item {
     /* TODO destination (destinations?) */
     /* TODO test to run */
     /* TODO test parameters */
+    char **params;
     /* TODO chaining? */
 
 } test_schedule_item_t;

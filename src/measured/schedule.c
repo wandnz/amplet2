@@ -31,6 +31,7 @@ void clear_test_schedule(wand_event_handler_t *ev_hdl) {
     struct wand_timer_t *timer = ev_hdl->timers;
     struct wand_timer_t *tmp;
     schedule_item_t *item;
+    int i;
 
     while ( timer != NULL ) {
 	tmp = timer;
@@ -44,6 +45,13 @@ void clear_test_schedule(wand_event_handler_t *ev_hdl) {
 	    if ( item->type == EVENT_RUN_TEST ) {
 		wand_del_timer(ev_hdl, tmp);
 		if ( item->data.test != NULL ) {
+		    /* free any test parameters */
+		    if ( item->data.test->params != NULL ) {
+			for ( i=0; item->data.test->params[i] != NULL; i++ ) {
+			    free(item->data.test->params[i]);
+			}
+			free(item->data.test->params);
+		    }
 		    free(item->data.test);
 		}
 		free(item);
@@ -270,6 +278,30 @@ static time_t get_period_start(char repeat) {
 
 
 /*
+ * TODO do we need to check the parameters here, given they are going to be
+ * used as part of the parameter array given to execv?
+ */
+char **parse_param_string(char *param_string) {
+    int i;
+    char *tmp, *arg;
+    char **result = (char**)malloc(sizeof(char*) * MAX_TEST_ARGS);
+
+    /* splitting on space, grab each part of the parameter string into array */
+    for ( i = 0, tmp = param_string; ; i++, tmp = NULL ) {
+	arg = strtok(tmp, " \n");
+	if ( arg == NULL )
+	    break;
+	result[i] = strdup(arg);
+    }
+
+    /* param list should be null terminated */
+    result[i] = NULL;
+    return result;
+}
+
+
+
+/*
  * Calculate the next time that a test is due to be run and return a timeval
  * with an offset appropriate for use with libwandevent scheduling. We have to
  * use an offset because libwandevent schedules relative to a monotonic clock,
@@ -375,7 +407,7 @@ void read_schedule_file(wand_event_handler_t *ev_hdl) {
 	printf("line=%s", line);
 
 	/* read target,test,repeat,start,end,frequency,params */
-	if ( (target = strtok(line, ",")) == NULL )
+	if ( (target = strtok(line, SCHEDULE_DELIMITER)) == NULL )
 	    continue;
 	if ( (testname = strtok(NULL, SCHEDULE_DELIMITER)) == NULL )
 	    continue;
@@ -400,9 +432,6 @@ void read_schedule_file(wand_event_handler_t *ev_hdl) {
 	    continue;
 	}
 
-	/* TODO check params are valid */
-
-
 	printf("%s %s %s %ld %ld %ld %s\n", target, testname, repeat, start, 
 		end, frequency, (params)?params:"NULL");
 
@@ -414,6 +443,10 @@ void read_schedule_file(wand_event_handler_t *ev_hdl) {
 	test->start = start;
 	test->end = end;
 	test->test_id = test_id;
+	if ( params == NULL || strlen(params) < 1 )
+	    test->params = NULL;
+	else
+	    test->params = parse_param_string(params);
 	
 	item = (schedule_item_t *)malloc(sizeof(schedule_item_t));
 	item->type = EVENT_RUN_TEST;
