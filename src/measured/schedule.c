@@ -21,6 +21,7 @@
 #include "schedule.h"
 #include "watchdog.h"
 #include "test.h"
+#include "nametable.h"
 
 
 
@@ -424,13 +425,21 @@ void read_schedule_file(wand_event_handler_t *ev_hdl) {
 	    continue;
 	params = strtok(NULL, SCHEDULE_DELIMITER);
 
-	/* TODO check target is valid */
-
 	/* check test is valid */
 	if ( (test_id = get_test_id(testname)) == AMP_TEST_INVALID ) {
-	    /* TODO log error */
+	    /* TODO log error properly */
+	    fprintf(stderr, "unknown test '%s'\n", testname);
 	    continue;
 	}
+	
+	/* check target is valid */
+	if ( name_to_address(target) == NULL ) {
+	    /* TODO log error properly */
+	    printf("unknown destination '%s'\n", target);
+	    continue;
+	}
+
+	/* TODO merge tests at the same time that allow multiple destinations */
 
 	printf("%s %s %s %ld %ld %ld %s\n", target, testname, repeat, start, 
 		end, frequency, (params)?params:"NULL");
@@ -443,6 +452,7 @@ void read_schedule_file(wand_event_handler_t *ev_hdl) {
 	test->start = start;
 	test->end = end;
 	test->test_id = test_id;
+	test->dests = name_to_address(target);
 	if ( params == NULL || strlen(params) < 1 )
 	    test->params = NULL;
 	else

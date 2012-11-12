@@ -26,6 +26,7 @@
 #include "schedule.h"
 #include "watchdog.h"
 #include "test.h"
+#include "nametable.h"
 
 wand_event_handler_t *ev_hdl;
 
@@ -145,6 +146,11 @@ int main(int argc, char *argv[]) {
     sighup_ev.data = ev_hdl;
     wand_add_signal(&sighup_ev);
 
+    /* read the nametable to get a list of all test targets */
+    read_nametable_file();
+    /* check for changes to the nametable file forever */
+    setup_nametable_refresh(ev_hdl);
+
     /* read the schedule file to create the initial test schedule */
     read_schedule_file(ev_hdl);
     /* check for any changes to the schedule file forever */
@@ -157,6 +163,7 @@ int main(int argc, char *argv[]) {
     /* TODO clear schedule refresher */
     /* TODO what to do about scheduled tasks such as watchdogs? */
     clear_test_schedule(ev_hdl);
+    clear_nametable();
     wand_del_signal(&sigint_ev);
     wand_del_signal(&sigchld_ev);
     wand_del_signal(&sighup_ev);

@@ -7,6 +7,7 @@
 
 #include "schedule.h"
 #include "test.h"
+#include "nametable.h"
 
 
 
@@ -55,7 +56,8 @@ void amp_exec_test(const test_schedule_item_t * const item, char **user_args) {
     /* null terminate the list before we give it to execv() */
     argv[argc] = NULL;
 
-    printf("Running test: %s (%s)\n", test->name, full_path);
+    printf("Running test: %s (%s) to %s\n", test->name, full_path, 
+	    address_to_name(item->dests));
     for ( offset = 0; offset<argc; offset++ ) {
 	printf("arg%d: %s\n", offset, argv[offset]);
     }
