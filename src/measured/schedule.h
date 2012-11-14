@@ -56,8 +56,9 @@ typedef struct test_schedule_item {
     char repeat;
     test_type_t test_id;
     /* TODO destination (destinations?) */
-    //struct addrinfo **dests;
-    struct addrinfo *dests;
+    uint32_t dest_count;
+    struct addrinfo **dests;
+    //struct addrinfo *dests;
     char **params;
     /* TODO chaining? */
 

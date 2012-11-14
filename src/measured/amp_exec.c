@@ -30,6 +30,7 @@ void amp_exec_test(const test_schedule_item_t * const item, char **user_args) {
     assert(item);
     assert(item->test_id < AMP_TEST_LAST);
     assert(amp_tests[item->test_id]);
+    assert(item->dest_count > 0);
     
     test = amp_tests[item->test_id];
 
@@ -56,8 +57,14 @@ void amp_exec_test(const test_schedule_item_t * const item, char **user_args) {
     /* null terminate the list before we give it to execv() */
     argv[argc] = NULL;
 
-    printf("Running test: %s (%s) to %s\n", test->name, full_path, 
-	    address_to_name(item->dests));
+
+    printf("Running test: %s (%s) to %d destinations:\n", test->name, 
+	    full_path, item->dest_count);
+
+    for ( offset=0; offset < item->dest_count; offset++ ) {
+	printf("dest%d: %s\n", offset, address_to_name(item->dests[offset]));
+    }
+    
     for ( offset = 0; offset<argc; offset++ ) {
 	printf("arg%d: %s\n", offset, argv[offset]);
     }

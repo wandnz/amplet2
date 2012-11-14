@@ -26,13 +26,33 @@
 
 
 /*
+ * Free a test schedule item, as well as any parameters and pointers to
+ * destinations it has.
+ */
+static void free_test_schedule_item(test_schedule_item_t *item) {
+    int i;
+
+    /* free any test parameters, NULL terminated array */
+    if ( item->params != NULL ) {
+	for ( i=0; item->params[i] != NULL; i++ ) {
+	    free(item->params[i]);
+	}
+	free(item->params);
+    }
+    /* free the pointers to destinations, but not the destinations themselves */
+    free(item->dests);
+    free(item);
+}
+
+
+
+/*
  * Walk the list of timers and remove all those that are scheduled tests.
  */
 void clear_test_schedule(wand_event_handler_t *ev_hdl) {
     struct wand_timer_t *timer = ev_hdl->timers;
     struct wand_timer_t *tmp;
     schedule_item_t *item;
-    int i;
 
     while ( timer != NULL ) {
 	tmp = timer;
@@ -46,14 +66,7 @@ void clear_test_schedule(wand_event_handler_t *ev_hdl) {
 	    if ( item->type == EVENT_RUN_TEST ) {
 		wand_del_timer(ev_hdl, tmp);
 		if ( item->data.test != NULL ) {
-		    /* free any test parameters */
-		    if ( item->data.test->params != NULL ) {
-			for ( i=0; item->data.test->params[i] != NULL; i++ ) {
-			    free(item->data.test->params[i]);
-			}
-			free(item->data.test->params);
-		    }
-		    free(item->data.test);
+		    free_test_schedule_item(item->data.test);
 		}
 		free(item);
 		free(tmp);
@@ -282,7 +295,7 @@ static time_t get_period_start(char repeat) {
  * TODO do we need to check the parameters here, given they are going to be
  * used as part of the parameter array given to execv?
  */
-char **parse_param_string(char *param_string) {
+static char **parse_param_string(char *param_string) {
     int i;
     char *tmp, *arg;
     char **result = (char**)malloc(sizeof(char*) * MAX_TEST_ARGS);
@@ -366,6 +379,111 @@ struct timeval get_next_schedule_time(char repeat, uint64_t start,
 
 
 /*
+ * Compare two test schedule items to see if they are similar enough to
+ * merge together to make one scheduled test with multiple destinations.
+ */
+static int compare_test_items(test_schedule_item_t *a, test_schedule_item_t *b){
+    int i;
+
+    if ( a->test_id != b->test_id ) 
+	return 0;
+
+    if ( timercmp(&(a->interval), &(b->interval), !=) )
+	return 0;
+    
+    if ( a->repeat != b->repeat )
+	return 0;
+
+    if ( a->start != b->start )
+	return 0;
+
+    if ( b->end != b->end )
+	return 0;
+
+    if ( a->params != NULL && b->params != NULL ) {
+	for ( i=0; a->params[i] != NULL && b->params != NULL; i++ ) {
+	    if ( strcmp(a->params[i], b->params[i]) != 0 )
+		return 0;
+	}
+    }
+    
+    /* if either isn't null by now then the params lists are different */
+    if ( a->params[i] != NULL || b->params[i] != NULL )
+	return 0;
+
+    return 1;
+}
+
+
+
+/*
+ * XXX refactor this whole function
+ */
+static int merge_scheduled_tests(struct wand_event_handler_t *ev_hdl, 
+	test_schedule_item_t *item) {
+
+    struct wand_timer_t *timer = ev_hdl->timers;
+    schedule_item_t *sched_item;
+    test_schedule_item_t *sched_test;
+    struct timeval when, expire;
+
+    when = get_next_schedule_time(item->repeat, item->start, item->end, 
+	    MS_FROM_TV(item->interval));
+    /* 
+     * TODO is there a nicer way to deal with timing than to bump the cutoff 
+     * by a fudge factor in case we take too long to calculate the expiry time?
+     * Problem is it takes a few steps to convert the time into an offset and
+     * then apply that to the current monotonic time.
+     */
+    expire = wand_calc_expire(ev_hdl, when.tv_sec+1, when.tv_usec);
+
+    for ( timer=ev_hdl->timers; timer != NULL; timer=timer->next ) {
+	/* give up if we get past the time the test should occur */
+	if ( timercmp(&(timer->expire), &expire, >) ) {
+	    fprintf(stderr, "past the time test should occur, no match\n");
+	    return 0;
+	}
+
+	if ( timer->data == NULL ) {
+	    continue;
+	}
+
+	sched_item = (schedule_item_t *)timer->data;
+
+	if ( sched_item->type != EVENT_RUN_TEST ) {
+	    continue;
+	}
+	
+	assert(sched_item->data.test);
+	sched_test = sched_item->data.test;
+
+	/* check if these tests are the same */
+	if ( compare_test_items(sched_test, item) ) {
+	    
+	    /* check if there is room for more destinations */
+	    if ( sched_test->dest_count < 
+		    amp_tests[item->test_id]->max_targets ) {
+
+		fprintf(stderr, "merging tests\n");
+
+		/* 
+	 	 * resize the dests pointers to make room for the new dest
+		 * TODO be smarter about resizing
+		 */
+		sched_test->dests = realloc(sched_test->dests, 
+			(sched_test->dest_count+1) * sizeof(struct addrinfo *));
+		sched_test->dests[sched_test->dest_count++] = item->dests[0];
+		return 1;
+	    }
+	}
+    }
+
+    return 0;
+}
+
+
+
+/*
  * Read in the schedule file and create events for each test.
  *
  * TODO this is currently in the old schedule file format, do we want to update
@@ -439,8 +557,6 @@ void read_schedule_file(wand_event_handler_t *ev_hdl) {
 	    continue;
 	}
 
-	/* TODO merge tests at the same time that allow multiple destinations */
-
 	printf("%s %s %s %ld %ld %ld %s\n", target, testname, repeat, start, 
 		end, frequency, (params)?params:"NULL");
 
@@ -452,12 +568,27 @@ void read_schedule_file(wand_event_handler_t *ev_hdl) {
 	test->start = start;
 	test->end = end;
 	test->test_id = test_id;
-	test->dests = name_to_address(target);
+	test->dests = (struct addrinfo **)malloc(sizeof(struct addrinfo*));
+	*test->dests = name_to_address(target);
+	test->dest_count = 1;
 	if ( params == NULL || strlen(params) < 1 )
 	    test->params = NULL;
 	else
 	    test->params = parse_param_string(params);
 	
+	/* if this test can have multiple target we may not need a new one */
+	if ( amp_tests[test_id]->max_targets > 1 ) {
+	    /* check if this test at this time already exists */
+	    if ( merge_scheduled_tests(ev_hdl, test) ) {
+		/* free this test, it has now merged */
+		free_test_schedule_item(test);
+		continue;
+	    }
+	}
+
+	fprintf(stderr, "ADDING TEST: %s\n", testname);
+	
+	/* schedule a new test */
 	item = (schedule_item_t *)malloc(sizeof(schedule_item_t));
 	item->type = EVENT_RUN_TEST;
 	item->ev_hdl = ev_hdl;
