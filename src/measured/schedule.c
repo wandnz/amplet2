@@ -24,6 +24,65 @@
 #include "nametable.h"
 
 
+static void dump_event_run_test(test_schedule_item_t *item) {
+    int i;
+
+    assert(item);
+
+    printf("EVENT_RUN_TEST ");
+    printf("%s %d.%.6d", amp_tests[item->test_id]->name, 
+	    (int)item->interval.tv_sec, (int)item->interval.tv_usec);
+
+    if ( item->params == NULL ) {
+	printf(" (no args)");
+    } else {
+	for ( i=0; item->params[i] != NULL; i++ ) {
+	    printf(" %s", item->params[i]);
+	}
+    }
+    printf("\n");
+}
+
+
+
+static void dump_event_cancel_test(kill_schedule_item_t *item) {
+    assert(item);
+
+    printf("EVENT_CANCEL_TEST pid:%d", item->pid);
+}
+
+
+/*
+ * Dump the current schedule for debug purposes
+ */
+static void dump_schedule(wand_event_handler_t *ev_hdl) {
+    struct wand_timer_t *timer;
+    schedule_item_t *item;
+
+    printf("\n");
+    printf("====== SCHEDULE ======\n");
+
+    for ( timer=ev_hdl->timers; timer != NULL; timer=timer->next ) {
+	printf("%d.%.6d ", (int)timer->expire.tv_sec, 
+		(int)timer->expire.tv_usec);
+	if ( timer->data == NULL ) {
+	    printf("NULL\n");
+	    continue;
+	}
+
+	item = (schedule_item_t *)timer->data;
+	switch ( item->type ) {
+	    case EVENT_RUN_TEST: dump_event_run_test(item->data.test); 
+				 break;
+	    case EVENT_CANCEL_TEST: dump_event_cancel_test(item->data.kill); 
+				    break;
+	    default: printf("UNKNOWN\n"); continue;
+	};
+    }
+    printf("\n");
+
+}
+
 
 
 /*
@@ -606,4 +665,5 @@ void read_schedule_file(wand_event_handler_t *ev_hdl) {
 	wand_add_timer(ev_hdl, timer);
     }
     fclose(in);
+    dump_schedule(ev_hdl);
 }
