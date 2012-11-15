@@ -118,16 +118,20 @@ void run_scheduled_test(struct wand_timer_t *timer) {
     
     printf("running a %s test at %d\n", amp_tests[data->test_id]->name, 
 	    (int)time(NULL));
+    
+    /* 
+     * run the test as soon as we know what it is, so it happens as close to 
+     * the right time as we can get it.
+     */
+    fork_test(item->ev_hdl, data);
 
-    /* reschedule the test again */
+    /* while the test runs, reschedule it again */
     next = get_next_schedule_time(data->repeat, data->start, data->end, 
 	    MS_FROM_TV(data->interval));
     timer->expire = wand_calc_expire(item->ev_hdl, next.tv_sec, next.tv_usec);
     timer->prev = NULL;
     timer->next = NULL;
     wand_add_timer(item->ev_hdl, timer);
-
-    fork_test(item->ev_hdl, data);
 }
 
 
