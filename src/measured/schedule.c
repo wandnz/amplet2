@@ -25,6 +25,7 @@
 
 
 
+
 /*
  * Free a test schedule item, as well as any parameters and pointers to
  * destinations it has.
@@ -323,8 +324,8 @@ static char **parse_param_string(char *param_string) {
  *
  * TODO what sizes do we want to use for time values?
  */
-struct timeval get_next_schedule_time(char repeat, uint64_t start,
-	uint64_t end, uint64_t frequency) {
+struct timeval get_next_schedule_time(wand_event_handler_t *ev_hdl,
+	char repeat, uint64_t start, uint64_t end, uint64_t frequency) {
 
     time_t period_start, period_end, test_end;
     struct timeval now, next;
@@ -334,8 +335,15 @@ struct timeval get_next_schedule_time(char repeat, uint64_t start,
     period_start = get_period_start(repeat);
     test_end = (period_start*1000) + end;
 
+    /* 
+     * now using wand_get_walltime() because it agrees better with the 
+     * monotonic clock. Using gettimeofday() was giving times a few 
+     * milliseconds behind what libwandevent thought they were, which was
+     * causing tests to be rescheduled again in the same second.
+     */
+    //gettimeofday(&now, NULL);
+    now = wand_get_walltime(ev_hdl);
     /* truncate to get current time of day to the millisecond level */
-    gettimeofday(&now, NULL);
     now.tv_usec = MS_TRUNC(now.tv_usec);
 
     /* get difference in ms between the first event of this period and now */
@@ -422,25 +430,18 @@ static int compare_test_items(test_schedule_item_t *a, test_schedule_item_t *b){
 static int merge_scheduled_tests(struct wand_event_handler_t *ev_hdl, 
 	test_schedule_item_t *item) {
 
-    struct wand_timer_t *timer = ev_hdl->timers;
+    struct wand_timer_t *timer;
     schedule_item_t *sched_item;
     test_schedule_item_t *sched_test;
     struct timeval when, expire;
 
-    when = get_next_schedule_time(item->repeat, item->start, item->end, 
+    when = get_next_schedule_time(ev_hdl, item->repeat, item->start, item->end, 
 	    MS_FROM_TV(item->interval));
-    /* 
-     * TODO is there a nicer way to deal with timing than to bump the cutoff 
-     * by a fudge factor in case we take too long to calculate the expiry time?
-     * Problem is it takes a few steps to convert the time into an offset and
-     * then apply that to the current monotonic time.
-     */
-    expire = wand_calc_expire(ev_hdl, when.tv_sec+1, when.tv_usec);
+    expire = wand_calc_expire(ev_hdl, when.tv_sec, when.tv_usec);
 
     for ( timer=ev_hdl->timers; timer != NULL; timer=timer->next ) {
 	/* give up if we get past the time the test should occur */
 	if ( timercmp(&(timer->expire), &expire, >) ) {
-	    fprintf(stderr, "past the time test should occur, no match\n");
 	    return 0;
 	}
 
@@ -597,7 +598,7 @@ void read_schedule_file(wand_event_handler_t *ev_hdl) {
 	/* create the timer event for this test */
 	timer = (struct wand_timer_t *)malloc(sizeof(struct wand_timer_t));
 	timer->data = item;
-	next = get_next_schedule_time(repeat[0], start, end, frequency);
+	next = get_next_schedule_time(ev_hdl, repeat[0], start, end, frequency);
 	timer->expire = wand_calc_expire(ev_hdl, next.tv_sec, next.tv_usec);
 	timer->callback = run_scheduled_test;
 	timer->prev = NULL;

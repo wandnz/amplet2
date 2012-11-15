@@ -126,8 +126,8 @@ void run_scheduled_test(struct wand_timer_t *timer) {
     fork_test(item->ev_hdl, data);
 
     /* while the test runs, reschedule it again */
-    next = get_next_schedule_time(data->repeat, data->start, data->end, 
-	    MS_FROM_TV(data->interval));
+    next = get_next_schedule_time(item->ev_hdl, data->repeat, data->start, 
+	    data->end, MS_FROM_TV(data->interval));
     timer->expire = wand_calc_expire(item->ev_hdl, next.tv_sec, next.tv_usec);
     timer->prev = NULL;
     timer->next = NULL;

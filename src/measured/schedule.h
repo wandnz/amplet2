@@ -95,7 +95,7 @@ typedef struct schedule_item {
 void clear_test_schedule(wand_event_handler_t *ev_hdl);
 void read_schedule_file(wand_event_handler_t *ev_hdl);
 void setup_schedule_refresh(wand_event_handler_t *ev_hdl);
-struct timeval get_next_schedule_time(char repeat, uint64_t start,
-	uint64_t end, uint64_t frequency);
+struct timeval get_next_schedule_time(wand_event_handler_t *ev_hdl, 
+	char repeat, uint64_t start, uint64_t end, uint64_t frequency);
 
 #endif
