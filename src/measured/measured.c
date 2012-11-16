@@ -16,6 +16,7 @@
 #include <assert.h>
 #include <time.h>
 #include <signal.h>
+#include <unistd.h>
 
 
 #if HAVE_SYS_INOTIFY_H
@@ -29,7 +30,7 @@
 #include "nametable.h"
 
 wand_event_handler_t *ev_hdl;
-
+int daemonised = 0;
 
 
 /*
@@ -102,7 +103,12 @@ int main(int argc, char *argv[]) {
 
 	switch ( c ) {
 	    case 'd':
-		/* TODO daemonise */
+		/* daemonise, detach, close stdin/out/err, etc */
+		if ( daemon(0, 0) < 0 ) {
+		    perror("daemon");
+		    return -1;
+		}
+		daemonised = 1;
 		break;
 	    case 'v':
 		/* TODO print version info */
