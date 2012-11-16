@@ -37,10 +37,10 @@ struct name_entry {
 typedef struct name_entry name_entry_t;
 
 
-void read_nametable_file();
+void read_nametable_file(void);
 void setup_nametable_refresh(wand_event_handler_t *ev_hdl);
 struct addrinfo *name_to_address(char *name);
 char *address_to_name(struct addrinfo *address);
-void clear_nametable();
+void clear_nametable(void);
 
 #endif

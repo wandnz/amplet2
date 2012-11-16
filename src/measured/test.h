@@ -91,6 +91,6 @@ typedef test_t * (*test_reg_ptr) ();
 
 test_type_t get_test_id(const char *testname);
 int register_tests(char *location);
-void unregister_tests();
+void unregister_tests(void);
 void run_scheduled_test(struct wand_timer_t *timer);
 #endif
