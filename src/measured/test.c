@@ -17,34 +17,6 @@
 
 
 
-/* 
- * XXX
- * TODO how to do destinations on the command line? talk to shane tomorrow! 
- * XXX
- */
-#if 0
-void amp_exec_test(test_schedule_item_t *item) {
-    char full_path[MAX_PATH_LENGTH];
-    test_t *test;
-    
-    assert(item);
-    assert(item->test_id < AMP_TEST_LAST);
-    assert(amp_tests[item->test_id]);
-    
-    test = amp_tests[item->test_id];
-
-    strcpy(full_path, AMP_TEST_DIRECTORY);
-    strcat(full_path, test->run_binary);
-
-    printf("Running test: %s (%s)\n", test->name, full_path);
-    execl(full_path, test->run_binary, NULL);
-
-    /* should not get to this point */
-    perror("execl");
-    exit(1);
-}
-#endif
-
 
 /*
  * Test function to investigate forking, rescheduling, setting maximum 
@@ -74,20 +46,9 @@ static void fork_test(wand_event_handler_t *ev_hdl,test_schedule_item_t *item) {
 	 */
 	//setrlimit(RLIMIT_CPU, &cpu_limits);
 	/* TODO prepare environment */
-	/* TODO run pre test setup */
-	/* TODO run test */
-	//execl("/bin/ping", "ping", "-c", "5", "localhost", NULL);
 
 	if ( test->run_callback == NULL ) {
 	    /* if there is no callback just run the binary directly */
-	    /*
-	    char full_path[MAX_PATH_LENGTH];
-	    strcpy(full_path, AMP_TEST_DIRECTORY);
-	    strcat(full_path, test->run_binary);
-	    printf("Running test: %s (%s)\n", test->name, full_path);
-	    execl(full_path, test->run_binary, NULL);
-	    perror("execl");
-	    */
 	    amp_exec_test(item, NULL);
 	} else {
 	    /* the callback will be responsible for running the binary */
@@ -105,7 +66,7 @@ static void fork_test(wand_event_handler_t *ev_hdl,test_schedule_item_t *item) {
 
 
 /*
- * TODO start forking a real program to test with: ls, ping? 
+ * Start a scheduled test running and reschedule it to run again next interval
  */
 void run_scheduled_test(struct wand_timer_t *timer) {
     schedule_item_t *item = (schedule_item_t *)timer->data;
@@ -137,7 +98,7 @@ void run_scheduled_test(struct wand_timer_t *timer) {
 
 
 /*
- *
+ * Given a test name, return the test id.
  */
 test_type_t get_test_id(const char *testname) {
     int i;
@@ -229,7 +190,7 @@ int register_tests(char *location) {
 
 
 /*
- *
+ * Close all the dlhandles pointing to test objects.
  */
 void unregister_tests() {
     int i = 0;

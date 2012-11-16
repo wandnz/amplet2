@@ -23,8 +23,8 @@ void amp_exec_test(const test_schedule_item_t * const item, char **user_args) {
      * TODO actual limit is a number of bytes I think, should I count them?
      */
     char *argv[MAX_TEST_ARGS]; 
-    int argc = 0;
-    int offset;
+    uint32_t argc = 0;
+    uint32_t offset;
     test_t *test;
     
     assert(item);

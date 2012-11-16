@@ -24,6 +24,10 @@
 #include "nametable.h"
 
 
+
+/*
+ * Dump a debug information line about a scheduled test.
+ */
 static void dump_event_run_test(test_schedule_item_t *item) {
     int i;
 
@@ -36,6 +40,7 @@ static void dump_event_run_test(test_schedule_item_t *item) {
     if ( item->params == NULL ) {
 	printf(" (no args)");
     } else {
+	/* params is a NULL terminated array */
 	for ( i=0; item->params[i] != NULL; i++ ) {
 	    printf(" %s", item->params[i]);
 	}
@@ -45,11 +50,15 @@ static void dump_event_run_test(test_schedule_item_t *item) {
 
 
 
+/*
+ * Dump a debug information line about a scheduled watchdog to kill a test.
+ */
 static void dump_event_cancel_test(kill_schedule_item_t *item) {
     assert(item);
 
     printf("EVENT_CANCEL_TEST pid:%d", item->pid);
 }
+
 
 
 /*
@@ -141,6 +150,8 @@ void clear_test_schedule(wand_event_handler_t *ev_hdl) {
 /*
  * inotify tells us the file has changed, so consume the event, clear the
  * existing schedule and load the new one.
+ *
+ * inotify is only available on Linux.
  */
 static void schedule_file_changed_event(struct wand_fdcb_t *evcb,
 	__attribute__((unused)) enum wand_eventtype_t ev) {
@@ -148,6 +159,7 @@ static void schedule_file_changed_event(struct wand_fdcb_t *evcb,
     schedule_file_data_t *data = (schedule_file_data_t *)evcb->data;
 
     if ( read(data->fd, &buf, sizeof(buf)) == sizeof(buf) ) {
+	/* make sure this is a file modify event, if so, reread schedules */
 	if ( buf.mask & IN_MODIFY ) {
 	    clear_test_schedule(data->ev_hdl);
 	    read_schedule_file(data->ev_hdl);
@@ -158,7 +170,12 @@ static void schedule_file_changed_event(struct wand_fdcb_t *evcb,
 
 
 /* 
- * set up inotify to monitor the schedule file for changes 
+ * Set up inotify to monitor the schedule file for changes. Give the file
+ * descriptor that we get from inotify_add_watch() to libwandevent to monitor
+ * so that we can run the callback function schedule_file_changed_event()
+ * when the file changes.
+ *
+ * inotify is only available on Linux.
  */
 static void setup_schedule_refresh_inotify(wand_event_handler_t *ev_hdl) {
     int inotify_fd;
@@ -174,6 +191,7 @@ static void setup_schedule_refresh_inotify(wand_event_handler_t *ev_hdl) {
 	exit(1);
     }
 
+    /* create a watch for modification of the schedule file */
     if ( (schedule_wd = 
 		inotify_add_watch(inotify_fd, SCHEDULE_FILE, IN_MODIFY)) < 0 ) {
 	perror("inotify_add_watch");
@@ -256,8 +274,11 @@ static void setup_schedule_refresh_timer(wand_event_handler_t *ev_hdl) {
 #endif
 
 
+
 /*
- *
+ * Set up an event to monitor the schedule file for changes. Use inotify if it
+ * is available (Linux only) to immediately be alerted of changes, otherwise
+ * poll the schedule file to check for changes.
  */
 void setup_schedule_refresh(wand_event_handler_t *ev_hdl) {
 #if HAVE_SYS_INOTIFY_H
@@ -288,7 +309,8 @@ static time_t get_period_max_value(char repeat) {
 
 /*
  * Convert a scheduling number in a string to an integer, while also checking 
- * that it fits within the limits of the schedule.
+ * that it fits within the limits of the schedule. This is used to convert
+ * millisecond time values in the schedule for start, end, frequency.
  */
 static long get_time_value(char *value_string, char repeat) {
     int value;
@@ -484,7 +506,10 @@ static int compare_test_items(test_schedule_item_t *a, test_schedule_item_t *b){
 
 
 /*
- * XXX refactor this whole function
+ * Try to merge the given test with any currently scheduled tests that have
+ * exactly the same schedule, parameters etc and also allow multiple 
+ * destinations. If the tests can be merged that helps to limit the number of
+ * active timers and tests that need to be run. 
  */
 static int merge_scheduled_tests(struct wand_event_handler_t *ev_hdl, 
 	test_schedule_item_t *item) {
@@ -494,22 +519,27 @@ static int merge_scheduled_tests(struct wand_event_handler_t *ev_hdl,
     test_schedule_item_t *sched_test;
     struct timeval when, expire;
 
+    /* find the time that the timer for this test should expire */
     when = get_next_schedule_time(ev_hdl, item->repeat, item->start, item->end, 
 	    MS_FROM_TV(item->interval));
     expire = wand_calc_expire(ev_hdl, when.tv_sec, when.tv_usec);
 
+    /* search all existing scheduled test timers for a test that matches */
     for ( timer=ev_hdl->timers; timer != NULL; timer=timer->next ) {
+
 	/* give up if we get past the time the test should occur */
 	if ( timercmp(&(timer->expire), &expire, >) ) {
 	    return 0;
 	}
 
+	/* all our timers should have data, but maybe not... */
 	if ( timer->data == NULL ) {
 	    continue;
 	}
 
 	sched_item = (schedule_item_t *)timer->data;
 
+	/* ignore non-test timers, we can't match them */
 	if ( sched_item->type != EVENT_RUN_TEST ) {
 	    continue;
 	}

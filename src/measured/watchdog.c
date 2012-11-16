@@ -11,8 +11,9 @@
 
 
 /*
- * Add a watchdog timer that will kill a test should it run too long.
- * TODO should different tests be able to run for different durations?
+ * Add a watchdog timer that will kill a test should it run too long. The
+ * maximum duration is based on the test (determined at registration time)
+ * and passed in as a maximum number of seconds.
  */
 void add_test_watchdog(wand_event_handler_t *ev_hdl, pid_t pid, uint16_t max) {
     struct wand_timer_t *timer;
@@ -48,6 +49,7 @@ static void cancel_test_watchdog(wand_event_handler_t *ev_hdl, pid_t pid) {
     struct wand_timer_t *tmp;
     schedule_item_t *item;
 
+    /* search the list of timers to find the watchdog that relates to the pid */
     while ( timer != NULL ) {
 	tmp = timer;
 	timer = timer->next;
@@ -67,6 +69,7 @@ static void cancel_test_watchdog(wand_event_handler_t *ev_hdl, pid_t pid) {
 	    }
 	}
     }
+    /* if the watchdog for the pid doesn't exist, something has gone wrong */
     assert(0);
 }
 

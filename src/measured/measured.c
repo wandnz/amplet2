@@ -28,13 +28,17 @@
 #include "watchdog.h"
 #include "test.h"
 #include "nametable.h"
+#include "daemonise.h"
 
 wand_event_handler_t *ev_hdl;
+
+/* global to describe daemonised state so we can log to the appropriate place */
 int daemonised = 0;
 
 
+
 /*
- *
+ * Print a simple usage statement showing how to run the program.
  */
 static void usage(char *prog) {
     fprintf(stderr, "Usage: %s [-dvx]\n", prog);
@@ -48,7 +52,8 @@ static void usage(char *prog) {
 
 
 /*
- *
+ * Set the flag that will cause libwandevent to stop running the main event
+ * loop and return control to us.
  */
 static void stop_running(__attribute__((unused))struct wand_signal_t *signal) {
     ev_hdl->running = false;
@@ -68,7 +73,7 @@ static void reload(__attribute__((unused))struct wand_signal_t *signal) {
     /* reload all test modules */
     unregister_tests();
     if ( register_tests(AMP_TEST_DIRECTORY) == -1) {
-	fprintf(stderr, "Registering tests failed\n");
+	fprintf(stderr, "Failed to register tests, aborting.\n");
 	exit(1);
     }
 
@@ -125,7 +130,7 @@ int main(int argc, char *argv[]) {
 
     /* load all the test modules */
     if ( register_tests(AMP_TEST_DIRECTORY) == -1) {
-	fprintf(stderr, "Registering tests failed\n");
+	fprintf(stderr, "Failed to register tests, aborting.\n");
 	return -1;
     }
 

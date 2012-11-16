@@ -8,7 +8,9 @@
 
 /* number of seconds between checking the schedule file for changes */
 #define SCHEDULE_CHECK_FREQ 10
+/* maximum line length for a single schedule line */
 #define MAX_SCHEDULE_LINE 1024
+/* character delimiting fields in the schedule file */
 #define SCHEDULE_DELIMITER ","
 
 /* TODO move config file defines elsewhere, point at sensible places */
@@ -17,6 +19,7 @@
 #define AMP_TEST_DIRECTORY AMP_CONFIG_DIR "/tests/"
 #define MAX_TEST_ARGS 128
 
+/* convenience time conversions */
 #define US_FROM_MS(x) (((x) % 1000)*1000)
 #define MS_TRUNC(x)   (((int)(x)/1000)*1000)
 #define S_FROM_MS(x)  ((int)((x)/1000))
@@ -31,6 +34,8 @@
 	(res).tv_sec  += 1; \
     } \
 }
+
+
 
 /*
  * Data block for checking for schedule file updates
@@ -51,44 +56,44 @@ typedef struct schedule_file_data {
  */
 typedef struct test_schedule_item {
     struct timeval interval;	    /* time between test runs */
-    uint64_t start;
-    uint64_t end;
-    char repeat;
-    test_type_t test_id;
-    /* TODO destination (destinations?) */
-    uint32_t dest_count;
-    struct addrinfo **dests;
-    //struct addrinfo *dests;
-    char **params;
+    uint64_t start;		    /* first time in period test can run (ms) */
+    uint64_t end;		    /* last time in period test can run (ms) */
+    char repeat;		    /* repeat cycle: H(our), D(ay), W(eek) */
+    test_type_t test_id;	    /* id of test to run */
+    uint32_t dest_count;	    /* number of current destinations */
+    struct addrinfo **dests;	    /* all current destinations */
+    char **params;		    /* test parameters in execv format */
     /* TODO chaining? */
 
 } test_schedule_item_t;
+
+
 
 /*
  * Data block for limiting test event duration
  */ 
 typedef struct kill_schedule_item {
-    pid_t pid;
+    pid_t pid;			    /* pid of test process to kill */
 } kill_schedule_item_t;
 
 /*
  *
  */
 typedef enum {
-    EVENT_CANCEL_TEST,
-    EVENT_RUN_TEST,
+    EVENT_CANCEL_TEST,		    /* scheduled item is a watchdog */
+    EVENT_RUN_TEST,		    /* scheduled item is a test */
 } event_type_t;
 
 /*
  *
  */
 typedef struct schedule_item {
-    event_type_t type;
-    wand_event_handler_t *ev_hdl;
+    event_type_t type;		    /* type of schedule item (test, watchdog) */
+    wand_event_handler_t *ev_hdl;   /* pointer to main event handler */
     union {
-	test_schedule_item_t *test;
+	test_schedule_item_t *test; 
 	kill_schedule_item_t *kill;
-    } data;
+    } data;			    /* schedule item data based on type */
 } schedule_item_t;
 
 
