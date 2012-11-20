@@ -557,7 +557,8 @@ static int merge_scheduled_tests(struct wand_event_handler_t *ev_hdl,
 	if ( compare_test_items(sched_test, item) ) {
 	    
 	    /* check if there is room for more destinations */
-	    if ( sched_test->dest_count < 
+	    if ( amp_tests[item->test_id]->max_targets == 0 ||
+		    sched_test->dest_count < 
 		    amp_tests[item->test_id]->max_targets ) {
 
 		fprintf(stderr, "merging tests\n");
@@ -678,7 +679,7 @@ void read_schedule_file(wand_event_handler_t *ev_hdl) {
 	    test->params = parse_param_string(params);
 	
 	/* if this test can have multiple target we may not need a new one */
-	if ( amp_tests[test_id]->max_targets > 1 ) {
+	if ( amp_tests[test_id]->max_targets != 1 ) {
 	    /* check if this test at this time already exists */
 	    if ( merge_scheduled_tests(ev_hdl, test) ) {
 		/* free this test, it has now merged */
