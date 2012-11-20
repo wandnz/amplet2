@@ -3,7 +3,7 @@ SUBDIRS=tests
 EXTRA_DIST=*.h
 
 bin_PROGRAMS=measured
-measured_SOURCES=measured.c schedule.c watchdog.c test.c nametable.c
+measured_SOURCES=measured.c schedule.c watchdog.c test.c nametable.c debug.c
 measured_LDFLAGS=-lmeasured
 
 libmeasureddir=$(libdir)
