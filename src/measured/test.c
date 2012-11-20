@@ -14,6 +14,7 @@
 #include "watchdog.h"
 #include "test.h"
 #include "amp_exec.h"
+#include "debug.h"
 
 
 
@@ -55,10 +56,11 @@ static void fork_test(wand_event_handler_t *ev_hdl,test_schedule_item_t *item) {
 	    test->run_callback(item);
 	}
 
-	fprintf(stderr, "%s test failed to run, aborting.\n", test->name);
+	Log(LOG_WARNING, "%s test failed to run", test->name);
 	exit(1);
     }
 
+    //XXX if the test aborts before we add this, will that cock things up?
     /* schedule the watchdog to kill it if it takes too long */
     add_test_watchdog(ev_hdl, pid, test->max_duration);
 }
@@ -77,6 +79,7 @@ void run_scheduled_test(struct wand_timer_t *timer) {
 
     data = (test_schedule_item_t *)item->data.test;
     
+    Log(LOG_DEBUG, "Running a %s test", amp_tests[data->test_id]->name);
     printf("running a %s test at %d\n", amp_tests[data->test_id]->name, 
 	    (int)time(NULL));
     
@@ -128,12 +131,12 @@ int register_tests(char *location) {
 
     
     if ( location == NULL ) {
-	/* TODO log error */
+	Log(LOG_ALERT, "Test directory not given.");
 	return -1;
     }
 
     if ( strlen(location) >= MAX_PATH_LENGTH - 6 ) {
-	/* TODO log error */
+	Log(LOG_ALERT, "Test directory path too long.");
 	return -1;
     }
 
@@ -147,22 +150,23 @@ int register_tests(char *location) {
     strcat(full_loc, "/*.so");
     glob(full_loc, 0, NULL, &glob_buf);
     
-    printf("Loading test modules from %s (found %zd candidates)\n", 
+    Log(LOG_INFO, "Loading test modules from %s (found %zd candidates)", 
 	    location, glob_buf.gl_pathc);
 
     for ( i=0; i<glob_buf.gl_pathc; i++ ) {
 	hdl = dlopen(glob_buf.gl_pathv[i], RTLD_LAZY);
 
 	if ( !hdl ) {
-	    /* TODO log error */
-	    printf("failed to dlopen");
+	    Log(LOG_WARNING, "Failed to dlopen() file %s",
+		    glob_buf.gl_pathv[i]);
 	    continue;
 	}
 
 	test_reg_ptr r_func = (test_reg_ptr)dlsym(hdl, "register_test");
 	if ( (error = dlerror()) != NULL ) {
 	    /* it doesn't have this function, it's not one of ours, ignore */
-	    printf("failed to find register_test");
+	    Log(LOG_WARNING, "Failed to find register_test function in %s",
+		    glob_buf.gl_pathv[i]);
 	    dlclose(hdl);
 	    continue;
 	}
@@ -170,8 +174,9 @@ int register_tests(char *location) {
 	new_test = r_func();
 
 	if ( new_test == NULL ) {
-	    /* TODO log error */
-	    printf("didn't get useful struct from register_test");
+	    Log(LOG_WARNING, 
+		    "Got NULL response from register_test function in %s",
+		    glob_buf.gl_pathv[i]);
 	    dlclose(hdl);
 	    continue;
 	}
@@ -180,7 +185,7 @@ int register_tests(char *location) {
 
 	/* add the test to the list of all available tests */
 	amp_tests[new_test->id] = new_test;
-	printf("LOADED %s (%d)\n", new_test->name, new_test->id);
+	Log(LOG_DEBUG, "Loaded test %s (id=%d)", new_test->name, new_test->id);
     }
 
     globfree(&glob_buf);
@@ -194,6 +199,9 @@ int register_tests(char *location) {
  */
 void unregister_tests() {
     int i = 0;
+
+    Log(LOG_DEBUG, "Unregistering all tests");
+
     for ( i=0; i<AMP_TEST_LAST; i++) {
 	if ( amp_tests[i] != NULL ) {
 	    dlclose(amp_tests[i]->dlhandle);

@@ -29,6 +29,7 @@
 #include "test.h"
 #include "nametable.h"
 #include "daemonise.h"
+#include "debug.h"
 
 wand_event_handler_t *ev_hdl;
 
@@ -56,6 +57,7 @@ static void usage(char *prog) {
  * loop and return control to us.
  */
 static void stop_running(__attribute__((unused))struct wand_signal_t *signal) {
+    Log(LOG_INFO, "Received SIGINT, exiting event loop");
     ev_hdl->running = false;
 }
 
@@ -67,13 +69,15 @@ static void stop_running(__attribute__((unused))struct wand_signal_t *signal) {
  * new list of available tests.
  */
 static void reload(__attribute__((unused))struct wand_signal_t *signal) {
+    Log(LOG_INFO, "Received SIGHUP, reloading all configuration");
+
     /* cancel all scheduled tests (let running ones finish) */
     clear_test_schedule(signal->data);
 
     /* reload all test modules */
     unregister_tests();
     if ( register_tests(AMP_TEST_DIRECTORY) == -1) {
-	fprintf(stderr, "Failed to register tests, aborting.\n");
+	Log(LOG_ALERT, "Failed to register tests, aborting.");
 	exit(1);
     }
 
@@ -90,6 +94,8 @@ int main(int argc, char *argv[]) {
     struct wand_signal_t sigint_ev;
     struct wand_signal_t sigchld_ev;
     struct wand_signal_t sighup_ev;
+
+    Log(LOG_INFO, "measured starting");
 
     while ( 1 ) {
 	static struct option long_options[] = {
@@ -119,7 +125,8 @@ int main(int argc, char *argv[]) {
 		/* TODO print version info */
 		break;
 	    case 'x':
-		/* TODO enable extra debug output */
+		/* enable extra debug output */
+		log_level = LOG_DEBUG;
 		break;
 	    case 'h':
 	    default:
@@ -130,7 +137,7 @@ int main(int argc, char *argv[]) {
 
     /* load all the test modules */
     if ( register_tests(AMP_TEST_DIRECTORY) == -1) {
-	fprintf(stderr, "Failed to register tests, aborting.\n");
+	Log(LOG_ALERT, "Failed to register tests, aborting.");
 	return -1;
     }
 
@@ -182,6 +189,8 @@ int main(int argc, char *argv[]) {
 
     /* clear out all the test modules that were registered */
     unregister_tests();
+
+    Log(LOG_INFO, "Shutting down");
 
     return 0;
 }

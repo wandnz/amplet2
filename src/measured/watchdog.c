@@ -5,8 +5,11 @@
 #include <assert.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+
+
 #include "schedule.h"
 #include "watchdog.h"
+#include "debug.h"
 
 
 
@@ -99,7 +102,7 @@ void child_reaper(__attribute__((unused))struct wand_signal_t *signal) {
 	    return;
 	}
 
-	printf("CHILD terminated, pid: %d\n", infop.si_pid);
+	Log(LOG_DEBUG, "child terminated, pid: %d\n", infop.si_pid);
 
 	/* actually, nothing terminated, we are done */
 	if ( infop.si_pid == 0 ) {

@@ -22,6 +22,7 @@
 #include "watchdog.h"
 #include "test.h"
 #include "nametable.h"
+#include "debug.h"
 
 
 
@@ -68,7 +69,6 @@ static void dump_schedule(wand_event_handler_t *ev_hdl) {
     struct wand_timer_t *timer;
     schedule_item_t *item;
 
-    printf("\n");
     printf("====== SCHEDULE ======\n");
 
     for ( timer=ev_hdl->timers; timer != NULL; timer=timer->next ) {
@@ -182,6 +182,8 @@ static void setup_schedule_refresh_inotify(wand_event_handler_t *ev_hdl) {
     int schedule_wd;
     struct wand_fdcb_t *schedule_watch_ev;
     schedule_file_data_t *schedule_data;
+
+    Log(LOG_DEBUG, "Using inotify to monitor schedule file");
     
     schedule_watch_ev = (struct wand_fdcb_t*)malloc(sizeof(struct wand_fdcb_t));
     schedule_data = (schedule_file_data_t*)malloc(sizeof(schedule_file_data_t));
@@ -233,11 +235,11 @@ static void check_schedule_file(struct wand_timer_t *timer) {
 
     if ( statInfo.st_mtime > data->last_update ) {
 	/* clear out all events and add new ones */
-	fprintf(stderr, "Schedule file modified, updating\n");
+	Log(LOG_INFO, "Schedule file modified, updating\n");
 	clear_test_schedule(data->ev_hdl);
 	read_schedule_file(data->ev_hdl);
 	data->last_update = statInfo.st_mtime;
-	fprintf(stderr, "Done updating schedule file\n");
+	Log(LOG_INFO, "Done updating schedule file\n");
     }
     
     /* reschedule the check again */
@@ -255,6 +257,9 @@ static void check_schedule_file(struct wand_timer_t *timer) {
 static void setup_schedule_refresh_timer(wand_event_handler_t *ev_hdl) {
     struct wand_timer_t *schedule_timer;
     schedule_file_data_t *schedule_data;
+    
+    Log(LOG_DEBUG, "Using polling to monitor schedule file (interval: %ds)", 
+	    SCHEDULE_CHECK_FREQ);
 
     schedule_timer = (struct wand_timer_t*)malloc(sizeof(struct wand_timer_t));
     schedule_data = (schedule_file_data_t*)malloc(sizeof(schedule_file_data_t));
@@ -461,7 +466,8 @@ struct timeval get_next_schedule_time(wand_event_handler_t *ev_hdl,
 	next.tv_usec = 0;
 	ADD_TV_PARTS(next, next, S_FROM_MS(start), US_FROM_MS(start));
     }
-    fprintf(stderr, "scheduled: %d.%d\n", (int)next.tv_sec, (int)next.tv_usec);
+    Log(LOG_DEBUG, "next test run scheduled at: %d.%d\n", (int)next.tv_sec, 
+	    (int)next.tv_usec);
     return next;
 }
 
@@ -597,6 +603,9 @@ void read_schedule_file(wand_event_handler_t *ev_hdl) {
     struct wand_timer_t *timer = NULL;
     schedule_item_t *item = NULL;
     test_schedule_item_t *test = NULL;
+    int lineno = 0;
+
+    Log(LOG_INFO, "Loading schedule from %s", SCHEDULE_FILE);
 
     if ( (in = fopen(SCHEDULE_FILE, "r")) == NULL ) {
 	perror("error opening schedule file");
@@ -609,11 +618,13 @@ void read_schedule_file(wand_event_handler_t *ev_hdl) {
 	struct timeval next;
 	test_type_t test_id;
 
+	lineno++;
+
 	/* ignore comments and blank lines */
 	if ( line[0] == '#'  || line[0] == '\n' ) {
 	    continue;
 	}
-	printf("line=%s", line);
+	Log(LOG_DEBUG, "line=%s", line);
 
 	/* read target,test,repeat,start,end,frequency,params */
 	if ( (target = strtok(line, SCHEDULE_DELIMITER)) == NULL )
@@ -635,20 +646,20 @@ void read_schedule_file(wand_event_handler_t *ev_hdl) {
 
 	/* check test is valid */
 	if ( (test_id = get_test_id(testname)) == AMP_TEST_INVALID ) {
-	    /* TODO log error properly */
-	    fprintf(stderr, "unknown test '%s'\n", testname);
+	    Log(LOG_WARNING, "Unknown test '%s' on line %d", testname, lineno);
 	    continue;
 	}
 	
 	/* check target is valid */
 	if ( name_to_address(target) == NULL ) {
-	    /* TODO log error properly */
-	    printf("unknown destination '%s'\n", target);
+	    Log(LOG_WARNING, 
+		    "Unknown destination '%s' for %s test on line %d\n", 
+		    target, testname, lineno);
 	    continue;
 	}
 
-	printf("%s %s %s %ld %ld %ld %s\n", target, testname, repeat, start, 
-		end, frequency, (params)?params:"NULL");
+	Log(LOG_DEBUG, "%s %s %s %ld %ld %ld %s", target, testname, repeat, 
+		start, end, frequency, (params)?params:"NULL");
 
 	/* everything looks ok, populate the test info struct */
 	test = (test_schedule_item_t *)malloc(sizeof(test_schedule_item_t));
@@ -676,7 +687,7 @@ void read_schedule_file(wand_event_handler_t *ev_hdl) {
 	    }
 	}
 
-	fprintf(stderr, "ADDING TEST: %s\n", testname);
+	Log(LOG_DEBUG, "Adding new test item for %s test\n", testname);
 	
 	/* schedule a new test */
 	item = (schedule_item_t *)malloc(sizeof(schedule_item_t));

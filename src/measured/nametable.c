@@ -19,6 +19,7 @@
 #include <libwandevent.h>
 #include "schedule.h"
 #include "nametable.h"
+#include "debug.h"
 
 
 static name_entry_t *name_table = NULL;
@@ -29,6 +30,11 @@ static name_entry_t *name_table = NULL;
  * TODO do we want a magic name that forces a lookup rather than using a
  * static config file? So measured can do the lookup rather than making tests
  * do the name resolution themselves.
+ */
+
+/*
+ * TODO do we need some sort of NONE target like the existing AMP uses? Tests
+ * to URLs etc often use NONE with the URL as a parameter.
  */
 
 
@@ -59,9 +65,8 @@ static void insert_nametable_entry(char *name, struct addrinfo *info) {
 static void dump_nametable() {
     name_entry_t *tmp;
     char address[INET6_ADDRSTRLEN];
-    printf("inet6 strlen = %d\n", INET6_ADDRSTRLEN);
 
-    printf("NAMETABLE:\n");
+    Log(LOG_DEBUG, "====== NAMETABLE ======");
 
     for ( tmp=name_table; tmp != NULL; tmp=tmp->next ) {
 	assert(tmp);
@@ -77,10 +82,11 @@ static void dump_nametable() {
 		    address, INET6_ADDRSTRLEN);
 
 	} else {
-	    printf("unknown address family\n");
+	    Log(LOG_WARNING, "unknown address family: %d\n", 
+		    tmp->addr->ai_addr->sa_family);
 	    continue;
 	}
-	printf("%s %s\n", tmp->name, address);
+	Log(LOG_DEBUG, "%s %s\n", tmp->name, address);
     }
 }
 
@@ -202,12 +208,12 @@ static void check_nametable_file(struct wand_timer_t *timer) {
 
     if ( statInfo.st_mtime > data->last_update ) {
 	/* clear out all events and add new ones */
-	fprintf(stderr, "nametable file modified, updating\n");
+	Log(LOG_INFO, "Nametable file modified, updating\n");
 	/* XXX TODO should this invalidate tests? depends how dests work */
 	clear_nametable();
 	read_nametable_file();
 	data->last_update = statInfo.st_mtime;
-	fprintf(stderr, "Done updating nametable file\n");
+	Log(LOG_INFO, "Done updating nametable file\n");
     }
     
     /* reschedule the check again */
@@ -334,7 +340,9 @@ void read_nametable_file() {
     char line[MAX_NAMETABLE_LINE];
     struct addrinfo hint;
     struct addrinfo *addrinfo;
-    int foo;
+    int res;
+    
+    Log(LOG_INFO, "Loading nametable from %s", NAMETABLE_FILE);
 
     if ( (in = fopen(NAMETABLE_FILE, "r")) == NULL ) {
 	perror("error opening nametable file");
@@ -348,7 +356,7 @@ void read_nametable_file() {
 	if ( line[0] == '#'  || line[0] == '\n' ) {
 	    continue;
 	}
-	printf("line=%s", line);
+	Log(LOG_DEBUG, "line=%s", line);
 
 	/* read name address */
 	if ( (name = strtok(line, NAMETABLE_DELIMITER)) == NULL )
@@ -356,7 +364,7 @@ void read_nametable_file() {
 	if ( (address = strtok(NULL, NAMETABLE_DELIMITER)) == NULL )
 	    continue;
 
-	printf("name:%s address:%s\n", name, address);
+	Log(LOG_DEBUG, "Loaded name:%s address:%s\n", name, address);
 	memset(&hint, 0, sizeof(struct addrinfo));
 	hint.ai_flags = AI_NUMERICHOST;
 	hint.ai_family = PF_UNSPEC;
@@ -367,11 +375,11 @@ void read_nametable_file() {
 	hint.ai_canonname = NULL;
 	hint.ai_next = NULL;
 	addrinfo = NULL;
-	if ( (foo = getaddrinfo(address, NULL, &hint, &addrinfo)) != 0 ) {
-	    /* TODO log error */
+	if ( (res = getaddrinfo(address, NULL, &hint, &addrinfo)) != 0 ) {
+	    Log(LOG_WARNING, "Failed to load address info for %s (%s)",
+		    name, address);
 	    continue;
 	}
-	printf("foo:%d\n", addrinfo->ai_addrlen);
 	insert_nametable_entry(name, addrinfo);
     }
 
