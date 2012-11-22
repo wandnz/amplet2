@@ -33,9 +33,6 @@
 
 wand_event_handler_t *ev_hdl;
 
-/* global to describe daemonised state so we can log to the appropriate place */
-int daemonised = 0;
-
 
 
 /*
@@ -95,8 +92,6 @@ int main(int argc, char *argv[]) {
     struct wand_signal_t sigchld_ev;
     struct wand_signal_t sighup_ev;
 
-    Log(LOG_INFO, "measured starting");
-
     while ( 1 ) {
 	static struct option long_options[] = {
 	    {"daemonise", no_argument, 0, 'd'},
@@ -119,7 +114,6 @@ int main(int argc, char *argv[]) {
 		    perror("daemon");
 		    return -1;
 		}
-		daemonised = 1;
 		break;
 	    case 'v':
 		/* TODO print version info */
@@ -134,6 +128,8 @@ int main(int argc, char *argv[]) {
 		exit(0);
 	};
     }
+    
+    Log(LOG_INFO, "measured starting");
 
     /* load all the test modules */
     if ( register_tests(AMP_TEST_DIRECTORY) == -1) {

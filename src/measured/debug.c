@@ -4,9 +4,9 @@
 #include <time.h>
 #include <string.h>
 #include <syslog.h>
+#include <unistd.h>
 
 #include "debug.h"
-#include "daemonise.h"
 
 
 
@@ -33,8 +33,8 @@ void Log(int priority, const char *fmt, ...)
     va_list ap;
     char buffer[513];
     char *prefix;
-
-    assert(daemonised == 0 || daemonised == 1);
+    time_t ts = time(NULL);
+    char date[32];
 
     /* don't print anything if the priority doesn't meet minimum requirements */
     if ( priority > log_level ) {
@@ -48,8 +48,8 @@ void Log(int priority, const char *fmt, ...)
     switch ( priority ) {
 	case LOG_EMERG: prefix = "EMERG"; break;
 	case LOG_ALERT: prefix = "ALERT"; break;
-	case LOG_CRIT: prefix = "CRIT"; break;
-	case LOG_ERR: prefix = "ERR"; break;
+	case LOG_CRIT: prefix = "CRITICAL"; break;
+	case LOG_ERR: prefix = "ERROR"; break;
 	case LOG_WARNING: prefix = "WARNING"; break;
 	case LOG_NOTICE: prefix = "NOTICE"; break;
 	case LOG_INFO: prefix = "INFO"; break;
@@ -59,24 +59,32 @@ void Log(int priority, const char *fmt, ...)
 
     va_start(ap, fmt);
     vsnprintf(buffer, sizeof(buffer), fmt, ap);
+	
+    /* format date and chop newline from end of formatted string */
+    ctime_r(&ts, date);
+    date[strlen(date)-1] = '\0';
 
-    /* write the log message to the appropriate place */
-    if ( !daemonised ) {
-	time_t ts = time(NULL);
-	char date[32];
+    /* chop any newline that is in the error message */
+    if ( buffer[strlen(buffer)-1] == '\n' )
+	buffer[strlen(buffer)-1] = '\0';
 
-	/* format date and chop newline from end of formatted string */
-	ctime_r(&ts, date);
-	date[strlen(date)-1] = '\0';
-
-	/* chop any newline that is in the error message */
-	if ( buffer[strlen(buffer)-1] == '\n' )
-	    buffer[strlen(buffer)-1] = '\0';
-
+    /* 
+     * write the log message to the appropriate place: use stdout if it is
+     * available to us, otherwise write to a log file (or syslog) 
+     */
+    if ( isatty(fileno(stdout)) ) {
 	fprintf(stderr, "%s %s: %s\n", date, prefix, buffer);
 
     } else {
+	/* FIXME: currently printing to temporary log file */
+	FILE *out;
+	if ( (out = fopen("/tmp/brendonj/measured2.log", "a")) == NULL ) {
+	    /* TODO something smart to report error in logging */
+	    return;
+	}
 	//TODO print to our own file or use syslog if setup right
+	fprintf(out, "%s %s: %s\n", date, prefix, buffer);
+	fclose(out);
 	//syslog(priority, "%s", buffer);
     }
     va_end(ap);
