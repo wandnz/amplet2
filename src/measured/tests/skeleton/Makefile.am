@@ -1,5 +1,3 @@
-EXTRA_DIST=*.h
-
 testdir=$(prefix)/tests/
 
 bin_PROGRAMS=skeleton
