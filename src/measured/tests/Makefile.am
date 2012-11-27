@@ -7,3 +7,7 @@ endif
 if WANT_SKELETON_CALLBACK_TEST
 SUBDIRS+=skeleton_callback
 endif
+
+if WANT_ICMP_TEST
+SUBDIRS+=icmp
+endif
