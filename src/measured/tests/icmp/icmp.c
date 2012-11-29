@@ -13,7 +13,10 @@
 #include <errno.h>
 #include <assert.h>
 #include <arpa/inet.h>
+#include <malloc.h>
+#include <string.h>
 
+#include "test.h"
 #include "debug.h"
 
 
@@ -39,6 +42,8 @@
 #define DIFF_TV_US(tva, tvb) ( (((tva).tv_sec - (tvb).tv_sec) * 1000000) + \
                               ((tva).tv_usec - (tvb).tv_usec) )
 
+int run_icmp(int argc, char *argv[], int count, struct addrinfo **dests);
+test_t *register_test(void);
 
 /*
  * User defined test options that control packet size and timing.
@@ -242,6 +247,9 @@ static int get_packet(struct socket_t *sockets, char *buf, int len,
 
 
 
+/*
+ * TODO this may want to move out into a library so it can be reused
+ */
 static int delay_send_packet(int sock, char *packet, int size, 
 	struct addrinfo *dest) {
 
@@ -568,9 +576,12 @@ static void report(struct timeval start_time, int count, struct info_t info[],
 		&((struct sockaddr_in*)info[dest].addr->ai_addr)->sin_addr, 
 		foo, info[dest].addr->ai_addrlen);
 	printf("%s: ", foo);
-	if ( info[dest].reply ) {
+
+	if ( info[dest].reply && info[dest].err_type == 0 
+		&& info[dest].err_code == 0 ) {
 	    /* FIXME the old icmp test truncates to milliseconds here */
-	    printf("%d ", info[dest].delay);
+	    printf("%dus ", info[dest].delay);
+	    printf("%dms ", (int)((info[dest].delay/1000.0) + 0.5));
 	} else {
 	    printf("-1 ");
 	}
@@ -578,6 +589,11 @@ static void report(struct timeval start_time, int count, struct info_t info[],
     }
 
     /* TODO send to server somehow */
+
+    /* TODO print to screen instead if being run standalone -- can the 
+     * libmeasured function for reporting pick this up, or should the 
+     * individual tests do it?
+     */
 }
 
 
@@ -603,21 +619,17 @@ static void usage(char *prog) {
  * TODO get useful errors into the log strings
  * TODO get test name into log strings
  * TODO logging will need more work - the log level won't be set.
- * TODO do destinations properly - stdin or args
+ * TODO const up the dest arguments so cant be changed?
  */
-int main(int argc, char *argv[]) {
+//int main(int argc, char *argv[]) {
+int run_icmp(int argc, char *argv[], int count, struct addrinfo **dests) {
     int opt;
     struct opt_t options;
     struct timeval start_time;
     struct socket_t raw_sockets;
     struct info_t *info;
-    int count = 1;//XXX number of destinations
-    struct addrinfo *dests;
     int dest;
     uint16_t ident;
-    struct addrinfo hint;//XXX
-
-    printf("icmp test\n");
 
     Log(LOG_DEBUG, "Starting ICMP test");
 
@@ -650,19 +662,6 @@ int main(int argc, char *argv[]) {
 	options.packet_size = MIN_ICMP_ECHO_REQUEST_LEN + IP_HEADER_LEN;	
     }
 
-    /* TODO determinate all destinations */
-    /* XXX testing code */
-    memset(&hint, 0, sizeof(struct addrinfo));
-    hint.ai_flags = AI_NUMERICHOST;
-    hint.ai_family = PF_UNSPEC;
-    hint.ai_socktype = 0;
-    hint.ai_protocol = 0;
-    hint.ai_addrlen = 0;
-    hint.ai_addr = NULL;
-    hint.ai_canonname = NULL;
-    hint.ai_next = NULL;
-    getaddrinfo("130.217.250.16", NULL, &hint, &dests);
-
     /* delay the start by a random amount of perturbate is set */
     if ( options.perturbate ) {
 	int delay;
@@ -682,13 +681,16 @@ int main(int argc, char *argv[]) {
 	exit(-1);
     }
 
-    ident = (uint16_t)start_time.tv_sec;
+    /* use part of the current time as an identifier value */
+    ident = (uint16_t)start_time.tv_usec;
+
+    /* allocate space to store information about each request sent */
     info = (struct info_t *)malloc(sizeof(struct info_t) * count);
 
-    /* TODO send a test packet to each destination */
+    /* send a test packet to each destination */
     for ( dest = 0; dest < count; dest++ ) {
-	//send_packet(&raw_sockets, dest, ident, dests[dest], info, &options);
-	send_packet(&raw_sockets, dest, ident, dests, count, info, &options);
+	send_packet(&raw_sockets, dest, ident, dests[dest], count, info, 
+		&options);
     }
 
     /* 
@@ -696,7 +698,11 @@ int main(int argc, char *argv[]) {
      * can avoid doing the long wait later
      */
     harvest(&raw_sockets, ident, LOSS_TIMEOUT / 100, count, info);
+
+    /* check if all expected responses have been received */
     for ( dest = 0; dest < count && info[dest].reply; dest++ ) { /* nothing */ }
+
+    /* if not, then call harvest again with the full timeout */
     if ( dest < count ) {
 	harvest(&raw_sockets, ident, LOSS_TIMEOUT, count, info);
     }
@@ -713,7 +719,32 @@ int main(int argc, char *argv[]) {
     report(start_time, count, info, &options);
 
     free(info);
-    freeaddrinfo(dests);
 
     return 0;
+}
+
+
+
+/*
+ * Register a test to be part of AMP.
+ */
+test_t *register_test() {
+    test_t *new_test = (test_t *)malloc(sizeof(test_t));
+
+    /* the test id is defined by the enum in test.h */
+    new_test->id = AMP_TEST_ICMP;
+
+    /* name is used to schedule the test and report results */
+    new_test->name = strdup("icmp");
+
+    /* how many targets a single instance of this test can have */
+    new_test->max_targets = 0;
+
+    /* maximum duration this test should take before being killed */
+    new_test->max_duration = 30;
+
+    /* function to call to setup arguments and run the test */
+    new_test->run_callback = run_icmp;
+
+    return new_test;
 }

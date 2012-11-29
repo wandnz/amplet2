@@ -3,6 +3,9 @@
 
 #include <stdint.h>
 #include <libwandevent.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netdb.h>
 
 
 /* TODO move elsewhere to more global config file */
@@ -66,19 +69,22 @@ typedef struct test {
      * negotiated or calculated values as command line options to the test
      * binary. This function is also responsible for starting the test.
      */
-    void (*run_callback)(const struct test_schedule_item * const info);
+    //void (*run_callback)(const struct test_schedule_item * const info);
+    int (*run_callback)(int argc, char *argv[], int count, 
+	    struct addrinfo **dests);
 
+#if 0
     /*
      * A string containing the name of the binary that should be run to perform
      * this test. The name will be taken relative to the test path configured
      * by XXX
      */
     char *run_binary;
+#endif
 
     /* 
      * Pointer to the module that implements the callback functions for
      * this test.
-     * XXX how is this used in magi? do we need it here?
      */
     void *dlhandle;
 } test_t;

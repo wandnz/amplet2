@@ -13,9 +13,63 @@
 #include "schedule.h"
 #include "watchdog.h"
 #include "test.h"
-#include "amp_exec.h"
 #include "debug.h"
+#include "nametable.h"
 
+
+
+/*
+ * Combine the test parameters with any from the test set up function and
+ * apply them to the proper test binary as provided by the test registration.
+ * Run the test callback function and let it do its thing.
+ */
+static void run_test(const test_schedule_item_t * const item) {
+    char *argv[MAX_TEST_ARGS]; 
+    uint32_t argc = 0;
+    uint32_t offset;
+    test_t *test;
+    
+    assert(item);
+    assert(item->test_id < AMP_TEST_LAST);
+    assert(amp_tests[item->test_id]);
+    assert(item->dest_count > 0);
+    
+    test = amp_tests[item->test_id];
+
+    /* XXX add in test name as parameter zero? not needed? */
+
+    /* add in any of the test parameters from the schedule file */
+    if ( item->params != NULL ) {
+	for ( offset=0; item->params[offset] != NULL; offset++ ) {
+	    argv[argc++] = item->params[offset];
+	}
+    }
+
+    /* null terminate the list before we give it to execv() */
+    argv[argc] = NULL;
+
+    /* TODO resolve any names for destinations that need it? */
+
+
+    Log(LOG_DEBUG, "Running test: %s to %d destinations:\n", test->name, 
+	    item->dest_count);
+
+    for ( offset=0; offset < item->dest_count; offset++ ) {
+	Log(LOG_DEBUG, "dest%d: %s\n", offset, 
+		address_to_name(item->dests[offset]));
+    }
+    
+    for ( offset = 0; offset<argc; offset++ ) {
+	Log(LOG_DEBUG, "arg%d: %s\n", offset, argv[offset]);
+    }
+    
+    test->run_callback(argc, argv, item->dest_count, item->dests);
+
+    /* TODO free any destinations that we looked up just for this test */
+
+    /* done running the test, exit */
+    exit(0);
+}
 
 
 
@@ -34,6 +88,13 @@ static void fork_test(wand_event_handler_t *ev_hdl,test_schedule_item_t *item) {
     
     test = amp_tests[item->test_id];
 
+    /*
+     * man fork: 
+     * "Under Linux, fork() is implemented using copy-on-write pages..."
+     * This should mean that we aren't duplicating massive amounts of memory
+     * unless we are modifying it. We shouldn't be modifying it, so should be
+     * fine.
+     */
     if ( (pid = fork()) < 0 ) {
 	perror("fork");
 	return;
@@ -47,16 +108,8 @@ static void fork_test(wand_event_handler_t *ev_hdl,test_schedule_item_t *item) {
 	 */
 	//setrlimit(RLIMIT_CPU, &cpu_limits);
 	/* TODO prepare environment */
-
-	if ( test->run_callback == NULL ) {
-	    /* if there is no callback just run the binary directly */
-	    amp_exec_test(item, NULL);
-	} else {
-	    /* the callback will be responsible for running the binary */
-	    test->run_callback(item);
-	}
-
-	Log(LOG_WARNING, "%s test failed to run", test->name);
+	run_test(item);
+	Log(LOG_WARNING, "%s test failed to run", test->name);//XXX required?
 	exit(1);
     }
 
@@ -206,7 +259,6 @@ void unregister_tests() {
 	if ( amp_tests[i] != NULL ) {
 	    dlclose(amp_tests[i]->dlhandle);
 	    free(amp_tests[i]->name);
-	    free(amp_tests[i]->run_binary);
 	    free(amp_tests[i]);
 	}
     }
