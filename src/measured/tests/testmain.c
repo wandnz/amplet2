@@ -119,7 +119,7 @@ int main(int argc, char *argv[]) {
     /* process all destinations */
     for ( i=optind; i<argc; i++ ) {
 	/* check if adding the new destination would be allowed by the test */
-	if ( count + 1 > test_info->max_targets ) {
+	if ( test_info->max_targets > 0 && count+1 > test_info->max_targets ) {
 	    printf("Exceeded maximum of %d destinations\n", 
 		    test_info->max_targets);
 	    cleanup(test_info, count, dests);
