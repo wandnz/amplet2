@@ -16,8 +16,10 @@
 #include <malloc.h>
 #include <string.h>
 
+//TODO rename files and headers better?
 #include "test.h"
 #include "debug.h"
+#include "testlib.h"
 
 
 /* by default use an 84 byte packet, because that's what it has always been */
@@ -32,15 +34,6 @@
 /* timeout in usec to wait before declaring the response lost, currently 20s */
 #define LOSS_TIMEOUT 20000000
 
-/* minimum time in usec allowed between sending test packets */
-#define MIN_INTER_PACKET_DELAY 100
-
-
-// XXX these should be in a library somewhere 
-#define US_FROM_US(x) ((x) % 1000000)
-#define S_FROM_US(x)  ((int)((x)/1000000))
-#define DIFF_TV_US(tva, tvb) ( (((tva).tv_sec - (tvb).tv_sec) * 1000000) + \
-                              ((tva).tv_usec - (tvb).tv_usec) )
 
 int run_icmp(int argc, char *argv[], int count, struct addrinfo **dests);
 test_t *register_test(void);
@@ -52,17 +45,6 @@ struct opt_t {
     int random;			/* use random packet sizes (bytes) */
     int perturbate;		/* delay sending by up to this time (usec) */
     uint16_t packet_size;	/* use this packet size (bytes) */
-};
-
-
-
-/*
- * Structure combining the ipv4 and ipv6 network sockets so that they can be
- * passed around and operated on together as a single item.
- */
-struct socket_t {
-    int socket;			/* ipv4 socket, if available */
-    int socket6;		/* ipv6 socket, if available */
 };
 
 
@@ -116,180 +98,6 @@ static int checksum(uint16_t *packet, int size) {
 
 
 /*
- * TODO this may want to move out into a library so it can be reused
- */
-/*
- * Given a pair of sockets (ipv4 and ipv6), wait for data to arrive on either
- * of them, up to maxwait microseconds. If data arrives before the timeout
- * then return which socket received the data, otherwise -1.
- */
-static int wait_for_data(struct socket_t *sockets, int *maxwait) {
-    struct timeval start_time, end_time;
-    struct timeval timeout;
-    int delay;
-    int max_fd;
-    int ready;
-    fd_set readset;
-
-    gettimeofday(&start_time, NULL);
-
-    max_fd = -1;
-    delay = 0;
-
-    do {
-	/* 
-	 * if there has been an error then update timeout by how long we have
-	 * already taken so we can carry on where we left off
-	 */
-	if ( delay > *maxwait ) {
-	    timeout.tv_sec = 0;
-	    timeout.tv_usec = 0;
-	} else {
-	    timeout.tv_sec = S_FROM_US(*maxwait - delay);
-	    timeout.tv_usec = US_FROM_US(*maxwait - delay);
-	}
-
-	/* fd sets are undefined after an error, so set them every time too */
-	FD_ZERO(&readset);
-	if ( sockets->socket > 0 ) {
-	    FD_SET(sockets->socket, &readset);
-	    max_fd = sockets->socket;
-	}
-
-	if ( sockets->socket6 > 0 ) {
-	    FD_SET(sockets->socket6, &readset);
-	    if ( sockets->socket6 > max_fd ) {
-		max_fd = sockets->socket6;
-	    }
-	}
-	
-	ready = select(max_fd+1, &readset, NULL, NULL, &timeout);
-	
-	/* 
-	 * we can't always trust the value of timeout after select returns, so
-	 * check for ourselves how much time has elapsed
-	 */
-	gettimeofday(&end_time, NULL);
-	delay = DIFF_TV_US(end_time, start_time);
-
-	/* if delay is less than zero then maybe the clock was adjusted on us */
-	if ( delay < 0 ) {
-	    delay = 0;
-	}
-
-	/* continue until there is data to read or we get a non EINTR error */
-    } while ( ready < 0 && errno == EINTR );
-
-    /* remove the time waited so far from maxwait */
-    *maxwait -= delay;
-    if ( *maxwait < 0 ) {
-	*maxwait = 0;
-    }
-
-    /* if there was a non-EINTR error then report it */
-    if ( ready < 0 ) {
-	Log(LOG_WARNING, "select() failed");
-	return -1;
-    }
-
-    /* return the appropriate socket that has data waiting */
-    if ( sockets->socket > 0 && FD_ISSET(sockets->socket, &readset) ) {
-	return AF_INET;
-    }
-    
-    if ( sockets->socket6 > 0 && FD_ISSET(sockets->socket6, &readset) ) {
-	return AF_INET6;
-    }
-
-    return -1;
-}
-
-
-
-/*
- * TODO this may want to move out into a library so it can be reused
- */
-/*
- * Wait for up to timeout microseconds to receive a packet on the given 
- * sockets and return the number of bytes read.
- */
-static int get_packet(struct socket_t *sockets, char *buf, int len, 
-	struct sockaddr *saddr, int *timeout) {
-
-    int bytes;
-    int sock;
-    int family;
-    socklen_t addrlen;
-
-    /* wait for data to be ready to read, up to timeout (wait will update it) */
-    if ( (family = wait_for_data(sockets, timeout)) <= 0 ) {
-	return 0;
-    }
-
-    /* determine which socket we have received data on and read from it */
-    switch ( family ) {
-	case AF_INET: sock = sockets->socket; 
-		      addrlen = sizeof(struct sockaddr_in); 
-		      break;
-	case AF_INET6: sock = sockets->socket6;
-		       addrlen = sizeof(struct sockaddr_in6);
-		       break;
-	default: return 0;
-    };
-
-    if ( (bytes = recvfrom(sock, buf, len, 0, saddr, &addrlen)) < 0 ) {
-	Log(LOG_ERR, "Failed to recvfrom()");
-	exit(-1);
-    }
-
-    return bytes;
-}
-
-
-
-/*
- * TODO this may want to move out into a library so it can be reused
- */
-static int delay_send_packet(int sock, char *packet, int size, 
-	struct addrinfo *dest) {
-
-    int bytes_sent;
-    static struct timeval last = {0, 0};
-    struct timeval now;
-    int delay;
-
-    gettimeofday(&now, NULL);
-
-    /* determine how much time is left to wait until the minimum delay */
-    if ( last.tv_sec != 0 && DIFF_TV_US(now, last) < MIN_INTER_PACKET_DELAY ) {
-	delay = MIN_INTER_PACKET_DELAY - DIFF_TV_US(now, last);
-    } else {
-	delay = 0;
-	last.tv_sec = now.tv_sec;
-	last.tv_usec = now.tv_usec;
-    }
-
-    /* 
-     * if there is still time to wait before the next packet then return
-     * control to the caller, in case they want to do more work while waiting
-     */
-    if ( delay != 0 ) {
-	return delay;
-    }
-
-    bytes_sent = sendto(sock, packet, size, 0, dest->ai_addr, dest->ai_addrlen);
-
-    /* TODO determine error and/or send any unsent bytes */
-    if ( bytes_sent != size ) {
-	Log(LOG_ERR, "Only sent %d of %d bytes", bytes_sent, size);
-    }
-
-    return 0;
-}
-
-
-
-/*
  * Check an icmp error to determine if it is in response to a packet we have
  * sent. If it is then the error needs to be recorded.
  */
@@ -317,8 +125,8 @@ static void icmp_error(char *packet, uint16_t ident, struct info_t info[]) {
     }
 
     /* get the embedded ip header */
-    embed_ip = (struct iphdr *)packet + ((ip->ihl << 2) +
-	    sizeof(struct icmphdr));
+    embed_ip = (struct iphdr *)(packet + ((ip->ihl << 2) +
+		sizeof(struct icmphdr)));
 
     /* obviously not a response to our test, return */
     if ( embed_ip->version != 4 || embed_ip->protocol != IPPROTO_ICMP ) {
@@ -438,7 +246,7 @@ static void harvest(struct socket_t *raw_sockets, uint16_t ident, int wait,
 
     char packet[1024]; //XXX can we be sure of a max size for recv packets?
     struct timeval now;
-    struct sockaddr_in6 addr;//XXX why is this a 6
+    struct sockaddr_in6 addr;
 
     /* read packets until we hit the timeout, or we have all we expect.
      * Note that wait is reduced by get_packet()
@@ -457,8 +265,8 @@ static void harvest(struct socket_t *raw_sockets, uint16_t ident, int wait,
 
 
 
-/* XXX do we care about minimum inter packet delay? 
- * XXX if we don't use it, could we be more likely to count local queuing delay?
+/*
+ * Construct and send an icmp echo request packet.
  */
 static void send_packet(struct socket_t *raw_sockets, int seq, uint16_t ident,
 	struct addrinfo *dest, int count, struct info_t info[], 
@@ -513,13 +321,11 @@ static void send_packet(struct socket_t *raw_sockets, int seq, uint16_t ident,
     }
 
     /* send packet with appropriate inter packet delay */
-    do {
-	if ( (delay = delay_send_packet(sock, packet, opt->packet_size-h_len, 
-			dest)) > 0 ) {
-	    /* check for responses while we wait out the interpacket delay */
-	    harvest(raw_sockets, ident, delay, count, info);
-	}
-    } while ( delay > 0 );
+    while ( (delay = delay_send_packet(sock, packet, opt->packet_size-h_len,
+		    dest)) > 0 ) {
+	/* check for responses while we wait out the interpacket delay */
+	harvest(raw_sockets, ident, delay, count, info);
+    }
 
     /* record the time the packet was sent */
     gettimeofday(&(info[seq].time_sent), NULL);
@@ -562,12 +368,13 @@ static int open_sockets(struct socket_t *raw_sockets) {
 /*
  *
  */
-static void report(struct timeval start_time, int count, struct info_t info[], 
+static void report(struct timeval *start_time, int count, struct info_t info[], 
 	struct opt_t *opt) {
     int dest;
 
     printf("OPTS size:%d, random:%d\n", opt->packet_size, opt->random);
-    printf("START: %.6d.%.6d\n",(int)start_time.tv_sec,(int)start_time.tv_usec);
+    printf("START: %.6d.%.6d\n", (int)start_time->tv_sec,
+	    (int)start_time->tv_usec);
 
     for ( dest = 0; dest < count; dest ++ ) {
 	/* FIXME just print ipv4 for testing */
@@ -615,13 +422,11 @@ static void usage(char *prog) {
 /*
  * Reimplementation of the ICMP test from AMP
  *
- * TODO check that all the random macros used for values are actually needed
  * TODO get useful errors into the log strings
  * TODO get test name into log strings
  * TODO logging will need more work - the log level won't be set.
  * TODO const up the dest arguments so cant be changed?
  */
-//int main(int argc, char *argv[]) {
 int run_icmp(int argc, char *argv[], int count, struct addrinfo **dests) {
     int opt;
     struct opt_t options;
@@ -716,7 +521,7 @@ int run_icmp(int argc, char *argv[], int count, struct addrinfo **dests) {
     }
 
     /* send report */
-    report(start_time, count, info, &options);
+    report(&start_time, count, info, &options);
 
     free(info);
 

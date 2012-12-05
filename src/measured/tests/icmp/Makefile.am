@@ -11,4 +11,4 @@ icmp_la_CFLAGS=-rdynamic
 icmp_la_LDFLAGS=-module -avoid-version -L../../.libs/ -lmeasured
 
 AM_CFLAGS=-g -Wall -W -rdynamic
-INCLUDES=-I../../
+INCLUDES=-I../../ -I../
