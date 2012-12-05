@@ -12,3 +12,7 @@ endif
 if WANT_ICMP_TEST
 SUBDIRS+=icmp
 endif
+
+if WANT_DNS_TEST
+SUBDIRS+=dns
+endif
