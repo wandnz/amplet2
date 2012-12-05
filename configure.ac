@@ -73,6 +73,21 @@ AC_ARG_ENABLE(icmp,
 AM_CONDITIONAL(WANT_ICMP_TEST, 
 	[test x"$want_icmp_test" = xtrue])
 
+AC_ARG_ENABLE(dns,
+    AC_HELP_STRING([--enable-dns], 
+	[Enable the dns test (default: yes)]),
+    [case "${enableval}" in
+    true) ;&
+    yes) want_dns_test=true ;;
+    false) ;&
+    no)	 want_dns_test=false ;;
+    *) AC_MSG_ERROR(bad value ${enableval} for --enable-dns) ;;
+    esac],
+    [want_dns_test=true])
+# using AM_CONDITIONAL propagates this value through to all Makefile.am files
+AM_CONDITIONAL(WANT_DNS_TEST, 
+	[test x"$want_dns_test" = xtrue])
+
 
 AC_CONFIG_FILES([Makefile
                  src/Makefile
@@ -80,7 +95,8 @@ AC_CONFIG_FILES([Makefile
                  src/measured/tests/Makefile
                  src/measured/tests/skeleton/Makefile
                  src/measured/tests/skeleton_callback/Makefile
-                 src/measured/tests/icmp/Makefile])
+                 src/measured/tests/icmp/Makefile
+                 src/measured/tests/dns/Makefile])
 AC_OUTPUT
 
 reportopt() {
@@ -94,3 +110,4 @@ reportopt() {
 reportopt "Compiled with skeleton test support" $want_skeleton_test
 reportopt "Compiled with skeleton callback test support" $want_skeleton_callback_test
 reportopt "Compiled with icmp test support" $want_icmp_test
+reportopt "Compiled with dns test support" $want_dns_test
