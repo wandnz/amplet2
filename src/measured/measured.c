@@ -131,6 +131,9 @@ int main(int argc, char *argv[]) {
     
     Log(LOG_INFO, "measured starting");
 
+    /* reset optind so the tests can call getopt normally on it's arguments */
+    optind = 1;
+
     /* load all the test modules */
     if ( register_tests(AMP_TEST_DIRECTORY) == -1) {
 	Log(LOG_ALERT, "Failed to register tests, aborting.");
