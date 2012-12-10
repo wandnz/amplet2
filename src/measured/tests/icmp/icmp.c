@@ -244,7 +244,7 @@ static void process_ipv6_packet(char *packet, uint16_t ident,
 static void harvest(struct socket_t *raw_sockets, uint16_t ident, int wait, 
 	int count, struct info_t info[]) {
 
-    char packet[1024]; //XXX can we be sure of a max size for recv packets?
+    char packet[2048]; //XXX can we be sure of a max size for recv packets?
     struct timeval now;
     struct sockaddr_in6 addr;
 
@@ -255,10 +255,15 @@ static void harvest(struct socket_t *raw_sockets, uint16_t ident, int wait,
 		&wait) ) {
 	gettimeofday(&now, NULL);
 
+	/* 
+	 * this check isn't as nice as it could be - should we explicitly ask
+	 * for the icmp6 header to be returned so we can be sure we are checking
+	 * the right things?
+	 */
 	switch ( ((struct iphdr*)packet)->version ) {
 	    case 4: process_ipv4_packet(packet, ident, now, count, info); break;
-	    case 6: process_ipv6_packet(packet, ident, now, count, info); break;
-	    default: break; 
+	    default: /* unless we ask we don't have an ipv6 header here */
+		    process_ipv6_packet(packet, ident, now, count, info); break;
 	};
     }
 }
@@ -458,6 +463,8 @@ int run_icmp(int argc, char *argv[], int count, struct addrinfo **dests) {
 	options.packet_size = MIN_ICMP_ECHO_REQUEST_LEN + IP_HEADER_LEN +
 	    (int)((1500 - IP_HEADER_LEN - MIN_ICMP_ECHO_REQUEST_LEN) 
 		    * (random()/(RAND_MAX+1.0)));
+	Log(LOG_DEBUG, "Setting packetsize to random value: %d\n", 
+		options.packet_size);
     }
 
     /* make sure that the packet size is big enough for our data */
