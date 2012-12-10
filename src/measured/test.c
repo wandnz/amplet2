@@ -37,6 +37,13 @@ static void run_test(const test_schedule_item_t * const item) {
     assert(amp_tests[item->test_id]);
     assert((item->dest_count + item->resolve_count) > 0);
 
+    /* 
+     * seed the random number generator, has to be after the fork() or each
+     * new process inherits exactly the same one and always returns the first
+     * element in the sequence 
+     */
+    srandom(time(NULL));
+    
     test = amp_tests[item->test_id];
     argv[argc++] = test->name;
 

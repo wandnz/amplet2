@@ -4,6 +4,7 @@
 #include <dlfcn.h>
 #include <getopt.h>
 #include <string.h>
+#include <time.h>
 
 #include "test.h"
 
@@ -145,6 +146,9 @@ int main(int argc, char *argv[]) {
 
     /* reset optind so the test can call getopt normally on it's arguments */
     optind = 1;
+
+    /* make sure the RNG is seeded so the tests don't have to worry */
+    srandom(time(NULL));
 
     /* pass arguments and destinations through to the main test run function */
     test_info->run_callback(argc, argv, count, dests);
