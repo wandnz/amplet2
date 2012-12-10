@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <libwandevent.h>
 #include "test.h"
+#include "nametable.h"
 
 
 /* number of seconds between checking the schedule file for changes */
@@ -52,6 +53,19 @@ typedef struct schedule_file_data {
 
 
 /*
+ * XXX may need to rethink this, can it be reconciled with the name table 
+ * entry? or are they too different?
+ */
+struct resolve_dest {
+    char *name;			/* name to be resolved */
+    struct addrinfo *addr;	/* temp store for the result of getaddrinfo */
+    uint8_t count;		/* maximum count of resolved addresses to use */
+    struct resolve_dest *next;
+};
+typedef struct resolve_dest resolve_dest_t;
+
+
+/*
  * Data block for scheduled test events.
  */
 typedef struct test_schedule_item {
@@ -61,7 +75,9 @@ typedef struct test_schedule_item {
     char repeat;		    /* repeat cycle: H(our), D(ay), W(eek) */
     test_type_t test_id;	    /* id of test to run */
     uint32_t dest_count;	    /* number of current destinations */
+    uint32_t resolve_count;	    /* max possible count of dests to resolve */
     struct addrinfo **dests;	    /* all current destinations */
+    resolve_dest_t *resolve;	    /* list of destination names to resolve */
     char **params;		    /* test parameters in execv format */
     /* TODO chaining? */
 

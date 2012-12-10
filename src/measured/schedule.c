@@ -558,7 +558,7 @@ static int merge_scheduled_tests(struct wand_event_handler_t *ev_hdl,
 	    
 	    /* check if there is room for more destinations */
 	    if ( amp_tests[item->test_id]->max_targets == 0 ||
-		    sched_test->dest_count < 
+		    (sched_test->dest_count + sched_test->resolve_count) < 
 		    amp_tests[item->test_id]->max_targets ) {
 
 		fprintf(stderr, "merging tests\n");
@@ -567,9 +567,20 @@ static int merge_scheduled_tests(struct wand_event_handler_t *ev_hdl,
 	 	 * resize the dests pointers to make room for the new dest
 		 * TODO be smarter about resizing
 		 */
-		sched_test->dests = realloc(sched_test->dests, 
-			(sched_test->dest_count+1) * sizeof(struct addrinfo *));
-		sched_test->dests[sched_test->dest_count++] = item->dests[0];
+		if ( item->dest_count > 0 ) {
+		    /* add a new pre-resolved address */
+		    sched_test->dests = realloc(sched_test->dests, 
+			    (sched_test->dest_count+1) * 
+			    sizeof(struct addrinfo *));
+		    sched_test->dests[sched_test->dest_count++] = 
+			item->dests[0];
+		} else {
+		    /* add a new address we will need to resolve later */
+		    item->resolve->next = sched_test->resolve;
+		    sched_test->resolve = item->resolve;
+		    sched_test->resolve_count++;
+		}
+
 		return 1;
 	    }
 	}
@@ -650,14 +661,6 @@ void read_schedule_file(wand_event_handler_t *ev_hdl) {
 	    Log(LOG_WARNING, "Unknown test '%s' on line %d", testname, lineno);
 	    continue;
 	}
-	
-	/* check target is valid */
-	if ( name_to_address(target) == NULL ) {
-	    Log(LOG_WARNING, 
-		    "Unknown destination '%s' for %s test on line %d\n", 
-		    target, testname, lineno);
-	    continue;
-	}
 
 	Log(LOG_DEBUG, "%s %s %s %ld %ld %ld %s", target, testname, repeat, 
 		start, end, frequency, (params)?params:"NULL");
@@ -670,9 +673,47 @@ void read_schedule_file(wand_event_handler_t *ev_hdl) {
 	test->start = start;
 	test->end = end;
 	test->test_id = test_id;
-	test->dests = (struct addrinfo **)malloc(sizeof(struct addrinfo*));
-	*test->dests = name_to_address(target);
-	test->dest_count = 1;
+	test->dests = NULL;
+	test->resolve = NULL;
+	test->resolve_count = 0;
+	test->dest_count = 0;
+
+	/* check if the destination is in the nametable */
+	if ( name_to_address(target) != NULL ) {
+	    test->dests = (struct addrinfo **)malloc(sizeof(struct addrinfo*));
+	    *test->dests = name_to_address(target);
+	    test->dest_count = 1;
+	} else {
+	    /* if it isn't then it will be resolved at test time */
+	    char *count_str;
+
+	    Log(LOG_DEBUG, "Unknown destination '%s' for %s test on line %d,"
+		    " it will be resolved\n", target, testname, lineno);
+
+	    test->resolve = (resolve_dest_t*)malloc(sizeof(resolve_dest_t));
+	    test->resolve->name = strdup(strtok(target, ":"));
+	    test->resolve->addr = NULL;
+	    test->resolve->next = NULL;
+	    test->resolve_count = 1;
+	    /* 
+	     * the schedule can determine how many addresses are resolved.
+	     * www.foo.com	-- resolve a single address
+	     * www.foo.com:1	-- resolve a single address
+	     * www.foo.com:n	-- resolve up to n addresses
+	     * www.foo.com:*	-- resolve all addresses
+	     * www.foo.com:0	-- resolve all addresses
+	     */
+	    if ( (count_str=strtok(NULL, ":")) == NULL ) {
+		test->resolve->count = 1;
+	    } else {
+		if (strncmp(count_str, "*", 1) == 0 ) {
+		    test->resolve->count = 0;
+		} else {
+		    test->resolve->count = atoi(count_str);
+		}
+	    }
+	}
+	
 	if ( params == NULL || strlen(params) < 1 )
 	    test->params = NULL;
 	else

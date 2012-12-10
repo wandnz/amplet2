@@ -28,15 +28,17 @@ static void run_test(const test_schedule_item_t * const item) {
     uint32_t argc = 0;
     uint32_t offset;
     test_t *test;
+    resolve_dest_t *resolve;
+    struct addrinfo **destinations = NULL;
+    int total_resolve_count = 0;
     
     assert(item);
     assert(item->test_id < AMP_TEST_LAST);
     assert(amp_tests[item->test_id]);
-    assert(item->dest_count > 0);
-    
-    test = amp_tests[item->test_id];
+    assert((item->dest_count + item->resolve_count) > 0);
 
-    /* XXX add in test name as parameter zero? not needed? */
+    test = amp_tests[item->test_id];
+    argv[argc++] = test->name;
 
     /* add in any of the test parameters from the schedule file */
     if ( item->params != NULL ) {
@@ -45,27 +47,97 @@ static void run_test(const test_schedule_item_t * const item) {
 	}
     }
 
-    /* null terminate the list before we give it to execv() */
+    /* null terminate the list before we give it to the main test function */
     argv[argc] = NULL;
 
-    /* TODO resolve any names for destinations that need it? */
-
-
-    Log(LOG_DEBUG, "Running test: %s to %d destinations:\n", test->name, 
-	    item->dest_count);
-
-    for ( offset=0; offset < item->dest_count; offset++ ) {
-	Log(LOG_DEBUG, "dest%d: %s\n", offset, 
-		address_to_name(item->dests[offset]));
-    }
+    Log(LOG_DEBUG, "Running test: %s to %d/%d destinations:\n", test->name, 
+	    item->dest_count, item->resolve_count);
     
-    for ( offset = 0; offset<argc; offset++ ) {
-	Log(LOG_DEBUG, "arg%d: %s\n", offset, argv[offset]);
-    }
-    
-    test->run_callback(argc, argv, item->dest_count, item->dests);
+    /* create the destination list for the test if there are fixed targets */
+    if ( item->dest_count > 0 ) {
+	destinations = malloc(sizeof(struct addrinfo*) * item->dest_count);
 
-    /* TODO free any destinations that we looked up just for this test */
+	/* copy all currently resolved destination pointers as a block */
+	memcpy(destinations, item->dests, 
+		sizeof(struct addrinfo*) * item->dest_count);
+    }
+	    
+    /* resolve any names that need to be done at rest run time */
+    if ( item->resolve != NULL ) {
+	struct addrinfo hint;
+	struct addrinfo *tmp;
+	
+	Log(LOG_DEBUG, "test has destinations to resolve!\n");
+
+	memset(&hint, 0, sizeof(struct addrinfo));
+	hint.ai_flags = AI_ADDRCONFIG;	/* only fetch addresses we can use */
+	hint.ai_family = AF_UNSPEC;	/* get both ipv4 and ipv6 addresses */
+	hint.ai_socktype = SOCK_STREAM; /* limit it to a single socket type */
+	hint.ai_protocol = 0;
+	hint.ai_addrlen = 0;
+	hint.ai_addr = NULL;
+	hint.ai_canonname = NULL;
+	hint.ai_next = NULL;
+
+	/* loop over all destinations that need to be resolved and add them */
+	for ( resolve=item->resolve; resolve != NULL; resolve=resolve->next ) {
+	    int addr_resolve_count = 0;
+
+	    /* accept pretty much everything we get back */
+	    if ( getaddrinfo(resolve->name, NULL, &hint, &resolve->addr)!= 0 ) {
+		perror("getaddrinfo");
+		continue;
+	    }
+
+	    /* 
+	     * use the number listed in the schedule file as an upper bound on 
+	     * how many of the addresses we should actually test to.
+	     */
+	    for ( tmp = resolve->addr; tmp != NULL; tmp = tmp->ai_next ) {
+		if ( item->resolve->count > 0 && 
+			addr_resolve_count >= item->resolve->count ) {
+		    break;
+		}
+
+		destinations = realloc(destinations, 
+			(item->dest_count + total_resolve_count + 1) * 
+			sizeof(struct addrinfo));
+		destinations[item->dest_count + total_resolve_count] = tmp;
+		total_resolve_count++;
+		addr_resolve_count++;
+	    }
+	}
+    }
+
+    Log(LOG_DEBUG, "Final destination count = %d\n", 
+	    item->dest_count + total_resolve_count);
+
+    /* only perform the test if there are actually destinations to test to */
+    if ( item->dest_count + total_resolve_count > 0 ) {
+	//Log(LOG_DEBUG, "dest%d: %s\n", offset, 
+	//	    address_to_name(item->dests[offset]));
+
+	for ( offset = 0; offset<argc; offset++ ) {
+	    Log(LOG_DEBUG, "arg%d: %s\n", offset, argv[offset]);
+	}
+
+	/* actually run the test */
+	test->run_callback(argc, argv, item->dest_count + total_resolve_count, 
+		destinations);
+
+	/* free any destinations that we looked up just for this test */
+	for ( resolve=item->resolve; resolve != NULL; resolve=resolve->next ) {
+	    if ( resolve->addr != NULL ) {
+		freeaddrinfo(resolve->addr);
+		resolve->addr = NULL;
+	    }
+	}
+    
+	/* just free the temporary list of pointers, leave the actual data */
+	if ( destinations != NULL ) {
+	    free(destinations);
+	}
+    }
 
     /* done running the test, exit */
     exit(0);
