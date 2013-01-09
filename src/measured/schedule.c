@@ -620,7 +620,7 @@ void read_schedule_file(wand_event_handler_t *ev_hdl) {
     Log(LOG_INFO, "Loading schedule from %s", SCHEDULE_FILE);
 
     if ( (in = fopen(SCHEDULE_FILE, "r")) == NULL ) {
-	perror("error opening schedule file");
+	Log(LOG_ALERT, "Failed to open schedule file: %s\n", strerror(errno));
 	exit(1);
     }
 

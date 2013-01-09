@@ -11,6 +11,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include <time.h>
+#include <errno.h>
 
 #if HAVE_SYS_INOTIFY_H
 #include <sys/inotify.h>
@@ -345,7 +346,7 @@ void read_nametable_file() {
     Log(LOG_INFO, "Loading nametable from %s", NAMETABLE_FILE);
 
     if ( (in = fopen(NAMETABLE_FILE, "r")) == NULL ) {
-	perror("error opening nametable file");
+	Log(LOG_ALERT, "Failed to open nametable file: %s\n", strerror(errno));
 	exit(1);
     }
 
