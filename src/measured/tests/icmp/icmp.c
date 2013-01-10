@@ -20,6 +20,11 @@
 #include "test.h"
 #include "debug.h"
 #include "testlib.h"
+/* 
+ * can we put some of these includes somewhere else? so the test authors don't
+ * need to include a whole heap to get their test running
+ */
+#include "messaging.h"
 
 
 /* by default use an 84 byte packet, because that's what it has always been */
@@ -398,9 +403,11 @@ static void report(struct timeval *start_time, int count, struct info_t info[],
 	    printf("-1 ");
 	}
 	printf("%d/%d\n", info[dest].err_type, info[dest].err_code);
+    
+	/* TODO send more useful information to server somehow */
+	report_to_broker(sizeof(uint32_t), (void*)&(info[dest].delay));
     }
 
-    /* TODO send to server somehow */
 
     /* TODO print to screen instead if being run standalone -- can the 
      * libmeasured function for reporting pick this up, or should the 

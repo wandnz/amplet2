@@ -15,5 +15,5 @@ measured_LDFLAGS=-lmeasured
 
 libmeasureddir=$(libdir)
 libmeasured_LTLIBRARIES=libmeasured.la
-libmeasured_la_SOURCES=debug.c tests/testlib.c
-libmeasured_la_LDFLAGS=-module -avoid-version
+libmeasured_la_SOURCES=debug.c tests/testlib.c messaging.c
+libmeasured_la_LDFLAGS=-module -avoid-version -lrabbitmq

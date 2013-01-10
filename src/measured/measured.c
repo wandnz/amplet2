@@ -30,6 +30,7 @@
 #include "nametable.h"
 #include "daemonise.h"
 #include "debug.h"
+#include "messaging.h"
 
 wand_event_handler_t *ev_hdl;
 
@@ -134,6 +135,9 @@ int main(int argc, char *argv[]) {
     /* reset optind so the tests can call getopt normally on it's arguments */
     optind = 1;
 
+    /* establish a connection to the broker that all tests will use */
+    connect_to_broker();
+
     /* load all the test modules */
     if ( register_tests(AMP_TEST_DIRECTORY) == -1) {
 	Log(LOG_ALERT, "Failed to register tests, aborting.");
@@ -188,6 +192,9 @@ int main(int argc, char *argv[]) {
 
     /* clear out all the test modules that were registered */
     unregister_tests();
+
+    /* cleanly tear down the connection to the broker */
+    close_broker_connection(); 
 
     Log(LOG_INFO, "Shutting down");
 
