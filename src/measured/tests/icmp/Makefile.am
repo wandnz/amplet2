@@ -1,4 +1,4 @@
-testdir=$(prefix)/tests/
+testdir=$(prefix)/tests
 
 bin_PROGRAMS=icmp
 icmp_SOURCES=icmp.c ../testmain.c

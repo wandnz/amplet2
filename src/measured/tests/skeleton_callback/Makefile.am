@@ -1,4 +1,4 @@
-testdir=$(prefix)/tests/
+testdir=$(prefix)/tests
 
 bin_PROGRAMS=skeleton_callback
 skeleton_callback_SOURCES=skeleton_callback.c ../testmain.c

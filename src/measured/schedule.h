@@ -15,9 +15,9 @@
 #define SCHEDULE_DELIMITER ","
 
 /* TODO move config file defines elsewhere, point at sensible places */
-#define AMP_CONFIG_DIR "/tmp/brendonj"
+//#define AMP_CONFIG_DIR "/tmp/brendonj"
 #define SCHEDULE_FILE AMP_CONFIG_DIR "/schedule"
-#define AMP_TEST_DIRECTORY AMP_CONFIG_DIR "/tests/"
+//#define AMP_TEST_DIRECTORY AMP_CONFIG_DIR "/tests/"
 #define MAX_TEST_ARGS 128
 
 /* convenience time conversions */

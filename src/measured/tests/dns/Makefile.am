@@ -1,4 +1,4 @@
-testdir=$(prefix)/tests/
+testdir=$(prefix)/tests
 
 bin_PROGRAMS=dns
 dns_SOURCES=dns.c ../testmain.c

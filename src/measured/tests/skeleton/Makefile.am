@@ -1,4 +1,4 @@
-testdir=$(prefix)/tests/
+testdir=$(prefix)/tests
 
 bin_PROGRAMS=skeleton
 skeleton_SOURCES=skeleton.c ../testmain.c
