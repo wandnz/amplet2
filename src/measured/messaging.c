@@ -12,10 +12,6 @@
 
 
 /*
- * TODO more and better error checking/reporting
- */
-
-/*
  * Create a connection to the local broker that measured can use to report
  * data for all tests. Each test will use a different channel within this
  * connection (sharing channels leads to broken behaviour). This will persist 
@@ -23,30 +19,28 @@
  * TODO can we detect this going away and reconnect if it does so?
  */
 int connect_to_broker() {
-    //amqp_connection_state_t conn;
     int sock;
 
     /* this connection will be held open forever while measured runs */
-    fprintf(stderr, "new connection to broker\n");
+    Log(LOG_DEBUG, "Opening new connection to broker on %s:%d\n",
+	    AMQP_SERVER, AMQP_PORT);
+
     conn = amqp_new_connection();
-    fprintf(stderr, "about to open socket\n");
     if ( (sock = amqp_open_socket(AMQP_SERVER, AMQP_PORT)) < 0 ) {
-	Log(LOG_ERR, "Failed to open socket to broker");
+	Log(LOG_ERR, "Failed to open socket to broker %s:%d",
+		AMQP_SERVER, AMQP_PORT);
 	return -1;
     }
-    fprintf(stderr, "about to set socket\n");
+    
     amqp_set_sockfd(conn, sock);
 
     /* login to the broker */
     /* TODO use a better auth mechanism than plain SASL with guest/guest */
-    fprintf(stderr, "about to log in\n");
     if ( (amqp_login(conn, "/", 0, AMQP_FRAME_MAX, 0, AMQP_SASL_METHOD_PLAIN, 
 	    "guest", "guest")).reply_type != AMQP_RESPONSE_NORMAL ) {
 	Log(LOG_ERR, "Failed to login to broker");
 	return -1;
     }
-
-    fprintf(stderr, "conn=%p\n", conn);
 
     return 0;
 }
@@ -54,19 +48,23 @@ int connect_to_broker() {
 
 
 /*
- * TODO determine where to put things into a known format (and which format)
  * Report results for a single test to the local broker. 
+ *
+ * example amqp_table_t stuff:
+ * https://groups.google.com/forum/?fromgroups=#!topic/rabbitmq-discuss/M_8I12gWxbQ
+ * root@machine4:~/rabbitmq/rabbitmq-c/tests/test_tables.c
  */
-int report_to_broker(/*amqp_connection_state_t conn*/size_t len, void *bytes) {
+int report_to_broker(uint64_t timestamp, size_t len, void *bytes) {
     amqp_basic_properties_t props;
     amqp_bytes_t data;
+    amqp_table_t headers;
+    amqp_table_entry_t table_entries[2];
 
     /* 
      * open a new channel for every reporting process, there may be multiple
      * of these going on at once so they need individual channels
      */
-    fprintf(stderr, "opening channel\n");
-    fprintf(stderr, "con=%p, channel=%d\n", conn, getpid());
+    Log(LOG_DEBUG, "Opening new channel %d to broker\n", getpid());
     amqp_channel_open(conn, getpid());
 
     if ( (amqp_get_rpc_reply(conn).reply_type) != AMQP_RESPONSE_NORMAL ) {
@@ -74,37 +72,64 @@ int report_to_broker(/*amqp_connection_state_t conn*/size_t len, void *bytes) {
 	return -1;
     }
 
-    /* mark the flags that should be checked? */
-    props._flags = AMQP_BASIC_CONTENT_TYPE_FLAG | AMQP_BASIC_DELIVERY_MODE_FLAG;
-    props.content_type = amqp_cstring_bytes("text/plain");
+    /*
+     * Add all the headers to describe the data we are sending:
+     *	- source monitor
+     *	- test type
+     *	- timestamp? already a property, but i need to set
+     */
+
+    /* The name of the reporting monitor (our local ampname) */
+    table_entries[0].key = amqp_cstring_bytes("x-amp-source-monitor");
+    table_entries[0].value.kind = AMQP_FIELD_KIND_UTF8;
+    table_entries[0].value.value.bytes = amqp_cstring_bytes("amp-machine8");
+    
+    /* The name of the test data is being reported for */
+    table_entries[1].key = amqp_cstring_bytes("x-amp-test-type");
+    table_entries[1].value.kind = AMQP_FIELD_KIND_UTF8;
+    table_entries[1].value.value.bytes = amqp_cstring_bytes("icmp");
+
+    /* Add all the individual headers to the header table */
+    headers.num_entries = 2;
+    headers.entries = (amqp_table_entry_t *) calloc(headers.num_entries, 
+	    sizeof(amqp_table_entry_t));
+    headers.entries = table_entries;
+
+    /* Mark the flags that will be present */
+    props._flags = 
+	AMQP_BASIC_CONTENT_TYPE_FLAG | 
+	AMQP_BASIC_DELIVERY_MODE_FLAG |
+	AMQP_BASIC_HEADERS_FLAG |
+	AMQP_BASIC_TIMESTAMP_FLAG;
+
+    props.content_type = amqp_cstring_bytes("application/octet-stream");
     props.delivery_mode = 2; /* persistent delivery mode */
+    props.headers = headers;
+    props.timestamp = timestamp;
 
     /* TODO how to format message? what protocol to use for it? */
-    //data = amqp_bytes_malloc(sizeof(uint32_t));
-    //memcpy(data.bytes, &foo, sizeof(uint32_t));
+    /* jump dump a binary blob similar to old style? */
     data.len = len;
     data.bytes = bytes;
 
-    /* publish the message */
     /* TODO use proper exchange, routing keys, etc */
-    fprintf(stderr, "publishing\n");
+    /* publish the message */
+    Log(LOG_DEBUG, "Publishing message\n");
     if ( amqp_basic_publish(conn,
 	    getpid(),				    /* channel, our pid */
-	    //amqp_cstring_bytes("amq.direct"),	    /* exchange name */
 	    amqp_cstring_bytes("amp_exchange"),	    /* exchange name */
 	    amqp_cstring_bytes("test"),		    /* routing key */
 	    0,					    /* mandatory */
 	    0,					    /* immediate */
 	    &props,				    /* properties */
-	    //amqp_cstring_bytes("foobar")) < 0 ) {   /* body */
-	    data) < 0 ) {   /* body */
+	    data) < 0 ) {			    /* body */
 
-	Log(LOG_ERR, "Failed to publish");
+	Log(LOG_ERR, "Failed to publish message");
 	return -1;
     }
 
     /* TODO do something if publishing fails? */
-    fprintf(stderr, "closing channel\n");
+    Log(LOG_DEBUG, "Closing channel %d\n", getpid());
 
     amqp_channel_close(conn, getpid(), AMQP_REPLY_SUCCESS);
 

@@ -405,7 +405,8 @@ static void report(struct timeval *start_time, int count, struct info_t info[],
 	printf("%d/%d\n", info[dest].err_type, info[dest].err_code);
     
 	/* TODO send more useful information to server somehow */
-	report_to_broker(sizeof(uint32_t), (void*)&(info[dest].delay));
+	report_to_broker((uint64_t)start_time->tv_sec, sizeof(uint32_t), 
+		(void*)&(info[dest].delay));
     }
 
 
