@@ -7,8 +7,7 @@
 #include <stdio.h>
 #include <malloc.h>
 #include <string.h>
-#include "schedule.h"
-#include "test.h"
+#include "tests.h"
 
 test_t *register_test(void);
 int run_skeleton_callback(int argc, char *argv[], int count, 

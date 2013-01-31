@@ -6,7 +6,7 @@
 #include <string.h>
 #include <time.h>
 
-#include "test.h"
+#include "tests.h"
 
 
 /* FIXME? this is pretty much a copy and paste of code in test.c */

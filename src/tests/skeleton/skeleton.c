@@ -6,7 +6,7 @@
 #include <string.h>
 #include <arpa/inet.h>
 
-#include "test.h"
+#include "tests.h"
 
 int run_skeleton(int argc, char *argv[], int count, struct addrinfo **dests);
 test_t *register_test(void);

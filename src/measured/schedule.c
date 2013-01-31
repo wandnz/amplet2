@@ -23,6 +23,7 @@
 #include "test.h"
 #include "nametable.h"
 #include "debug.h"
+#include "modules.h"
 
 
 

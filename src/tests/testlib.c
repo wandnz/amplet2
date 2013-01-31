@@ -1,16 +1,15 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
-//#include <netinet/in.h>
-//#include <netinet/ip6.h>
 #include <sys/socket.h>
-//#include <sys/types.h>
 #include <netdb.h>
 #include <sys/time.h>
 #include <errno.h>
 #include <assert.h>
-//#include <arpa/inet.h>
 #include <string.h>
+
+#include <amqp.h>
+#include <amqp_framing.h>
 
 #include "testlib.h"
 #include "debug.h"
@@ -191,6 +190,98 @@ int delay_send_packet(int sock, char *packet, int size, struct addrinfo *dest) {
     if ( bytes_sent != size ) {
 	Log(LOG_ERR, "Only sent %d of %d bytes", bytes_sent, size);
     }
+
+    return 0;
+}
+
+
+
+/*
+ * Report results for a single test to the local broker. 
+ *
+ * example amqp_table_t stuff:
+ * https://groups.google.com/forum/?fromgroups=#!topic/rabbitmq-discuss/M_8I12gWxbQ
+ * root@machine4:~/rabbitmq/rabbitmq-c/tests/test_tables.c
+ */
+int report_to_broker(uint64_t timestamp, size_t len, void *bytes) {
+    amqp_basic_properties_t props;
+    amqp_bytes_t data;
+    amqp_table_t headers;
+    amqp_table_entry_t table_entries[2];
+    extern amqp_connection_state_t conn;
+
+    /* 
+     * open a new channel for every reporting process, there may be multiple
+     * of these going on at once so they need individual channels
+     */
+    Log(LOG_DEBUG, "Opening new channel %d to broker\n", getpid());
+    amqp_channel_open(conn, getpid());
+
+    if ( (amqp_get_rpc_reply(conn).reply_type) != AMQP_RESPONSE_NORMAL ) {
+	Log(LOG_ERR, "Failed to open channel");
+	return -1;
+    }
+
+    /*
+     * Add all the headers to describe the data we are sending:
+     *	- source monitor
+     *	- test type
+     *	- timestamp? already a property, but i need to set
+     */
+
+    /* The name of the reporting monitor (our local ampname) */
+    table_entries[0].key = amqp_cstring_bytes("x-amp-source-monitor");
+    table_entries[0].value.kind = AMQP_FIELD_KIND_UTF8;
+    table_entries[0].value.value.bytes = amqp_cstring_bytes("amp-machine8");
+    
+    /* The name of the test data is being reported for */
+    table_entries[1].key = amqp_cstring_bytes("x-amp-test-type");
+    table_entries[1].value.kind = AMQP_FIELD_KIND_UTF8;
+    table_entries[1].value.value.bytes = amqp_cstring_bytes("icmp");
+
+    /* Add all the individual headers to the header table */
+    headers.num_entries = 2;
+    headers.entries = (amqp_table_entry_t *) calloc(headers.num_entries, 
+	    sizeof(amqp_table_entry_t));
+    headers.entries = table_entries;
+
+    /* Mark the flags that will be present */
+    props._flags = 
+	AMQP_BASIC_CONTENT_TYPE_FLAG | 
+	AMQP_BASIC_DELIVERY_MODE_FLAG |
+	AMQP_BASIC_HEADERS_FLAG |
+	AMQP_BASIC_TIMESTAMP_FLAG;
+
+    props.content_type = amqp_cstring_bytes("application/octet-stream");
+    props.delivery_mode = 2; /* persistent delivery mode */
+    props.headers = headers;
+    props.timestamp = timestamp;
+
+    /* TODO how to format message? what protocol to use for it? */
+    /* jump dump a binary blob similar to old style? */
+    data.len = len;
+    data.bytes = bytes;
+
+    /* TODO use proper exchange, routing keys, etc */
+    /* publish the message */
+    Log(LOG_DEBUG, "Publishing message\n");
+    if ( amqp_basic_publish(conn,
+	    getpid(),				    /* channel, our pid */
+	    amqp_cstring_bytes("amp_exchange"),	    /* exchange name */
+	    amqp_cstring_bytes("test"),		    /* routing key */
+	    0,					    /* mandatory */
+	    0,					    /* immediate */
+	    &props,				    /* properties */
+	    data) < 0 ) {			    /* body */
+
+	Log(LOG_ERR, "Failed to publish message");
+	return -1;
+    }
+
+    /* TODO do something if publishing fails? */
+    Log(LOG_DEBUG, "Closing channel %d\n", getpid());
+
+    amqp_channel_close(conn, getpid(), AMQP_REPLY_SUCCESS);
 
     return 0;
 }

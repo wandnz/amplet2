@@ -1,1 +1,1 @@
-SUBDIRS=measured
+SUBDIRS=common tests measured xferd

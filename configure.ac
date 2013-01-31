@@ -95,11 +95,13 @@ AM_CONDITIONAL(WANT_DNS_TEST,
 AC_CONFIG_FILES([Makefile
                  src/Makefile
                  src/measured/Makefile
-                 src/measured/tests/Makefile
-                 src/measured/tests/skeleton/Makefile
-                 src/measured/tests/skeleton_callback/Makefile
-                 src/measured/tests/icmp/Makefile
-                 src/measured/tests/dns/Makefile])
+                 src/common/Makefile
+                 src/tests/Makefile
+                 src/tests/skeleton/Makefile
+                 src/tests/skeleton_callback/Makefile
+                 src/tests/icmp/Makefile
+                 src/tests/dns/Makefile
+                 src/xferd/Makefile])
 AC_OUTPUT
 
 reportopt() {

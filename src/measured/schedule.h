@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <libwandevent.h>
+#include "tests.h" //TODO fix these names, test vs tests
 #include "test.h"
 #include "nametable.h"
 

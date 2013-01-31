@@ -16,7 +16,7 @@
 #include <arpa/inet.h>
 
 //TODO rename files and headers better?
-#include "test.h"
+#include "tests.h"
 #include "debug.h"
 #include "testlib.h"
 

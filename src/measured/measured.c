@@ -31,6 +31,7 @@
 #include "daemonise.h"
 #include "debug.h"
 #include "messaging.h"
+#include "modules.h"
 
 wand_event_handler_t *ev_hdl;
 

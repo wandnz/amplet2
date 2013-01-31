@@ -20,7 +20,6 @@ amqp_connection_state_t conn;
 
 
 int connect_to_broker(void);
-int report_to_broker(uint64_t timestamp, size_t len, void *bytes);
 void close_broker_connection(void);
 
 #endif

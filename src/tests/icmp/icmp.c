@@ -17,7 +17,7 @@
 #include <string.h>
 
 //TODO rename files and headers better?
-#include "test.h"
+#include "tests.h"
 #include "debug.h"
 #include "testlib.h"
 /* 
@@ -25,48 +25,7 @@
  * need to include a whole heap to get their test running
  */
 #include "messaging.h"
-
-
-/* by default use an 84 byte packet, because that's what it has always been */
-#define DEFAULT_ICMP_ECHO_REQUEST_LEN 84
-
-/* targets can mix ipv4 and ipv6, so use ipv6 len to calc minimum packet size */
-#define IP_HEADER_LEN (sizeof(struct ip6_hdr))
-
-/* minimum size of the icmp portion is the header plus "magic" data */
-#define MIN_ICMP_ECHO_REQUEST_LEN (sizeof(struct icmphdr) + sizeof(uint16_t))
-
-/* timeout in usec to wait before declaring the response lost, currently 20s */
-#define LOSS_TIMEOUT 20000000
-
-
-int run_icmp(int argc, char *argv[], int count, struct addrinfo **dests);
-test_t *register_test(void);
-
-/*
- * User defined test options that control packet size and timing.
- */
-struct opt_t {
-    int random;			/* use random packet sizes (bytes) */
-    int perturbate;		/* delay sending by up to this time (usec) */
-    uint16_t packet_size;	/* use this packet size (bytes) */
-};
-
-
-
-/*
- * Information block recording data for each icmp echo request test packet 
- * that is sent, and when the response is received.
- */
-struct info_t {
-    struct addrinfo *addr;	/* address probe was sent to */
-    struct timeval time_sent;	/* when the probe was sent */
-    uint32_t delay;		/* delay in receiving response, microseconds */
-    uint16_t magic;		/* a random number to confirm response */
-    uint8_t reply;		/* set to 1 once we have a reply */
-    uint8_t err_type;		/* type of ICMP error reply or 0 if no error */
-    uint8_t err_code;		/* code of ICMP error reply, else undefined */
-};
+#include "icmp.h"
 
 
 
@@ -262,13 +221,15 @@ static void harvest(struct socket_t *raw_sockets, uint16_t ident, int wait,
 
 	/* 
 	 * this check isn't as nice as it could be - should we explicitly ask
-	 * for the icmp6 header to be returned so we can be sure we are checking
-	 * the right things?
+	 * for the icmp6 header to be returned so we can be sure we are 
+	 * checking the right things?
 	 */
 	switch ( ((struct iphdr*)packet)->version ) {
-	    case 4: process_ipv4_packet(packet, ident, now, count, info); break;
+	    case 4: process_ipv4_packet(packet, ident, now, count, info); 
+		    break;
 	    default: /* unless we ask we don't have an ipv6 header here */
-		    process_ipv6_packet(packet, ident, now, count, info); break;
+		    process_ipv6_packet(packet, ident, now, count, info); 
+		    break;
 	};
     }
 }
@@ -478,7 +439,8 @@ int run_icmp(int argc, char *argv[], int count, struct addrinfo **dests) {
     /* make sure that the packet size is big enough for our data */
     if ( options.packet_size < MIN_ICMP_ECHO_REQUEST_LEN + IP_HEADER_LEN ) {
 	Log(LOG_WARNING, "Packet size %d below minimum size, raising to %d",
-		options.packet_size, MIN_ICMP_ECHO_REQUEST_LEN + IP_HEADER_LEN);
+		options.packet_size, 
+		MIN_ICMP_ECHO_REQUEST_LEN + IP_HEADER_LEN);
 	options.packet_size = MIN_ICMP_ECHO_REQUEST_LEN + IP_HEADER_LEN;	
     }
 
@@ -520,7 +482,9 @@ int run_icmp(int argc, char *argv[], int count, struct addrinfo **dests) {
     harvest(&raw_sockets, ident, LOSS_TIMEOUT / 100, count, info);
 
     /* check if all expected responses have been received */
-    for ( dest = 0; dest < count && info[dest].reply; dest++ ) { /* nothing */ }
+    for ( dest = 0; dest < count && info[dest].reply; dest++ ) {
+	/* nothing */
+    }
 
     /* if not, then call harvest again with the full timeout */
     if ( dest < count ) {
@@ -546,6 +510,18 @@ int run_icmp(int argc, char *argv[], int count, struct addrinfo **dests) {
 
 
 /*
+ * Save the results of the icmp test
+ */
+int save_icmp(char *monitor, uint64_t timestamp, void *data, uint32_t len) {
+    fprintf(stderr, "SAVING DATA FOR %s at %lu, %u bytes\n", 
+	    monitor, timestamp, len);
+    fprintf(stderr, "DATA VALUE As uint32_t = %u\n", *(uint32_t*)data);
+    return 0;
+}
+
+
+
+/*
  * Register a test to be part of AMP.
  */
 test_t *register_test() {
@@ -565,6 +541,9 @@ test_t *register_test() {
 
     /* function to call to setup arguments and run the test */
     new_test->run_callback = run_icmp;
+    
+    /* function to call to save the results of the test */
+    new_test->save_callback = save_icmp;
 
     return new_test;
 }
