@@ -495,17 +495,23 @@ static int compare_test_items(test_schedule_item_t *a, test_schedule_item_t *b){
 
     if ( b->end != b->end )
 	return 0;
-
+    
     if ( a->params != NULL && b->params != NULL ) {
+	/* if both params are not null, make sure they are identical */
 	for ( i=0; a->params[i] != NULL && b->params != NULL; i++ ) {
 	    if ( strcmp(a->params[i], b->params[i]) != 0 )
 		return 0;
 	}
-    }
     
-    /* if either isn't null by now then the params lists are different */
-    if ( a->params[i] != NULL || b->params[i] != NULL )
+	/* if either isn't null by now then the params lists are different */
+	if ( a->params[i] != NULL || b->params[i] != NULL ) {
+	    return 0;
+	}
+
+    } else if ( a->params != NULL || b->params != NULL ) {
+	/* if one of them is null they should both be null */
 	return 0;
+    }
 
     return 1;
 }
@@ -696,6 +702,10 @@ void read_schedule_file(wand_event_handler_t *ev_hdl) {
 	    test->resolve->addr = NULL;
 	    test->resolve->next = NULL;
 	    test->resolve_count = 1;
+	    /* 
+	     * TODO use a different character than colon? or find a new/better
+	     * way to represent ipv6 targets than ":v6"?
+	     */
 	    /* 
 	     * the schedule can determine how many addresses are resolved.
 	     * www.foo.com	-- resolve a single address
