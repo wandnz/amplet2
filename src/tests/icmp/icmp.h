@@ -16,6 +16,7 @@
 
 int run_icmp(int argc, char *argv[], int count, struct addrinfo **dests);
 int save_icmp(char *monitor, uint64_t timestamp, void *data, uint32_t len);
+void print_icmp(void *data, uint32_t len);
 test_t *register_test(void);
 
 /*
@@ -41,6 +42,21 @@ struct info_t {
     uint8_t reply;		/* set to 1 once we have a reply */
     uint8_t err_type;		/* type of ICMP error reply or 0 if no error */
     uint8_t err_code;		/* code of ICMP error reply, else undefined */
+};
+
+
+struct icmp_report_item_t {
+    char ampname[1024];
+    /* TODO need address as well as ampname, how to store? */
+    int32_t rtt;
+    uint8_t err_type;
+    uint8_t err_code;
+};
+
+struct icmp_report_header_t {
+    uint16_t packet_size;
+    uint8_t random;
+    uint8_t count;
 };
 
 #endif

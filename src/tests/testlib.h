@@ -1,6 +1,9 @@
 #ifndef _MEASURED_TESTLIB_H
 #define _MEASURED_TESTLIB_H
 
+#include "tests.h"
+#include "debug.h"
+
 /* minimum time in usec allowed between sending test packets */
 #define MIN_INTER_PACKET_DELAY 100
 
@@ -21,6 +24,8 @@ struct socket_t {
 int get_packet(struct socket_t *sockets, char *buf, int len,
 	struct sockaddr *saddr, int *timeout);
 int delay_send_packet(int sock, char *packet, int size, struct addrinfo *dest);
-int report_to_broker(uint64_t timestamp, size_t len, void *bytes);
+int report(test_type_t type, uint64_t timestamp, void *bytes, size_t len);
+int report_to_broker(test_type_t type, uint64_t timestamp, void *bytes, 
+	size_t len);
 
 #endif

@@ -13,6 +13,8 @@
 
 #include "testlib.h"
 #include "debug.h"
+#include "tests.h"
+#include "modules.h"
 
 
 
@@ -73,7 +75,7 @@ static int wait_for_data(struct socket_t *sockets, int *maxwait) {
 	gettimeofday(&end_time, NULL);
 	delay = DIFF_TV_US(end_time, start_time);
 
-	/* if delay is less than zero then maybe the clock was adjusted on us */
+	/* if delay is less than zero then maybe the clock was adjusted */
 	if ( delay < 0 ) {
 	    delay = 0;
 	}
@@ -122,7 +124,7 @@ int get_packet(struct socket_t *sockets, char *buf, int len,
     assert(sockets);
     assert(sockets->socket || sockets->socket6);
 
-    /* wait for data to be ready to read, up to timeout (wait will update it) */
+    /* wait for data to be ready, up to timeout (wait will update it) */
     if ( (family = wait_for_data(sockets, timeout)) <= 0 ) {
         return 0;
     }
@@ -196,6 +198,31 @@ int delay_send_packet(int sock, char *packet, int size, struct addrinfo *dest) {
 
 
 
+/* 
+ * If the test is set to report (i.e. being run through measured) then
+ * send the data buffer to the local broker for transmission to the
+ * server. Otherwise if the test is being run standalone then use the 
+ * test specific printing functions to dump a human readable version of 
+ * the data to stdout.
+ */
+int report(test_type_t type, uint64_t timestamp, void *bytes, size_t len) {
+    if ( type >= AMP_TEST_LAST || type <= AMP_TEST_INVALID ) {
+	Log(LOG_WARNING, "Invalid test type %d, not reporting\n", type);
+	return -1;
+    }
+    
+    if ( amp_tests[type]->report ) {
+	report_to_broker(type, timestamp, bytes, len);
+    } else {
+	/* the generic test main function should make sure this is set */
+	amp_tests[type]->print_callback(bytes, len);
+    }
+
+    return 0;
+}
+
+
+
 /*
  * Report results for a single test to the local broker. 
  *
@@ -203,12 +230,20 @@ int delay_send_packet(int sock, char *packet, int size, struct addrinfo *dest) {
  * https://groups.google.com/forum/?fromgroups=#!topic/rabbitmq-discuss/M_8I12gWxbQ
  * root@machine4:~/rabbitmq/rabbitmq-c/tests/test_tables.c
  */
-int report_to_broker(uint64_t timestamp, size_t len, void *bytes) {
+int report_to_broker(test_type_t type, uint64_t timestamp, void *bytes,
+	size_t len) {
+
     amqp_basic_properties_t props;
     amqp_bytes_t data;
     amqp_table_t headers;
     amqp_table_entry_t table_entries[2];
     extern amqp_connection_state_t conn;
+
+    /* check the test id is valid */
+    if ( type >= AMP_TEST_LAST || type <= AMP_TEST_INVALID ) {
+	Log(LOG_WARNING, "Invalid test type %d, not reporting\n", type);
+	return -1;
+    }
 
     /* 
      * open a new channel for every reporting process, there may be multiple
@@ -229,6 +264,7 @@ int report_to_broker(uint64_t timestamp, size_t len, void *bytes) {
      *	- timestamp? already a property, but i need to set
      */
 
+    /* TODO figure out our name */
     /* The name of the reporting monitor (our local ampname) */
     table_entries[0].key = amqp_cstring_bytes("x-amp-source-monitor");
     table_entries[0].value.kind = AMQP_FIELD_KIND_UTF8;
@@ -237,12 +273,11 @@ int report_to_broker(uint64_t timestamp, size_t len, void *bytes) {
     /* The name of the test data is being reported for */
     table_entries[1].key = amqp_cstring_bytes("x-amp-test-type");
     table_entries[1].value.kind = AMQP_FIELD_KIND_UTF8;
-    table_entries[1].value.value.bytes = amqp_cstring_bytes("icmp");
+    table_entries[1].value.value.bytes = 
+	amqp_cstring_bytes(amp_tests[type]->name);
 
     /* Add all the individual headers to the header table */
     headers.num_entries = 2;
-    headers.entries = (amqp_table_entry_t *) calloc(headers.num_entries, 
-	    sizeof(amqp_table_entry_t));
     headers.entries = table_entries;
 
     /* Mark the flags that will be present */
@@ -275,12 +310,13 @@ int report_to_broker(uint64_t timestamp, size_t len, void *bytes) {
 	    data) < 0 ) {			    /* body */
 
 	Log(LOG_ERR, "Failed to publish message");
+	//XXX should this use success value here?
+	amqp_channel_close(conn, getpid(), AMQP_REPLY_SUCCESS);
 	return -1;
     }
 
     /* TODO do something if publishing fails? */
     Log(LOG_DEBUG, "Closing channel %d\n", getpid());
-
     amqp_channel_close(conn, getpid(), AMQP_REPLY_SUCCESS);
 
     return 0;

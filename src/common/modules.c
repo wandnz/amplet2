@@ -2,6 +2,7 @@
 #include <glob.h>
 #include <dlfcn.h>
 #include <string.h>
+#include <assert.h>
 
 #include "debug.h"
 #include "modules.h"
@@ -72,6 +73,12 @@ int register_tests(char *location) {
 	}
 
 	new_test->dlhandle = hdl;
+	new_test->report = 1;
+
+	assert(new_test->name);
+	assert(new_test->run_callback);
+	assert(new_test->save_callback);
+	assert(new_test->print_callback);
 
 	/* add the test to the list of all available tests */
 	amp_tests[new_test->id] = new_test;

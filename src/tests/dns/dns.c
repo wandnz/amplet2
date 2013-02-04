@@ -35,6 +35,8 @@
 
 
 int run_dns(int argc, char *argv[], int count, struct addrinfo **dests);
+int save_dns(char *monitor, uint64_t timestamp, void *data, uint32_t len);
+void print_dns(void *data, uint32_t len);
 test_t *register_test(void);
 
 
@@ -606,7 +608,7 @@ static int open_sockets(struct socket_t *sockets) {
 /*
  *
  */
-static void report(struct timeval *start, int count, struct info_t info[],
+static void do_report(struct timeval *start, int count, struct info_t info[],
 	struct opt_t *opt) {
 
     int dest;
@@ -795,12 +797,31 @@ int run_dns(int argc, char *argv[], int count, struct addrinfo **dests) {
     }
 
     /* send report */
-    report(&start_time, count, info, &options);
+    do_report(&start_time, count, info, &options);
 
     free(options.query_string);
     free(info);
 
     return 0;
+}
+
+
+
+/*
+ *
+ */
+int save_dns(char *monitor, uint64_t timestamp, void *data, uint32_t len) {
+    /* TODO save DNS test data */
+    return 0;
+}
+
+
+
+/*
+ * Print DNS test results to stdout, nicely formatted for the standalone test
+ */
+void print_dns(void *data, uint32_t len) {
+    /* TODO print DNS test data */
 }
 
 
@@ -825,6 +846,12 @@ test_t *register_test() {
 
     /* function to call to setup arguments and run the test */
     new_test->run_callback = run_dns;
+    
+    /* function to call to save the results of the test */
+    new_test->save_callback = save_dns;
+    
+    /* function to call to pretty print the results of the test */
+    new_test->print_callback = print_dns;
 
     return new_test;
 }

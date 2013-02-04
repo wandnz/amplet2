@@ -9,6 +9,8 @@
 #include "tests.h"
 
 int run_skeleton(int argc, char *argv[], int count, struct addrinfo **dests);
+int save_skeleton(char *monitor, uint64_t timestamp, void *data, uint32_t len);
+void print_skeleton(void *data, uint32_t len);
 test_t *register_test(void);
 
 
@@ -57,6 +59,26 @@ int run_skeleton(int argc, char *argv[], int count, struct addrinfo **dests) {
 
 
 /*
+ *
+ */
+int save_skeleton(char *monitor, uint64_t timestamp, void *data, 
+	uint32_t len) {
+    /* TODO save results of skeleton test */
+    return 0;
+}
+
+
+
+/*
+ *
+ */
+void print_skeleton(void *data, uint32_t len) {
+    /* TODO print results of skeleton test */
+}
+
+
+
+/*
  * Register a test to be part of AMP.
  */
 test_t *register_test() {
@@ -76,6 +98,12 @@ test_t *register_test() {
 
     /* function to call to setup arguments and run the test */
     new_test->run_callback = run_skeleton;
+    
+    /* function to call to save the results of the test */
+    new_test->save_callback = save_skeleton;
+    
+    /* function to call to pretty print the results of the test */
+    new_test->print_callback = print_skeleton;
 
     return new_test;
 }

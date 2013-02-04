@@ -5,8 +5,12 @@
 #include <getopt.h>
 #include <string.h>
 #include <time.h>
+#include <arpa/inet.h>
 
 #include "tests.h"
+#include "modules.h"
+#include "testmain.h"
+
 
 
 /* FIXME? this is pretty much a copy and paste of code in test.c */
@@ -40,6 +44,7 @@ static test_t *get_test_info() {
     }
 
     test_info->dlhandle = hdl;
+    test_info->report = 0;
 
     return test_info;
 }
@@ -47,21 +52,30 @@ static test_t *get_test_info() {
 
 
 /*
- * Free everything that we might have allocated so far, it's only polite.
+ * We don't have access to a real name table (and the address we are testing
+ * to may not even exist in the name table), so fake it. The normal name
+ * table returns a pointer to the name so calling functions don't need to
+ * manage memory, so we do the same here with a static buffer.
  */
-static void cleanup(test_t *test_info, int count, struct addrinfo **dests) {
-    int i;
-
-    if ( dests != NULL ) {
-	for ( i=0; i<count; i++ ) {
-	    freeaddrinfo(dests[i]);
-	}
-	free(dests);
+char *address_to_name(struct addrinfo *address) {
+    static char *buffer = NULL;
+    if ( buffer == NULL ) {
+	buffer = malloc(sizeof(char) * INET6_ADDRSTRLEN);
     }
 
-    dlclose(test_info->dlhandle);
-    free(test_info->name);
-    free(test_info);
+    /* just turn the address into a string and use that as the display name */
+    if ( address->ai_family == AF_INET ) {
+	inet_ntop(AF_INET,
+		&((struct sockaddr_in*)address->ai_addr)->sin_addr,
+		buffer, INET6_ADDRSTRLEN);
+    } else if ( address->ai_family == AF_INET6 ) {
+	inet_ntop(AF_INET6,
+		&((struct sockaddr_in6*)address->ai_addr)->sin6_addr,
+		buffer, INET6_ADDRSTRLEN);
+    } else {
+	strncpy(buffer, "unknown", INET6_ADDRSTRLEN);
+    }
+    return buffer;
 }
 
 
@@ -81,12 +95,19 @@ int main(int argc, char *argv[]) {
     test_t *test_info;
     struct addrinfo **dests;
     struct addrinfo hint;
+    struct addrinfo *result, *rp;
     int count;
     int opt;
     int i;
 
     /* load information about the test, including the callback functions */
     test_info = get_test_info();
+    /* 
+     * FIXME is this the best way to get this looking like it does when
+     * run through measured? Just filling in the one value that we know we
+     * will be looking at later when reporting.
+     */
+    amp_tests[test_info->id] = test_info;
 
     /* suppress "invalid argument" errors from getopt */
     opterr = 0;
@@ -100,7 +121,7 @@ int main(int argc, char *argv[]) {
      * destinations listed after the -- marker can be removed easily.
      */
     while ( (opt = getopt(argc, argv, "-")) != -1 ) {
-	/* do nothing, just use up the arguments until we reach the -- marker */
+	/* do nothing, just use up arguments until we reach the -- marker */
     }
 
     dests = NULL;
@@ -110,7 +131,7 @@ int main(int argc, char *argv[]) {
     memset(&hint, 0, sizeof(struct addrinfo));
     hint.ai_flags = 0;
     hint.ai_family = AF_UNSPEC;
-    hint.ai_socktype = 0;
+    hint.ai_socktype = SOCK_STREAM;
     hint.ai_protocol = 0;
     hint.ai_addrlen = 0;
     hint.ai_addr = NULL;
@@ -120,25 +141,33 @@ int main(int argc, char *argv[]) {
     /* process all destinations */
     for ( i=optind; i<argc; i++ ) {
 	/* check if adding the new destination would be allowed by the test */
-	if ( test_info->max_targets > 0 && count+1 > test_info->max_targets ) {
-	    printf("Exceeded maximum of %d destinations\n", 
+	if ( test_info->max_targets > 0 && count >= test_info->max_targets ) {
+	    /* ignore any extra destinations but continue with the test */
+	    printf("Exceeded max of %d destinations, skipping remainder\n", 
 		    test_info->max_targets);
-	    cleanup(test_info, count, dests);
-	    exit(1);
+	    break;
 	}
 
-	/* make room for a new destination and fill it */
-	dests = realloc(dests, (count + 1) * sizeof(struct addrinfo));
-
-	/* 
-	 * TODO this could be a list of addresses, do we care? if the user
-	 * gives a name and we get an ipv4 and ipv6 address, which is first? 
-	 */
-	if ( getaddrinfo(argv[i], NULL, &hint, &dests[count]) != 0 ) {
+	if ( getaddrinfo(argv[i], NULL, &hint, &result) != 0 ) {
 	    perror("getaddrinfo");
 	    continue;
 	}
-	count++;
+	
+	/* 
+	 * If this is a new destination, link it to the last element so that
+	 * we can clean them all up with a single freeaddrinfo() call.
+	 */
+	if ( count > 0 && result != NULL ) {
+	    dests[count-1]->ai_next = result;
+	}
+
+	/* add all the results of getaddrinfo() to the list of destinations */
+	for ( rp=result; rp != NULL; rp=rp->ai_next ) {
+	    /* make room for a new destination and fill it */
+	    dests = realloc(dests, (count + 1) * sizeof(struct addrinfo));
+	    dests[count] = rp;
+	    count++;
+	}
     }
 
     /* prematurely terminate argv so the test doesn't see the destinations */
@@ -154,7 +183,11 @@ int main(int argc, char *argv[]) {
     test_info->run_callback(argc, argv, count, dests);
 
     /* tidy up after ourselves */
-    cleanup(test_info, count, dests);
+    freeaddrinfo(*dests);
+    free(dests);
+    dlclose(test_info->dlhandle);
+    free(test_info->name);
+    free(test_info);
 
     return 0;
 }

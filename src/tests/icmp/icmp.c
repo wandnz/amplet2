@@ -17,16 +17,15 @@
 #include <string.h>
 
 //TODO rename files and headers better?
-#include "tests.h"
-#include "debug.h"
 #include "testlib.h"
-/* 
- * can we put some of these includes somewhere else? so the test authors don't
- * need to include a whole heap to get their test running
- */
-#include "messaging.h"
 #include "icmp.h"
+#include "testmain.h"
 
+
+/*
+ * TODO collect more information than what the original icmp test did.
+ * Things like rtt could be interesting to track.
+ */
 
 
 /* 
@@ -309,11 +308,13 @@ static void send_packet(struct socket_t *raw_sockets, int seq, uint16_t ident,
  * appropriate filters for the ICMPv6 socket to only receive echo replies.
  */
 static int open_sockets(struct socket_t *raw_sockets) {
-    if ( (raw_sockets->socket = socket(AF_INET, SOCK_RAW, IPPROTO_ICMP)) < 0 ) {
+    if ( (raw_sockets->socket = 
+		socket(AF_INET, SOCK_RAW, IPPROTO_ICMP)) < 0 ) {
 	Log(LOG_WARNING, "Failed to open raw socket for ICMP");
     }
     
-    if ( (raw_sockets->socket6=socket(AF_INET6, SOCK_RAW, IPPROTO_ICMPV6))<0 ) {
+    if ( (raw_sockets->socket6 =
+		socket(AF_INET6, SOCK_RAW, IPPROTO_ICMPV6))<0 ) {
 	Log(LOG_WARNING, "Failed to open raw socket for ICMPv6");
     } else {
 	/* configure ICMPv6 filters to only pass through ICMPv6 echo reply */
@@ -339,42 +340,55 @@ static int open_sockets(struct socket_t *raw_sockets) {
 /*
  *
  */
-static void report(struct timeval *start_time, int count, struct info_t info[], 
-	struct opt_t *opt) {
-    int dest;
+static void report_results(struct timeval *start_time, int count, 
+	struct info_t info[], struct opt_t *opt) {
 
-    printf("OPTS size:%d, random:%d\n", opt->packet_size, opt->random);
-    printf("START: %.6d.%.6d\n", (int)start_time->tv_sec,
-	    (int)start_time->tv_usec);
+    int i;
+    char *buffer;
+    struct icmp_report_header_t *header;
+    struct icmp_report_item_t *item;
+    int len;
 
-    for ( dest = 0; dest < count; dest ++ ) {
-	/* FIXME just print ipv4 for testing */
-	char foo[1024];
-	inet_ntop(info[dest].addr->ai_family, 
-		&((struct sockaddr_in*)info[dest].addr->ai_addr)->sin_addr, 
-		foo, info[dest].addr->ai_addrlen);
-	printf("%s: ", foo);
+    Log(LOG_DEBUG, "Building icmp report, count:%d, psize:%d, rand:%d\n",
+	    count, opt->packet_size, opt->random);
 
-	if ( info[dest].reply && info[dest].err_type == 0 
-		&& info[dest].err_code == 0 ) {
-	    /* FIXME the old icmp test truncates to milliseconds here */
-	    printf("%dus ", info[dest].delay);
-	    printf("%dms ", (int)((info[dest].delay/1000.0) + 0.5));
+    /* allocate space for all our results - XXX could this get too large? */
+    len = sizeof(struct icmp_report_header_t) + 
+	count * sizeof(struct icmp_report_item_t);
+    buffer = malloc(len);
+    memset(buffer, 0, len);
+
+    /* single header at the start of the buffer describes the test options */
+    header = (struct icmp_report_header_t *)buffer;
+    header->packet_size = opt->packet_size;
+    header->random = opt->random;
+    header->count = count;
+
+    /* add results for all the destinations */
+    for ( i = 0; i < count; i++ ) {
+
+	item = (struct icmp_report_item_t *)(buffer + 
+		sizeof(struct icmp_report_header_t) + 
+		i * sizeof(struct icmp_report_item_t));
+
+	item->err_type = info[i].err_type;
+	item->err_code = info[i].err_code;
+	strcpy(item->ampname, address_to_name(info[i].addr));
+	
+	/* TODO do we want to truncate to milliseconds like the old test? */
+	if ( info[i].reply && info[i].err_type == 0 
+		&& info[i].err_code == 0 ) {
+	    //printf("%dms ", (int)((info[i].delay/1000.0) + 0.5));
+	    item->rtt = info[i].delay;
 	} else {
-	    printf("-1 ");
+	    item->rtt = -1;
 	}
-	printf("%d/%d\n", info[dest].err_type, info[dest].err_code);
-    
-	/* TODO send more useful information to server somehow */
-	report_to_broker((uint64_t)start_time->tv_sec, sizeof(uint32_t), 
-		(void*)&(info[dest].delay));
+	Log(LOG_DEBUG, "icmp result %d: %dus, %d/%d\n", i, item->rtt, 
+		item->err_type, item->err_code);
     }
 
-
-    /* TODO print to screen instead if being run standalone -- can the 
-     * libmeasured function for reporting pick this up, or should the 
-     * individual tests do it?
-     */
+    report(AMP_TEST_ICMP, (uint64_t)start_time->tv_sec, (void*)buffer, len);
+    free(buffer);
 }
 
 
@@ -500,7 +514,7 @@ int run_icmp(int argc, char *argv[], int count, struct addrinfo **dests) {
     }
 
     /* send report */
-    report(&start_time, count, info, &options);
+    report_results(&start_time, count, info, &options);
 
     free(info);
 
@@ -513,10 +527,57 @@ int run_icmp(int argc, char *argv[], int count, struct addrinfo **dests) {
  * Save the results of the icmp test
  */
 int save_icmp(char *monitor, uint64_t timestamp, void *data, uint32_t len) {
+    struct icmp_report_header_t *header = (struct icmp_report_header_t*)data;
+    struct icmp_report_item_t *item;
+    int i;
+
+    /* TODO implement saving test data in database */
     fprintf(stderr, "SAVING DATA FOR %s at %lu, %u bytes\n", 
 	    monitor, timestamp, len);
-    fprintf(stderr, "DATA VALUE As uint32_t = %u\n", *(uint32_t*)data);
+
+    fprintf(stderr, "packetsize: %u\n", header->packet_size);
+    fprintf(stderr, "random: %u\n", header->random);
+    fprintf(stderr, "count: %u\n", header->count);
+
+    for ( i=0; i<header->count; i++ ) {
+	item = (struct icmp_report_item_t*)(data + 
+		sizeof(struct icmp_report_header_t) + 
+		i * sizeof(struct icmp_report_item_t));
+	fprintf(stderr, "ampname: %s\n", item->ampname);
+	fprintf(stderr, "rtt: %d\n", item->rtt);
+	fprintf(stderr, "err_type: %u\n", item->err_type);
+	fprintf(stderr, "err_code: %u\n", item->err_code);
+    }
     return 0;
+}
+
+
+
+/*
+ * Print icmp test results to stdout, nicely formatted for the standalone test
+ */
+void print_icmp(void *data, uint32_t len) {
+    struct icmp_report_header_t *header = (struct icmp_report_header_t*)data;
+    struct icmp_report_item_t *item;
+    int i;
+
+    fprintf(stderr, "PRINTING\n");
+    
+    fprintf(stderr, "packetsize: %u\n", header->packet_size);
+    fprintf(stderr, "random: %u\n", header->random);
+    fprintf(stderr, "count: %u\n", header->count);
+
+    /* TODO check we don't overrun len */
+    /* TODO make output formatting tidier */
+    for ( i=0; i<header->count; i++ ) {
+	item = (struct icmp_report_item_t*)(data + 
+		sizeof(struct icmp_report_header_t) + 
+		i * sizeof(struct icmp_report_item_t));
+	fprintf(stderr, "ampname: %s\n", item->ampname);
+	fprintf(stderr, "rtt: %d\n", item->rtt);
+	fprintf(stderr, "err_type: %u\n", item->err_type);
+	fprintf(stderr, "err_code: %u\n", item->err_code);
+    }
 }
 
 
@@ -544,6 +605,9 @@ test_t *register_test() {
     
     /* function to call to save the results of the test */
     new_test->save_callback = save_icmp;
+    
+    /* function to call to pretty print the results of the test */
+    new_test->print_callback = print_icmp;
 
     return new_test;
 }

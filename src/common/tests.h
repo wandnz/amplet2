@@ -77,6 +77,13 @@ typedef struct test {
     int (*save_callback)(char *monitor, uint64_t timestamp, 
 	    void *data, uint32_t len);
     
+    /*
+     * Pointer to a function that will pretty print the test results when
+     * the test is run as a standalone program rather than as part of 
+     * measured.
+     */
+    void (*print_callback)(void *data, uint32_t len);
+
 #if 0
     /*
      * A string containing the name of the binary that should be run to perform
@@ -91,6 +98,13 @@ typedef struct test {
      * this test.
      */
     void *dlhandle;
+
+    /* 
+     * true of the test should be reporting data to the broker, false if
+     * the data should be displayed to stdout. This is set at load time by
+     * the process that loads the test.
+     */
+    int report;
 } test_t;
 
 
