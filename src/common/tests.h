@@ -12,7 +12,6 @@
 typedef enum {
     AMP_TEST_INVALID,
     AMP_TEST_SKELETON,
-    AMP_TEST_SKELETON_CALLBACK,
     AMP_TEST_ICMP,
     AMP_TEST_DNS,
     AMP_TEST_LAST,
@@ -77,7 +76,7 @@ typedef struct test {
      */
     int (*save_callback)(char *monitor, uint64_t timestamp, 
 	    void *data, uint32_t len);
-
+    
 #if 0
     /*
      * A string containing the name of the binary that should be run to perform
