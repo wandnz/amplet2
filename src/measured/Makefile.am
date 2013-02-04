@@ -9,7 +9,7 @@ EXTRA_DIST=*.h
 
 bin_PROGRAMS=measured
 measured_SOURCES=measured.c schedule.c watchdog.c test.c nametable.c
-measured_CFLAGS=-I../tests/ -I../common/ -DAMP_CONFIG_DIR=\"$(prefix)/etc\" -DAMP_TEST_DIRECTORY=\"$(prefix)/tests\"
+measured_CFLAGS=-I../tests/ -I../common/ -DAMP_CONFIG_DIR=\"$(prefix)/etc\" -DAMP_TEST_DIRECTORY=\"$(prefix)/tests\" -rdynamic
 measured_LDFLAGS=-L../tests/ -lmeasured
 
 #libmeasureddir=$(libdir)
