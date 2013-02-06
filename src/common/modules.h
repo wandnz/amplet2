@@ -9,5 +9,6 @@ test_t *amp_tests[AMP_TEST_LAST];
 
 int register_tests(char *location);
 void unregister_tests(void);
+test_type_t get_test_id(const char *testname);
 
 #endif

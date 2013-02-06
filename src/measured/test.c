@@ -228,22 +228,3 @@ void run_scheduled_test(struct wand_timer_t *timer) {
     timer->next = NULL;
     wand_add_timer(item->ev_hdl, timer);
 }
-
-
-
-/*
- * Given a test name, return the test id.
- */
-test_type_t get_test_id(const char *testname) {
-    int i;
-
-    for ( i=0; i<AMP_TEST_LAST; i++ ) {
-	if ( amp_tests[i] != NULL ) {
-	    if ( strcmp(amp_tests[i]->name, testname) == 0 ) {
-		return i;
-	    }
-	}
-    }
-    return AMP_TEST_INVALID;
-}
-

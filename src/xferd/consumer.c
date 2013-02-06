@@ -98,8 +98,10 @@ int consumer() {
     size_t body_target;
     size_t body_received;
     char *monitor = NULL;
-    char *type = NULL;
+    char *test_type = NULL;
     char *buffer = NULL;
+    test_type_t test_id;
+    test_t *test;
 
     setup_channel();
     setup_queue("foo1");
@@ -117,8 +119,7 @@ int consumer() {
 	    continue;
 
 	d = (amqp_basic_deliver_t *) frame.payload.method.decoded;
-	printf("Delivery %u, exchange %.*s routingkey %.*s\n",
-		(unsigned) d->delivery_tag,
+	Log(LOG_DEBUG, "Got message, exchange:%.*s routingkey:%.*s\n",
 		(int) d->exchange.len, (char *) d->exchange.bytes,
 		(int) d->routing_key.len, (char *) d->routing_key.bytes);
 
@@ -131,33 +132,8 @@ int consumer() {
 	    exit(-1);
 	}
 	p = (amqp_basic_properties_t *) frame.payload.properties.decoded;
-	/*
-	if (p->_flags & AMQP_BASIC_CONTENT_TYPE_FLAG) {
-	    printf("Content-type: %.*s\n",
-		    (int) p->content_type.len, (char *) p->content_type.bytes);
-	}
-	*/
 
-	/* XXX DEBUG */
-	if (p->_flags & AMQP_BASIC_HEADERS_FLAG) {
-	    int i;
-	    amqp_table_t headers = p->headers;
-	    for ( i=0; i<headers.num_entries; i++ ) {
-		printf("%.*s: ", (int)headers.entries[i].key.len,
-			(char *)headers.entries[i].key.bytes);
-
-		if ( headers.entries[i].value.kind == AMQP_FIELD_KIND_UTF8 ) {
-		    printf("%.*s\n", (int)headers.entries[i].value.value.bytes.len,
-			    (char *)headers.entries[i].value.value.bytes.bytes);
-		} else if ( headers.entries[i].value.kind == AMQP_FIELD_KIND_TIMESTAMP ) {
-		    printf("%"PRIu64"\n", headers.entries[i].value.value.u64);
-		} else {
-		    printf("unknown type\n");
-		}
-	    }
-	}
-
-	/* TODO actual check for valid headers */
+	/* find all the headers that we are interested in */
 	if ( p->_flags & AMQP_BASIC_HEADERS_FLAG ) {
 	    int i;
 	    amqp_table_t headers = p->headers;
@@ -171,18 +147,11 @@ int consumer() {
 		} else if ( strncmp((char *)headers.entries[i].key.bytes,
 			"x-amp-test-type",
 			    (int)headers.entries[i].key.len) == 0 ) {
-		    type = strndup((char *)
+		    test_type = strndup((char *)
 			    headers.entries[i].value.value.bytes.bytes, 
 			    (int)headers.entries[i].value.value.bytes.len);
 		}
 	    }
-	}
-
-    
-
-	/* XXX DEBUG */
-	if (p->_flags & AMQP_BASIC_TIMESTAMP_FLAG) {
-	    printf("timestamp: %"PRIu64"\n", p->timestamp);
 	}
 
 	/* TODO actual check - what to do if no timestamp? */
@@ -190,7 +159,6 @@ int consumer() {
 	    printf("not a valid data packet, missing timestamp\n");
 	    break;
 	}
-	printf("----\n");
 
 	body_target = frame.payload.properties.body_size;
 	body_received = 0;
@@ -212,27 +180,36 @@ int consumer() {
 		    frame.payload.body_fragment.len);
 	    body_received += frame.payload.body_fragment.len;
 	    assert(body_received <= body_target);
-	    /*
-	       amqp_dump(frame.payload.body_fragment.bytes,
-	       frame.payload.body_fragment.len);
-	     */
 	}
 
 	if (body_received != body_target) {
 	    /* Can only happen when amqp_simple_wait_frame returns <= 0 */
 	    /* We break here to close the connection */
+	    free(monitor);
+	    free(test_type);
 	    free(buffer);
 	    break;
 	}
 
-	/* TODO call the appropriate test save function */
-	{
-	    test_t *test = amp_tests[AMP_TEST_ICMP];
-	    fprintf(stderr, "need to look up test: %s\n", type);
-	    test->save_callback(monitor, p->timestamp, buffer, body_target);
+	Log(LOG_DEBUG, "Header gives test type as '%s'\n", test_type);
+	test_id = get_test_id(test_type);
+
+	/* if the test is valid and has a save function, call it */
+	if ( test_id != AMP_TEST_INVALID ) {
+	    test = amp_tests[test_id];
+	    if ( test != NULL ) {
+		test->save_callback(monitor, p->timestamp, buffer, 
+			body_target);
+	    } else {
+		Log(LOG_WARNING, "No save function for test '%s'\n", 
+			test_type);
+	    }
+	} else {
+	    Log(LOG_WARNING, "Unknown test type '%s'\n", test_type);
 	}
+
 	free(monitor);
-	free(type);
+	free(test_type);
 	free(buffer);
 
 	/* TODO messages were being removed from queue even withou acks? */
