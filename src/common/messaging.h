@@ -3,10 +3,10 @@
 
 #include <amqp.h>
 #include <amqp_framing.h>
+#include "tests.h"
 
 
 /* local broker will persist it for us and send to master server later */
-/* TODO what if the server is not local? Needs to be configurable at runtime */
 #define AMQP_SERVER "localhost"
 
 /* 5672 is default, 5671 for SSL */
@@ -21,5 +21,7 @@ amqp_connection_state_t conn;
 
 int connect_to_broker(void);
 void close_broker_connection(void);
+int report_to_broker(test_type_t type, uint64_t timestamp, void *bytes, 
+	size_t len);
 
 #endif

@@ -26,6 +26,11 @@ if test "$GCC" = "yes"; then
 fi
 
 # Checks for library functions.
+AC_CHECK_LIB([confuse], [cfg_init],,confuse_found=0)
+if test "$confuse_found" = 0; then
+    AC_MSG_ERROR(Required library libconfuse not found; use LDFLAGS to specify library location)
+fi
+
 AC_CHECK_LIB([wandevent], [wand_event_init],,event_found=0)
 if test "$event_found" = 0; then
     AC_MSG_ERROR(Required library libwandevent not found; use LDFLAGS to specify library location)
