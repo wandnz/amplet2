@@ -91,7 +91,7 @@ static void reload(__attribute__((unused))struct wand_signal_t *signal) {
 
 
 /*
- * 
+ * TODO this is almost identical to the config parsing in xferd
  */
 static int parse_config(char *filename, struct amp_global_t *vars) {
     int ret;
@@ -216,9 +216,6 @@ int main(int argc, char *argv[]) {
     /* reset optind so the tests can call getopt normally on it's arguments */
     optind = 1;
 
-    /* establish a connection to the broker that all tests will use */
-    connect_to_broker();
-
     /* load all the test modules */
     if ( register_tests(vars.testdir) == -1) {
 	Log(LOG_ALERT, "Failed to register tests, aborting.");
@@ -273,9 +270,6 @@ int main(int argc, char *argv[]) {
 
     /* clear out all the test modules that were registered */
     unregister_tests();
-
-    /* cleanly tear down the connection to the broker */
-    close_broker_connection(); 
 
     Log(LOG_INFO, "Shutting down");
 

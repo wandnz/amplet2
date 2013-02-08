@@ -1,10 +1,8 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-
 #include <sys/types.h>
 #include <unistd.h>
-
 #include <stdint.h>
 
 #include "messaging.h"
@@ -75,11 +73,24 @@ int report_to_broker(test_type_t type, uint64_t timestamp, void *bytes,
     amqp_bytes_t data;
     amqp_table_t headers;
     amqp_table_entry_t table_entries[2];
-    extern amqp_connection_state_t conn;
 
     /* check the test id is valid */
     if ( type >= AMP_TEST_LAST || type <= AMP_TEST_INVALID ) {
 	Log(LOG_WARNING, "Invalid test type %d, not reporting\n", type);
+	return -1;
+    }
+    
+    /*
+     * Ideally this would only happen once and the same connection would be
+     * reused for all tests, but with their own channel. A connection can't
+     * be shared by multiple processes/threads however, so they can't just
+     * create themselves a new channel using the single connection object -
+     * they need to make their own connection, or the master parent process
+     * needs to create the channel and somehow tell the child which channel
+     * to use.
+     * TODO how to make this work with a single connection, multiple channels.
+     */
+    if ( connect_to_broker() < 0 ) {
 	return -1;
     }
 
@@ -92,6 +103,7 @@ int report_to_broker(test_type_t type, uint64_t timestamp, void *bytes,
 
     if ( (amqp_get_rpc_reply(conn).reply_type) != AMQP_RESPONSE_NORMAL ) {
 	Log(LOG_ERR, "Failed to open channel");
+	close_broker_connection();
 	return -1;
     }
 
@@ -150,6 +162,7 @@ int report_to_broker(test_type_t type, uint64_t timestamp, void *bytes,
 	Log(LOG_ERR, "Failed to publish message");
 	//XXX should this use success value here?
 	amqp_channel_close(conn, getpid(), AMQP_REPLY_SUCCESS);
+	close_broker_connection();
 	return -1;
     }
 
@@ -157,5 +170,6 @@ int report_to_broker(test_type_t type, uint64_t timestamp, void *bytes,
     Log(LOG_DEBUG, "Closing channel %d\n", getpid());
     amqp_channel_close(conn, getpid(), AMQP_REPLY_SUCCESS);
 
+    close_broker_connection();
     return 0;
 }
