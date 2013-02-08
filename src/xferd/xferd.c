@@ -56,23 +56,31 @@ static void stop_running(__attribute__((unused))int signum) {
 
 
 /*
- *
+ * TODO this is almost identical to the config parsing in measured
  */
 static int parse_config(char *filename, struct amp_global_t *vars) {
     int ret;
-    cfg_t *cfg;
-    cfg_opt_t measured_opts[] = {
-	/* TODO location of test modules? */
-	/* TODO location of certificate files? */
-	CFG_STR("testdir", AMP_TEST_DIRECTORY, CFGF_NONE),
+    unsigned int i;
+    cfg_t *cfg, *cfg_collector;
+    
+    cfg_opt_t opt_collector[] = {
+	CFG_STR("address", AMQP_SERVER, CFGF_NONE),
+	CFG_INT("port", AMQP_PORT, CFGF_NONE),
 	CFG_STR("exchange", "amp_exchange", CFGF_NONE),
 	CFG_STR("routingkey", "test", CFGF_NONE),
 	CFG_END()
     };
 
+    cfg_opt_t xferd_opts[] = {
+	/* TODO location of certificate files? */
+	CFG_STR("testdir", AMP_TEST_DIRECTORY, CFGF_NONE),
+	CFG_SEC("collector", opt_collector, CFGF_NONE),
+	CFG_END()
+    };
+
     Log(LOG_INFO, "Parsing configuration file %s\n", filename);
 
-    cfg = cfg_init(measured_opts, CFGF_NONE);
+    cfg = cfg_init(xferd_opts, CFGF_NONE);
     ret = cfg_parse(cfg, filename);
     
     if ( ret == CFG_FILE_ERROR ) {
@@ -89,8 +97,14 @@ static int parse_config(char *filename, struct amp_global_t *vars) {
     }
 
     vars->testdir = strdup(cfg_getstr(cfg, "testdir"));
-    vars->exchange = strdup(cfg_getstr(cfg, "exchange"));
-    vars->routingkey = strdup(cfg_getstr(cfg, "routingkey"));
+
+    for ( i=0; i<cfg_size(cfg, "collector"); i++) {
+	cfg_collector = cfg_getnsec(cfg, "collector", i);
+	vars->collector = strdup(cfg_getstr(cfg_collector, "address"));
+	vars->port = cfg_getint(cfg_collector, "port");
+	vars->exchange = strdup(cfg_getstr(cfg_collector, "exchange"));
+	vars->routingkey = strdup(cfg_getstr(cfg_collector, "routingkey"));
+    }
 
     cfg_free(cfg);
     return 0;
