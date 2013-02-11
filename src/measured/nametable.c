@@ -136,9 +136,14 @@ static void nametable_file_changed_event(struct wand_fdcb_t *evcb,
 
     if ( read(data->fd, &buf, sizeof(buf)) == sizeof(buf) ) {
 	if ( buf.mask & IN_MODIFY ) {
-	    /* XXX TODO should this invalidate tests? depends how dests work */
+	    /* 
+	     * schedule relies on the names, so clear them out, load all the
+	     * new names and then reload the schedule.
+	     */
+	    clear_test_schedule(data->ev_hdl);
 	    clear_nametable();
 	    read_nametable_file();
+	    read_schedule_file(data->ev_hdl);
 	}
     }
 }
@@ -168,9 +173,14 @@ static void check_nametable_file(struct wand_timer_t *timer) {
     if ( statInfo.st_mtime > data->last_update ) {
 	/* clear out all events and add new ones */
 	Log(LOG_INFO, "Nametable file modified, updating\n");
-	/* XXX TODO should this invalidate tests? depends how dests work */
+	/* 
+	 * schedule relies on the names, so clear them out, load all the
+	 * new names and then reload the schedule.
+	 */
+	clear_test_schedule(data->ev_hdl);
 	clear_nametable();
 	read_nametable_file();
+	read_schedule_file(data->ev_hdl);
 	data->last_update = statInfo.st_mtime;
 	Log(LOG_INFO, "Done updating nametable file\n");
     }
