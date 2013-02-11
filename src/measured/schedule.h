@@ -8,8 +8,6 @@
 #include "nametable.h"
 
 
-/* number of seconds between checking the schedule file for changes */
-#define SCHEDULE_CHECK_FREQ 10
 /* maximum line length for a single schedule line */
 #define MAX_SCHEDULE_LINE 1024
 /* character delimiting fields in the schedule file */
@@ -36,20 +34,6 @@
 	(res).tv_sec  += 1; \
     } \
 }
-
-
-
-/*
- * Data block for checking for schedule file updates
- */
-typedef struct schedule_file_data {
-#if HAVE_SYS_INOTIFY_H
-    int fd;			    /* inotify file descriptor */
-#else
-    time_t last_update;		    /* time schedule file was last changed */
-#endif
-    wand_event_handler_t *ev_hdl;   /* reference so we can reschedule */
-} schedule_file_data_t;
 
 
 

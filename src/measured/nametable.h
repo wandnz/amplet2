@@ -7,22 +7,9 @@
 #define MAX_NAMETABLE_LINE 128
 #define NAMETABLE_FILE AMP_CONFIG_DIR "/nametable"
 #define NAMETABLE_DELIMITER " \n"
-#define NAMETABLE_CHECK_FREQ 60
 
 #define MAX_NAMETABLE_HOSTS 1024
 
-
-/*
- * Data block for checking for nametable file updates
- */
-typedef struct nametable_file_data {
-#if HAVE_SYS_INOTIFY_H
-    int fd;			    /* inotify file descriptor */
-#else
-    time_t last_update;		    /* time nametable file was last changed */
-#endif
-    wand_event_handler_t *ev_hdl;   /* reference so we can reschedule */
-} nametable_file_data_t;
 
 
 /*

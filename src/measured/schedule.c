@@ -24,6 +24,7 @@
 #include "nametable.h"
 #include "debug.h"
 #include "modules.h"
+#include "refresh.h"
 
 
 
@@ -157,7 +158,7 @@ void clear_test_schedule(wand_event_handler_t *ev_hdl) {
 static void schedule_file_changed_event(struct wand_fdcb_t *evcb,
 	__attribute__((unused)) enum wand_eventtype_t ev) {
     struct inotify_event buf;
-    schedule_file_data_t *data = (schedule_file_data_t *)evcb->data;
+    file_data_t *data = (file_data_t *)evcb->data;
 
     if ( read(data->fd, &buf, sizeof(buf)) == sizeof(buf) ) {
 	/* make sure this is a file modify event, if so, reread schedules */
@@ -166,50 +167,6 @@ static void schedule_file_changed_event(struct wand_fdcb_t *evcb,
 	    read_schedule_file(data->ev_hdl);
 	}
     }
-}
-
-
-
-/* 
- * Set up inotify to monitor the schedule file for changes. Give the file
- * descriptor that we get from inotify_add_watch() to libwandevent to monitor
- * so that we can run the callback function schedule_file_changed_event()
- * when the file changes.
- *
- * inotify is only available on Linux.
- */
-static void setup_schedule_refresh_inotify(wand_event_handler_t *ev_hdl) {
-    int inotify_fd;
-    int schedule_wd;
-    struct wand_fdcb_t *schedule_watch_ev;
-    schedule_file_data_t *schedule_data;
-
-    Log(LOG_DEBUG, "Using inotify to monitor schedule file");
-    
-    schedule_watch_ev = (struct wand_fdcb_t*)malloc(sizeof(struct wand_fdcb_t));
-    schedule_data = (schedule_file_data_t*)malloc(sizeof(schedule_file_data_t));
-    
-    if ( (inotify_fd = inotify_init()) < 0 ) {
-	perror("inotify_init");
-	exit(1);
-    }
-
-    /* create a watch for modification of the schedule file */
-    if ( (schedule_wd = 
-		inotify_add_watch(inotify_fd, SCHEDULE_FILE, IN_MODIFY)) < 0 ) {
-	perror("inotify_add_watch");
-	exit(1);
-    }
-
-    /* save inotify_fd so we can read from it later */
-    schedule_data->fd = inotify_fd;
-    schedule_data->ev_hdl = ev_hdl;
-    /* schedule event on the inotify_fd being available for reading */
-    schedule_watch_ev->data = schedule_data;
-    schedule_watch_ev->fd = inotify_fd;
-    schedule_watch_ev->flags = EV_READ;
-    schedule_watch_ev->callback = schedule_file_changed_event;
-    wand_add_event(ev_hdl, schedule_watch_ev);
 }
 
 #else
@@ -244,37 +201,10 @@ static void check_schedule_file(struct wand_timer_t *timer) {
     }
     
     /* reschedule the check again */
-    timer->expire = wand_calc_expire(data->ev_hdl, SCHEDULE_CHECK_FREQ, 0);
+    timer->expire = wand_calc_expire(data->ev_hdl, FILE_CHECK_FREQ, 0);
     timer->prev = NULL;
     timer->next = NULL;
     wand_add_timer(data->ev_hdl, timer);
-}
-
-
-
-/* 
- * set up a libwandevent timer to monitor the schedule file for changes 
- */
-static void setup_schedule_refresh_timer(wand_event_handler_t *ev_hdl) {
-    struct wand_timer_t *schedule_timer;
-    schedule_file_data_t *schedule_data;
-    
-    Log(LOG_DEBUG, "Using polling to monitor schedule file (interval: %ds)", 
-	    SCHEDULE_CHECK_FREQ);
-
-    schedule_timer = (struct wand_timer_t*)malloc(sizeof(struct wand_timer_t));
-    schedule_data = (schedule_file_data_t*)malloc(sizeof(schedule_file_data_t));
-
-    /* record now as the time it was last updated */
-    schedule_data->last_update = time(NULL);
-    schedule_data->ev_hdl = ev_hdl;
-    /* schedule another read of the file in 60 seconds */
-    schedule_timer->expire = wand_calc_expire(ev_hdl, SCHEDULE_CHECK_FREQ, 0);
-    schedule_timer->callback = check_schedule_file;
-    schedule_timer->data = schedule_data;
-    schedule_timer->prev = NULL;
-    schedule_timer->next = NULL;
-    wand_add_timer(ev_hdl, schedule_timer);
 }
 
 #endif
@@ -289,10 +219,11 @@ static void setup_schedule_refresh_timer(wand_event_handler_t *ev_hdl) {
 void setup_schedule_refresh(wand_event_handler_t *ev_hdl) {
 #if HAVE_SYS_INOTIFY_H
     /* use inotify if we are on linux, it is nicer and quicker */
-    setup_schedule_refresh_inotify(ev_hdl);
+    setup_file_refresh_inotify(ev_hdl, SCHEDULE_FILE, 
+	    schedule_file_changed_event);
 #else
     /* if missing inotify then use libwandevent timers to check regularly */
-    setup_schedule_refresh_timer(ev_hdl);
+    setup_file_refresh_timer(ev_hdl, SCHEDULE_FILE, check_schedule_file);
 #endif
 }
 

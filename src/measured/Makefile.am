@@ -8,7 +8,7 @@ EXTRA_DIST=*.h
 #AM_CFLAGS+=-DAMP_TEST_DIRECTORY=\"$(prefix)/tests\"
 
 bin_PROGRAMS=measured
-measured_SOURCES=measured.c schedule.c watchdog.c test.c nametable.c
+measured_SOURCES=measured.c schedule.c watchdog.c test.c nametable.c refresh.c
 measured_CFLAGS=-I../tests/ -I../common/ -DAMP_CONFIG_DIR=\"$(prefix)/etc\" -DAMP_TEST_DIRECTORY=\"$(prefix)/tests\" -rdynamic
 measured_LDFLAGS=-L../tests/ -lmeasured
 

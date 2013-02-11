@@ -21,6 +21,7 @@
 #include "schedule.h"
 #include "nametable.h"
 #include "debug.h"
+#include "refresh.h"
 
 
 static name_entry_t *name_table = NULL;
@@ -123,11 +124,6 @@ static int compare_addrinfo(struct addrinfo *a, struct addrinfo *b) {
 
 
 
-/* 
- * TODO can we merge these functions so they aren't repeated for schedule
- * files as well as name tables?
- */
-
 #if HAVE_SYS_INOTIFY_H
 /*
  * inotify tells us the file has changed, so consume the event, clear the
@@ -136,7 +132,7 @@ static int compare_addrinfo(struct addrinfo *a, struct addrinfo *b) {
 static void nametable_file_changed_event(struct wand_fdcb_t *evcb,
 	__attribute__((unused)) enum wand_eventtype_t ev) {
     struct inotify_event buf;
-    nametable_file_data_t *data = (nametable_file_data_t *)evcb->data;
+    file_data_t *data = (file_data_t *)evcb->data;
 
     if ( read(data->fd, &buf, sizeof(buf)) == sizeof(buf) ) {
 	if ( buf.mask & IN_MODIFY ) {
@@ -145,44 +141,6 @@ static void nametable_file_changed_event(struct wand_fdcb_t *evcb,
 	    read_nametable_file();
 	}
     }
-}
-
-
-
-/* 
- * set up inotify to monitor the nametable file for changes 
- */
-static void setup_nametable_refresh_inotify(wand_event_handler_t *ev_hdl) {
-    int inotify_fd;
-    int nametable_wd;
-    struct wand_fdcb_t *nametable_watch_ev;
-    nametable_file_data_t *nametable_data;
-    
-    nametable_watch_ev = 
-	(struct wand_fdcb_t*)malloc(sizeof(struct wand_fdcb_t));
-    nametable_data = 
-	(nametable_file_data_t*)malloc(sizeof(nametable_file_data_t));
-    
-    if ( (inotify_fd = inotify_init()) < 0 ) {
-	perror("inotify_init");
-	exit(1);
-    }
-
-    if ( (nametable_wd = 
-		inotify_add_watch(inotify_fd, NAMETABLE_FILE, IN_MODIFY)) < 0 ){
-	perror("inotify_add_watch");
-	exit(1);
-    }
-
-    /* save inotify_fd so we can read from it later */
-    nametable_data->fd = inotify_fd;
-    nametable_data->ev_hdl = ev_hdl;
-    /* nametable event on the inotify_fd being available for reading */
-    nametable_watch_ev->data = nametable_data;
-    nametable_watch_ev->fd = inotify_fd;
-    nametable_watch_ev->flags = EV_READ;
-    nametable_watch_ev->callback = nametable_file_changed_event;
-    wand_add_event(ev_hdl, nametable_watch_ev);
 }
 
 #else
@@ -196,7 +154,7 @@ static void setup_nametable_refresh_inotify(wand_event_handler_t *ev_hdl) {
  * TODO do we care about the file changing multiple times a second?
  */
 static void check_nametable_file(struct wand_timer_t *timer) {
-    nametable_file_data_t *data = (nametable_file_data_t *)timer->data;
+    file_data_t *data = (file_data_t *)timer->data;
     struct stat statInfo;
     time_t now;
     
@@ -218,38 +176,14 @@ static void check_nametable_file(struct wand_timer_t *timer) {
     }
     
     /* reschedule the check again */
-    timer->expire = wand_calc_expire(data->ev_hdl, NAMETABLE_CHECK_FREQ, 0);
+    timer->expire = wand_calc_expire(data->ev_hdl, FILE_CHECK_FREQ, 0);
     timer->prev = NULL;
     timer->next = NULL;
     wand_add_timer(data->ev_hdl, timer);
 }
 
-
-
-/* 
- * set up a libwandevent timer to monitor the nametable file for changes 
- */
-static void setup_nametable_refresh_timer(wand_event_handler_t *ev_hdl) {
-    struct wand_timer_t *nametable_timer;
-    nametable_file_data_t *nametable_data;
-
-    nametable_timer = (struct wand_timer_t*)malloc(sizeof(struct wand_timer_t));
-    nametable_data = 
-	(nametable_file_data_t*)malloc(sizeof(nametable_file_data_t));
-
-    /* record now as the time it was last updated */
-    nametable_data->last_update = time(NULL);
-    nametable_data->ev_hdl = ev_hdl;
-    /* schedule another read of the file in 60 seconds */
-    nametable_timer->expire = wand_calc_expire(ev_hdl, NAMETABLE_CHECK_FREQ, 0);
-    nametable_timer->callback = check_nametable_file;
-    nametable_timer->data = nametable_data;
-    nametable_timer->prev = NULL;
-    nametable_timer->next = NULL;
-    wand_add_timer(ev_hdl, nametable_timer);
-}
-
 #endif
+
 
 
 /*
@@ -258,10 +192,11 @@ static void setup_nametable_refresh_timer(wand_event_handler_t *ev_hdl) {
 void setup_nametable_refresh(wand_event_handler_t *ev_hdl) {
 #if HAVE_SYS_INOTIFY_H
     /* use inotify if we are on linux, it is nicer and quicker */
-    setup_nametable_refresh_inotify(ev_hdl);
+    setup_file_refresh_inotify(ev_hdl, NAMETABLE_FILE, 
+	    nametable_file_changed_event);
 #else
     /* if missing inotify then use libwandevent timers to check regularly */
-    setup_nametable_refresh_timer(ev_hdl);
+    setup_file_refresh_timer(ev_hdl, NAMETABLE_FILE, check_nametable_file);
 #endif
 }
 
