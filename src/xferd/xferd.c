@@ -189,6 +189,8 @@ int main(int argc, char *argv[]) {
 
     /* start the main consumer loop, will go forever */
     consumer();
+    
+    Log(LOG_INFO, "Shutting down");
 
     /* clear out all the test modules that were registered */
     unregister_tests();
@@ -196,7 +198,10 @@ int main(int argc, char *argv[]) {
     /* cleanly tear down the connection to the broker */
     close_broker_connection(); 
 
-    Log(LOG_INFO, "Shutting down");
+    free(vars.testdir);
+    free(vars.collector);
+    free(vars.exchange);
+    free(vars.routingkey);
 
     return 0;
 }
