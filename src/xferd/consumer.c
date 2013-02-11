@@ -75,7 +75,18 @@ int setup_queue(char *name) {
     amqp_basic_qos(conn, getpid(), 0, 1, 0);
 
     /* Declare us as a consumer on this queue */
-    amqp_basic_consume(conn, getpid(), queuename, amqp_empty_bytes, 0, 1, 0, 
+    /*
+       amqp_basic_consume (   
+	    amqp_connection_state_t state,
+	    amqp_channel_t channel,
+	    amqp_bytes_t queue,
+	    amqp_bytes_t consumer_tag,
+	    amqp_boolean_t no_local,
+	    amqp_boolean_t no_ack,
+	    amqp_boolean_t exclusive,
+	    amqp_table_t arguments 
+     */
+    amqp_basic_consume(conn, getpid(), queuename, amqp_empty_bytes, 0, 0, 0, 
 	    amqp_empty_table);
     if ( (amqp_get_rpc_reply(conn).reply_type) != AMQP_RESPONSE_NORMAL ) {
 	Log(LOG_ERR, "Failed to start consuming");
@@ -212,8 +223,11 @@ int consumer() {
 	free(test_type);
 	free(buffer);
 
-	/* TODO messages were being removed from queue even withou acks? */
-	//amqp_basic_ack(conn, getpid(), d->delivery_tag, 0);
+	/* 
+	 * The message doesn't get removed from the broker queue until we
+	 * acknowledge it. By now we know that it should be saved ok.
+	 */
+	amqp_basic_ack(conn, getpid(), d->delivery_tag, 0);
     }
 
     return 0;
