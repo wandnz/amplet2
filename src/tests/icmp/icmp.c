@@ -528,26 +528,16 @@ int run_icmp(int argc, char *argv[], int count, struct addrinfo **dests) {
  */
 int save_icmp(char *monitor, uint64_t timestamp, void *data, uint32_t len) {
     struct icmp_report_header_t *header = (struct icmp_report_header_t*)data;
-    struct icmp_report_item_t *item;
-    int i;
+    
+    assert(data != NULL);
+    assert(len >= sizeof(struct icmp_report_header_t));
+    assert(len == sizeof(struct icmp_report_header_t) + 
+	    header->count * sizeof(struct icmp_report_item_t));
 
     /* TODO implement saving test data in database */
     fprintf(stderr, "SAVING DATA FOR %s at %lu, %u bytes\n", 
 	    monitor, timestamp, len);
-
-    fprintf(stderr, "packetsize: %u\n", header->packet_size);
-    fprintf(stderr, "random: %u\n", header->random);
-    fprintf(stderr, "count: %u\n", header->count);
-
-    for ( i=0; i<header->count; i++ ) {
-	item = (struct icmp_report_item_t*)(data + 
-		sizeof(struct icmp_report_header_t) + 
-		i * sizeof(struct icmp_report_item_t));
-	fprintf(stderr, "ampname: %s\n", item->ampname);
-	fprintf(stderr, "rtt: %d\n", item->rtt);
-	fprintf(stderr, "err_type: %u\n", item->err_type);
-	fprintf(stderr, "err_code: %u\n", item->err_code);
-    }
+    print_icmp(data, len);
     return 0;
 }
 
@@ -561,23 +551,38 @@ void print_icmp(void *data, uint32_t len) {
     struct icmp_report_item_t *item;
     int i;
 
-    fprintf(stderr, "PRINTING\n");
-    
-    fprintf(stderr, "packetsize: %u\n", header->packet_size);
-    fprintf(stderr, "random: %u\n", header->random);
-    fprintf(stderr, "count: %u\n", header->count);
+    assert(data != NULL);
+    assert(len >= sizeof(struct icmp_report_header_t));
+    assert(len == sizeof(struct icmp_report_header_t) + 
+	    header->count * sizeof(struct icmp_report_item_t));
 
-    /* TODO check we don't overrun len */
-    /* TODO make output formatting tidier */
+    printf("\n");
+    printf("AMP icmp test, %u destinations, %u byte packets ", header->count, 
+	    header->packet_size);
+    if ( header->random ) {
+	printf("(random size)\n");
+    } else {
+	printf("(fixed size)\n");
+    }
+
     for ( i=0; i<header->count; i++ ) {
 	item = (struct icmp_report_item_t*)(data + 
 		sizeof(struct icmp_report_header_t) + 
 		i * sizeof(struct icmp_report_item_t));
-	fprintf(stderr, "ampname: %s\n", item->ampname);
-	fprintf(stderr, "rtt: %d\n", item->rtt);
-	fprintf(stderr, "err_type: %u\n", item->err_type);
-	fprintf(stderr, "err_code: %u\n", item->err_code);
+	printf("%s", item->ampname);
+	//printf(" (%s)", /* address */);
+	if ( item->rtt < 0 ) {
+	    if ( item->err_type == 0 ) {
+		printf(" missing");
+	    } else {
+		printf(" error");
+	    }
+	} else {
+	    printf(" %dus", item->rtt);
+	}
+	printf(" (%u/%u)\n", item->err_type, item->err_code);
     }
+    printf("\n");
 }
 
 
