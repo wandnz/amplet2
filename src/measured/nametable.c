@@ -24,15 +24,8 @@
 #include "refresh.h"
 
 
-static name_entry_t *name_table = NULL;
+static struct addrinfo *name_table = NULL;
 
-
-
-/*
- * TODO do we want a magic name that forces a lookup rather than using a
- * static config file? So measured can do the lookup rather than making tests
- * do the name resolution themselves.
- */
 
 /*
  * TODO do we need some sort of NONE target like the existing AMP uses? Tests
@@ -45,18 +38,13 @@ static name_entry_t *name_table = NULL;
  * TODO: smarter data structure that will give faster lookups?
  */
 static void insert_nametable_entry(char *name, struct addrinfo *info) {
-    name_entry_t *entry;
-
     assert(name);
     assert(info);
+    assert(info->ai_next == NULL);
 
-    entry = (name_entry_t*)malloc(sizeof(name_entry_t));
-    entry->name = strdup(name);
-    entry->addr = info;
-
-    /* until we try to be smarter, just add it to the front of the list */
-    entry->next = name_table;
-    name_table = entry;
+    info->ai_canonname = strdup(name);
+    info->ai_next = name_table;
+    name_table = info;
 }
 
 
@@ -65,32 +53,34 @@ static void insert_nametable_entry(char *name, struct addrinfo *info) {
  *
  */
 static void dump_nametable() {
-    name_entry_t *tmp;
+    struct addrinfo *tmp;
     char address[INET6_ADDRSTRLEN];
 
     Log(LOG_DEBUG, "====== NAMETABLE ======");
 
-    for ( tmp=name_table; tmp != NULL; tmp=tmp->next ) {
+    for ( tmp=name_table; tmp != NULL; tmp=tmp->ai_next ) {
 	assert(tmp);
-	assert(tmp->addr);
-	if ( tmp->addr->ai_addr->sa_family == AF_INET ) {
+	assert(tmp->ai_addr);
+	assert(tmp->ai_canonname);
+	if ( tmp->ai_addr->sa_family == AF_INET ) {
 	    inet_ntop(AF_INET, 
-		    &((struct sockaddr_in*)tmp->addr->ai_addr)->sin_addr, 
+		    &((struct sockaddr_in*)tmp->ai_addr)->sin_addr, 
 		    address, INET6_ADDRSTRLEN);
 
-	} else if ( tmp->addr->ai_addr->sa_family == AF_INET6 ) {
+	} else if ( tmp->ai_addr->sa_family == AF_INET6 ) {
 	    inet_ntop(AF_INET6, 
-		    &((struct sockaddr_in6*)tmp->addr->ai_addr)->sin6_addr,
+		    &((struct sockaddr_in6*)tmp->ai_addr)->sin6_addr,
 		    address, INET6_ADDRSTRLEN);
 
 	} else {
 	    Log(LOG_WARNING, "unknown address family: %d\n", 
-		    tmp->addr->ai_addr->sa_family);
+		    tmp->ai_addr->sa_family);
 	    continue;
 	}
-	Log(LOG_DEBUG, "%s %s\n", tmp->name, address);
+	Log(LOG_DEBUG, "%s %s\n", tmp->ai_canonname, address);
     }
 }
+
 
 
 /*
@@ -216,17 +206,10 @@ void setup_nametable_refresh(wand_event_handler_t *ev_hdl) {
  * 
  */
 void clear_nametable() {
-    name_entry_t *tmp;
-     
-    while ( name_table != NULL ) {
-	tmp = name_table;
-	name_table = name_table->next;
-	free(tmp->name);
-	freeaddrinfo(tmp->addr);
-	free(tmp);
+    if ( name_table != NULL ) {
+	freeaddrinfo(name_table);
+	name_table = NULL;
     }
-
-    //name_table = NULL;
 }
 
 
@@ -235,7 +218,7 @@ void clear_nametable() {
  *
  */
 struct addrinfo *name_to_address(char *name) {
-    name_entry_t *tmp;
+    struct addrinfo *tmp;
 
     assert(name);
 
@@ -243,33 +226,9 @@ struct addrinfo *name_to_address(char *name) {
 	return NULL;
     }
 
-    for ( tmp=name_table; tmp != NULL; tmp=tmp->next ) {
-	if ( strcmp(name, tmp->name) == 0 ) {
-	    return tmp->addr;
-	}
-    }
-
-    return NULL;
-}
-
-
-
-/*
- * Return the whole structure or just the name? What format input?
- */
-char *address_to_name(struct addrinfo *address) {
-    name_entry_t *tmp;
-
-    assert(address);
-
-    if ( name_table == NULL ) {
-	return NULL;
-    }
-
-    for ( tmp=name_table; tmp != NULL; tmp=tmp->next ) {
-	/* work down into struct and compare based on family */
-	if ( compare_addrinfo(address, tmp->addr) ) {
-	    return tmp->name;
+    for ( tmp=name_table; tmp != NULL; tmp=tmp->ai_next ) {
+	if ( strcmp(name, tmp->ai_canonname) == 0 ) {
+	    return tmp;
 	}
     }
 
@@ -310,11 +269,18 @@ void read_nametable_file() {
 	if ( (address = strtok(NULL, NAMETABLE_DELIMITER)) == NULL )
 	    continue;
 
+	if ( name_to_address(name) != NULL ) {
+	    Log(LOG_WARNING, 
+		    "Duplicate entry in name table for destination '%s'\n",
+		    name);
+	    continue;
+	}
+
 	Log(LOG_DEBUG, "Loaded name:%s address:%s\n", name, address);
 	memset(&hint, 0, sizeof(struct addrinfo));
 	hint.ai_flags = AI_NUMERICHOST;
 	hint.ai_family = PF_UNSPEC;
-	hint.ai_socktype = 0;
+	hint.ai_socktype = SOCK_STREAM; /* limit it to a single socket type */
 	hint.ai_protocol = 0;
 	hint.ai_addrlen = 0;
 	hint.ai_addr = NULL;

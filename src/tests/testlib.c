@@ -223,3 +223,14 @@ int report(test_type_t type, uint64_t timestamp, void *bytes, size_t len) {
 }
 
 
+
+/*
+ * Determine the name for a given address structure. Currently the name is
+ * stored using the ai_canonname field in the struct addrinfo, which is 
+ * filled in when the structure is created (but not by getaddrinfo).
+ */
+char *address_to_name(struct addrinfo *address) {
+    assert(address);
+    assert(address->ai_canonname);
+    return address->ai_canonname;
+}

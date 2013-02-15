@@ -81,6 +81,7 @@ static void dump_schedule(wand_event_handler_t *ev_hdl) {
 	    continue;
 	}
 
+	/* TODO add file refresh timers to this list */
 	item = (schedule_item_t *)timer->data;
 	switch ( item->type ) {
 	    case EVENT_RUN_TEST: dump_event_run_test(item->data.test); 
@@ -110,8 +111,24 @@ static void free_test_schedule_item(test_schedule_item_t *item) {
 	}
 	free(item->params);
     }
-    /* free the pointers to destinations, but not the destinations themselves */
+    /* free pointers to destinations, but not the destinations themselves */
     free(item->dests);
+    
+    /* free the list of names that need to be resolved at each test time */
+    if ( item->resolve != NULL ) {
+	resolve_dest_t *tmp;
+	for ( tmp=item->resolve; tmp != NULL; tmp=tmp->next ) {
+	    if ( tmp->name != NULL ) {
+		free(tmp->name);
+	    }
+	    /* this should be NULL, it is only populated in a forked test */
+	    if ( tmp->addr != NULL ) {
+		freeaddrinfo(tmp->addr);
+	    }
+	}
+	free(item->resolve);
+    }
+
     free(item);
 }
 
@@ -242,6 +259,7 @@ static time_t get_period_max_value(char repeat) {
 	default: return -1;
     };
 }
+
 
 
 /*
@@ -665,6 +683,8 @@ void read_schedule_file(wand_event_handler_t *ev_hdl) {
 	if ( amp_tests[test_id]->max_targets != 1 ) {
 	    /* check if this test at this time already exists */
 	    if ( merge_scheduled_tests(ev_hdl, test) ) {
+		/* remove pointer to names, the merged test now owns it */
+		test->resolve = NULL;
 		/* free this test, it has now merged */
 		free_test_schedule_item(test);
 		continue;

@@ -52,35 +52,6 @@ static test_t *get_test_info() {
 
 
 /*
- * We don't have access to a real name table (and the address we are testing
- * to may not even exist in the name table), so fake it. The normal name
- * table returns a pointer to the name so calling functions don't need to
- * manage memory, so we do the same here with a static buffer.
- */
-char *address_to_name(struct addrinfo *address) {
-    static char *buffer = NULL;
-    if ( buffer == NULL ) {
-	buffer = malloc(sizeof(char) * INET6_ADDRSTRLEN);
-    }
-
-    /* just turn the address into a string and use that as the display name */
-    if ( address->ai_family == AF_INET ) {
-	inet_ntop(AF_INET,
-		&((struct sockaddr_in*)address->ai_addr)->sin_addr,
-		buffer, INET6_ADDRSTRLEN);
-    } else if ( address->ai_family == AF_INET6 ) {
-	inet_ntop(AF_INET6,
-		&((struct sockaddr_in6*)address->ai_addr)->sin6_addr,
-		buffer, INET6_ADDRSTRLEN);
-    } else {
-	strncpy(buffer, "unknown", INET6_ADDRSTRLEN);
-    }
-    return buffer;
-}
-
-
-
-/*
  * Generic main function to allow all tests to be run as both normal binaries
  * and AMP libraries. This function will deal with converting command line
  * arguments into test arguments and a list of destinations (such as AMP
@@ -139,6 +110,7 @@ int main(int argc, char *argv[]) {
     hint.ai_next = NULL;
 
     /* process all destinations */
+    /* TODO prevent duplicate destinations? */
     for ( i=optind; i<argc; i++ ) {
 	/* check if adding the new destination would be allowed by the test */
 	if ( test_info->max_targets > 0 && count >= test_info->max_targets ) {
@@ -163,6 +135,8 @@ int main(int argc, char *argv[]) {
 
 	/* add all the results of getaddrinfo() to the list of destinations */
 	for ( rp=result; rp != NULL; rp=rp->ai_next ) {
+	    /* use the given name rather than the canonical name */
+	    rp->ai_canonname = strdup(argv[i]);
 	    /* make room for a new destination and fill it */
 	    dests = realloc(dests, (count + 1) * sizeof(struct addrinfo));
 	    dests[count] = rp;

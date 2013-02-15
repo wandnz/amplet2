@@ -105,6 +105,9 @@ static void run_test(const test_schedule_item_t * const item) {
 		    break;
 		}
 
+		/* use the given name rather than the canonical name */
+		tmp->ai_canonname = strdup(resolve->name);
+
 		destinations = realloc(destinations, 
 			(item->dest_count + total_resolve_count + 1) * 
 			sizeof(struct addrinfo));

@@ -25,5 +25,6 @@ int get_packet(struct socket_t *sockets, char *buf, int len,
 	struct sockaddr *saddr, int *timeout);
 int delay_send_packet(int sock, char *packet, int size, struct addrinfo *dest);
 int report(test_type_t type, uint64_t timestamp, void *bytes, size_t len);
+char *address_to_name(struct addrinfo *address);
 
 #endif
