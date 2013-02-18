@@ -373,7 +373,27 @@ static void report_results(struct timeval *start_time, int count,
 
 	item->err_type = info[i].err_type;
 	item->err_code = info[i].err_code;
-	strcpy(item->ampname, address_to_name(info[i].addr));
+	strncpy(item->ampname, address_to_name(info[i].addr), 
+		sizeof(item->ampname));
+	item->family = info[i].addr->ai_family;
+	switch ( item->family ) {
+	    case AF_INET:
+		memcpy(item->address, 
+			&((struct sockaddr_in*)
+			    info[i].addr->ai_addr)->sin_addr, 
+			sizeof(struct in_addr));
+		break;
+	    case AF_INET6:
+		memcpy(item->address, 
+			&((struct sockaddr_in6*)
+			    info[i].addr->ai_addr)->sin6_addr,
+			sizeof(struct in6_addr));
+		break;
+	    default: 
+		Log(LOG_WARNING, "Unknown address family %d\n", item->family);
+		memset(item->address, 0, sizeof(item->address));
+		break;
+	};
 	
 	/* TODO do we want to truncate to milliseconds like the old test? */
 	if ( info[i].reply && info[i].err_type == 0 
@@ -549,6 +569,7 @@ int save_icmp(char *monitor, uint64_t timestamp, void *data, uint32_t len) {
 void print_icmp(void *data, uint32_t len) {
     struct icmp_report_header_t *header = (struct icmp_report_header_t*)data;
     struct icmp_report_item_t *item;
+    char addrstr[INET6_ADDRSTRLEN];
     int i;
 
     assert(data != NULL);
@@ -570,7 +591,8 @@ void print_icmp(void *data, uint32_t len) {
 		sizeof(struct icmp_report_header_t) + 
 		i * sizeof(struct icmp_report_item_t));
 	printf("%s", item->ampname);
-	//printf(" (%s)", /* address */);
+	inet_ntop(item->family, item->address, addrstr, INET6_ADDRSTRLEN);
+	printf(" (%s)",	addrstr);
 	if ( item->rtt < 0 ) {
 	    if ( item->err_type == 0 ) {
 		printf(" missing");

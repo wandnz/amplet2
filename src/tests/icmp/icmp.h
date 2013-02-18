@@ -46,9 +46,12 @@ struct info_t {
 
 
 struct icmp_report_item_t {
-    char ampname[1024];
-    /* TODO need address as well as ampname, how to store? */
+    /* TODO make the name field variable length? */
+    char ampname[128];
+    /* nicer way than storing just 16 bytes for the address? */
+    char address[16];
     int32_t rtt;
+    uint8_t family;
     uint8_t err_type;
     uint8_t err_code;
 };
