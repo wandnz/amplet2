@@ -36,6 +36,26 @@ if test "$event_found" = 0; then
     AC_MSG_ERROR(Required library libwandevent not found; use LDFLAGS to specify library location)
 fi
 
+AC_ARG_ENABLE(python,
+    AC_HELP_STRING([--enable-python], 
+	[Enable the python data exporting (default: yes)]),
+    [case "${enableval}" in
+    true) ;&
+    yes) want_python=true ;;
+    false) ;&
+    no)	 want_python=false ;;
+    *) AC_MSG_ERROR(bad value ${enableval} for --enable-python) ;;
+    esac],
+    [want_python=true])
+
+AM_CONDITIONAL(WANT_PYTHON, [test x"$want_python" = xtrue])
+
+if test x"$want_python" = xtrue; then
+    AM_PATH_PYTHON([2.6])
+fi
+
+
+
 # Checks to enable the various tests in AMP
 AC_ARG_ENABLE(skeleton,
     AC_HELP_STRING([--enable-skeleton], 
@@ -87,6 +107,7 @@ AC_CONFIG_FILES([Makefile
                  src/measured/Makefile
                  src/common/Makefile
                  src/tests/Makefile
+                 src/tests/python/Makefile
                  src/tests/skeleton/Makefile
                  src/tests/icmp/Makefile
                  src/tests/dns/Makefile
@@ -101,6 +122,7 @@ reportopt() {
 	    fi
 }
 
+reportopt "Compiled with python reporting support" $want_python
 reportopt "Compiled with skeleton test support" $want_skeleton_test
 reportopt "Compiled with icmp test support" $want_icmp_test
 reportopt "Compiled with dns test support" $want_dns_test
