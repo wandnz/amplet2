@@ -1,6 +1,13 @@
 #ifndef _TESTS_ICMP_H
 #define _TESTS_ICMP_H
 
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netdb.h>
+
+/* use the current date with 2 digit count appended as version: YYYYMMDDXX */
+#define AMP_ICMP_TEST_VERSION 2013022000
+
 /* by default use an 84 byte packet, because that's what it has always been */
 #define DEFAULT_ICMP_ECHO_REQUEST_LEN 84
 
@@ -42,6 +49,7 @@ struct info_t {
     uint8_t reply;		/* set to 1 once we have a reply */
     uint8_t err_type;		/* type of ICMP error reply or 0 if no error */
     uint8_t err_code;		/* code of ICMP error reply, else undefined */
+    uint8_t ttl;		/* TTL or hop limit of response packet */
 };
 
 
@@ -54,9 +62,11 @@ struct icmp_report_item_t {
     uint8_t family;
     uint8_t err_type;
     uint8_t err_code;
+    uint8_t ttl;
 };
 
 struct icmp_report_header_t {
+    uint32_t version;
     uint16_t packet_size;
     uint8_t random;
     uint8_t count;

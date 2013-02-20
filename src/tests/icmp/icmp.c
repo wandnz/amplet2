@@ -110,6 +110,8 @@ static void icmp_error(char *packet, uint16_t ident, struct info_t info[]) {
     info[seq].err_type = icmp->type;
     info[seq].err_code = icmp->code;
     info[seq].reply = 1;
+    /* TODO get ttl */
+    /*info[seq].ttl = */
 
     return;
 }
@@ -265,6 +267,7 @@ static void send_packet(struct socket_t *raw_sockets, int seq, uint16_t ident,
     info[seq].reply = 0;
     info[seq].err_type = 0;
     info[seq].err_code = 0;
+    info[seq].ttl = 0;
     info[seq].magic = magic;
 
     switch ( dest->ai_family ) {
@@ -360,6 +363,7 @@ static void report_results(struct timeval *start_time, int count,
 
     /* single header at the start of the buffer describes the test options */
     header = (struct icmp_report_header_t *)buffer;
+    header->version = AMP_ICMP_TEST_VERSION;
     header->packet_size = opt->packet_size;
     header->random = opt->random;
     header->count = count;
@@ -376,6 +380,7 @@ static void report_results(struct timeval *start_time, int count,
 	strncpy(item->ampname, address_to_name(info[i].addr), 
 		sizeof(item->ampname));
 	item->family = info[i].addr->ai_family;
+	item->ttl = info[i].ttl;
 	switch ( item->family ) {
 	    case AF_INET:
 		memcpy(item->address, 
@@ -554,6 +559,12 @@ int save_icmp(char *monitor, uint64_t timestamp, void *data, uint32_t len) {
     assert(len == sizeof(struct icmp_report_header_t) + 
 	    header->count * sizeof(struct icmp_report_item_t));
 
+    if ( header->version != AMP_ICMP_TEST_VERSION ) {
+	fprintf(stderr, "Wrong protocol version, got %d expected %d\n",
+		header->version, AMP_ICMP_TEST_VERSION);
+	return -1;
+    }
+
     /* TODO implement saving test data in database */
     fprintf(stderr, "SAVING DATA FOR %s at %lu, %u bytes\n", 
 	    monitor, timestamp, len);
@@ -576,6 +587,7 @@ void print_icmp(void *data, uint32_t len) {
     assert(len >= sizeof(struct icmp_report_header_t));
     assert(len == sizeof(struct icmp_report_header_t) + 
 	    header->count * sizeof(struct icmp_report_item_t));
+    assert(header->version == AMP_ICMP_TEST_VERSION);
 
     printf("\n");
     printf("AMP icmp test, %u destinations, %u byte packets ", header->count, 
