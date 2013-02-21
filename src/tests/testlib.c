@@ -208,6 +208,11 @@ int delay_send_packet(int sock, char *packet, int size, struct addrinfo *dest) {
  */
 int report(test_type_t type, uint64_t timestamp, void *bytes, size_t len) {
     if ( type >= AMP_TEST_LAST || type <= AMP_TEST_INVALID ) {
+	Log(LOG_WARNING, "Test type %d out of range, not reporting\n", type);
+	return -1;
+    }
+
+    if ( amp_tests[type] == NULL ) {
 	Log(LOG_WARNING, "Invalid test type %d, not reporting\n", type);
 	return -1;
     }
