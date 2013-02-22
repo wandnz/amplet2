@@ -15,150 +15,10 @@
 #include <string.h>
 #include <arpa/inet.h>
 
-//TODO rename files and headers better?
 #include "tests.h"
 #include "debug.h"
 #include "testlib.h"
-
-
-#define MAX_DNS_NAME_LEN 256
-
-/* timeout in usec to wait before declaring the response lost, currently 20s */
-#define LOSS_TIMEOUT 20000000
-
-/* XXX do we want to change these response codes to make more sense? */
-#define RESPONSEOK  0
-#define MISSING     1
-#define INVALID     2
-#define NOTFOUND    3
-
-
-
-int run_dns(int argc, char *argv[], int count, struct addrinfo **dests);
-int save_dns(char *monitor, uint64_t timestamp, void *data, uint32_t len);
-void print_dns(void *data, uint32_t len);
-test_t *register_test(void);
-
-
-
-/*
- * Information block recording data for each DNS request test packet 
- * that is sent, and when the response is received.
- */
-struct info_t {
-    char response[MAX_DNS_NAME_LEN];	/* the raw query response */
-    struct addrinfo *addr;		/* address probe was sent to */
-    struct timeval time_sent;		/* when the probe was sent */
-    uint32_t delay;			/* delay in receiving response, usec */
-    uint32_t query_length;		/* number of bytes in query */
-    uint32_t bytes;			/* number of bytes in response */
-    uint16_t receive_flags;		/* flags set by responding server */
-    uint16_t total_answer;
-    uint16_t total_authority;
-    uint16_t total_additional;
-    uint8_t reply;			/* set to 1 once we have a reply */ 
-    uint8_t response_code;
-    uint8_t dnssec_response;
-    uint8_t addr_count;
-};
-
-
-
-/*
- * User defined test options that control packet size and timing.
- */
-struct opt_t {
-    char *query_string;
-    uint16_t query_type;
-    uint16_t query_class;
-    uint16_t udp_payload_size;
-    int recurse;
-    int dnssec;
-    int nsid;
-    int perturbate;
-    /*int ping;*/
-};
-
-
-
-/*
- * Our implementation of a DNS header so we can set/check flags etc easily.
- */
-struct dns_t {
-    uint16_t id;
-#if __BYTE_ORDER == __LITTLE_ENDIAN
-    uint16_t rd:1;
-    uint16_t tc:1;
-    uint16_t aa:1;
-    uint16_t opcode:4;
-    uint16_t qr:1;
-    uint16_t rcode:4;
-    uint16_t z:3;
-    uint16_t ra:1;
-#elif __BYTE_ORDER == __BIG_ENDIAN
-    uint16_t qr:1;
-    uint16_t opcode:4;
-    uint16_t aa:1;
-    uint16_t tc:1;
-    uint16_t rd:1;
-    uint16_t ra:1;
-    uint16_t z:3;
-    uint16_t rcode:4;
-#else
-#error "Adjust your <bits/endian.h> defines"
-#endif
-    //uint16_t flags;
-    uint16_t qd_count;
-    uint16_t an_count;
-    uint16_t ns_count;
-    uint16_t ar_count;
-};
-
-
-
-/*
- * DNS OPT Resource Record minus the initial arbitrary length name field.
- * This is used by the test to create the pseudo RR header for using DNSSEC
- * or NSID options as well as for processing resource records in the response
- * packets.
- */
-struct dns_opt_rr_t {
-    //uint8_t name;	    /* empty name */
-    uint16_t type;	    /* OPT type */
-    uint16_t payload;	    /* normally used for class */
-    uint8_t rcode;	    /* normally part of the ttl field */
-    uint8_t version;	    /* normally part of the ttl field */
-    uint16_t z;		    /* MSB is the DO bit (DNSSEC OK) */
-    uint16_t rdlen;	    /* RDATA length */
-};
-
-
-
-/*
- * DNS query record minus the initial arbitrary length name field. This is 
- * used in the query to describe the type and class desired as well as for
- * processing the question section of the response packets.
- */
-struct dns_query_t {
-    uint16_t type;
-    uint16_t class;
-};
-
-
-
-/*
- * NSID option information to go in the RDATA field of a resource record.
- * Used in the query to request an NSID response.
- */
-//struct dns_nsid_req_rr_t {
-struct dns_opt_rdata_t {
-    uint16_t code;
-    uint16_t length;
-};
-
-/* the pseudo OPT RR header includes a one byte zero length name at the start */
-#define SIZEOF_PSEUDO_RR (sizeof(struct dns_opt_rr_t) + sizeof(uint8_t))
-
+#include "dns.h"
 
 
 
@@ -276,7 +136,8 @@ static char *encode(char *query) {
 
 
 /*
- *
+ * Decode an OPT resource record. Currently the only one that we look for
+ * is the NSID OPT RR.
  */
 static void process_opt_rr(char *rr, struct info_t *info) {
     char *option = rr;
@@ -330,20 +191,21 @@ static void process_packet(char *packet, uint16_t ident, struct timeval *now,
 
     index = recv_ident - ident;
     info[index].reply = 1;
-    //info[index].receive_flags = /* XXX */
+    info[index].flags.bytes = header->flags.bytes;
     info[index].total_answer = ntohs(header->an_count);
     info[index].total_authority = ntohs(header->ns_count);
     info[index].total_additional = ntohs(header->ar_count);
     info[index].response_code = RESPONSEOK;
+    /* info[index].ttl = */
 	
     response_count = ntohs(header->an_count + header->ns_count +
 	    header->ar_count);
 
     /* check it for errors */
-    if ( ! header->qr ) {
+    if ( ! header->flags.fields.qr ) {
 	/* is this packet actually a response to a query? */
 	info[index].response_code = INVALID;
-    } else if ( header->rcode ) {
+    } else if ( header->flags.fields.rcode ) {
 	/* are there any errors in the response code (non-zero value)? */
 	info[index].response_code = NOTFOUND;
     } else if ( ntohs(header->qd_count) != 1 ) {
@@ -391,7 +253,7 @@ static void process_packet(char *packet, uint16_t ident, struct timeval *now,
 		    /* ensure there is enough data for a RR to be present */
 		    if ( ntohs(rr_data->rdlen) >=
 			    sizeof(struct dns_opt_rdata_t) ) {
-			/* skip fixed part of RR header to the variable rdata */
+			/* skip fixed part of RR header to variable rdata */
 			process_opt_rr((char*)(rr_data + 1), &info[index]);
 		    }
 		    break;
@@ -475,7 +337,7 @@ static char *create_dns_query(uint16_t ident, int *len, struct opt_t *opt) {
 
     /* set the recursion desired flag appropriately */
     if ( opt->recurse ) {
-	header->rd = 1;
+	header->flags.fields.rd = 1;
     }
 
     /* query id */
@@ -499,7 +361,7 @@ static char *create_dns_query(uint16_t ident, int *len, struct opt_t *opt) {
     query_info->type = htons(opt->query_type);
     query_info->class = htons(opt->query_class);
 
-    /* add the additional RR to the end of the packet if doing dnssec or nsid */
+    /* add the additional RR to end of the packet if doing dnssec or nsid */
     if ( opt->dnssec || opt->nsid ) {
 	additional = (struct dns_opt_rr_t*)(query + query_string_len +
 		sizeof(struct dns_t) + sizeof(struct dns_query_t) + 
@@ -517,7 +379,7 @@ static char *create_dns_query(uint16_t ident, int *len, struct opt_t *opt) {
 	    nsid_info = (struct dns_opt_rdata_t*)(additional + 1);
 	    nsid_info->code = htons(3);
 	    nsid_info->length = 0;
-	    additional->rdlen = sizeof(struct dns_opt_rdata_t);
+	    additional->rdlen = htons(sizeof(struct dns_opt_rdata_t));
 	}
     }
 
@@ -576,10 +438,10 @@ static void send_packet(struct socket_t *sockets, uint16_t seq, uint16_t ident,
     info[seq].query_length = qbuf_len;
     info[seq].response[0] = '\0';
     info[seq].addr_count = 0;
+    info[seq].ttl = 0;
 
     free(qbuf);
 }
-
 
 
 
@@ -608,16 +470,97 @@ static int open_sockets(struct socket_t *sockets) {
 /*
  *
  */
-static void do_report(struct timeval *start, int count, struct info_t info[],
-	struct opt_t *opt) {
+static void report_results(struct timeval *start_time, int count, 
+	struct info_t info[], struct opt_t *opt) {
 
-    int dest;
+    int i;
+    char *buffer;
+    struct dns_report_header_t *header;
+    struct dns_report_item_t *item;
+    int len;
 
-    for ( dest=0; dest < count; dest++) {
-	fprintf(stderr, "%.6d.%.6d query:%s rtt:%dms %dus\n",
-	    (int)start->tv_sec, (int)start->tv_usec, opt->query_string, 
-	    (int)((info[dest].delay/1000.0) + 0.5), info[dest].delay);
+    Log(LOG_DEBUG, "Building dns report, count:%d, query:%s\n",
+	    count, opt->query_string);
+
+    /* allocate space for all our results - XXX could this get too large? */
+    len = sizeof(struct dns_report_header_t) + 
+	count * sizeof(struct dns_report_item_t);
+    buffer = malloc(len);
+    memset(buffer, 0, len);
+
+    /* single header at the start of the buffer describes the test options */
+    header = (struct dns_report_header_t *)buffer;
+    header->version = AMP_DNS_TEST_VERSION;
+    strncpy(header->query, opt->query_string, MAX_DNS_NAME_LEN);
+    header->query_type = opt->query_type;
+    header->query_class = opt->query_class;
+    header->recurse = opt->recurse;
+    header->dnssec = opt->dnssec;
+    header->nsid = opt->nsid;
+    header->udp_payload_size = opt->udp_payload_size;
+    header->count = count;
+
+    /* add results for all the destinations */
+    for ( i = 0; i < count; i++ ) {
+
+	item = (struct dns_report_item_t *)(buffer + 
+		sizeof(struct dns_report_header_t) + 
+		i * sizeof(struct dns_report_item_t));
+
+	item->response_size = info[i].bytes;
+	item->flags.bytes = info[i].flags.bytes;
+	item->total_answer = info[i].total_answer;
+	item->total_authority = info[i].total_authority;
+	item->total_additional = info[i].total_additional;
+	strncpy(item->ampname, address_to_name(info[i].addr), 
+		sizeof(item->ampname));
+	item->family = info[i].addr->ai_family;
+	item->query_length = info[i].query_length;
+	item->ttl = info[i].ttl;
+	/* 
+	 * TODO this response code is different to the actual rcode in the
+	 * response packet - do we need both of them?
+	 */
+	//item->response_code = info[i].response_code;
+
+	/* save the address the query was sent to */
+	switch ( item->family ) {
+	    case AF_INET:
+		memcpy(item->address, 
+			&((struct sockaddr_in*)
+			    info[i].addr->ai_addr)->sin_addr, 
+			sizeof(struct in_addr));
+		break;
+	    case AF_INET6:
+		memcpy(item->address, 
+			&((struct sockaddr_in6*)
+			    info[i].addr->ai_addr)->sin6_addr,
+			sizeof(struct in6_addr));
+		break;
+	    default: 
+		Log(LOG_WARNING, "Unknown address family %d\n", item->family);
+		memset(item->address, 0, sizeof(item->address));
+		break;
+	};
+
+	/* some servers will return an instance name */
+	if ( strlen(info[i].response) > 0 ) {
+	    strncpy(item->instance, info[i].response, sizeof(item->instance));
+	} else {
+	    strncpy(item->instance, address_to_name(info[i].addr), 
+		    sizeof(item->instance));
+	}
+	
+	if ( info[i].reply /* TODO check response code too? */) {
+	    item->rtt = info[i].delay;
+	} else {
+	    item->rtt = -1;
+	}
+	Log(LOG_DEBUG, "dns result %d: %dus\n", i, item->rtt);
     }
+
+    report(AMP_TEST_DNS, (uint64_t)start_time->tv_sec, (void*)buffer, len);
+    free(buffer);
 }
 
 
@@ -655,6 +598,24 @@ static uint16_t get_query_type(char *query_type) {
 /*
  *
  */
+static char *get_query_type_string(uint16_t query_type) {
+    switch ( query_type ) {
+	case 0x01: return "A";
+	case 0x02: return "NS";
+	case 0x1c: return "AAAA";
+	case 0x0c: return "PTR";
+	case 0x0f: return "MX";
+	case 0x06: return "SOA";
+	case 0xff: return "ANY";
+	default: return "unknown";
+    };
+}
+
+
+
+/*
+ *
+ */
 static uint16_t get_query_class(char *query_class) {
     uint16_t value;
 
@@ -669,6 +630,54 @@ static uint16_t get_query_class(char *query_class) {
 }
 
 
+
+/*
+ *
+ */
+static char *get_query_class_string(uint16_t query_class) {
+    switch ( query_class ) {
+	case 0x01: return "IN";
+	default: return "unknown";
+    };
+}
+
+
+
+/*
+ *
+ */
+static char *get_opcode_string(uint8_t opcode) {
+    switch ( opcode ) {
+	case 0x00: return "QUERY";
+	case 0x01: return "IQUERY";
+	case 0x02: return "STATUS";
+	case 0x04: return "NOTIFY";
+	case 0x05: return "UPDATE";
+	default: return "unknown";
+    };
+}
+
+
+
+/*
+ *
+ */
+static char *get_status_string(uint8_t status) {
+    switch ( status ) {
+	case 0x00: return "NOERROR";
+	case 0x01: return "FORMERR";
+	case 0x02: return "SERVFAIL";
+	case 0x03: return "NXDOMAIN";
+	case 0x04: return "NOTIMP";
+	case 0x05: return "REFUSED";
+	case 0x06: return "YXDOMAIN";
+	case 0x07: return "YXRRSET";
+	case 0x08: return "NXRRSET";
+	case 0x09: return "NOTAUTH";
+	case 0x0a: return "NOTZONE";
+	default: return "unknown";
+    };
+}
 
 
 
@@ -781,7 +790,9 @@ int run_dns(int argc, char *argv[], int count, struct addrinfo **dests) {
     harvest(&sockets, ident, LOSS_TIMEOUT / 100, count, info, &options);
 
     /* check if all expected responses have been received */
-    for ( dest = 0; dest < count && info[dest].reply; dest++ ) { /* nothing */ }
+    for ( dest = 0; dest < count && info[dest].reply; dest++ ) { 
+	/* nothing */ 
+    }
 
     /* if not, then call harvest again with the full timeout */
     if ( dest < count ) {
@@ -797,7 +808,7 @@ int run_dns(int argc, char *argv[], int count, struct addrinfo **dests) {
     }
 
     /* send report */
-    do_report(&start_time, count, info, &options);
+    report_results(&start_time, count, info, &options);
 
     free(options.query_string);
     free(info);
@@ -818,10 +829,80 @@ int save_dns(char *monitor, uint64_t timestamp, void *data, uint32_t len) {
 
 
 /*
- * Print DNS test results to stdout, nicely formatted for the standalone test
+ * Print DNS test results to stdout, nicely formatted for the standalone test.
+ * Tries to look a little bit similar to the output of dig, but with fewer
+ * lines of output per server.
  */
 void print_dns(void *data, uint32_t len) {
-    /* TODO print DNS test data */
+    struct dns_report_header_t *header = (struct dns_report_header_t*)data;
+    struct dns_report_item_t *item;
+    char addrstr[INET6_ADDRSTRLEN];
+    int i;
+
+    assert(data != NULL);
+    assert(len >= sizeof(struct dns_report_header_t));
+    assert(len == sizeof(struct dns_report_header_t) + 
+	    header->count * sizeof(struct dns_report_item_t));
+    assert(header->version == AMP_DNS_TEST_VERSION);
+
+    /* print global configuration options */
+    printf("\n");
+    printf("AMP dns test, %u destinations, %s %s %s", 
+	    header->count, header->query, 
+	    get_query_class_string(header->query_class),
+	    get_query_type_string(header->query_type));
+    printf("\n");
+
+    if ( header->recurse || header->dnssec || header->nsid ) {
+	printf("global options:");
+	if ( header->recurse ) printf(" +recurse");
+	if ( header->dnssec ) printf(" +dnssec");
+	if ( header->nsid ) printf(" +nsid");
+	printf("\n");
+    }
+
+    /* print per test results */
+    for ( i=0; i<header->count; i++ ) {
+	item = (struct dns_report_item_t*)(data + 
+		sizeof(struct dns_report_header_t) + 
+		i * sizeof(struct dns_report_item_t));
+	
+	printf("SERVER: %s", item->ampname);
+	inet_ntop(item->family, item->address, addrstr, INET6_ADDRSTRLEN);
+	if ( item->rtt < 0 ) {
+	    printf(" (%s) no response\n", addrstr);
+	    continue;
+	} else {
+	    /* 
+	     * TODO suppress instance name if it's the same as the ampname 
+	     * or the address of the target? It won't often be different.
+	     */
+	    printf(" (%s,%s)", addrstr, item->instance);
+	    printf(" %dus", item->rtt);
+	}
+	printf("\n");
+
+	printf("MSG SIZE sent: %d, rcvd: %d, ", item->query_length, 
+		item->response_size);
+	printf("opcode: %s, status: %s\n", 
+		get_opcode_string(item->flags.fields.opcode), 
+		get_status_string(item->flags.fields.rcode));
+
+	printf("flags:");
+	if ( item->flags.fields.qr ) printf(" qr");
+	if ( item->flags.fields.aa ) printf(" aa");
+	if ( item->flags.fields.rd ) printf(" rd");
+	if ( item->flags.fields.ra ) printf(" ra");
+	if ( item->flags.fields.tc ) printf(" tc");
+	if ( item->flags.fields.ad ) printf(" ad");
+	if ( item->flags.fields.cd ) printf(" cd");
+	printf("; ");
+
+	printf("QUERY: 1, ANSWER: %d, AUTHORITY: %d, ADDITIONAL: %d\n",
+		item->total_answer, item->total_authority, 
+		item->total_additional);
+	printf("\n");
+    }
 }
 
 
