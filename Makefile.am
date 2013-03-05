@@ -1,1 +1,2 @@
+EXTRA_DIST=etc
 SUBDIRS=src
