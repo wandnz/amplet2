@@ -50,21 +50,22 @@ def get_data(data):
 	    #print "Unknown address family %d" % family
 	    raise ValueError
 
-	results.append(
-		{
-		    "target": name.rstrip("\0"), 
-		    "address": addr,
-		    "rtt": rtt, 
-		    "error_type": errtype, 
-		    "error_code": errcode,
-		    "ttl": ttl,
-		    }
-		)
+        # TODO should things like loss be included here, or leave them up
+        # to the next stage to calculate them? Easier just to do it here?
+        results.append(
+                {
+                    "target": name.rstrip("\0"),
+                    "address": addr,
+                    "rtt": rtt,
+                    "error_type": errtype,
+                    "error_code": errcode,
+                    "ttl": ttl,
+                    "packet_size": packet_size,
+                    "random": random,
+                    "loss": True if rtt < 0 else False,
+                }
+            )
 	offset += item_len
 	count -= 1
 
-    return {
-	"packet_size": packet_size,
-	"random": random,
-	"results": results,
-    }
+    return results
