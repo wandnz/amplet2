@@ -36,8 +36,13 @@ if test "$event_found" = 0; then
     AC_MSG_ERROR(Required library libwandevent not found; use LDFLAGS to specify library location)
 fi
 
+AC_CHECK_LIB([rabbitmq], [amqp_new_connection],,rabbit_found=0)
+if test "$rabbit_found" = 0; then
+    AC_MSG_ERROR(Required library librabbitmq not found; use LDFLAGS to specify library location)
+fi
+
 AC_ARG_ENABLE(python,
-    AC_HELP_STRING([--enable-python], 
+    AC_HELP_STRING([--enable-python],
 	[Enable the python data exporting (default: yes)]),
     [case "${enableval}" in
     true) ;&
@@ -58,7 +63,7 @@ fi
 
 # Checks to enable the various tests in AMP
 AC_ARG_ENABLE(skeleton,
-    AC_HELP_STRING([--enable-skeleton], 
+    AC_HELP_STRING([--enable-skeleton],
 	[Enable the skeleton test (default: yes)]),
     [case "${enableval}" in
     true) ;&
@@ -83,11 +88,11 @@ AC_ARG_ENABLE(icmp,
     esac],
     [want_icmp_test=true])
 # using AM_CONDITIONAL propagates this value through to all Makefile.am files
-AM_CONDITIONAL(WANT_ICMP_TEST, 
+AM_CONDITIONAL(WANT_ICMP_TEST,
 	[test x"$want_icmp_test" = xtrue])
 
 AC_ARG_ENABLE(dns,
-    AC_HELP_STRING([--enable-dns], 
+    AC_HELP_STRING([--enable-dns],
 	[Enable the dns test (default: yes)]),
     [case "${enableval}" in
     true) ;&
@@ -98,7 +103,7 @@ AC_ARG_ENABLE(dns,
     esac],
     [want_dns_test=true])
 # using AM_CONDITIONAL propagates this value through to all Makefile.am files
-AM_CONDITIONAL(WANT_DNS_TEST, 
+AM_CONDITIONAL(WANT_DNS_TEST,
 	[test x"$want_dns_test" = xtrue])
 
 
