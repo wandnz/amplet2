@@ -50,6 +50,10 @@ def get_data(data):
 	    #print "Unknown address family %d" % family
 	    raise ValueError
 
+        # Use a proper python None value to mark this rather than a -1
+        if rtt < 0:
+            rtt = None
+
         # TODO should things like loss be included here, or leave them up
         # to the next stage to calculate them? Easier just to do it here?
         results.append(
@@ -62,7 +66,7 @@ def get_data(data):
                     "ttl": ttl,
                     "packet_size": packet_size,
                     "random": random,
-                    "loss": True if rtt < 0 else False,
+                    "loss": True if rtt is None else False,
                 }
             )
 	offset += item_len
