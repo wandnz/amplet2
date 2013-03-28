@@ -28,7 +28,7 @@
  */
 
 
-/* 
+/*
  * Calculate the icmp header checksum. Based on the checkSum() function found
  * in AMP at src/lib/checksum.c
  */
@@ -68,7 +68,7 @@ static void icmp_error(char *packet, uint16_t ident, struct info_t info[]) {
     struct iphdr *ip, *embed_ip;
     struct icmphdr *icmp, *embed_icmp;
     uint16_t seq;
-    
+
     ip = (struct iphdr *)packet;
 
     assert(ip->version == 4);
@@ -76,12 +76,12 @@ static void icmp_error(char *packet, uint16_t ident, struct info_t info[]) {
 
     icmp = (struct icmphdr *)(packet + (ip->ihl << 2));
 
-    /* 
+    /*
      * make sure there is enough room in this packet to entertain the
-     * possibility of having embedded data - at least enough space for 
+     * possibility of having embedded data - at least enough space for
      * 2 ip headers (one of known length), 2 icmp headers.
      */
-    if ( ip->tot_len < (ip->ihl << 2) + sizeof(struct iphdr) + 
+    if ( ip->tot_len < (ip->ihl << 2) + sizeof(struct iphdr) +
 	    (sizeof(struct icmphdr) * 2) ) {
 	Log(LOG_WARNING, "ICMP reply too small for embedded packet data");
 	return;
@@ -101,7 +101,7 @@ static void icmp_error(char *packet, uint16_t ident, struct info_t info[]) {
 
     /* make sure the embedded header looks like one of ours */
     if ( embed_icmp->type > NR_ICMP_TYPES ||
-	    embed_icmp->type != ICMP_ECHO || embed_icmp->code != 0 || 
+	    embed_icmp->type != ICMP_ECHO || embed_icmp->code != 0 ||
 	    ntohs(embed_icmp->un.echo.id) != ident) {
 	return;
     }
@@ -122,7 +122,7 @@ static void icmp_error(char *packet, uint16_t ident, struct info_t info[]) {
  * Process an ICMPv4 packet to check if it is an ICMP ECHO REPLY in response to
  * a request we have sent. If so then record the time it took to get the reply.
  */
-static void process_ipv4_packet(char *packet, uint16_t ident, 
+static void process_ipv4_packet(char *packet, uint16_t ident,
 	struct timeval now, int count, struct info_t info[]) {
 
     struct iphdr *ip;
@@ -142,10 +142,10 @@ static void process_ipv4_packet(char *packet, uint16_t ident,
 	icmp_error(packet, ident, info);
 	return;
     }
-    
+
     /* if it is an echo reply but the id doesn't match then it's not ours */
-    if ( ntohs(icmp->un.echo.id ) != ident ) {	
-	return;	
+    if ( ntohs(icmp->un.echo.id ) != ident ) {
+	return;
     }
 
     /* check the sequence number is less than the maximum number of requests */
@@ -155,7 +155,7 @@ static void process_ipv4_packet(char *packet, uint16_t ident,
     }
 
     /* check that the magic value in the reply matches what we expected */
-    //if ( *(uint16_t*)&packet[sizeof(struct iphdr)+sizeof(struct icmphdr)] != 
+    //if ( *(uint16_t*)&packet[sizeof(struct iphdr)+sizeof(struct icmphdr)] !=
     if ( *(uint16_t*)(((char *)packet)+(ip->ihl<< 2)+sizeof(struct icmphdr)) !=
 	    info[seq].magic ) {
 	return;
@@ -173,7 +173,7 @@ static void process_ipv4_packet(char *packet, uint16_t ident,
  * is the same behaviour as the original icmp test, but is it really what we
  * want? Should record errors for both protocols, or neither?
  */
-static void process_ipv6_packet(char *packet, uint16_t ident, 
+static void process_ipv6_packet(char *packet, uint16_t ident,
 	struct timeval now, int count, struct info_t info[]) {
 
     struct icmp6_hdr *icmp;
@@ -191,7 +191,7 @@ static void process_ipv6_packet(char *packet, uint16_t ident,
     }
 
     /* check that the magic value in the reply matches what we expected */
-    if ( *(uint16_t*)(((char*)packet) + sizeof(struct icmp6_hdr)) != 
+    if ( *(uint16_t*)(((char*)packet) + sizeof(struct icmp6_hdr)) !=
 	    info[seq].magic ) {
 	return;
     }
@@ -206,7 +206,7 @@ static void process_ipv6_packet(char *packet, uint16_t ident,
 /*
  *
  */
-static void harvest(struct socket_t *raw_sockets, uint16_t ident, int wait, 
+static void harvest(struct socket_t *raw_sockets, uint16_t ident, int wait,
 	int count, struct info_t info[]) {
 
     char packet[2048]; //XXX can we be sure of a max size for recv packets?
@@ -216,20 +216,20 @@ static void harvest(struct socket_t *raw_sockets, uint16_t ident, int wait,
     /* read packets until we hit the timeout, or we have all we expect.
      * Note that wait is reduced by get_packet()
      */
-    while ( get_packet(raw_sockets, packet, 1024, (struct sockaddr*)&addr, 
+    while ( get_packet(raw_sockets, packet, 1024, (struct sockaddr*)&addr,
 		&wait) ) {
 	gettimeofday(&now, NULL);
 
-	/* 
+	/*
 	 * this check isn't as nice as it could be - should we explicitly ask
-	 * for the icmp6 header to be returned so we can be sure we are 
+	 * for the icmp6 header to be returned so we can be sure we are
 	 * checking the right things?
 	 */
 	switch ( ((struct iphdr*)packet)->version ) {
-	    case 4: process_ipv4_packet(packet, ident, now, count, info); 
+	    case 4: process_ipv4_packet(packet, ident, now, count, info);
 		    break;
 	    default: /* unless we ask we don't have an ipv6 header here */
-		    process_ipv6_packet(packet, ident, now, count, info); 
+		    process_ipv6_packet(packet, ident, now, count, info);
 		    break;
 	};
     }
@@ -241,7 +241,7 @@ static void harvest(struct socket_t *raw_sockets, uint16_t ident, int wait,
  * Construct and send an icmp echo request packet.
  */
 static void send_packet(struct socket_t *raw_sockets, int seq, uint16_t ident,
-	struct addrinfo *dest, int count, struct info_t info[], 
+	struct addrinfo *dest, int count, struct info_t info[],
 	struct opt_t *opt) {
 
     struct icmphdr *icmp;
@@ -261,8 +261,8 @@ static void send_packet(struct socket_t *raw_sockets, int seq, uint16_t ident,
     /* set data portion with random number */
     magic = rand();
     memcpy(&packet[sizeof(struct icmphdr)], &magic, sizeof(magic));
-    
-    /* save information about this packet so we can track the response */ 
+
+    /* save information about this packet so we can track the response */
     info[seq].addr = dest;
     info[seq].reply = 0;
     info[seq].err_type = 0;
@@ -275,7 +275,7 @@ static void send_packet(struct socket_t *raw_sockets, int seq, uint16_t ident,
 	    icmp->type = ICMP_ECHO;
 	    sock = raw_sockets->socket;
 	    h_len = sizeof(struct iphdr);
-	    icmp->checksum = checksum((uint16_t*)packet, 
+	    icmp->checksum = checksum((uint16_t*)packet,
 		    opt->packet_size - h_len);
 	    break;
 	case AF_INET6:
@@ -283,7 +283,7 @@ static void send_packet(struct socket_t *raw_sockets, int seq, uint16_t ident,
 	    sock = raw_sockets->socket6;
 	    h_len = sizeof(struct ip6_hdr);
 	    break;
-	default: 
+	default:
 	    Log(LOG_WARNING, "Unknown address family: %d", dest->ai_family);
 	    return;
     };
@@ -311,11 +311,11 @@ static void send_packet(struct socket_t *raw_sockets, int seq, uint16_t ident,
  * appropriate filters for the ICMPv6 socket to only receive echo replies.
  */
 static int open_sockets(struct socket_t *raw_sockets) {
-    if ( (raw_sockets->socket = 
+    if ( (raw_sockets->socket =
 		socket(AF_INET, SOCK_RAW, IPPROTO_ICMP)) < 0 ) {
 	Log(LOG_WARNING, "Failed to open raw socket for ICMP");
     }
-    
+
     if ( (raw_sockets->socket6 =
 		socket(AF_INET6, SOCK_RAW, IPPROTO_ICMPV6))<0 ) {
 	Log(LOG_WARNING, "Failed to open raw socket for ICMPv6");
@@ -324,12 +324,12 @@ static int open_sockets(struct socket_t *raw_sockets) {
 	struct icmp6_filter filter;
 	ICMP6_FILTER_SETBLOCKALL(&filter);
 	ICMP6_FILTER_SETPASS(ICMP6_ECHO_REPLY, &filter);
-	if ( setsockopt(raw_sockets->socket6, SOL_ICMPV6, ICMP6_FILTER, 
+	if ( setsockopt(raw_sockets->socket6, SOL_ICMPV6, ICMP6_FILTER,
 		    &filter, sizeof(struct icmp6_filter)) < 0 ) {
 	    Log(LOG_WARNING, "Could not set ICMPv6 filter");
 	}
     }
-    
+
     /* make sure at least one type of socket was opened */
     if ( raw_sockets->socket < 0 && raw_sockets->socket6 < 0 ) {
 	return 0;
@@ -343,7 +343,7 @@ static int open_sockets(struct socket_t *raw_sockets) {
 /*
  *
  */
-static void report_results(struct timeval *start_time, int count, 
+static void report_results(struct timeval *start_time, int count,
 	struct info_t info[], struct opt_t *opt) {
 
     int i;
@@ -356,7 +356,7 @@ static void report_results(struct timeval *start_time, int count,
 	    count, opt->packet_size, opt->random);
 
     /* allocate space for all our results - XXX could this get too large? */
-    len = sizeof(struct icmp_report_header_t) + 
+    len = sizeof(struct icmp_report_header_t) +
 	count * sizeof(struct icmp_report_item_t);
     buffer = malloc(len);
     memset(buffer, 0, len);
@@ -371,44 +371,44 @@ static void report_results(struct timeval *start_time, int count,
     /* add results for all the destinations */
     for ( i = 0; i < count; i++ ) {
 
-	item = (struct icmp_report_item_t *)(buffer + 
-		sizeof(struct icmp_report_header_t) + 
+	item = (struct icmp_report_item_t *)(buffer +
+		sizeof(struct icmp_report_header_t) +
 		i * sizeof(struct icmp_report_item_t));
 
 	item->err_type = info[i].err_type;
 	item->err_code = info[i].err_code;
-	strncpy(item->ampname, address_to_name(info[i].addr), 
+	strncpy(item->ampname, address_to_name(info[i].addr),
 		sizeof(item->ampname));
 	item->family = info[i].addr->ai_family;
 	item->ttl = info[i].ttl;
 	switch ( item->family ) {
 	    case AF_INET:
-		memcpy(item->address, 
+		memcpy(item->address,
 			&((struct sockaddr_in*)
-			    info[i].addr->ai_addr)->sin_addr, 
+			    info[i].addr->ai_addr)->sin_addr,
 			sizeof(struct in_addr));
 		break;
 	    case AF_INET6:
-		memcpy(item->address, 
+		memcpy(item->address,
 			&((struct sockaddr_in6*)
 			    info[i].addr->ai_addr)->sin6_addr,
 			sizeof(struct in6_addr));
 		break;
-	    default: 
+	    default:
 		Log(LOG_WARNING, "Unknown address family %d\n", item->family);
 		memset(item->address, 0, sizeof(item->address));
 		break;
 	};
-	
+
 	/* TODO do we want to truncate to milliseconds like the old test? */
-	if ( info[i].reply && info[i].err_type == 0 
+	if ( info[i].reply && info[i].err_type == 0
 		&& info[i].err_code == 0 ) {
 	    //printf("%dms ", (int)((info[i].delay/1000.0) + 0.5));
 	    item->rtt = info[i].delay;
 	} else {
 	    item->rtt = -1;
 	}
-	Log(LOG_DEBUG, "icmp result %d: %dus, %d/%d\n", i, item->rtt, 
+	Log(LOG_DEBUG, "icmp result %d: %dus, %d/%d\n", i, item->rtt,
 		item->err_type, item->err_code);
     }
 
@@ -469,25 +469,25 @@ int run_icmp(int argc, char *argv[], int count, struct addrinfo **dests) {
     /* pick a random packet size within allowable boundaries */
     if ( options.random ) {
 	options.packet_size = MIN_ICMP_ECHO_REQUEST_LEN + IP_HEADER_LEN +
-	    (int)((1500 - IP_HEADER_LEN - MIN_ICMP_ECHO_REQUEST_LEN) 
+	    (int)((1500 - IP_HEADER_LEN - MIN_ICMP_ECHO_REQUEST_LEN)
 		    * (random()/(RAND_MAX+1.0)));
-	Log(LOG_DEBUG, "Setting packetsize to random value: %d\n", 
+	Log(LOG_DEBUG, "Setting packetsize to random value: %d\n",
 		options.packet_size);
     }
 
     /* make sure that the packet size is big enough for our data */
     if ( options.packet_size < MIN_ICMP_ECHO_REQUEST_LEN + IP_HEADER_LEN ) {
 	Log(LOG_WARNING, "Packet size %d below minimum size, raising to %d",
-		options.packet_size, 
+		options.packet_size,
 		MIN_ICMP_ECHO_REQUEST_LEN + IP_HEADER_LEN);
-	options.packet_size = MIN_ICMP_ECHO_REQUEST_LEN + IP_HEADER_LEN;	
+	options.packet_size = MIN_ICMP_ECHO_REQUEST_LEN + IP_HEADER_LEN;
     }
 
     /* delay the start by a random amount of perturbate is set */
     if ( options.perturbate ) {
 	int delay;
 	delay = options.perturbate * 1000 * (random()/(RAND_MAX+1.0));
-	Log(LOG_DEBUG, "Perturbate set to %dms, waiting %dus", 
+	Log(LOG_DEBUG, "Perturbate set to %dms, waiting %dus",
 		options.perturbate, delay);
 	usleep(delay);
     }
@@ -510,11 +510,11 @@ int run_icmp(int argc, char *argv[], int count, struct addrinfo **dests) {
 
     /* send a test packet to each destination */
     for ( dest = 0; dest < count; dest++ ) {
-	send_packet(&raw_sockets, dest, ident, dests[dest], count, info, 
+	send_packet(&raw_sockets, dest, ident, dests[dest], count, info,
 		&options);
     }
 
-    /* 
+    /*
      * harvest results - try with a short timeout to start with, so maybe we
      * can avoid doing the long wait later
      */
@@ -553,10 +553,10 @@ int run_icmp(int argc, char *argv[], int count, struct addrinfo **dests) {
  */
 int save_icmp(char *monitor, uint64_t timestamp, void *data, uint32_t len) {
     struct icmp_report_header_t *header = (struct icmp_report_header_t*)data;
-    
+
     assert(data != NULL);
     assert(len >= sizeof(struct icmp_report_header_t));
-    assert(len == sizeof(struct icmp_report_header_t) + 
+    assert(len == sizeof(struct icmp_report_header_t) +
 	    header->count * sizeof(struct icmp_report_item_t));
 
     if ( header->version != AMP_ICMP_TEST_VERSION ) {
@@ -566,7 +566,7 @@ int save_icmp(char *monitor, uint64_t timestamp, void *data, uint32_t len) {
     }
 
     /* TODO implement saving test data in database */
-    fprintf(stderr, "SAVING DATA FOR %s at %lu, %u bytes\n", 
+    fprintf(stderr, "SAVING DATA FOR %s at %lu, %u bytes\n",
 	    monitor, timestamp, len);
     print_icmp(data, len);
     return 0;
@@ -585,12 +585,12 @@ void print_icmp(void *data, uint32_t len) {
 
     assert(data != NULL);
     assert(len >= sizeof(struct icmp_report_header_t));
-    assert(len == sizeof(struct icmp_report_header_t) + 
+    assert(len == sizeof(struct icmp_report_header_t) +
 	    header->count * sizeof(struct icmp_report_item_t));
     assert(header->version == AMP_ICMP_TEST_VERSION);
 
     printf("\n");
-    printf("AMP icmp test, %u destinations, %u byte packets ", header->count, 
+    printf("AMP icmp test, %u destinations, %u byte packets ", header->count,
 	    header->packet_size);
     if ( header->random ) {
 	printf("(random size)\n");
@@ -599,8 +599,8 @@ void print_icmp(void *data, uint32_t len) {
     }
 
     for ( i=0; i<header->count; i++ ) {
-	item = (struct icmp_report_item_t*)(data + 
-		sizeof(struct icmp_report_header_t) + 
+	item = (struct icmp_report_item_t*)(data +
+		sizeof(struct icmp_report_header_t) +
 		i * sizeof(struct icmp_report_item_t));
 	printf("%s", item->ampname);
 	inet_ntop(item->family, item->address, addrstr, INET6_ADDRSTRLEN);
@@ -641,10 +641,10 @@ test_t *register_test() {
 
     /* function to call to setup arguments and run the test */
     new_test->run_callback = run_icmp;
-    
+
     /* function to call to save the results of the test */
     new_test->save_callback = save_icmp;
-    
+
     /* function to call to pretty print the results of the test */
     new_test->print_callback = print_icmp;
 

@@ -35,7 +35,8 @@ static struct addrinfo *name_table = NULL;
 
 
 /*
- * TODO: smarter data structure that will give faster lookups?
+ * Insert a new nametable entry on to the front of the list and set the
+ * canonical name to the name we use for it.
  */
 static void insert_nametable_entry(char *name, struct addrinfo *info) {
     assert(name);
@@ -50,7 +51,7 @@ static void insert_nametable_entry(char *name, struct addrinfo *info) {
 
 
 /*
- *
+ * Dump the entire contents of the nametable for debugging.
  */
 static void dump_nametable() {
     struct addrinfo *tmp;
@@ -63,17 +64,17 @@ static void dump_nametable() {
 	assert(tmp->ai_addr);
 	assert(tmp->ai_canonname);
 	if ( tmp->ai_addr->sa_family == AF_INET ) {
-	    inet_ntop(AF_INET, 
-		    &((struct sockaddr_in*)tmp->ai_addr)->sin_addr, 
+	    inet_ntop(AF_INET,
+		    &((struct sockaddr_in*)tmp->ai_addr)->sin_addr,
 		    address, INET6_ADDRSTRLEN);
 
 	} else if ( tmp->ai_addr->sa_family == AF_INET6 ) {
-	    inet_ntop(AF_INET6, 
+	    inet_ntop(AF_INET6,
 		    &((struct sockaddr_in6*)tmp->ai_addr)->sin6_addr,
 		    address, INET6_ADDRSTRLEN);
 
 	} else {
-	    Log(LOG_WARNING, "unknown address family: %d\n", 
+	    Log(LOG_WARNING, "unknown address family: %d\n",
 		    tmp->ai_addr->sa_family);
 	    continue;
 	}
@@ -84,8 +85,8 @@ static void dump_nametable() {
 
 
 /*
- *
- */ 
+ * Compare two addrinfo structs to see if they are identical.
+ */
 static int compare_addrinfo(struct addrinfo *a, struct addrinfo *b) {
     assert(a);
     assert(b);
@@ -96,7 +97,7 @@ static int compare_addrinfo(struct addrinfo *a, struct addrinfo *b) {
 	return 0;
 
     if ( a->ai_addr->sa_family == AF_INET ) {
-	if ( ((struct sockaddr_in*)a->ai_addr)->sin_addr.s_addr == 
+	if ( ((struct sockaddr_in*)a->ai_addr)->sin_addr.s_addr ==
 		((struct sockaddr_in*)b->ai_addr)->sin_addr.s_addr ) {
 	    return 1;
 	}
@@ -126,7 +127,7 @@ static void nametable_file_changed_event(struct wand_fdcb_t *evcb,
 
     if ( read(data->fd, &buf, sizeof(buf)) == sizeof(buf) ) {
 	if ( buf.mask & IN_MODIFY ) {
-	    /* 
+	    /*
 	     * schedule relies on the names, so clear them out, load all the
 	     * new names and then reload the schedule.
 	     */
@@ -152,7 +153,7 @@ static void check_nametable_file(struct wand_timer_t *timer) {
     file_data_t *data = (file_data_t *)timer->data;
     struct stat statInfo;
     time_t now;
-    
+
     /* check if the nametable file has changed since last time */
     now = time(NULL);
     if ( stat(NAMETABLE_FILE, &statInfo) != 0 ) {
@@ -163,7 +164,7 @@ static void check_nametable_file(struct wand_timer_t *timer) {
     if ( statInfo.st_mtime > data->last_update ) {
 	/* clear out all events and add new ones */
 	Log(LOG_INFO, "Nametable file modified, updating\n");
-	/* 
+	/*
 	 * schedule relies on the names, so clear them out, load all the
 	 * new names and then reload the schedule.
 	 */
@@ -174,7 +175,7 @@ static void check_nametable_file(struct wand_timer_t *timer) {
 	data->last_update = statInfo.st_mtime;
 	Log(LOG_INFO, "Done updating nametable file\n");
     }
-    
+
     /* reschedule the check again */
     timer->expire = wand_calc_expire(data->ev_hdl, FILE_CHECK_FREQ, 0);
     timer->prev = NULL;
@@ -187,12 +188,13 @@ static void check_nametable_file(struct wand_timer_t *timer) {
 
 
 /*
- *
+ * Setup the automatic refresh of the nametable file using the best approach
+ * available of inotify and polling.
  */
 void setup_nametable_refresh(wand_event_handler_t *ev_hdl) {
 #if HAVE_SYS_INOTIFY_H
     /* use inotify if we are on linux, it is nicer and quicker */
-    setup_file_refresh_inotify(ev_hdl, NAMETABLE_FILE, 
+    setup_file_refresh_inotify(ev_hdl, NAMETABLE_FILE,
 	    nametable_file_changed_event);
 #else
     /* if missing inotify then use libwandevent timers to check regularly */
@@ -203,7 +205,8 @@ void setup_nametable_refresh(wand_event_handler_t *ev_hdl) {
 
 
 /*
- * 
+ * Empty the nametable. It's a list of addrinfo structs, so freeaddrinfo()
+ * will do all the hard work.
  */
 void clear_nametable() {
     if ( name_table != NULL ) {
@@ -215,7 +218,8 @@ void clear_nametable() {
 
 
 /*
- *
+ * Traverse the list and return the first address structure that has the
+ * given name.
  */
 struct addrinfo *name_to_address(char *name) {
     struct addrinfo *tmp;
@@ -246,7 +250,7 @@ void read_nametable_file() {
     struct addrinfo hint;
     struct addrinfo *addrinfo;
     int res;
-    
+
     Log(LOG_INFO, "Loading nametable from %s", NAMETABLE_FILE);
 
     if ( (in = fopen(NAMETABLE_FILE, "r")) == NULL ) {
@@ -270,7 +274,7 @@ void read_nametable_file() {
 	    continue;
 
 	if ( name_to_address(name) != NULL ) {
-	    Log(LOG_WARNING, 
+	    Log(LOG_WARNING,
 		    "Duplicate entry in name table for destination '%s'\n",
 		    name);
 	    continue;

@@ -12,22 +12,22 @@
 
 
 #if HAVE_SYS_INOTIFY_H
-/* 
- * set up inotify to monitor a file for changes 
+/*
+ * set up inotify to monitor a file for changes
  */
-void setup_file_refresh_inotify(wand_event_handler_t *ev_hdl, 
+void setup_file_refresh_inotify(wand_event_handler_t *ev_hdl,
 	char *filename, void *callback) {
 
     int inotify_fd;
     int file_wd;
     struct wand_fdcb_t *file_watch_ev;
     file_data_t *file_data;
-    
+
     Log(LOG_DEBUG, "Using inotify to monitor file %s", filename);
-    
+
     file_watch_ev = (struct wand_fdcb_t*)malloc(sizeof(struct wand_fdcb_t));
     file_data = (file_data_t*)malloc(sizeof(file_data_t));
-    
+
     if ( (inotify_fd = inotify_init()) < 0 ) {
 	perror("inotify_init");
 	exit(1);
@@ -58,16 +58,16 @@ void setup_file_refresh_inotify(wand_event_handler_t *ev_hdl,
 
 #else
 
-/* 
- * set up a libwandevent timer to monitor a file for changes 
+/*
+ * set up a libwandevent timer to monitor a file for changes
  */
 void setup_file_refresh_timer(wand_event_handler_t *ev_hdl,
 	char *filename, void *callback) {
 
     struct wand_timer_t *file_timer;
     file_data_t *file_data;
-    
-    Log(LOG_DEBUG, "Using polling to monitor file %s (interval: %ds)", 
+
+    Log(LOG_DEBUG, "Using polling to monitor file %s (interval: %ds)",
 	    filename, FILE_CHECK_FREQ);
 
     file_timer = (struct wand_timer_t*)malloc(sizeof(struct wand_timer_t));

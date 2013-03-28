@@ -24,10 +24,10 @@
 
 /*
  * Decode a compressed name/label. Each portion of the name is preceeded by a
- * byte containing its length. The final portion of any name can be 
- * represented in two bytes (magic number + offset) describing a previously 
+ * byte containing its length. The final portion of any name can be
+ * represented in two bytes (magic number + offset) describing a previously
  * used label rather than having to write it out in full.
- * See section 4.1.4 of http://www.ietf.org/rfc/rfc1035.txt 
+ * See section 4.1.4 of http://www.ietf.org/rfc/rfc1035.txt
  */
 static char *decode(char *result, char *data, char *start) {
     int index = 0;
@@ -42,8 +42,8 @@ static char *decode(char *result, char *data, char *start) {
 	length = (uint8_t)*start;
 
 	/*
-	 * If the length shows that it's compressed (magic number 0xc0) then 
-	 * update the pointer and try again. The next byte contains the index 
+	 * If the length shows that it's compressed (magic number 0xc0) then
+	 * update the pointer and try again. The next byte contains the index
 	 * into data that we should jump to. Multiple levels of indirection are
 	 * possible, so we can't just carry on here, have to keep checking.
 	 */
@@ -79,16 +79,16 @@ static char *decode(char *result, char *data, char *start) {
 	result[index] = '\0';
     }
 
-    /* 
+    /*
      * if we've saved the current location while looking back in the packet,
-     * return the saved location. This will be 2 bytes ahead of where we 
+     * return the saved location. This will be 2 bytes ahead of where we
      * started, i.e. 0xc0 and the offset byte.
      */
     if ( current != NULL ) {
 	return current;
     }
 
-    /* 
+    /*
      * if the name was written in full and not compressed then start has been
      * updated as we went. Increment one to get past the last byte of the name
      * and return that as the start of the next record.
@@ -101,7 +101,7 @@ static char *decode(char *result, char *data, char *start) {
 /*
  * Encode a compressed name/label. Each portion of the name is preceeded by
  * a length byte. Dots are not represented in the query.
- * See section 4.1.4 of http://www.ietf.org/rfc/rfc1035.txt 
+ * See section 4.1.4 of http://www.ietf.org/rfc/rfc1035.txt
  */
 static char *encode(char *query) {
     char *name = malloc(MAX_DNS_NAME_LEN * sizeof(char));
@@ -197,7 +197,7 @@ static void process_packet(char *packet, uint16_t ident, struct timeval *now,
     info[index].total_additional = ntohs(header->ar_count);
     info[index].response_code = RESPONSEOK;
     /* info[index].ttl = */
-	
+
     response_count = ntohs(header->an_count + header->ns_count +
 	    header->ar_count);
 
@@ -219,11 +219,11 @@ static void process_packet(char *packet, uint16_t ident, struct timeval *now,
     /* if it's a good response then check its contents */
     if ( info[index].response_code == RESPONSEOK ) {
 
-	rr_start = packet + sizeof(struct dns_t); 
+	rr_start = packet + sizeof(struct dns_t);
 
 	/* skip over all the question RRs, we aren't really interested */
 	for ( i=0; i<ntohs(header->qd_count); i++ ) {
-	    Log(LOG_DEBUG, "Skipping question RR %d/%d\n", i+1, 
+	    Log(LOG_DEBUG, "Skipping question RR %d/%d\n", i+1,
 		    ntohs(header->qd_count));
 	    rr_start = decode(NULL, packet, rr_start);
 	    rr_start += sizeof(struct dns_query_t);
@@ -237,7 +237,7 @@ static void process_packet(char *packet, uint16_t ident, struct timeval *now,
 	    rr_start = decode(name, packet, rr_start);
 	    rr_data = (struct dns_opt_rr_t *)rr_start;
 
-	    Log(LOG_DEBUG, "RR: '%s' type=0x%.2x class=0x%.2x rdlen=%d\n", 
+	    Log(LOG_DEBUG, "RR: '%s' type=0x%.2x class=0x%.2x rdlen=%d\n",
 		    name, htons(rr_data->type), htons(rr_data->payload),
 		    htons(rr_data->rdlen));
 
@@ -282,14 +282,14 @@ static void process_packet(char *packet, uint16_t ident, struct timeval *now,
 /*
  *
  */
-static void harvest(struct socket_t *sockets, uint16_t ident, int wait, 
+static void harvest(struct socket_t *sockets, uint16_t ident, int wait,
 	int count, struct info_t info[], struct opt_t *opt) {
 
     char packet[opt->udp_payload_size];
     struct sockaddr_in6 addr;
     struct timeval now;
 
-    while ( get_packet(sockets, packet, opt->udp_payload_size, 
+    while ( get_packet(sockets, packet, opt->udp_payload_size,
 		(struct sockaddr*)&addr, &wait) ) {
 	gettimeofday(&now, NULL);
 	process_packet(packet, ident, &now, count, info, opt);
@@ -313,10 +313,10 @@ static char *create_dns_query(uint16_t ident, int *len, struct opt_t *opt) {
     /* encode query string */
     query_string = encode(opt->query_string);
     query_string_len = strlen(query_string) + 1;
-    total_len = sizeof(struct dns_t) + query_string_len + 
+    total_len = sizeof(struct dns_t) + query_string_len +
 	sizeof(struct dns_query_t);
 
-    /* 
+    /*
      * if we are doing dnssec or nsid then there is an OPT pseudo RR header
      * with a 1 byte, zero length name field
      */
@@ -356,7 +356,7 @@ static char *create_dns_query(uint16_t ident, int *len, struct opt_t *opt) {
     free(query_string);
 
     /* set the type and class after the query */
-    query_info = (struct dns_query_t*)(query + sizeof(struct dns_t) + 
+    query_info = (struct dns_query_t*)(query + sizeof(struct dns_t) +
 	query_string_len);
     query_info->type = htons(opt->query_type);
     query_info->class = htons(opt->query_class);
@@ -364,7 +364,7 @@ static char *create_dns_query(uint16_t ident, int *len, struct opt_t *opt) {
     /* add the additional RR to end of the packet if doing dnssec or nsid */
     if ( opt->dnssec || opt->nsid ) {
 	additional = (struct dns_opt_rr_t*)(query + query_string_len +
-		sizeof(struct dns_t) + sizeof(struct dns_query_t) + 
+		sizeof(struct dns_t) + sizeof(struct dns_query_t) +
 		sizeof(uint8_t));
 	additional->type = htons(41); /* OPT header */
 	additional->payload = htons(opt->udp_payload_size);
@@ -393,7 +393,7 @@ static char *create_dns_query(uint16_t ident, int *len, struct opt_t *opt) {
  * Send a DNS packet and record information about when it was sent.
  */
 static void send_packet(struct socket_t *sockets, uint16_t seq, uint16_t ident,
-	struct addrinfo *dest, int count, struct info_t info[], 
+	struct addrinfo *dest, int count, struct info_t info[],
 	struct opt_t *opt) {
 
     int sock;
@@ -470,7 +470,7 @@ static int open_sockets(struct socket_t *sockets) {
 /*
  *
  */
-static void report_results(struct timeval *start_time, int count, 
+static void report_results(struct timeval *start_time, int count,
 	struct info_t info[], struct opt_t *opt) {
 
     int i;
@@ -483,7 +483,7 @@ static void report_results(struct timeval *start_time, int count,
 	    count, opt->query_string);
 
     /* allocate space for all our results - XXX could this get too large? */
-    len = sizeof(struct dns_report_header_t) + 
+    len = sizeof(struct dns_report_header_t) +
 	count * sizeof(struct dns_report_item_t);
     buffer = malloc(len);
     memset(buffer, 0, len);
@@ -503,8 +503,8 @@ static void report_results(struct timeval *start_time, int count,
     /* add results for all the destinations */
     for ( i = 0; i < count; i++ ) {
 
-	item = (struct dns_report_item_t *)(buffer + 
-		sizeof(struct dns_report_header_t) + 
+	item = (struct dns_report_item_t *)(buffer +
+		sizeof(struct dns_report_header_t) +
 		i * sizeof(struct dns_report_item_t));
 
 	item->response_size = info[i].bytes;
@@ -512,12 +512,12 @@ static void report_results(struct timeval *start_time, int count,
 	item->total_answer = info[i].total_answer;
 	item->total_authority = info[i].total_authority;
 	item->total_additional = info[i].total_additional;
-	strncpy(item->ampname, address_to_name(info[i].addr), 
+	strncpy(item->ampname, address_to_name(info[i].addr),
 		sizeof(item->ampname));
 	item->family = info[i].addr->ai_family;
 	item->query_length = info[i].query_length;
 	item->ttl = info[i].ttl;
-	/* 
+	/*
 	 * TODO this response code is different to the actual rcode in the
 	 * response packet - do we need both of them?
 	 */
@@ -526,18 +526,18 @@ static void report_results(struct timeval *start_time, int count,
 	/* save the address the query was sent to */
 	switch ( item->family ) {
 	    case AF_INET:
-		memcpy(item->address, 
+		memcpy(item->address,
 			&((struct sockaddr_in*)
-			    info[i].addr->ai_addr)->sin_addr, 
+			    info[i].addr->ai_addr)->sin_addr,
 			sizeof(struct in_addr));
 		break;
 	    case AF_INET6:
-		memcpy(item->address, 
+		memcpy(item->address,
 			&((struct sockaddr_in6*)
 			    info[i].addr->ai_addr)->sin6_addr,
 			sizeof(struct in6_addr));
 		break;
-	    default: 
+	    default:
 		Log(LOG_WARNING, "Unknown address family %d\n", item->family);
 		memset(item->address, 0, sizeof(item->address));
 		break;
@@ -547,10 +547,10 @@ static void report_results(struct timeval *start_time, int count,
 	if ( strlen(info[i].response) > 0 ) {
 	    strncpy(item->instance, info[i].response, sizeof(item->instance));
 	} else {
-	    strncpy(item->instance, address_to_name(info[i].addr), 
+	    strncpy(item->instance, address_to_name(info[i].addr),
 		    sizeof(item->instance));
 	}
-	
+
 	if ( info[i].reply /* TODO check response code too? */) {
 	    item->rtt = info[i].delay;
 	} else {
@@ -755,7 +755,7 @@ int run_dns(int argc, char *argv[], int count, struct addrinfo **dests) {
     if ( options.perturbate ) {
 	int delay;
 	delay = options.perturbate * 1000 * (random()/(RAND_MAX+1.0));
-	Log(LOG_DEBUG, "Perturbate set to %dms, waiting %dus", 
+	Log(LOG_DEBUG, "Perturbate set to %dms, waiting %dus",
 		options.perturbate, delay);
 	usleep(delay);
     }
@@ -783,15 +783,15 @@ int run_dns(int argc, char *argv[], int count, struct addrinfo **dests) {
 	send_packet(&sockets, dest, ident, dests[dest], count, info, &options);
     }
 
-    /* 
+    /*
      * harvest results - try with a short timeout to start with, so maybe we
      * can avoid doing the long wait later
      */
     harvest(&sockets, ident, LOSS_TIMEOUT / 100, count, info, &options);
 
     /* check if all expected responses have been received */
-    for ( dest = 0; dest < count && info[dest].reply; dest++ ) { 
-	/* nothing */ 
+    for ( dest = 0; dest < count && info[dest].reply; dest++ ) {
+	/* nothing */
     }
 
     /* if not, then call harvest again with the full timeout */
@@ -841,14 +841,14 @@ void print_dns(void *data, uint32_t len) {
 
     assert(data != NULL);
     assert(len >= sizeof(struct dns_report_header_t));
-    assert(len == sizeof(struct dns_report_header_t) + 
+    assert(len == sizeof(struct dns_report_header_t) +
 	    header->count * sizeof(struct dns_report_item_t));
     assert(header->version == AMP_DNS_TEST_VERSION);
 
     /* print global configuration options */
     printf("\n");
-    printf("AMP dns test, %u destinations, %s %s %s", 
-	    header->count, header->query, 
+    printf("AMP dns test, %u destinations, %s %s %s",
+	    header->count, header->query,
 	    get_query_class_string(header->query_class),
 	    get_query_type_string(header->query_type));
     printf("\n");
@@ -863,18 +863,18 @@ void print_dns(void *data, uint32_t len) {
 
     /* print per test results */
     for ( i=0; i<header->count; i++ ) {
-	item = (struct dns_report_item_t*)(data + 
-		sizeof(struct dns_report_header_t) + 
+	item = (struct dns_report_item_t*)(data +
+		sizeof(struct dns_report_header_t) +
 		i * sizeof(struct dns_report_item_t));
-	
+
 	printf("SERVER: %s", item->ampname);
 	inet_ntop(item->family, item->address, addrstr, INET6_ADDRSTRLEN);
 	if ( item->rtt < 0 ) {
 	    printf(" (%s) no response\n", addrstr);
 	    continue;
 	} else {
-	    /* 
-	     * TODO suppress instance name if it's the same as the ampname 
+	    /*
+	     * TODO suppress instance name if it's the same as the ampname
 	     * or the address of the target? It won't often be different.
 	     */
 	    printf(" (%s,%s)", addrstr, item->instance);
@@ -882,10 +882,10 @@ void print_dns(void *data, uint32_t len) {
 	}
 	printf("\n");
 
-	printf("MSG SIZE sent: %d, rcvd: %d, ", item->query_length, 
+	printf("MSG SIZE sent: %d, rcvd: %d, ", item->query_length,
 		item->response_size);
-	printf("opcode: %s, status: %s\n", 
-		get_opcode_string(item->flags.fields.opcode), 
+	printf("opcode: %s, status: %s\n",
+		get_opcode_string(item->flags.fields.opcode),
 		get_status_string(item->flags.fields.rcode));
 
 	printf("flags:");
@@ -899,7 +899,7 @@ void print_dns(void *data, uint32_t len) {
 	printf("; ");
 
 	printf("QUERY: 1, ANSWER: %d, AUTHORITY: %d, ADDITIONAL: %d\n",
-		item->total_answer, item->total_authority, 
+		item->total_answer, item->total_authority,
 		item->total_additional);
 	printf("\n");
     }
@@ -927,10 +927,10 @@ test_t *register_test() {
 
     /* function to call to setup arguments and run the test */
     new_test->run_callback = run_dns;
-    
+
     /* function to call to save the results of the test */
     new_test->save_callback = save_dns;
-    
+
     /* function to call to pretty print the results of the test */
     new_test->print_callback = print_dns;
 

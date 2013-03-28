@@ -23,26 +23,26 @@
  * Run the test callback function and let it do its thing.
  */
 static void run_test(const test_schedule_item_t * const item) {
-    char *argv[MAX_TEST_ARGS]; 
+    char *argv[MAX_TEST_ARGS];
     uint32_t argc = 0;
     uint32_t offset;
     test_t *test;
     resolve_dest_t *resolve;
     struct addrinfo **destinations = NULL;
     int total_resolve_count = 0;
-    
+
     assert(item);
     assert(item->test_id < AMP_TEST_LAST);
     assert(amp_tests[item->test_id]);
     assert((item->dest_count + item->resolve_count) > 0);
 
-    /* 
+    /*
      * seed the random number generator, has to be after the fork() or each
      * new process inherits exactly the same one and always returns the first
-     * element in the sequence 
+     * element in the sequence
      */
     srandom(time(NULL));
-    
+
     test = amp_tests[item->test_id];
     argv[argc++] = test->name;
 
@@ -56,23 +56,23 @@ static void run_test(const test_schedule_item_t * const item) {
     /* null terminate the list before we give it to the main test function */
     argv[argc] = NULL;
 
-    Log(LOG_DEBUG, "Running test: %s to %d/%d destinations:\n", test->name, 
+    Log(LOG_DEBUG, "Running test: %s to %d/%d destinations:\n", test->name,
 	    item->dest_count, item->resolve_count);
-    
+
     /* create the destination list for the test if there are fixed targets */
     if ( item->dest_count > 0 ) {
 	destinations = malloc(sizeof(struct addrinfo*) * item->dest_count);
 
 	/* copy all currently resolved destination pointers as a block */
-	memcpy(destinations, item->dests, 
+	memcpy(destinations, item->dests,
 		sizeof(struct addrinfo*) * item->dest_count);
     }
-	    
+
     /* resolve any names that need to be done at rest run time */
     if ( item->resolve != NULL ) {
 	struct addrinfo hint;
 	struct addrinfo *tmp;
-	
+
 	Log(LOG_DEBUG, "test has destinations to resolve!\n");
 
 	memset(&hint, 0, sizeof(struct addrinfo));
@@ -95,12 +95,12 @@ static void run_test(const test_schedule_item_t * const item) {
 		continue;
 	    }
 
-	    /* 
-	     * use the number listed in the schedule file as an upper bound on 
+	    /*
+	     * use the number listed in the schedule file as an upper bound on
 	     * how many of the addresses we should actually test to.
 	     */
 	    for ( tmp = resolve->addr; tmp != NULL; tmp = tmp->ai_next ) {
-		if ( item->resolve->count > 0 && 
+		if ( item->resolve->count > 0 &&
 			addr_resolve_count >= item->resolve->count ) {
 		    break;
 		}
@@ -108,8 +108,8 @@ static void run_test(const test_schedule_item_t * const item) {
 		/* use the given name rather than the canonical name */
 		tmp->ai_canonname = strdup(resolve->name);
 
-		destinations = realloc(destinations, 
-			(item->dest_count + total_resolve_count + 1) * 
+		destinations = realloc(destinations,
+			(item->dest_count + total_resolve_count + 1) *
 			sizeof(struct addrinfo));
 		destinations[item->dest_count + total_resolve_count] = tmp;
 		total_resolve_count++;
@@ -118,12 +118,12 @@ static void run_test(const test_schedule_item_t * const item) {
 	}
     }
 
-    Log(LOG_DEBUG, "Final destination count = %d\n", 
+    Log(LOG_DEBUG, "Final destination count = %d\n",
 	    item->dest_count + total_resolve_count);
 
     /* only perform the test if there are actually destinations to test to */
     if ( item->dest_count + total_resolve_count > 0 ) {
-	//Log(LOG_DEBUG, "dest%d: %s\n", offset, 
+	//Log(LOG_DEBUG, "dest%d: %s\n", offset,
 	//	    address_to_name(item->dests[offset]));
 
 	for ( offset = 0; offset<argc; offset++ ) {
@@ -131,7 +131,7 @@ static void run_test(const test_schedule_item_t * const item) {
 	}
 
 	/* actually run the test */
-	test->run_callback(argc, argv, item->dest_count + total_resolve_count, 
+	test->run_callback(argc, argv, item->dest_count + total_resolve_count,
 		destinations);
 
 	/* free any destinations that we looked up just for this test */
@@ -141,7 +141,7 @@ static void run_test(const test_schedule_item_t * const item) {
 		resolve->addr = NULL;
 	    }
 	}
-    
+
 	/* just free the temporary list of pointers, leave the actual data */
 	if ( destinations != NULL ) {
 	    free(destinations);
@@ -155,7 +155,7 @@ static void run_test(const test_schedule_item_t * const item) {
 
 
 /*
- * Test function to investigate forking, rescheduling, setting maximum 
+ * Test function to investigate forking, rescheduling, setting maximum
  * execution timers etc.
  * TODO maybe just move the contents of this into run_scheduled_test()?
  */
@@ -166,11 +166,11 @@ static void fork_test(wand_event_handler_t *ev_hdl,test_schedule_item_t *item) {
     assert(item);
     assert(item->test_id < AMP_TEST_LAST);
     assert(amp_tests[item->test_id]);
-    
+
     test = amp_tests[item->test_id];
 
     /*
-     * man fork: 
+     * man fork:
      * "Under Linux, fork() is implemented using copy-on-write pages..."
      * This should mean that we aren't duplicating massive amounts of memory
      * unless we are modifying it. We shouldn't be modifying it, so should be
@@ -212,19 +212,19 @@ void run_scheduled_test(struct wand_timer_t *timer) {
     assert(item->type == EVENT_RUN_TEST);
 
     data = (test_schedule_item_t *)item->data.test;
-    
+
     Log(LOG_DEBUG, "Running a %s test", amp_tests[data->test_id]->name);
-    printf("running a %s test at %d\n", amp_tests[data->test_id]->name, 
+    printf("running a %s test at %d\n", amp_tests[data->test_id]->name,
 	    (int)time(NULL));
-    
-    /* 
-     * run the test as soon as we know what it is, so it happens as close to 
+
+    /*
+     * run the test as soon as we know what it is, so it happens as close to
      * the right time as we can get it.
      */
     fork_test(item->ev_hdl, data);
 
     /* while the test runs, reschedule it again */
-    next = get_next_schedule_time(item->ev_hdl, data->repeat, data->start, 
+    next = get_next_schedule_time(item->ev_hdl, data->repeat, data->start,
 	    data->end, MS_FROM_TV(data->interval));
     timer->expire = wand_calc_expire(item->ev_hdl, next.tv_sec, next.tv_usec);
     timer->prev = NULL;

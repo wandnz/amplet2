@@ -109,7 +109,7 @@ static int parse_config(char *filename, struct amp_global_t *vars) {
     cfg_opt_t measured_opts[] = {
 	/*
 	 *  TODO location of certificate files? actually needed for broker to
-	 * broker communication, so can't specify them here? 
+	 * broker communication, so can't specify them here?
 	 */
 	CFG_STR("ampname", "unknown", CFGF_NONE),
 	CFG_STR("testdir", AMP_TEST_DIRECTORY, CFGF_NONE),
@@ -121,7 +121,7 @@ static int parse_config(char *filename, struct amp_global_t *vars) {
 
     cfg = cfg_init(measured_opts, CFGF_NONE);
     ret = cfg_parse(cfg, filename);
-    
+
     if ( ret == CFG_FILE_ERROR ) {
 	cfg_free(cfg);
 	Log(LOG_ALERT, "No such config file '%s', aborting.", filename);
@@ -130,7 +130,7 @@ static int parse_config(char *filename, struct amp_global_t *vars) {
 
     if ( ret == CFG_PARSE_ERROR ) {
 	cfg_free(cfg);
-	Log(LOG_ALERT, "Failed to parse config file '%s', aborting.", 
+	Log(LOG_ALERT, "Failed to parse config file '%s', aborting.",
 		filename);
 	return -1;
     }
@@ -202,9 +202,9 @@ int main(int argc, char *argv[]) {
 		exit(0);
 	};
     }
-    
+
     Log(LOG_INFO, "measured starting");
-    
+
     if ( !config_file ) {
 	config_file = AMP_CONFIG_DIR "/measured.conf";
     }
@@ -232,13 +232,13 @@ int main(int argc, char *argv[]) {
     sigint_ev.callback = stop_running;
     sigint_ev.data = NULL;
     wand_add_signal(&sigint_ev);
-    
+
     /* set up handler to deal with SIGCHLD so we can tidy up after tests */
     sigchld_ev.signum = SIGCHLD;
     sigchld_ev.callback = child_reaper;
     sigchld_ev.data = ev_hdl;
     wand_add_signal(&sigchld_ev);
-    
+
     /* set up handler to deal with SIGHUP to reload available tests */
     sighup_ev.signum = SIGHUP;
     sighup_ev.callback = reload;
@@ -254,7 +254,7 @@ int main(int argc, char *argv[]) {
     read_schedule_file(ev_hdl);
     /* check for any changes to the schedule file forever */
     setup_schedule_refresh(ev_hdl);
-    
+
     /* give up control to libwandevent */
     wand_event_run(ev_hdl);
 

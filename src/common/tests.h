@@ -24,28 +24,28 @@ typedef struct test {
     /* */
     test_type_t id;
 
-    /* 
-     * Name of the test, used for schedule files and reporting. It is 
-     * traditionally fairly short though still descriptive, a single word 
+    /*
+     * Name of the test, used for schedule files and reporting. It is
+     * traditionally fairly short though still descriptive, a single word
      * with no spaces.
      */
     char *name;
 
-    /* 
+    /*
      * Maximum number of targets this test can operate on in a single instance.
-     * If more targets are specified then multiple instances of the test will 
+     * If more targets are specified then multiple instances of the test will
      * be run. A value of 0 means there is no limit.
      */
     uint16_t max_targets;
 
-    /* 
+    /*
      * Maximum duration in seconds that this test can run for. If the test runs
      * for longer than this it will be killed with a SIGKILL.
      */
     uint16_t max_duration;
 
 #if 0
-    /* 
+    /*
      * Pointer to a function that will perform any pre-test configuration
      * that is required (such as starting remote programs). It can report any
      * extra configuration information to the test through the return value.
@@ -62,24 +62,24 @@ typedef struct test {
 
     /*
      * Pointer to a function that will perform any pre-test configuration that
-     * is required (such as asking a remote measured process to start server 
+     * is required (such as asking a remote measured process to start server
      * programs or negotiating port numbers). It is also a chance to add any
      * negotiated or calculated values as command line options to the test
      * binary. This function is also responsible for starting the test.
      */
     //void (*run_callback)(const struct test_schedule_item * const info);
-    int (*run_callback)(int argc, char *argv[], int count, 
+    int (*run_callback)(int argc, char *argv[], int count,
 	    struct addrinfo **dests);
 
     /*
      * Pointer to a function that will save the test data on the server.
      */
-    int (*save_callback)(char *monitor, uint64_t timestamp, 
+    int (*save_callback)(char *monitor, uint64_t timestamp,
 	    void *data, uint32_t len);
-    
+
     /*
      * Pointer to a function that will pretty print the test results when
-     * the test is run as a standalone program rather than as part of 
+     * the test is run as a standalone program rather than as part of
      * measured.
      */
     void (*print_callback)(void *data, uint32_t len);
@@ -93,13 +93,13 @@ typedef struct test {
     char *run_binary;
 #endif
 
-    /* 
+    /*
      * Pointer to the module that implements the callback functions for
      * this test.
      */
     void *dlhandle;
 
-    /* 
+    /*
      * true of the test should be reporting data to the broker, false if
      * the data should be displayed to stdout. This is set at load time by
      * the process that loads the test.

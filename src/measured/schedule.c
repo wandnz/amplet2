@@ -37,7 +37,7 @@ static void dump_event_run_test(test_schedule_item_t *item) {
     assert(item);
 
     printf("EVENT_RUN_TEST ");
-    printf("%s %d.%.6d", amp_tests[item->test_id]->name, 
+    printf("%s %d.%.6d", amp_tests[item->test_id]->name,
 	    (int)item->interval.tv_sec, (int)item->interval.tv_usec);
 
     if ( item->params == NULL ) {
@@ -74,7 +74,7 @@ static void dump_schedule(wand_event_handler_t *ev_hdl) {
     printf("====== SCHEDULE ======\n");
 
     for ( timer=ev_hdl->timers; timer != NULL; timer=timer->next ) {
-	printf("%d.%.6d ", (int)timer->expire.tv_sec, 
+	printf("%d.%.6d ", (int)timer->expire.tv_sec,
 		(int)timer->expire.tv_usec);
 	if ( timer->data == NULL ) {
 	    printf("NULL\n");
@@ -84,9 +84,9 @@ static void dump_schedule(wand_event_handler_t *ev_hdl) {
 	/* TODO add file refresh timers to this list */
 	item = (schedule_item_t *)timer->data;
 	switch ( item->type ) {
-	    case EVENT_RUN_TEST: dump_event_run_test(item->data.test); 
+	    case EVENT_RUN_TEST: dump_event_run_test(item->data.test);
 				 break;
-	    case EVENT_CANCEL_TEST: dump_event_cancel_test(item->data.kill); 
+	    case EVENT_CANCEL_TEST: dump_event_cancel_test(item->data.kill);
 				    break;
 	    default: printf("UNKNOWN\n"); continue;
 	};
@@ -113,7 +113,7 @@ static void free_test_schedule_item(test_schedule_item_t *item) {
     }
     /* free pointers to destinations, but not the destinations themselves */
     free(item->dests);
-    
+
     /* free the list of names that need to be resolved at each test time */
     if ( item->resolve != NULL ) {
 	resolve_dest_t *tmp;
@@ -145,8 +145,8 @@ void clear_test_schedule(wand_event_handler_t *ev_hdl) {
     while ( timer != NULL ) {
 	tmp = timer;
 	timer = timer->next;
-	/* 
-	 * only remove future scheduled tests, need to leave any tasks that 
+	/*
+	 * only remove future scheduled tests, need to leave any tasks that
 	 * are watching currently executing tests
 	 */
 	if ( tmp->data != NULL ) {
@@ -200,7 +200,7 @@ static void check_schedule_file(struct wand_timer_t *timer) {
     schedule_file_data_t *data = (schedule_file_data_t *)timer->data;
     struct stat statInfo;
     time_t now;
-    
+
     /* check if the schedule file has changed since last time */
     now = time(NULL);
     if ( stat(SCHEDULE_FILE, &statInfo) != 0 ) {
@@ -216,7 +216,7 @@ static void check_schedule_file(struct wand_timer_t *timer) {
 	data->last_update = statInfo.st_mtime;
 	Log(LOG_INFO, "Done updating schedule file\n");
     }
-    
+
     /* reschedule the check again */
     timer->expire = wand_calc_expire(data->ev_hdl, FILE_CHECK_FREQ, 0);
     timer->prev = NULL;
@@ -236,7 +236,7 @@ static void check_schedule_file(struct wand_timer_t *timer) {
 void setup_schedule_refresh(wand_event_handler_t *ev_hdl) {
 #if HAVE_SYS_INOTIFY_H
     /* use inotify if we are on linux, it is nicer and quicker */
-    setup_file_refresh_inotify(ev_hdl, SCHEDULE_FILE, 
+    setup_file_refresh_inotify(ev_hdl, SCHEDULE_FILE,
 	    schedule_file_changed_event);
 #else
     /* if missing inotify then use libwandevent timers to check regularly */
@@ -263,7 +263,7 @@ static time_t get_period_max_value(char repeat) {
 
 
 /*
- * Convert a scheduling number in a string to an integer, while also checking 
+ * Convert a scheduling number in a string to an integer, while also checking
  * that it fits within the limits of the schedule. This is used to convert
  * millisecond time values in the schedule for start, end, frequency.
  */
@@ -312,8 +312,8 @@ static time_t get_period_start(char repeat) {
     switch ( repeat ) {
 	case 'H': /* time is already start of hour */ break;
 	case 'D': period_start.tm_hour = 0; break;
-	case 'W': period_start.tm_hour = 0; 
-		  period_start.tm_mday -= period_start.tm_wday; 
+	case 'W': period_start.tm_hour = 0;
+		  period_start.tm_mday -= period_start.tm_wday;
 		  break;
 	/*
 	case 'M': period_start.tm_hour = 0;
@@ -371,9 +371,9 @@ struct timeval get_next_schedule_time(wand_event_handler_t *ev_hdl,
     period_start = get_period_start(repeat);
     test_end = (period_start*1000) + end;
 
-    /* 
-     * now using wand_get_walltime() because it agrees better with the 
-     * monotonic clock. Using gettimeofday() was giving times a few 
+    /*
+     * now using wand_get_walltime() because it agrees better with the
+     * monotonic clock. Using gettimeofday() was giving times a few
      * milliseconds behind what libwandevent thought they were, which was
      * causing tests to be rescheduled again in the same second.
      */
@@ -406,7 +406,7 @@ struct timeval get_next_schedule_time(wand_event_handler_t *ev_hdl,
 	next.tv_sec = S_FROM_MS(diff);
 	next.tv_usec = US_FROM_MS(diff);
     }
-    
+
     /* check that this next repeat is allowed at this time */
     period_end = period_start + get_period_max_value(repeat);
     if ( next_repeat || now.tv_sec + S_FROM_MS(diff) > period_end ||
@@ -416,7 +416,7 @@ struct timeval get_next_schedule_time(wand_event_handler_t *ev_hdl,
 	next.tv_usec = 0;
 	ADD_TV_PARTS(next, next, S_FROM_MS(start), US_FROM_MS(start));
     }
-    Log(LOG_DEBUG, "next test run scheduled at: %d.%d\n", (int)next.tv_sec, 
+    Log(LOG_DEBUG, "next test run scheduled at: %d.%d\n", (int)next.tv_sec,
 	    (int)next.tv_usec);
     return next;
 }
@@ -430,12 +430,12 @@ struct timeval get_next_schedule_time(wand_event_handler_t *ev_hdl,
 static int compare_test_items(test_schedule_item_t *a, test_schedule_item_t *b){
     int i;
 
-    if ( a->test_id != b->test_id ) 
+    if ( a->test_id != b->test_id )
 	return 0;
 
     if ( timercmp(&(a->interval), &(b->interval), !=) )
 	return 0;
-    
+
     if ( a->repeat != b->repeat )
 	return 0;
 
@@ -444,14 +444,14 @@ static int compare_test_items(test_schedule_item_t *a, test_schedule_item_t *b){
 
     if ( b->end != b->end )
 	return 0;
-    
+
     if ( a->params != NULL && b->params != NULL ) {
 	/* if both params are not null, make sure they are identical */
 	for ( i=0; a->params[i] != NULL && b->params != NULL; i++ ) {
 	    if ( strcmp(a->params[i], b->params[i]) != 0 )
 		return 0;
 	}
-    
+
 	/* if either isn't null by now then the params lists are different */
 	if ( a->params[i] != NULL || b->params[i] != NULL ) {
 	    return 0;
@@ -469,11 +469,11 @@ static int compare_test_items(test_schedule_item_t *a, test_schedule_item_t *b){
 
 /*
  * Try to merge the given test with any currently scheduled tests that have
- * exactly the same schedule, parameters etc and also allow multiple 
+ * exactly the same schedule, parameters etc and also allow multiple
  * destinations. If the tests can be merged that helps to limit the number of
- * active timers and tests that need to be run. 
+ * active timers and tests that need to be run.
  */
-static int merge_scheduled_tests(struct wand_event_handler_t *ev_hdl, 
+static int merge_scheduled_tests(struct wand_event_handler_t *ev_hdl,
 	test_schedule_item_t *item) {
 
     struct wand_timer_t *timer;
@@ -482,7 +482,7 @@ static int merge_scheduled_tests(struct wand_event_handler_t *ev_hdl,
     struct timeval when, expire;
 
     /* find the time that the timer for this test should expire */
-    when = get_next_schedule_time(ev_hdl, item->repeat, item->start, item->end, 
+    when = get_next_schedule_time(ev_hdl, item->repeat, item->start, item->end,
 	    MS_FROM_TV(item->interval));
     expire = wand_calc_expire(ev_hdl, when.tv_sec, when.tv_usec);
 
@@ -505,30 +505,30 @@ static int merge_scheduled_tests(struct wand_event_handler_t *ev_hdl,
 	if ( sched_item->type != EVENT_RUN_TEST ) {
 	    continue;
 	}
-	
+
 	assert(sched_item->data.test);
 	sched_test = sched_item->data.test;
 
 	/* check if these tests are the same */
 	if ( compare_test_items(sched_test, item) ) {
-	    
+
 	    /* check if there is room for more destinations */
 	    if ( amp_tests[item->test_id]->max_targets == 0 ||
-		    (sched_test->dest_count + sched_test->resolve_count) < 
+		    (sched_test->dest_count + sched_test->resolve_count) <
 		    amp_tests[item->test_id]->max_targets ) {
 
 		fprintf(stderr, "merging tests\n");
 
-		/* 
+		/*
 	 	 * resize the dests pointers to make room for the new dest
 		 * TODO be smarter about resizing
 		 */
 		if ( item->dest_count > 0 ) {
 		    /* add a new pre-resolved address */
-		    sched_test->dests = realloc(sched_test->dests, 
-			    (sched_test->dest_count+1) * 
+		    sched_test->dests = realloc(sched_test->dests,
+			    (sched_test->dest_count+1) *
 			    sizeof(struct addrinfo *));
-		    sched_test->dests[sched_test->dest_count++] = 
+		    sched_test->dests[sched_test->dest_count++] =
 			item->dests[0];
 		} else {
 		    /* add a new address we will need to resolve later */
@@ -556,12 +556,6 @@ static int merge_scheduled_tests(struct wand_event_handler_t *ev_hdl,
  * TODO maybe a config dir similar to apache enable-sites etc? read everything
  * in that dir as a config file and then we can turn things on and off easily,
  * or add new tests without having to edit/transfer a monolithic file.
- *
- * TODO how to deal with multiple tests at the same time that can handle
- * multiple destinations? Do we want to keep a list of all the tests so
- * that we can add multiple destinations to a single instance at the time of
- * reading the config? At the point of calling the test we don't know what
- * other tests are about to trigger.
  *
  * TODO better to use strtok or a scanf?
  */
@@ -601,7 +595,7 @@ void read_schedule_file(wand_event_handler_t *ev_hdl) {
 	    continue;
 	if ( (repeat = strtok(NULL, SCHEDULE_DELIMITER)) == NULL )
 	    continue;
-	if ( (start = get_time_value(strtok(NULL, SCHEDULE_DELIMITER), 
+	if ( (start = get_time_value(strtok(NULL, SCHEDULE_DELIMITER),
 			repeat[0])) < 0 )
 	    continue;
 	if ( (end = get_time_value(strtok(NULL, SCHEDULE_DELIMITER),
@@ -618,7 +612,7 @@ void read_schedule_file(wand_event_handler_t *ev_hdl) {
 	    continue;
 	}
 
-	Log(LOG_DEBUG, "%s %s %s %ld %ld %ld %s", target, testname, repeat, 
+	Log(LOG_DEBUG, "%s %s %s %ld %ld %ld %s", target, testname, repeat,
 		start, end, frequency, (params)?params:"NULL");
 
 	/* everything looks ok, populate the test info struct */
@@ -651,11 +645,11 @@ void read_schedule_file(wand_event_handler_t *ev_hdl) {
 	    test->resolve->addr = NULL;
 	    test->resolve->next = NULL;
 	    test->resolve_count = 1;
-	    /* 
+	    /*
 	     * TODO use a different character than colon? or find a new/better
 	     * way to represent ipv6 targets than ":v6"?
 	     */
-	    /* 
+	    /*
 	     * the schedule can determine how many addresses are resolved.
 	     * www.foo.com	-- resolve a single address
 	     * www.foo.com:1	-- resolve a single address
@@ -673,12 +667,12 @@ void read_schedule_file(wand_event_handler_t *ev_hdl) {
 		}
 	    }
 	}
-	
+
 	if ( params == NULL || strlen(params) < 1 )
 	    test->params = NULL;
 	else
 	    test->params = parse_param_string(params);
-	
+
 	/* if this test can have multiple target we may not need a new one */
 	if ( amp_tests[test_id]->max_targets != 1 ) {
 	    /* check if this test at this time already exists */
@@ -692,13 +686,13 @@ void read_schedule_file(wand_event_handler_t *ev_hdl) {
 	}
 
 	Log(LOG_DEBUG, "Adding new test item for %s test\n", testname);
-	
+
 	/* schedule a new test */
 	item = (schedule_item_t *)malloc(sizeof(schedule_item_t));
 	item->type = EVENT_RUN_TEST;
 	item->ev_hdl = ev_hdl;
 	item->data.test = test;
-	
+
 	/* create the timer event for this test */
 	timer = (struct wand_timer_t *)malloc(sizeof(struct wand_timer_t));
 	timer->data = item;
