@@ -24,7 +24,7 @@
  * of them, up to maxwait microseconds. If data arrives before the timeout
  * then return which socket received the data, otherwise -1.
  */
-static int wait_for_data(struct socket_t *sockets, int *maxwait) {
+int wait_for_data(struct socket_t *sockets, int *maxwait) {
     struct timeval start_time, end_time;
     struct timeval timeout;
     int delay;

@@ -21,6 +21,7 @@ struct socket_t {
     int socket6;                /* ipv6 socket, if available */
 };
 
+int wait_for_data(struct socket_t *sockets, int *maxwait);
 int get_packet(struct socket_t *sockets, char *buf, int len,
 	struct sockaddr *saddr, int *timeout);
 int delay_send_packet(int sock, char *packet, int size, struct addrinfo *dest);
