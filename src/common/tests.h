@@ -14,6 +14,7 @@ typedef enum {
     AMP_TEST_SKELETON,
     AMP_TEST_ICMP,
     AMP_TEST_DNS,
+    AMP_TEST_TRACEROUTE,
     AMP_TEST_LAST,
 } test_type_t;
 

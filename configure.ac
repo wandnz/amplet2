@@ -91,6 +91,21 @@ AC_ARG_ENABLE(icmp,
 AM_CONDITIONAL(WANT_ICMP_TEST,
 	[test x"$want_icmp_test" = xtrue])
 
+AC_ARG_ENABLE(traceroute,
+    AC_HELP_STRING([--enable-traceroute],
+	[Enable the traceroute test (default: yes)]),
+    [case "${enableval}" in
+    true) ;&
+    yes) want_traceroute_test=true ;;
+    false) ;&
+    no)	 want_traceroute_test=false ;;
+    *) AC_MSG_ERROR(bad value ${enableval} for --enable-traceroute) ;;
+    esac],
+    [want_traceroute_test=true])
+# using AM_CONDITIONAL propagates this value through to all Makefile.am files
+AM_CONDITIONAL(WANT_TRACEROUTE_TEST,
+	[test x"$want_traceroute_test" = xtrue])
+
 AC_ARG_ENABLE(dns,
     AC_HELP_STRING([--enable-dns],
 	[Enable the dns test (default: yes)]),
@@ -116,6 +131,7 @@ AC_CONFIG_FILES([Makefile
                  src/tests/skeleton/Makefile
                  src/tests/icmp/Makefile
                  src/tests/dns/Makefile
+                 src/tests/traceroute/Makefile
                  src/xferd/Makefile])
 AC_OUTPUT
 

@@ -21,6 +21,10 @@ if WANT_DNS_TEST
 SUBDIRS+=dns
 endif
 
+if WANT_TRACEROUTE_TEST
+SUBDIRS+=traceroute
+endif
+
 if WANT_PYTHON
 SUBDIRS+=python
 endif
