@@ -79,8 +79,9 @@ struct info_t {
 };
 
 struct traceroute_report_hop_t {
-    int32_t rtt;
     char address[16];
+    int32_t rtt;
+    uint32_t reserved;
 };
 
 struct traceroute_report_path_t {
@@ -88,6 +89,7 @@ struct traceroute_report_path_t {
     char name[128];
     /* nicer way than storing just 16 bytes for the address? */
     char address[16];
+    uint32_t reserved;
     uint8_t family;
     uint8_t length;
     uint8_t err_type;
