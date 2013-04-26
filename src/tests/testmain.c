@@ -157,8 +157,12 @@ int main(int argc, char *argv[]) {
     test_info->run_callback(argc, argv, count, dests);
 
     /* tidy up after ourselves */
-    freeaddrinfo(*dests);
-    free(dests);
+    if ( dests ) {
+        if ( *dests ) {
+            freeaddrinfo(*dests);
+        }
+        free(dests);
+    }
     dlclose(test_info->dlhandle);
     free(test_info->name);
     free(test_info);
