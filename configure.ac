@@ -121,6 +121,48 @@ AC_ARG_ENABLE(dns,
 AM_CONDITIONAL(WANT_DNS_TEST,
 	[test x"$want_dns_test" = xtrue])
 
+AC_ARG_ENABLE(http,
+    AC_HELP_STRING([--enable-http],
+	[Enable the http test (default: yes)]),
+    [case "${enableval}" in
+    true) ;&
+    yes) want_http_test=true ;;
+    false) ;&
+    no)	 want_http_test=false ;;
+    *) AC_MSG_ERROR(bad value ${enableval} for --enable-http) ;;
+    esac],
+    [want_http_test=true])
+# using AM_CONDITIONAL propagates this value through to all Makefile.am files
+AM_CONDITIONAL(WANT_HTTP_TEST,
+	[test x"$want_http_test" = xtrue])
+if test x"$want_http_test" = xtrue; then
+    # check there is a lexer to build the scanner
+    AM_PROG_LEX
+
+    # just want to check it exists, don't want everything to link with this.
+    # http2 test will take care of actually linking with it
+    AC_CHECK_LIB(curl, curl_global_init, libcurl_found=1, libcurl_found=0)
+    if test "$libcurl_found" = 0; then
+        AC_MSG_NOTICE([Attempting to build with support for the http2 test but])
+        AC_MSG_NOTICE([libcurl could not be found. Please install your curl])
+        AC_MSG_NOTICE([development libraries and try again])
+        AC_MSG_ERROR([Bailing])
+    fi
+
+    AC_CHECK_HEADER(curl/curl.h, curl_h_found=1, curl_h_found=0)
+    if test "$curl_h_found" = 0; then
+        AC_MSG_NOTICE([Attempting to build with support for the http2 test but])
+        AC_MSG_NOTICE([the curl headers could not be found. Please install])
+        AC_MSG_NOTICE([your curl development libraries and try again], )
+        AC_MSG_ERROR([Bailing])
+    fi
+
+    # Check if the curl library is new enough to support curl_multi_timeout
+    AC_CHECK_LIB(curl, curl_multi_timeout, AC_DEFINE([HAVE_CURL_MULTI_TIMEOUT], [1], [Define to 1 if you have the libcurl curl_multi_timeout function]),)
+
+fi
+
+
 
 AC_CONFIG_FILES([Makefile
                  src/Makefile
@@ -132,6 +174,7 @@ AC_CONFIG_FILES([Makefile
                  src/tests/icmp/Makefile
                  src/tests/dns/Makefile
                  src/tests/traceroute/Makefile
+                 src/tests/http/Makefile
                  src/xferd/Makefile])
 AC_OUTPUT
 
@@ -147,3 +190,4 @@ reportopt "Compiled with python reporting support" $want_python
 reportopt "Compiled with skeleton test support" $want_skeleton_test
 reportopt "Compiled with icmp test support" $want_icmp_test
 reportopt "Compiled with dns test support" $want_dns_test
+reportopt "Compiled with http test support" $want_http_test

@@ -25,6 +25,10 @@ if WANT_TRACEROUTE_TEST
 SUBDIRS+=traceroute
 endif
 
+if WANT_HTTP_TEST
+SUBDIRS+=http
+endif
+
 if WANT_PYTHON
 SUBDIRS+=python
 endif
