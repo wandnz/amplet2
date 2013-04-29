@@ -1,0 +1,2 @@
+libwandevent 2 libwandevent (>= 1.0-1)
+librabbitmq 1 rabbitmq-c (>= 0.2.0-1)
