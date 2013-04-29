@@ -64,7 +64,7 @@ fi
 # Checks to enable the various tests in AMP
 AC_ARG_ENABLE(skeleton,
     AC_HELP_STRING([--enable-skeleton],
-	[Enable the skeleton test (default: yes)]),
+	[Enable the skeleton test (default: no)]),
     [case "${enableval}" in
     true) ;&
     yes) want_skeleton_test=true ;;
@@ -72,7 +72,7 @@ AC_ARG_ENABLE(skeleton,
     no)	 want_skeleton_test=false ;;
     *) AC_MSG_ERROR(bad value ${enableval} for --enable-skeleton) ;;
     esac],
-    [want_skeleton_test=true])
+    [want_skeleton_test=false])
 # using AM_CONDITIONAL propagates this value through to all Makefile.am files
 AM_CONDITIONAL(WANT_SKELETON_TEST, [test x"$want_skeleton_test" = xtrue])
 
