@@ -9,8 +9,10 @@ EXTRA_DIST=*.h
 
 bin_PROGRAMS=measured
 measured_SOURCES=measured.c schedule.c watchdog.c test.c nametable.c refresh.c
-measured_CFLAGS=-I../tests/ -I../common/ -DAMP_CONFIG_DIR=\"$(prefix)/etc\" -DAMP_TEST_DIRECTORY=\"$(prefix)/tests\" -rdynamic
-measured_LDFLAGS=-L../tests/ -lmeasured
+measured_CFLAGS=-I../tests/ -I../common/ -DAMP_CONFIG_DIR=\"$(sysconfdir)\" -DAMP_TEST_DIRECTORY=\"$(libexecdir)/tests\" -rdynamic
+measured_LDFLAGS=-L../tests/ -L../common/ -lmeasured -lamp
+
+dist_sysconf_DATA=etc/*
 
 #libmeasureddir=$(libdir)
 #libmeasured_LTLIBRARIES=libmeasured.la
