@@ -10,7 +10,7 @@ Homepage: http://amp.wand.net.nz
 
 Package: amplet2-client
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}, libwandevent, libcurl3, rabbitmq-c
+Depends: ${shlibs:Depends}, ${misc:Depends}, libwandevent, libcurl3, librabbitmq0
 Description: AMP Network Performance Measurement Suite - Client Tools
  This package contains the client tools for the AMP Measurement Suite. These
  tools read a schedule file and measure the network performance to specified
