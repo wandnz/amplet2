@@ -1,3 +1,17 @@
+amplet2 (0.1-3) unstable; urgency=low
+
+  * Fix init scripts to actually start and stop measured.
+  * Don't try to start measured by default.
+  * Run configure with proper file locations set for private libraries.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Tue, 1 May 2013 15:52:55 +1200
+
+amplet2 (0.1-2) unstable; urgency=low
+
+  * Update dependencies to use correct package names.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Tue, 30 Apr 2013 16:26:28 +1200
+
 amplet2 (0.1-1) unstable; urgency=low
 
   * Initial testing release.
