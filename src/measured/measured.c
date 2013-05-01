@@ -55,6 +55,15 @@ static void usage(char *prog) {
 
 
 
+static void print_version(char *prog) {
+    /* TODO more information? list available tests? */
+    printf("%s (%s)\n", prog, PACKAGE_STRING);
+    printf("Report bugs to <%s>\n", PACKAGE_BUGREPORT);
+    printf(" config dir: %s\n", AMP_CONFIG_DIR);
+    printf(" test dir: %s\n", AMP_TEST_DIRECTORY);
+}
+
+
 /*
  * Set the flag that will cause libwandevent to stop running the main event
  * loop and return control to us.
@@ -111,6 +120,7 @@ static int parse_config(char *filename, struct amp_global_t *vars) {
 	 *  TODO location of certificate files? actually needed for broker to
 	 * broker communication, so can't specify them here?
 	 */
+        /* TODO default ampname to hostname */
 	CFG_STR("ampname", "unknown", CFGF_NONE),
 	CFG_STR("testdir", AMP_TEST_DIRECTORY, CFGF_NONE),
 	CFG_SEC("collector", opt_collector, CFGF_NONE),
@@ -186,8 +196,9 @@ int main(int argc, char *argv[]) {
 		}
 		break;
 	    case 'v':
-		/* TODO print version info */
-		break;
+		/* print version and build info */
+                print_version(argv[0]);
+                exit(0);
 	    case 'x':
 		/* enable extra debug output */
 		log_level = LOG_DEBUG;
