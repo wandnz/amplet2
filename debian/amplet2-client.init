@@ -13,18 +13,25 @@
 
 # PATH should only include /usr/* if it runs after the mountnfs.sh script
 PATH=/sbin:/usr/sbin:/bin:/usr/bin
-DESC=amplet2                # Introduce a short description here
-NAME=amplet2                # Introduce the short server's name here
-DAEMON=/usr/sbin/measured   # Introduce the server's location here
-DAEMON_ARGS=""              # Arguments to run the daemon with
-PIDFILE=/var/run/$NAME.pid
-SCRIPTNAME=/etc/init.d/$NAME
+DESC=amplet2-client             # Introduce a short description here
+PKG_NAME=amplet2-client
+DAEMON_NAME=measured            # Introduce the short server's name here
+DAEMON=/usr/sbin/$DAEMON_NAME   # Introduce the server's location here
+DAEMON_ARGS="-d"                # Arguments to run the daemon with
+PIDFILE=/var/run/$NAME.pid      # TODO create a proper pidfile
+SCRIPTNAME=/etc/init.d/$PKG_NAME
+START_DAEMON=1
 
 # Exit if the package is not installed
 [ -x $DAEMON ] || exit 0
 
 # Read configuration variable file if it is present
-[ -r /etc/default/$NAME ] && . /etc/default/$NAME
+[ -r /etc/default/$PKG_NAME ] && . /etc/default/$PKG_NAME
+
+# Don't start the daemon unless it has been manually enabled in
+# /etc/default/amplet2-client. There is too much configuration required
+# to assume it can be started initially.
+[ $START_DAEMON -gt 0 ] || exit 0
 
 # Load the VERBOSE setting and other rcS variables
 . /lib/init/vars.sh
@@ -42,9 +49,9 @@ do_start()
 	#   0 if daemon has been started
 	#   1 if daemon was already running
 	#   2 if daemon could not be started
-	start-stop-daemon --start --quiet --pidfile $PIDFILE --exec $DAEMON --test > /dev/null \
+	start-stop-daemon --start --quiet --exec $DAEMON --test > /dev/null \
 		|| return 1
-	start-stop-daemon --start --quiet --pidfile $PIDFILE --exec $DAEMON -- \
+	start-stop-daemon --start --quiet --exec $DAEMON -- \
 		$DAEMON_ARGS \
 		|| return 2
 	# Add code here, if necessary, that waits for the process to be ready
@@ -62,7 +69,7 @@ do_stop()
 	#   1 if daemon was already stopped
 	#   2 if daemon could not be stopped
 	#   other if a failure occurred
-	start-stop-daemon --stop --quiet --retry=TERM/30/KILL/5 --pidfile $PIDFILE --name $NAME
+	start-stop-daemon --stop --quiet --retry=TERM/30/KILL/5 --name $DAEMON_NAME
 	RETVAL="$?"
 	[ "$RETVAL" = 2 ] && return 2
 	# Wait for children to finish too if this is a daemon that forks
@@ -74,7 +81,7 @@ do_stop()
 	start-stop-daemon --stop --quiet --oknodo --retry=0/30/KILL/5 --exec $DAEMON
 	[ "$?" = 2 ] && return 2
 	# Many daemons don't delete their pidfiles when they exit.
-	rm -f $PIDFILE
+	#rm -f $PIDFILE
 	return "$RETVAL"
 }
 
@@ -87,13 +94,13 @@ do_reload() {
 	# restarting (for example, when it is sent a SIGHUP),
 	# then implement that here.
 	#
-	start-stop-daemon --stop --signal 1 --quiet --pidfile $PIDFILE --name $NAME
+	start-stop-daemon --stop --signal 1 --quiet --name $DAEMON_NAME
 	return 0
 }
 
 case "$1" in
   start)
-    [ "$VERBOSE" != no ] && log_daemon_msg "Starting $DESC " "$NAME"
+    [ "$VERBOSE" != no ] && log_daemon_msg "Starting $DESC " "$DAEMON_NAME"
     do_start
     case "$?" in
 		0|1) [ "$VERBOSE" != no ] && log_end_msg 0 ;;
@@ -101,7 +108,7 @@ case "$1" in
 	esac
   ;;
   stop)
-	[ "$VERBOSE" != no ] && log_daemon_msg "Stopping $DESC" "$NAME"
+	[ "$VERBOSE" != no ] && log_daemon_msg "Stopping $DESC" "$DAEMON_NAME"
 	do_stop
 	case "$?" in
 		0|1) [ "$VERBOSE" != no ] && log_end_msg 0 ;;
@@ -109,7 +116,7 @@ case "$1" in
 	esac
 	;;
   status)
-       status_of_proc "$DAEMON" "$NAME" && exit 0 || exit $?
+       status_of_proc "$DAEMON" "$PKG_NAME" && exit 0 || exit $?
        ;;
   #reload|force-reload)
 	#
@@ -125,7 +132,7 @@ case "$1" in
 	# If the "reload" option is implemented then remove the
 	# 'force-reload' alias
 	#
-	log_daemon_msg "Restarting $DESC" "$NAME"
+	log_daemon_msg "Restarting $DESC" "$DAEMON_NAME"
 	do_stop
 	case "$?" in
 	  0|1)
