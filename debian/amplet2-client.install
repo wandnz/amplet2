@@ -1,2 +1,4 @@
-usr/bin/*
+usr/bin/measured usr/sbin
 usr/lib/*so
+usr/tests/*so usr/lib/amp/tests
+etc/amp/*
