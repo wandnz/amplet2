@@ -6,6 +6,7 @@
 #include <syslog.h>
 #include <unistd.h>
 
+#include "config.h"
 #include "debug.h"
 
 
@@ -33,16 +34,32 @@ void Log(int priority, const char *fmt, ...)
     va_list ap;
     char buffer[513];
     char *prefix;
-    time_t ts = time(NULL);
+    time_t ts;
     char date[32];
 
-    /* don't print anything if the priority doesn't meet minimum requirements */
+    /* don't print anything if priority doesn't meet minimum requirements */
     if ( priority > log_level ) {
 	return;
     }
 
-    /* 
-     * ideally this shouldn't be needed, but the syslog prioritynames array is 
+    va_start(ap, fmt);
+    vsnprintf(buffer, sizeof(buffer), fmt, ap);
+    va_end(ap);
+
+    /* chop any newline that is in the error message */
+    if ( buffer[strlen(buffer)-1] == '\n' )
+	buffer[strlen(buffer)-1] = '\0';
+
+#if LOG_TO_SYSLOG
+    /* log to syslog if enabled and the program is running without a tty */
+    if ( !isatty(fileno(stdout)) ) {
+	syslog(priority, "%s", buffer);
+        return;
+    }
+#endif
+
+    /*
+     * ideally this shouldn't be needed, but the syslog prioritynames array is
      * out of order and is all lowercase.
      */
     switch ( priority ) {
@@ -57,36 +74,26 @@ void Log(int priority, const char *fmt, ...)
 	default: prefix = "???"; break;
     };
 
-    va_start(ap, fmt);
-    vsnprintf(buffer, sizeof(buffer), fmt, ap);
-	
     /* format date and chop newline from end of formatted string */
+    ts = time(NULL);
     ctime_r(&ts, date);
     date[strlen(date)-1] = '\0';
 
-    /* chop any newline that is in the error message */
-    if ( buffer[strlen(buffer)-1] == '\n' )
-	buffer[strlen(buffer)-1] = '\0';
-
-    /* 
+    /*
      * write the log message to the appropriate place: use stdout if it is
-     * available to us, otherwise write to a log file (or syslog) 
+     * available to us, otherwise write to a log file
      */
     if ( isatty(fileno(stdout)) ) {
 	fprintf(stderr, "%s %s: %s\n", date, prefix, buffer);
-
     } else {
-	/* FIXME: currently printing to temporary log file */
+	/* printing to a log file under our own control */
+        /* TODO figure out the name of the current process for log message */
 	FILE *out;
-	if ( (out = fopen("/tmp/brendonj/measured2.log", "a")) == NULL ) {
+	if ( (out = fopen("/var/log/amp/amp-combined.log", "a")) == NULL ) {
 	    /* TODO something smart to report error in logging */
 	    return;
 	}
-	//TODO print to our own file or use syslog if setup right
 	fprintf(out, "%s %s: %s\n", date, prefix, buffer);
 	fclose(out);
-	//syslog(priority, "%s", buffer);
     }
-    va_end(ap);
-
 }

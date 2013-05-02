@@ -13,6 +13,8 @@ measured_CFLAGS=-I../tests/ -I../common/ -DAMP_CONFIG_DIR=\"$(sysconfdir)\" -DAM
 measured_LDFLAGS=-L../tests/ -L../common/ -lmeasured -lamp
 
 dist_sysconf_DATA=etc/*
+sharedir=$(datarootdir)/$(PACKAGE)/rsyslog
+dist_share_DATA=rsyslog/*
 
 #libmeasureddir=$(libdir)
 #libmeasured_LTLIBRARIES=libmeasured.la

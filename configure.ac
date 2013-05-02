@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.67])
-AC_INIT([amplet2], [0.1], [amp@wand.net.nz])
+AC_INIT([amplet2], [0.1.1], [amp@wand.net.nz])
 #AC_CONFIG_SRCDIR([src/measured/measured.c])
 AM_INIT_AUTOMAKE
 AC_CONFIG_HEADERS([config.h])
@@ -59,6 +59,23 @@ if test x"$want_python" = xtrue; then
     AM_PATH_PYTHON([2.6])
 fi
 
+# Enable logging via syslog
+AC_ARG_ENABLE(syslog,
+    AC_HELP_STRING([--enable-syslog],
+	[Enable logging via syslog (default: yes)]),
+    [case "${enableval}" in
+    true) ;&
+    yes) want_syslog=true ;;
+    false) ;&
+    no)	 want_syslog=false ;;
+    *) AC_MSG_ERROR(bad value ${enableval} for --enable-syslog) ;;
+    esac],
+    [want_syslog=true])
+# using AM_CONDITIONAL propagates this value through to all Makefile.am files
+AM_CONDITIONAL(WANT_SYSLOG, [test x"$want_syslog" = xtrue])
+if test x"$want_syslog" = xtrue; then
+    AC_DEFINE([LOG_TO_SYSLOG], [1], [Define to 1 if you want to log via syslog])
+fi
 
 
 # Checks to enable the various tests in AMP
@@ -187,6 +204,7 @@ reportopt() {
 }
 
 reportopt "Compiled with python reporting support" $want_python
+reportopt "Compiled with syslog logging" $want_syslog
 reportopt "Compiled with skeleton test support" $want_skeleton_test
 reportopt "Compiled with icmp test support" $want_icmp_test
 reportopt "Compiled with dns test support" $want_dns_test
