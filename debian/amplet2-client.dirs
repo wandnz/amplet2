@@ -1,3 +1,5 @@
 usr/sbin
 etc/amp
 usr/lib/amp/tests
+var/log/amp
+usr/share/amplet2/rsyslog/
