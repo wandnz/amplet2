@@ -2,17 +2,12 @@
 #include <getopt.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <netinet/in.h>
-#include <netinet/ip_icmp.h>
-#include <netinet/ip6.h>
-#include <netinet/icmp6.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <netdb.h>
 #include <sys/time.h>
 #include <errno.h>
 #include <assert.h>
-#include <arpa/inet.h>
 #include <malloc.h>
 #include <string.h>
 
@@ -37,82 +32,147 @@ int total_requests;
 struct opt_t options;
 
 
+
+/*
+ * Fill in the standard report header with options that were set
+ */
+static void report_header_results(struct http_report_header_t *header,
+        struct opt_t *opt) {
+
+    assert(header);
+    assert(opt);
+
+    header->version = AMP_HTTP_TEST_VERSION;
+    strncpy(header->url, opt->url, MAX_URL_LEN);
+    header->duration = ((global.end.tv_sec - global.start.tv_sec) * 1000) +
+        (global.end.tv_usec - global.start.tv_usec + 500) / 1000;
+    header->bytes = global.bytes;
+    header->total_objects = global.objects;
+    header->total_servers = global.servers;
+    header->persist = opt->keep_alive;//XXX different names?
+    header->max_connections = opt->max_connections;
+    header->max_connections_per_server = opt->max_connections_per_server;
+    header->max_persistent_connections_per_server =
+        opt->max_persistent_connections_per_server;
+    header->pipelining = opt->pipelining;
+    header->pipelining_maxrequests = opt->pipelining_maxrequests;
+    header->caching = opt->caching;
+}
+
+
+
+/*
+ * Report on a single object.
+ */
+static void report_object_results(struct http_report_object_t *object,
+        struct object_stats_t *info) {
+
+    assert(object);
+    assert(info);
+
+    strncpy(object->path, info->path, MAX_PATH_LEN);
+    object->start.tv_sec = info->start.tv_sec;
+    object->start.tv_usec = info->start.tv_usec;
+    object->end.tv_sec = info->end.tv_sec;
+    object->end.tv_usec = info->end.tv_usec;
+    FLOAT_TO_TV(info->lookup, object->lookup);
+    FLOAT_TO_TV(info->connect, object->connect);
+    FLOAT_TO_TV(info->start_transfer, object->start_transfer);
+    FLOAT_TO_TV(info->total_time, object->total_time);
+    object->code = info->code;
+    object->size = info->size;
+    memcpy(&object->headers, &info->headers, sizeof(struct cache_headers_t));
+    object->connect_count = info->connect_count;
+    object->pipeline = info->pipeline;
+}
+
+
+
+/*
+ * Report on a single server and all objects that were fetched from it.
+ */
+static int report_server_results(struct http_report_server_t *server,
+        struct server_stats_t *server_info) {
+
+    int reported_objects = 0;
+    struct http_report_object_t *object;
+    struct object_stats_t *object_info;
+
+    assert(server);
+    assert(server_info);
+
+    strncpy(server->hostname, server_info->server_name, MAX_DNS_NAME_LEN);
+    strncpy(server->address, server_info->address, MAX_ADDR_LEN);
+    server->start.tv_sec = server_info->start.tv_sec;
+    server->start.tv_usec = server_info->start.tv_usec;
+    server->end.tv_sec = server_info->end.tv_sec;
+    server->end.tv_usec = server_info->end.tv_usec;
+    server->bytes = server_info->bytes;
+    server->objects = server_info->objects;
+
+    for ( object_info = server_info->finished; object_info != NULL;
+            object_info = object_info->next ) {
+
+        object = (struct http_report_object_t *)(((char *)server) +
+                sizeof(struct http_report_server_t) +
+                (reported_objects * sizeof(struct http_report_object_t)));
+        report_object_results(object, object_info);
+        reported_objects++;
+    }
+
+    assert(reported_objects == server_info->objects);
+    return server_info->objects;
+}
+
+
+
 /*
  *
  */
-#if 0
-static void report_results(struct timeval *start_time, int count,
-	struct info_t info[], struct opt_t *opt) {
-    int i;
+static void report_results(struct timeval *start_time,
+        struct server_stats_t *servers, struct opt_t *opt) {
     char *buffer;
-    struct icmp_report_header_t *header;
-    struct icmp_report_item_t *item;
+    struct http_report_header_t *header;
+    struct http_report_server_t *server;
+    struct server_stats_t *tmpsrv;
+    int reported_objects = 0;
+    int reported_servers = 0;
     int len;
 
-    Log(LOG_DEBUG, "Building icmp report, count:%d, psize:%d, rand:%d\n",
-	    count, opt->packet_size, opt->random);
+    Log(LOG_DEBUG, "Building http report, url:%s\n", opt->url);
 
     /* allocate space for all our results - XXX could this get too large? */
-    len = sizeof(struct icmp_report_header_t) +
-	count * sizeof(struct icmp_report_item_t);
+    len = sizeof(struct http_report_header_t) +
+	(global.servers * sizeof(struct http_report_server_t)) +
+        (global.objects * sizeof(struct http_report_object_t));
     buffer = malloc(len);
     memset(buffer, 0, len);
 
     /* single header at the start of the buffer describes the test options */
-    header = (struct icmp_report_header_t *)buffer;
-    header->version = AMP_ICMP_TEST_VERSION;
-    header->packet_size = opt->packet_size;
-    header->random = opt->random;
-    header->count = count;
+    header = (struct http_report_header_t *)buffer;
+    report_header_results(header, opt);
 
-    /* add results for all the destinations */
-    for ( i = 0; i < count; i++ ) {
+    /* add results for all the servers that data was fetched from */
+    for ( tmpsrv = servers; tmpsrv != NULL; tmpsrv = tmpsrv->next ) {
+        assert(reported_servers < global.servers);
+        /* global information regarding this particular server */
+	server = (struct http_report_server_t *)(buffer +
+		sizeof(struct http_report_header_t) +
+		reported_servers * sizeof(struct http_report_server_t) +
+                reported_objects * sizeof(struct http_report_object_t));
 
-	item = (struct icmp_report_item_t *)(buffer +
-		sizeof(struct icmp_report_header_t) +
-		i * sizeof(struct icmp_report_item_t));
+        reported_objects += report_server_results(server, tmpsrv);
 
-	item->err_type = info[i].err_type;
-	item->err_code = info[i].err_code;
-	strncpy(item->ampname, address_to_name(info[i].addr),
-		sizeof(item->ampname));
-	item->family = info[i].addr->ai_family;
-	item->ttl = info[i].ttl;
-	switch ( item->family ) {
-	    case AF_INET:
-		memcpy(item->address,
-			&((struct sockaddr_in*)
-			    info[i].addr->ai_addr)->sin_addr,
-			sizeof(struct in_addr));
-		break;
-	    case AF_INET6:
-		memcpy(item->address,
-			&((struct sockaddr_in6*)
-			    info[i].addr->ai_addr)->sin6_addr,
-			sizeof(struct in6_addr));
-		break;
-	    default:
-		Log(LOG_WARNING, "Unknown address family %d\n", item->family);
-		memset(item->address, 0, sizeof(item->address));
-		break;
-	};
-
-	/* TODO do we want to truncate to milliseconds like the old test? */
-	if ( info[i].reply && info[i].err_type == 0
-		&& info[i].err_code == 0 ) {
-	    //printf("%dms ", (int)((info[i].delay/1000.0) + 0.5));
-	    item->rtt = info[i].delay;
-	} else {
-	    item->rtt = -1;
-	}
-	Log(LOG_DEBUG, "icmp result %d: %dus, %d/%d\n", i, item->rtt,
-		item->err_type, item->err_code);
+        Log(LOG_DEBUG, "server result %d: %s\n", reported_servers,
+                tmpsrv->address);
+        reported_servers++;
     }
 
-    report(AMP_TEST_ICMP, (uint64_t)start_time->tv_sec, (void*)buffer, len);
+    assert(global.servers == reported_servers);
+
+    report(AMP_TEST_HTTP, (uint64_t)start_time->tv_sec, (void*)buffer, len);
     free(buffer);
 }
-#endif
 
 
 
@@ -149,7 +209,7 @@ static void split_url(char *url, char *server, char *path) {
         assert(base_server);
         strncpy(server, base_server, MAX_DNS_NAME_LEN);
         strncpy(path, url, MAX_PATH_LEN);
-        printf("absolute url, making it: %s %s\n", server, path);
+        //printf("absolute url, making it: %s %s\n", server, path);
         return;
     } else if ( base_server != NULL && base_path != NULL ) {
         /* TODO an initial url like www.wand.net.nz without a protocol
@@ -165,12 +225,12 @@ static void split_url(char *url, char *server, char *path) {
         //XXX there has to be a slash, because we add one if there isnt!
         char *slash = rindex(base_path, '/');
         memset(path, 0, MAX_PATH_LEN);
-        printf("base: %s (path already has %s)\n", base_path, path);
+        //printf("base: %s (path already has %s)\n", base_path, path);
         strncpy(path, base_path, (slash - base_path) + 1);
-        printf("1: %s\n", path);
+        //printf("1: %s\n", path);
         strncat(path, url, MAX_PATH_LEN - strlen(base_path) - 1);
-        printf("given url: %s\n", url);
-        printf("relative url, making it: %s %s\n", server, path);
+        //printf("given url: %s\n", url);
+        //printf("relative url, making it: %s %s\n", server, path);
         return;
     } else {
         /* treat as a URL that is missing the protocol */
@@ -196,7 +256,7 @@ static void split_url(char *url, char *server, char *path) {
     if ( base_server == NULL ) {
         base_server = strdup(server);
         base_path = strdup(path);
-        printf("setting base server/path: %s %s\n", base_server, base_path);
+        //printf("setting base server/path: %s %s\n", base_server, base_path);
     }
 }
 
@@ -374,7 +434,6 @@ struct server_stats_t *add_object(char *url) {
         return NULL;
     }
 
-    printf("add_object()\n");
     split_url(url, host, path);
 
     /* find the server that this object is being fetched from */
@@ -395,8 +454,6 @@ struct server_stats_t *add_object(char *url) {
     /* not finished and not in progress, try to add to the pending queue */
     server->pending = create_object(host, path, server->pending);
 
-    printf("adding object %s to pending queue for server %s\n", path, host);
-
     return server;
 }
 
@@ -409,7 +466,6 @@ static int select_pipeline(struct server_stats_t *server, int threshold) {
     int i;
 
     if ( server == NULL ) {
-        printf("server is null\n");
         return -1;
     }
 
@@ -419,13 +475,11 @@ static int select_pipeline(struct server_stats_t *server, int threshold) {
      * any pipelining till we complete it and check the headers.
      */
     if ( server->objects < 1 && server->pipelines[0] != NULL ) {
-        printf("outstanding first data\n");
         return -1;
     }
 
     if ( server->objects < 1 && server->pipelines[0] == NULL ) {
         /* very first object, there is definitely room for that! */
-        printf("room on pipe, enqueue data\n");
         return 0;
     } else {
         /* data has been successfully received, try to queue another object */
@@ -475,7 +529,6 @@ static int select_pipeline(struct server_stats_t *server, int threshold) {
         return smallest_index;
     }
 
-    printf("everything full\n");
     return -1;
 }
 
@@ -498,7 +551,6 @@ CURL *pipeline_next_object(struct server_stats_t *server) {
     /* find the first available pipeline */
     pipeline = select_pipeline(server, options.pipe_size_before_skip);
     if ( pipeline < 0 ) {
-        printf("pipeline %d < 0\n", pipeline);
         return NULL;
     }
 
@@ -506,7 +558,6 @@ CURL *pipeline_next_object(struct server_stats_t *server) {
     object = server->pending;
     server->pending = server->pending->next;
     object->next = NULL;
-    printf("pipelining object %s %s\n", object->server_name, object->path);
     server->pipelines[pipeline] =
         add_object_to_queue(object, server->pipelines[pipeline]);
 
@@ -533,20 +584,16 @@ CURL *pipeline_next_object(struct server_stats_t *server) {
     curl_easy_setopt(object->handle, CURLOPT_LOW_SPEED_LIMIT, 1);
     curl_easy_setopt(object->handle, CURLOPT_LOW_SPEED_TIME, 30);
 
-    printf("checking if first: %s%s vs %s%s\n", options.host,
-            options.path, object->server_name, object->path);
     //if ( strcmp(options.url, object->url) == 0 ) {
     if ( strcmp(options.host, object->server_name) == 0 &&
             strcmp(options.path, object->path) == 0 ) {
         /* this is the main page, parse the result for more objects */
         curl_easy_setopt(object->handle, CURLOPT_WRITEFUNCTION, parse_response);
-        printf("main object, parse response\n");
     } else {
         /* this isn't the main page, set the referer and don't parse result */
         curl_easy_setopt(object->handle, CURLOPT_REFERER, options.url);
         /* TODO parse javascript and css for anything else we should get? */
         curl_easy_setopt(object->handle, CURLOPT_WRITEFUNCTION, do_nothing);
-        printf("subsequent object, set referer\n");
     }
 
     /* get all the response headers to parse for anything interesting */
@@ -583,8 +630,6 @@ CURL *pipeline_next_object(struct server_stats_t *server) {
         Log(LOG_ERR, "Failed to add multi handle, aborting\n");
         exit(1);
     }
-
-    printf("pipeline_next_object() ok!\n");
 
     return object->handle;
 }
@@ -630,6 +675,7 @@ static void save_stats(CURL *handle, int pipeline) {
     curl_easy_getinfo(handle, CURLINFO_RESPONSE_CODE, &code);
 
     global.bytes += bytes;
+    global.objects++;
     server->bytes += bytes;
     server->objects++;
     server->end.tv_sec = end.tv_sec;
@@ -691,7 +737,6 @@ static void check_messages(CURLM *multi, int *running_handles, int pipeline) {
 
         curl_easy_getinfo(msg->easy_handle, CURLINFO_EFFECTIVE_URL, &url);
         curl_easy_getinfo(msg->easy_handle, CURLINFO_SIZE_DOWNLOAD, &bytes);
-        printf("finished %s\n", url);
 
         if ( msg->data.result != 0 ) {
             Log(LOG_WARNING, "R: %d - %s <%s> (%fb)\n", msg->data.result,
@@ -717,9 +762,7 @@ static void check_messages(CURLM *multi, int *running_handles, int pipeline) {
         }
 
         /* add another object if there are more to come */
-        printf("trying to pipeline another object for server\n");
         if ( pipeline_next_object(server) != NULL ) {
-            printf("pipelined ok\n");
             (*running_handles)++;
         }
     }
@@ -727,7 +770,7 @@ static void check_messages(CURLM *multi, int *running_handles, int pipeline) {
 
 
 /*
- *
+ * TODO this function is way too long
  */
 static int fetch(char *url) {
     struct server_stats_t *server;
@@ -763,7 +806,6 @@ static int fetch(char *url) {
          */
         data_outstanding = 1;
         while ( data_outstanding ) {
-            printf("data is still outstanding\n");
             data_outstanding = 0;
             /* check each server to find running handles */
             for ( server = server_list; server != NULL; server=server->next ) {
@@ -872,10 +914,8 @@ static int fetch(char *url) {
                 timeout.tv_sec = wait / 1000;
                 timeout.tv_usec = (wait % 1000) * 1000;
 
-                printf("select, timeout=%ld.%ld\n", timeout.tv_sec, timeout.tv_usec);
                 result = select(max_fd + 1, &read_fdset, &write_fdset,
                         &except_fdset, &timeout);
-                printf("select returned %d\n", result);
             } while ( result < 0 && errno == EINTR );
 
             if ( result < 0 ) {
@@ -927,7 +967,6 @@ static int fetch(char *url) {
     }
 
     curl_share_cleanup(share_handle);
-    curl_global_cleanup();
     return result;
 }
 
@@ -984,6 +1023,7 @@ static void usage(char *prog) {
  * TODO const up the dest arguments so cant be changed?
  */
 //XXX dests should not have anything in it?
+//XXX how about dests has the hostname/address and url just appends to that?
 int run_http(int argc, char *argv[], int count, struct addrinfo **dests) {
     int opt;
     //struct opt_t options;
@@ -1048,74 +1088,13 @@ int run_http(int argc, char *argv[], int count, struct addrinfo **dests) {
 	exit(-1);
     }
 
-    output_full_stats(server_list, &options);
-
-#if 0
     /* send report */
-    report_results(&start_time, count, info, &options);
+    report_results(&start_time, server_list, &options);
 
-    free(info);
+    /* TODO, free everything */
+    //free(server_list);
 
-#endif
     return 0;
-}
-
-
-
-/*
- * Save the results of the icmp test
- */
-int save_http(char *monitor, uint64_t timestamp, void *data, uint32_t len) {
-    return 0;
-}
-
-
-
-/*
- * Print icmp test results to stdout, nicely formatted for the standalone test
- */
-void print_http(void *data, uint32_t len) {
-#if 0
-    struct icmp_report_header_t *header = (struct icmp_report_header_t*)data;
-    struct icmp_report_item_t *item;
-    char addrstr[INET6_ADDRSTRLEN];
-    int i;
-
-    assert(data != NULL);
-    assert(len >= sizeof(struct icmp_report_header_t));
-    assert(len == sizeof(struct icmp_report_header_t) +
-	    header->count * sizeof(struct icmp_report_item_t));
-    assert(header->version == AMP_ICMP_TEST_VERSION);
-
-    printf("\n");
-    printf("AMP icmp test, %u destinations, %u byte packets ", header->count,
-	    header->packet_size);
-    if ( header->random ) {
-	printf("(random size)\n");
-    } else {
-	printf("(fixed size)\n");
-    }
-
-    for ( i=0; i<header->count; i++ ) {
-	item = (struct icmp_report_item_t*)(data +
-		sizeof(struct icmp_report_header_t) +
-		i * sizeof(struct icmp_report_item_t));
-	printf("%s", item->ampname);
-	inet_ntop(item->family, item->address, addrstr, INET6_ADDRSTRLEN);
-	printf(" (%s)",	addrstr);
-	if ( item->rtt < 0 ) {
-	    if ( item->err_type == 0 ) {
-		printf(" missing");
-	    } else {
-		printf(" error");
-	    }
-	} else {
-	    printf(" %dus", item->rtt);
-	}
-	printf(" (%u/%u)\n", item->err_type, item->err_code);
-    }
-    printf("\n");
-#endif
 }
 
 
@@ -1142,7 +1121,7 @@ test_t *register_test() {
     new_test->run_callback = run_http;
 
     /* function to call to save the results of the test */
-    new_test->save_callback = save_http;
+    //new_test->save_callback = save_http;
 
     /* function to call to pretty print the results of the test */
     new_test->print_callback = print_http;

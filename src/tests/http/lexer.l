@@ -123,7 +123,6 @@ static void parsed_complete_object(char *url) {
     struct server_stats_t *server;
 
     server = add_object(url);
-    fprintf(stderr, "found object %s\n", url);
 
     if(server != NULL)
 	pipeline_next_object(server);

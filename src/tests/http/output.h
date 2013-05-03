@@ -3,6 +3,7 @@
 
 #include "http.h"
 
-void output_full_stats(struct server_stats_t *servers, struct opt_t* options);
+
+void print_http(void *data, uint32_t len);
 
 #endif
