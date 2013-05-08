@@ -8,7 +8,7 @@
 #include "curl/curl.h"
 
 /* use the current date with 2 digit count appended as version: YYYYMMDDXX */
-#define AMP_HTTP_TEST_VERSION 2013041200
+#define AMP_HTTP_TEST_VERSION 2013050800
 
 #define MAX_URL_LEN 256
 #define MAX_DNS_NAME_LEN 256
@@ -38,6 +38,11 @@ struct opt_t {
 };
 
 struct cache_headers_t {
+    int32_t max_age;
+    int32_t s_maxage;
+    char reserved[5];
+    int8_t x_cache;
+    int8_t x_cache_lookup;
     struct cache_flags_t{
         uint8_t pub:1;
         uint8_t priv:1;
@@ -48,11 +53,7 @@ struct cache_headers_t {
         uint8_t proxy_revalidate:1;
         uint8_t unused:1;
     } flags;
-    int32_t max_age;
-    int32_t s_maxage;
-    int8_t x_cache;
-    int8_t x_cache_lookup;
-};
+} __attribute((packed));
 
 struct globalStats_t {
     struct timeval start;
@@ -114,17 +115,17 @@ struct amp_timeval_t {
 
 struct http_report_server_t {
     /* TODO make the name field variable length? */
-    char hostname[128];
+    char hostname[128]; // XXX MAX_DNS_NAME_LEN
     struct amp_timeval_t start;
     struct amp_timeval_t end;
     /* nicer way than storing just 16 bytes for the address? */
     char address[MAX_ADDR_LEN];
+    uint16_t reserved1;
     int32_t bytes;
-    //uint8_t family;
+    uint16_t reserved2;
     uint8_t objects;
-    uint16_t reserved;
-    uint8_t reserved2;
-};
+    uint8_t reserved3;
+} __attribute__((packed));
 
 struct http_report_object_t {
     char path[MAX_PATH_LEN];
@@ -136,15 +137,15 @@ struct http_report_object_t {
     struct amp_timeval_t total_time;
     uint32_t code;
     uint32_t size;
-    struct cache_headers_t headers;
+    char reserved[6];
     uint8_t connect_count;
     uint8_t pipeline;
-    uint16_t reserved;
-    uint8_t reserved2;
-};
+    struct cache_headers_t headers;
+} __attribute__((packed));
 
 struct http_report_header_t {
     uint32_t version;
+    uint32_t reserved;
     char url[MAX_URL_LEN];
     uint32_t duration;
     uint32_t bytes;
@@ -155,10 +156,10 @@ struct http_report_header_t {
     uint8_t max_connections_per_server;
     uint8_t max_persistent_connections_per_server;
     uint8_t pipelining;
+    char reserved2[6];
     uint8_t pipelining_maxrequests;
     uint8_t caching;
-    uint16_t reserved;
-};
+} __attribute__((packed));
 
 
 int run_http(int argc, char *argv[], int count, struct addrinfo **dests);
