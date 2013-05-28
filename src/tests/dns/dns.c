@@ -819,16 +819,6 @@ int run_dns(int argc, char *argv[], int count, struct addrinfo **dests) {
 
 
 /*
- *
- */
-int save_dns(char *monitor, uint64_t timestamp, void *data, uint32_t len) {
-    /* TODO save DNS test data */
-    return 0;
-}
-
-
-
-/*
  * Print DNS test results to stdout, nicely formatted for the standalone test.
  * Tries to look a little bit similar to the output of dig, but with fewer
  * lines of output per server.
@@ -927,9 +917,6 @@ test_t *register_test() {
 
     /* function to call to setup arguments and run the test */
     new_test->run_callback = run_dns;
-
-    /* function to call to save the results of the test */
-    new_test->save_callback = save_dns;
 
     /* function to call to pretty print the results of the test */
     new_test->print_callback = print_dns;

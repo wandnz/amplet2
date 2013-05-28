@@ -74,12 +74,6 @@ typedef struct test {
 	    struct addrinfo **dests);
 
     /*
-     * Pointer to a function that will save the test data on the server.
-     */
-    int (*save_callback)(char *monitor, uint64_t timestamp,
-	    void *data, uint32_t len);
-
-    /*
      * Pointer to a function that will pretty print the test results when
      * the test is run as a standalone program rather than as part of
      * measured.

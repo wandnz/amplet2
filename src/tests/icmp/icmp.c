@@ -549,32 +549,6 @@ int run_icmp(int argc, char *argv[], int count, struct addrinfo **dests) {
 
 
 /*
- * Save the results of the icmp test
- */
-int save_icmp(char *monitor, uint64_t timestamp, void *data, uint32_t len) {
-    struct icmp_report_header_t *header = (struct icmp_report_header_t*)data;
-
-    assert(data != NULL);
-    assert(len >= sizeof(struct icmp_report_header_t));
-    assert(len == sizeof(struct icmp_report_header_t) +
-	    header->count * sizeof(struct icmp_report_item_t));
-
-    if ( header->version != AMP_ICMP_TEST_VERSION ) {
-	fprintf(stderr, "Wrong protocol version, got %d expected %d\n",
-		header->version, AMP_ICMP_TEST_VERSION);
-	return -1;
-    }
-
-    /* TODO implement saving test data in database */
-    fprintf(stderr, "SAVING DATA FOR %s at %lu, %u bytes\n",
-	    monitor, timestamp, len);
-    print_icmp(data, len);
-    return 0;
-}
-
-
-
-/*
  * Print icmp test results to stdout, nicely formatted for the standalone test
  */
 void print_icmp(void *data, uint32_t len) {
@@ -641,9 +615,6 @@ test_t *register_test() {
 
     /* function to call to setup arguments and run the test */
     new_test->run_callback = run_icmp;
-
-    /* function to call to save the results of the test */
-    new_test->save_callback = save_icmp;
 
     /* function to call to pretty print the results of the test */
     new_test->print_callback = print_icmp;

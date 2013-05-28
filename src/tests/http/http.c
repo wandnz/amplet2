@@ -1120,9 +1120,6 @@ test_t *register_test() {
     /* function to call to setup arguments and run the test */
     new_test->run_callback = run_http;
 
-    /* function to call to save the results of the test */
-    //new_test->save_callback = save_http;
-
     /* function to call to pretty print the results of the test */
     new_test->print_callback = print_http;
 
