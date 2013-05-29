@@ -7,9 +7,6 @@ AC_INIT([amplet2], [0.1.2], [amp@wand.net.nz])
 AM_INIT_AUTOMAKE
 AC_CONFIG_HEADERS([config.h])
 
-# By default install everything into our own directory
-AC_PREFIX_DEFAULT(/usr/local/amp)
-
 # Checks for programs.
 AC_PROG_CC
 AC_PROG_LIBTOOL
