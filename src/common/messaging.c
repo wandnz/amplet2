@@ -112,8 +112,6 @@ int report_to_broker(test_type_t type, uint64_t timestamp, void *bytes,
      *	- source monitor
      *	- test type
      *	- timestamp? already a property, but i need to set
-     * TODO add a version number, possibly as part of the test data so we
-     * can update individual tests and have it not break
      */
 
     /* The name of the reporting monitor (our local ampname) */
@@ -143,7 +141,6 @@ int report_to_broker(test_type_t type, uint64_t timestamp, void *bytes,
     props.headers = headers;
     props.timestamp = timestamp;
 
-    /* TODO how to format message? what protocol to use for it? */
     /* jump dump a binary blob similar to old style? */
     data.len = len;
     data.bytes = bytes;
