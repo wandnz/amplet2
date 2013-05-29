@@ -174,7 +174,7 @@ static void process_packet(char *packet, uint16_t ident, struct timeval *now,
     struct dns_t *header;
     uint16_t recv_ident;
     int index;
-    char *rr_start;
+    char *rr_start = NULL;
     struct dns_opt_rr_t *rr_data;
     char *name;
     int i;
@@ -205,19 +205,20 @@ static void process_packet(char *packet, uint16_t ident, struct timeval *now,
     if ( ! header->flags.fields.qr ) {
 	/* is this packet actually a response to a query? */
 	info[index].response_code = INVALID;
-    } else if ( header->flags.fields.rcode ) {
-	/* are there any errors in the response code (non-zero value)? */
-	info[index].response_code = NOTFOUND;
     } else if ( ntohs(header->qd_count) != 1 ) {
 	/* we only sent one request, make sure that matches */
 	info[index].response_code = INVALID;
+    } else if ( header->flags.fields.rcode ) {
+	/* are there any errors in the response code (non-zero value)? */
+	info[index].response_code = NOTFOUND;
     } else if ( response_count < 1 ) {
 	/* make sure there was at least something resembling an answer */
 	info[index].response_code = NOTFOUND;
     }
 
-    /* if it's a good response then check its contents */
-    if ( info[index].response_code == RESPONSEOK ) {
+    /* if it's a response to our query then check its contents */
+    if ( info[index].response_code == RESPONSEOK ||
+            info[index].response_code == NOTFOUND ) {
 
 	rr_start = packet + sizeof(struct dns_t);
 
@@ -273,7 +274,15 @@ static void process_packet(char *packet, uint16_t ident, struct timeval *now,
 	}
     }
 
-    info[index].bytes = rr_start - packet;
+    /*
+     * This catches the case where the response is invalid. Is this the sort
+     * of behaviour we want here, or should we still investigate the packet?
+     */
+    if ( rr_start == NULL ) {
+        info[index].bytes = 0;
+    } else {
+        info[index].bytes = rr_start - packet;
+    }
     info[index].delay = DIFF_TV_US(*now, info[index].time_sent);
 }
 
