@@ -1,10 +1,10 @@
 EXTRA_DIST=*.h
 
-testdir=$(prefix)/tests
+testdir=$(libdir)/$(PACKAGE)/tests
 
-bin_PROGRAMS=trace
-trace_SOURCES=traceroute.c ../testmain.c
-trace_LDADD=-L../../common/ -lamp
+bin_PROGRAMS=amp-trace
+amp_trace_SOURCES=traceroute.c ../testmain.c
+amp_trace_LDADD=-L../../common/ -lamp
 
 test_LTLIBRARIES=trace.la
 trace_la_SOURCES=traceroute.c

@@ -1,10 +1,10 @@
 EXTRA_DIST=*.h lexer.l
 
-testdir=$(prefix)/tests
+testdir=$(libdir)/$(PACKAGE)/tests
 
-bin_PROGRAMS=http
-http_SOURCES=http.c servers.c parsers.c output.c ../testmain.c lexer.l
-http_LDADD=-L../../common/ -lamp -lcurl
+bin_PROGRAMS=amp-http
+amp_http_SOURCES=http.c servers.c parsers.c output.c ../testmain.c lexer.l
+amp_http_LDADD=-L../../common/ -lamp -lcurl
 
 test_LTLIBRARIES=http.la
 http_la_SOURCES=http.c servers.c parsers.c output.c lexer.l

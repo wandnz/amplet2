@@ -1,5 +1,5 @@
 usr/bin/measured usr/sbin
 usr/lib/*so
-usr/tests/*so usr/lib/amp/tests
-etc/amp/*
+usr/lib/amplet2/tests/*so
+etc/amplet2/*
 usr/share/amplet2/rsyslog/*

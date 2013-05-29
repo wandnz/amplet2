@@ -1,8 +1,8 @@
-testdir=$(prefix)/tests
+testdir=$(libdir)/$(PACKAGE)/tests
 
-bin_PROGRAMS=skeleton
-skeleton_SOURCES=skeleton.c ../testmain.c
-skeleton_LDADD=-L../../common/ -lamp
+bin_PROGRAMS=amp-skeleton
+amp_skeleton_SOURCES=skeleton.c ../testmain.c
+amp_skeleton_LDADD=-L../../common/ -lamp
 
 test_LTLIBRARIES=skeleton.la
 skeleton_la_SOURCES=skeleton.c

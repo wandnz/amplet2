@@ -9,14 +9,11 @@ EXTRA_DIST=*.h
 
 bin_PROGRAMS=measured
 measured_SOURCES=measured.c schedule.c watchdog.c test.c nametable.c refresh.c
-measured_CFLAGS=-I../tests/ -I../common/ -DAMP_CONFIG_DIR=\"$(sysconfdir)\" -DAMP_TEST_DIRECTORY=\"$(libexecdir)/tests\" -rdynamic
-measured_LDFLAGS=-L../tests/ -L../common/ -lmeasured -lamp
+measured_CFLAGS=-I../tests/ -I../common/ -DAMP_CONFIG_DIR=\"$(sysconfdir)/$(PACKAGE)\" -DAMP_TEST_DIRECTORY=\"$(libdir)/$(PACKAGE)/tests\" -rdynamic
+measured_LDFLAGS=-L../tests/ -L../common/ -lamp
 
-dist_sysconf_DATA=etc/*
-sharedir=$(datarootdir)/$(PACKAGE)/rsyslog
+etcdir=$(sysconfdir)/$(PACKAGE)
+dist_etc_DATA=etc/*
+sharedir=$(pkgdatadir)/rsyslog
 dist_share_DATA=rsyslog/*
 
-#libmeasureddir=$(libdir)
-#libmeasured_LTLIBRARIES=libmeasured.la
-#libmeasured_la_SOURCES=debug.c ../tests/testlib.c messaging.c modules.c
-#libmeasured_la_LDFLAGS=-module -avoid-version -lrabbitmq

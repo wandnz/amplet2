@@ -4,5 +4,5 @@ all-local:
 	python setup.py build
 
 install-exec-hook:
-	python setup.py install --root ${DESTDIR}/ --prefix=${DESTDIR}/$(prefix)
+	python setup.py install --prefix=$(DESTDIR)/$(prefix)
 

@@ -1,10 +1,10 @@
 EXTRA_DIST=*.h
 
-testdir=$(prefix)/tests
+testdir=$(libdir)/$(PACKAGE)/tests
 
-bin_PROGRAMS=icmp
-icmp_SOURCES=icmp.c ../testmain.c
-icmp_LDADD=-L../../common/ -lamp
+bin_PROGRAMS=amp-icmp
+amp_icmp_SOURCES=icmp.c ../testmain.c
+amp_icmp_LDADD=-L../../common/ -lamp
 
 test_LTLIBRARIES=icmp.la
 icmp_la_SOURCES=icmp.c
