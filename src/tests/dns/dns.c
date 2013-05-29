@@ -863,11 +863,12 @@ void print_dns(void *data, uint32_t len) {
 	    printf(" (%s) no response\n", addrstr);
 	    continue;
 	} else {
-	    /*
-	     * TODO suppress instance name if it's the same as the ampname
-	     * or the address of the target? It won't often be different.
-	     */
-	    printf(" (%s,%s)", addrstr, item->instance);
+	    /* Suppress instance name if it's the same as the ampname */
+            if ( strncmp(item->ampname,item->instance,INET6_ADDRSTRLEN) == 0 ) {
+                printf(" (%s)", addrstr);
+            } else {
+                printf(" (%s,%s)", addrstr, item->instance);
+            }
 	    printf(" %dus", item->rtt);
 	}
 	printf("\n");
