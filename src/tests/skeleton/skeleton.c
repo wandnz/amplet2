@@ -36,15 +36,15 @@ int run_skeleton(int argc, char *argv[], int count, struct addrinfo **dests) {
     }
 
     /* print all the destinations that were passed in */
-    printf("dests:\n");
+    printf("dests: %d\n", count);
     for ( i=0; i<count; i++ ) {
-	if ( dests[count]->ai_family == AF_INET ) {
+	if ( dests[i]->ai_family == AF_INET ) {
 	    inet_ntop(AF_INET,
-		    &((struct sockaddr_in*)dests[count]->ai_addr)->sin_addr,
+		    &((struct sockaddr_in*)dests[i]->ai_addr)->sin_addr,
 		    address, INET6_ADDRSTRLEN);
-	} else if ( dests[count]->ai_family == AF_INET6 ) {
+	} else if ( dests[i]->ai_family == AF_INET6 ) {
 	    inet_ntop(AF_INET,
-		    &((struct sockaddr_in6*)dests[count]->ai_addr)->sin6_addr,
+		    &((struct sockaddr_in6*)dests[i]->ai_addr)->sin6_addr,
 		    address, INET6_ADDRSTRLEN);
 	} else {
 	    continue;
