@@ -14,7 +14,7 @@
 /*
  * Create a connection to the local broker that measured can use to report
  * data for all tests. Each test will use a different channel within this
- * connection (sharing channels leads to broken behaviour). This will persist 
+ * connection (sharing channels leads to broken behaviour). This will persist
  * for the lifetime of measured.
  * TODO can we detect this going away and reconnect if it does so?
  */
@@ -31,12 +31,12 @@ int connect_to_broker() {
 		vars.collector, vars.port);
 	return -1;
     }
-    
+
     amqp_set_sockfd(conn, sock);
 
     /* login to the broker */
     /* TODO use a better auth mechanism than plain SASL with guest/guest */
-    if ( (amqp_login(conn, "/", 0, AMQP_FRAME_MAX, 0, AMQP_SASL_METHOD_PLAIN, 
+    if ( (amqp_login(conn, "/", 0, AMQP_FRAME_MAX, 0, AMQP_SASL_METHOD_PLAIN,
 	    "guest", "guest")).reply_type != AMQP_RESPONSE_NORMAL ) {
 	Log(LOG_ERR, "Failed to login to broker");
 	return -1;
@@ -60,7 +60,7 @@ void close_broker_connection() {
 
 /*
  * XXX is this file the right place for this function? only used by measured
- * Report results for a single test to the local broker. 
+ * Report results for a single test to the local broker.
  *
  * example amqp_table_t stuff:
  * https://groups.google.com/forum/?fromgroups=#!topic/rabbitmq-discuss/M_8I12gWxbQ
@@ -79,7 +79,7 @@ int report_to_broker(test_type_t type, uint64_t timestamp, void *bytes,
 	Log(LOG_WARNING, "Invalid test type %d, not reporting\n", type);
 	return -1;
     }
-    
+
     /*
      * Ideally this would only happen once and the same connection would be
      * reused for all tests, but with their own channel. A connection can't
@@ -94,7 +94,7 @@ int report_to_broker(test_type_t type, uint64_t timestamp, void *bytes,
 	return -1;
     }
 
-    /* 
+    /*
      * open a new channel for every reporting process, there may be multiple
      * of these going on at once so they need individual channels
      */
@@ -118,11 +118,11 @@ int report_to_broker(test_type_t type, uint64_t timestamp, void *bytes,
     table_entries[0].key = amqp_cstring_bytes("x-amp-source-monitor");
     table_entries[0].value.kind = AMQP_FIELD_KIND_UTF8;
     table_entries[0].value.value.bytes = amqp_cstring_bytes(vars.ampname);
-    
+
     /* The name of the test data is being reported for */
     table_entries[1].key = amqp_cstring_bytes("x-amp-test-type");
     table_entries[1].value.kind = AMQP_FIELD_KIND_UTF8;
-    table_entries[1].value.value.bytes = 
+    table_entries[1].value.value.bytes =
 	amqp_cstring_bytes(amp_tests[type]->name);
 
     /* Add all the individual headers to the header table */
@@ -130,8 +130,8 @@ int report_to_broker(test_type_t type, uint64_t timestamp, void *bytes,
     headers.entries = table_entries;
 
     /* Mark the flags that will be present */
-    props._flags = 
-	AMQP_BASIC_CONTENT_TYPE_FLAG | 
+    props._flags =
+	AMQP_BASIC_CONTENT_TYPE_FLAG |
 	AMQP_BASIC_DELIVERY_MODE_FLAG |
 	AMQP_BASIC_HEADERS_FLAG |
 	AMQP_BASIC_TIMESTAMP_FLAG;

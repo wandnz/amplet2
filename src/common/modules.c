@@ -20,7 +20,7 @@ int register_tests(char *location) {
     char full_loc[MAX_PATH_LENGTH];
     uint32_t i;
 
-    
+
     if ( location == NULL ) {
 	Log(LOG_ALERT, "Test directory not given.");
 	return -1;
@@ -40,8 +40,8 @@ int register_tests(char *location) {
     strcpy(full_loc, location);
     strcat(full_loc, "/*.so");
     glob(full_loc, 0, NULL, &glob_buf);
-    
-    Log(LOG_INFO, "Loading test modules from %s (found %zd candidates)", 
+
+    Log(LOG_INFO, "Loading test modules from %s (found %zd candidates)",
 	    location, glob_buf.gl_pathc);
 
     for ( i=0; i<glob_buf.gl_pathc; i++ ) {
@@ -65,7 +65,7 @@ int register_tests(char *location) {
 	new_test = r_func();
 
 	if ( new_test == NULL ) {
-	    Log(LOG_WARNING, 
+	    Log(LOG_WARNING,
 		    "Got NULL response from register_test function in %s",
 		    glob_buf.gl_pathv[i]);
 	    dlclose(hdl);

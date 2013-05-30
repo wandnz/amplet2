@@ -75,7 +75,7 @@ int main(int argc, char *argv[]) {
 
     /* load information about the test, including the callback functions */
     test_info = get_test_info();
-    /* 
+    /*
      * FIXME is this the best way to get this looking like it does when
      * run through measured? Just filling in the one value that we know we
      * will be looking at later when reporting.
@@ -87,9 +87,9 @@ int main(int argc, char *argv[]) {
 
     log_flag_index = 0;
 
-    /* 
+    /*
      * deal with command line arguments - split them into actual arguments
-     * and destinations in the style the AMP tests want. Using "-" as the 
+     * and destinations in the style the AMP tests want. Using "-" as the
      * optstring means that non-option arguments are treated as having an
      * option with character code 1 (which prevents them from being shuffled
      * to the end of the list). All test arguments will be preserved, and the
@@ -127,7 +127,7 @@ int main(int argc, char *argv[]) {
 	/* check if adding the new destination would be allowed by the test */
 	if ( test_info->max_targets > 0 && count >= test_info->max_targets ) {
 	    /* ignore any extra destinations but continue with the test */
-	    printf("Exceeded max of %d destinations, skipping remainder\n", 
+	    printf("Exceeded max of %d destinations, skipping remainder\n",
 		    test_info->max_targets);
 	    break;
 	}
@@ -136,8 +136,8 @@ int main(int argc, char *argv[]) {
 	    perror("getaddrinfo");
 	    continue;
 	}
-	
-	/* 
+
+	/*
 	 * If this is a new destination, link it to the last element so that
 	 * we can clean them all up with a single freeaddrinfo() call.
 	 */

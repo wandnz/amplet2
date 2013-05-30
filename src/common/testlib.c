@@ -41,7 +41,7 @@ int wait_for_data(struct socket_t *sockets, int *maxwait) {
     delay = 0;
 
     do {
-	/* 
+	/*
 	 * if there has been an error then update timeout by how long we have
 	 * already taken so we can carry on where we left off
 	 */
@@ -69,7 +69,7 @@ int wait_for_data(struct socket_t *sockets, int *maxwait) {
 
 	ready = select(max_fd+1, &readset, NULL, NULL, &timeout);
 
-	/* 
+	/*
 	 * we can't always trust the value of timeout after select returns, so
 	 * check for ourselves how much time has elapsed
 	 */
@@ -111,7 +111,7 @@ int wait_for_data(struct socket_t *sockets, int *maxwait) {
 
 
 /*
- * Wait for up to timeout microseconds to receive a packet on the given 
+ * Wait for up to timeout microseconds to receive a packet on the given
  * sockets and return the number of bytes read.
  */
 int get_packet(struct socket_t *sockets, char *buf, int len,
@@ -121,7 +121,7 @@ int get_packet(struct socket_t *sockets, char *buf, int len,
     int sock;
     int family;
     socklen_t addrlen;
-    
+
     assert(sockets);
     assert(sockets->socket || sockets->socket6);
 
@@ -179,7 +179,7 @@ int delay_send_packet(int sock, char *packet, int size, struct addrinfo *dest) {
 	last.tv_usec = now.tv_usec;
     }
 
-    /* 
+    /*
      * if there is still time to wait before the next packet then return
      * control to the caller, in case they want to do more work while waiting
      */
@@ -199,11 +199,11 @@ int delay_send_packet(int sock, char *packet, int size, struct addrinfo *dest) {
 
 
 
-/* 
+/*
  * If the test is set to report (i.e. being run through measured) then
  * send the data buffer to the local broker for transmission to the
- * server. Otherwise if the test is being run standalone then use the 
- * test specific printing functions to dump a human readable version of 
+ * server. Otherwise if the test is being run standalone then use the
+ * test specific printing functions to dump a human readable version of
  * the data to stdout.
  */
 int report(test_type_t type, uint64_t timestamp, void *bytes, size_t len) {
@@ -216,7 +216,7 @@ int report(test_type_t type, uint64_t timestamp, void *bytes, size_t len) {
 	Log(LOG_WARNING, "Invalid test type %d, not reporting\n", type);
 	return -1;
     }
-    
+
     if ( amp_tests[type]->report ) {
 	report_to_broker(type, timestamp, bytes, len);
     } else {
@@ -231,7 +231,7 @@ int report(test_type_t type, uint64_t timestamp, void *bytes, size_t len) {
 
 /*
  * Determine the name for a given address structure. Currently the name is
- * stored using the ai_canonname field in the struct addrinfo, which is 
+ * stored using the ai_canonname field in the struct addrinfo, which is
  * filled in when the structure is created (but not by getaddrinfo).
  */
 char *address_to_name(struct addrinfo *address) {
