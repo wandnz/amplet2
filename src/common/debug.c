@@ -11,8 +11,13 @@
 
 
 
-/* TODO allow the default value of this to be set at build or run time? */
+/*
+ * These are both extern and can be set by config files or overridden to
+ * maximum debug by command line options.
+ * TODO is there a nicer way to do this?
+ */
 int log_level = LOG_INFO;
+int log_level_override = 0;
 
 
 

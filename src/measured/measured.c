@@ -60,7 +60,7 @@ static void print_version(char *prog) {
     printf("%s (%s)\n", prog, PACKAGE_STRING);
     printf("Report bugs to <%s>\n", PACKAGE_BUGREPORT);
     printf(" config dir: %s\n", AMP_CONFIG_DIR);
-    printf(" test dir: %s\n", AMP_TEST_DIRECTORY);
+    printf(" default test dir: %s\n", AMP_TEST_DIRECTORY);
 }
 
 
@@ -100,7 +100,41 @@ static void reload(__attribute__((unused))struct wand_signal_t *signal) {
 
 
 /*
- * TODO this is almost identical to the config parsing in xferd
+ * Translate the configuration string for log level into a syslog level.
+ */
+static int callback_verify_loglevel(cfg_t *cfg, cfg_opt_t *opt,
+        const char *value, void *result) {
+
+    if ( strncasecmp(value, "debug", strlen("debug")) == 0 ) {
+        *(int *)result = LOG_DEBUG;
+    } else if ( strncasecmp(value, "info", strlen("info")) == 0 ) {
+        *(int *)result = LOG_INFO;
+    } else if ( strncasecmp(value, "notice", strlen("notice")) == 0 ) {
+        *(int *)result = LOG_NOTICE;
+    } else if ( strncasecmp(value, "warn", strlen("warn")) == 0 ) {
+        *(int *)result = LOG_WARNING;
+    } else if ( strncasecmp(value, "err", strlen("err")) == 0 ) {
+        *(int *)result = LOG_ERR;
+    } else if ( strncasecmp(value, "crit", strlen("crit")) == 0 ) {
+        *(int *)result = LOG_CRIT;
+    } else if ( strncasecmp(value, "alert", strlen("alert")) == 0 ) {
+        *(int *)result = LOG_ALERT;
+    } else if ( strncasecmp(value, "emerg", strlen("emerg")) == 0 ) {
+        *(int *)result = LOG_EMERG;
+    } else {
+        cfg_error(cfg, "Invalid value for option %s: %s\n"
+                "Possible values include: "
+                "debug, info, notice, warn, err, crit, alert, emerg",
+                opt->name, value);
+        return -1;
+    }
+    return 0;
+}
+
+
+
+/*
+ *
  */
 static int parse_config(char *filename, struct amp_global_t *vars) {
     int ret;
@@ -123,6 +157,7 @@ static int parse_config(char *filename, struct amp_global_t *vars) {
         /* TODO default ampname to hostname */
 	CFG_STR("ampname", "unknown", CFGF_NONE),
 	CFG_STR("testdir", AMP_TEST_DIRECTORY, CFGF_NONE),
+        CFG_INT_CB("loglevel", LOG_INFO, CFGF_NONE, &callback_verify_loglevel),
 	CFG_SEC("collector", opt_collector, CFGF_NONE),
 	CFG_END()
     };
@@ -147,6 +182,10 @@ static int parse_config(char *filename, struct amp_global_t *vars) {
 
     vars->ampname = strdup(cfg_getstr(cfg, "ampname"));
     vars->testdir = strdup(cfg_getstr(cfg, "testdir"));
+    /* only use configured loglevel if it's not forced on the command line */
+    if ( !log_level_override ) {
+        log_level = cfg_getint(cfg, "loglevel");
+    }
 
     for ( i=0; i<cfg_size(cfg, "collector"); i++) {
 	cfg_collector = cfg_getnsec(cfg, "collector", i);
@@ -200,8 +239,10 @@ int main(int argc, char *argv[]) {
                 print_version(argv[0]);
                 exit(0);
 	    case 'x':
-		/* enable extra debug output */
+		/* enable extra debug output, overriding config settings */
+                /* TODO allow the exact log level to be set? */
 		log_level = LOG_DEBUG;
+                log_level_override = 1;
 		break;
 	    case 'c':
 		/* specify a configuration file */
