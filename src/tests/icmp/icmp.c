@@ -107,9 +107,20 @@ static void icmp_error(char *packet, uint16_t ident, struct info_t info[]) {
     }
 
     seq = ntohs(embed_icmp->un.echo.sequence);
+    /*
+     * TODO it's possible for this to be clobbered by the most recent error
+     * (though unlikely except in the case of redirects). Do we care?
+     */
     info[seq].err_type = icmp->type;
     info[seq].err_code = icmp->code;
-    info[seq].reply = 1;
+
+    /*
+     * Don't count a redirect as a response, we are still expecting a real
+     * reply from the destination host.
+     */
+    if ( icmp->type != ICMP_REDIRECT ) {
+        info[seq].reply = 1;
+    }
     /* TODO get ttl */
     /*info[seq].ttl = */
 
