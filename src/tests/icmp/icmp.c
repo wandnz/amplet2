@@ -289,7 +289,8 @@ static void send_packet(struct socket_t *raw_sockets, int seq, uint16_t ident,
     };
 
     if ( sock < 0 ) {
-	Log(LOG_WARNING, "Unable to test to %s, socket wasn't opened", "XXX");
+	Log(LOG_WARNING, "Unable to test to %s, socket wasn't opened",
+                dest->ai_canonname);
 	return;
     }
 
