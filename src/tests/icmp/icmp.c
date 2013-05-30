@@ -413,8 +413,9 @@ static void report_results(struct timeval *start_time, int count,
 	};
 
 	/* TODO do we want to truncate to milliseconds like the old test? */
-	if ( info[i].reply && info[i].err_type == 0
-		&& info[i].err_code == 0 ) {
+	if ( info[i].reply &&
+                (info[i].err_type == ICMP_REDIRECT ||
+                 (info[i].err_type == 0 && info[i].err_code == 0)) ) {
 	    //printf("%dms ", (int)((info[i].delay/1000.0) + 0.5));
 	    item->rtt = info[i].delay;
 	} else {
