@@ -7,6 +7,7 @@
 #include <time.h>
 #include <arpa/inet.h>
 
+#include "debug.h"
 #include "tests.h"
 #include "modules.h"
 #include "testmain.h"
@@ -67,6 +68,7 @@ int main(int argc, char *argv[]) {
     struct addrinfo **dests;
     struct addrinfo hint;
     struct addrinfo *result, *rp;
+    int log_flag_index;
     int count;
     int opt;
     int i;
@@ -83,6 +85,8 @@ int main(int argc, char *argv[]) {
     /* suppress "invalid argument" errors from getopt */
     opterr = 0;
 
+    log_flag_index = 0;
+
     /* 
      * deal with command line arguments - split them into actual arguments
      * and destinations in the style the AMP tests want. Using "-" as the 
@@ -91,8 +95,16 @@ int main(int argc, char *argv[]) {
      * to the end of the list). All test arguments will be preserved, and the
      * destinations listed after the -- marker can be removed easily.
      */
-    while ( (opt = getopt(argc, argv, "-")) != -1 ) {
-	/* do nothing, just use up arguments until we reach the -- marker */
+    while ( (opt = getopt(argc, argv, "-x")) != -1 ) {
+	/* generally do nothing, just use up arguments until the -- marker */
+        switch ( opt ) {
+            /* -x is the only option we care about for now - enable debug */
+            case 'x': log_level = LOG_DEBUG;
+                      log_level_override = 1;
+                      log_flag_index = optind - 1;
+                      break;
+            default: /* do nothing */ break;
+        };
     }
 
     dests = NULL;
@@ -144,8 +156,16 @@ int main(int argc, char *argv[]) {
 	}
     }
 
+    /* remove the -x option if present so that the test doesn't see it */
+    if ( log_level_override && log_flag_index > 0 ) {
+        memmove(argv + log_flag_index, argv + log_flag_index + 1,
+                (argc - log_flag_index - 1) * sizeof(char *));
+        optind--;
+    }
+
     /* prematurely terminate argv so the test doesn't see the destinations */
     argv[optind] = NULL;
+    argc = optind;
 
     /* reset optind so the test can call getopt normally on it's arguments */
     optind = 1;
