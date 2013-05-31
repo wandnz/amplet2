@@ -14,9 +14,6 @@ AC_PROG_LIBTOOL
 # Checks for libraries.
 AC_SEARCH_LIBS(dlopen, dl)
 
-# Checks for header files.
-AC_CHECK_HEADERS([stdlib.h, sys/inotify.h])
-
 # Checks for typedefs, structures, and compiler characteristics.
 if test "$GCC" = "yes"; then
     CFLAGS="$CFLAGS -g -Wall -W -Wmissing-prototypes"

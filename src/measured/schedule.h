@@ -15,7 +15,7 @@
 
 /* TODO move config file defines elsewhere, point at sensible places */
 //#define AMP_CONFIG_DIR "/tmp/brendonj"
-#define SCHEDULE_FILE AMP_CONFIG_DIR "/schedule"
+#define SCHEDULE_DIR AMP_CONFIG_DIR "/schedule.d"
 //#define AMP_TEST_DIRECTORY AMP_CONFIG_DIR "/tests/"
 #define MAX_TEST_ARGS 128
 
@@ -99,7 +99,7 @@ typedef struct schedule_item {
 
 
 void clear_test_schedule(wand_event_handler_t *ev_hdl);
-void read_schedule_file(wand_event_handler_t *ev_hdl);
+void read_schedule_dir(wand_event_handler_t *ev_hdl, char *directory);
 void setup_schedule_refresh(wand_event_handler_t *ev_hdl);
 struct timeval get_next_schedule_time(wand_event_handler_t *ev_hdl, 
 	char repeat, uint64_t start, uint64_t end, uint64_t frequency);

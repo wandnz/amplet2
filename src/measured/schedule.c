@@ -12,10 +12,7 @@
 #include <limits.h>
 #include <signal.h>
 #include <assert.h>
-
-#if HAVE_SYS_INOTIFY_H
-#include <sys/inotify.h>
-#endif
+#include <glob.h>
 
 #include <libwandevent.h>
 #include "schedule.h"
@@ -24,7 +21,6 @@
 #include "nametable.h"
 #include "debug.h"
 #include "modules.h"
-#include "refresh.h"
 
 
 
@@ -161,87 +157,6 @@ void clear_test_schedule(wand_event_handler_t *ev_hdl) {
 	    }
 	}
     }
-}
-
-
-
-#if HAVE_SYS_INOTIFY_H
-/*
- * inotify tells us the file has changed, so consume the event, clear the
- * existing schedule and load the new one.
- *
- * inotify is only available on Linux.
- */
-static void schedule_file_changed_event(struct wand_fdcb_t *evcb,
-	__attribute__((unused)) enum wand_eventtype_t ev) {
-    struct inotify_event buf;
-    file_data_t *data = (file_data_t *)evcb->data;
-
-    if ( read(data->fd, &buf, sizeof(buf)) == sizeof(buf) ) {
-	/* make sure this is a file modify event, if so, reread schedules */
-	if ( buf.mask & IN_MODIFY ) {
-	    clear_test_schedule(data->ev_hdl);
-	    read_schedule_file(data->ev_hdl);
-	}
-    }
-}
-
-#else
-
-/*
- * Check if the schedule file has been modified since the last check. If it
- * has then this invalidates all currently scheduled tests (which will need to
- * be cleared). The file needs to be read and the new tests added to the
- * schedule.
- *
- * TODO do we care about the file changing multiple times a second?
- */
-static void check_schedule_file(struct wand_timer_t *timer) {
-    schedule_file_data_t *data = (schedule_file_data_t *)timer->data;
-    struct stat statInfo;
-    time_t now;
-
-    /* check if the schedule file has changed since last time */
-    now = time(NULL);
-    if ( stat(SCHEDULE_FILE, &statInfo) != 0 ) {
-	perror("error statting schedule file");
-	exit(1);
-    }
-
-    if ( statInfo.st_mtime > data->last_update ) {
-	/* clear out all events and add new ones */
-	Log(LOG_INFO, "Schedule file modified, updating\n");
-	clear_test_schedule(data->ev_hdl);
-	read_schedule_file(data->ev_hdl);
-	data->last_update = statInfo.st_mtime;
-	Log(LOG_INFO, "Done updating schedule file\n");
-    }
-
-    /* reschedule the check again */
-    timer->expire = wand_calc_expire(data->ev_hdl, FILE_CHECK_FREQ, 0);
-    timer->prev = NULL;
-    timer->next = NULL;
-    wand_add_timer(data->ev_hdl, timer);
-}
-
-#endif
-
-
-
-/*
- * Set up an event to monitor the schedule file for changes. Use inotify if it
- * is available (Linux only) to immediately be alerted of changes, otherwise
- * poll the schedule file to check for changes.
- */
-void setup_schedule_refresh(wand_event_handler_t *ev_hdl) {
-#if HAVE_SYS_INOTIFY_H
-    /* use inotify if we are on linux, it is nicer and quicker */
-    setup_file_refresh_inotify(ev_hdl, SCHEDULE_FILE,
-	    schedule_file_changed_event);
-#else
-    /* if missing inotify then use libwandevent timers to check regularly */
-    setup_file_refresh_timer(ev_hdl, SCHEDULE_FILE, check_schedule_file);
-#endif
 }
 
 
@@ -553,13 +468,9 @@ static int merge_scheduled_tests(struct wand_event_handler_t *ev_hdl,
  * TODO this is currently in the old schedule file format, do we want to update
  * or change this format at all?
  *
- * TODO maybe a config dir similar to apache enable-sites etc? read everything
- * in that dir as a config file and then we can turn things on and off easily,
- * or add new tests without having to edit/transfer a monolithic file.
- *
  * TODO better to use strtok or a scanf?
  */
-void read_schedule_file(wand_event_handler_t *ev_hdl) {
+static void read_schedule_file(wand_event_handler_t *ev_hdl, char *filename) {
     FILE *in;
     char line[MAX_SCHEDULE_LINE];
     struct wand_timer_t *timer = NULL;
@@ -567,10 +478,14 @@ void read_schedule_file(wand_event_handler_t *ev_hdl) {
     test_schedule_item_t *test = NULL;
     int lineno = 0;
 
-    Log(LOG_INFO, "Loading schedule from %s", SCHEDULE_FILE);
+    assert(ev_hdl);
+    assert(filename);
 
-    if ( (in = fopen(SCHEDULE_FILE, "r")) == NULL ) {
-	Log(LOG_ALERT, "Failed to open schedule file: %s\n", strerror(errno));
+    Log(LOG_INFO, "Loading schedule from %s", filename);
+
+    if ( (in = fopen(filename, "r")) == NULL ) {
+	Log(LOG_ALERT, "Failed to open schedule file %s: %s\n",
+                filename, strerror(errno));
 	exit(1);
     }
 
@@ -704,5 +619,43 @@ void read_schedule_file(wand_event_handler_t *ev_hdl) {
 	wand_add_timer(ev_hdl, timer);
     }
     fclose(in);
-    dump_schedule(ev_hdl);
 }
+
+
+
+/*
+ *
+ */
+void read_schedule_dir(wand_event_handler_t *ev_hdl, char *directory) {
+    glob_t glob_buf;
+    int i;
+    char full_loc[MAX_PATH_LENGTH];
+
+    assert(ev_hdl);
+    assert(directory);
+    assert(strlen(directory) < MAX_PATH_LENGTH - 2);
+
+    /*
+     * Using glob makes it easy to treat every non-dotfile in the schedule
+     * directory as a schedule file. Also makes it easy if we want to restrict
+     * the list of files further with a prefix/suffix.
+     */
+    strcpy(full_loc, directory);
+    strcat(full_loc, "/*");
+    glob(full_loc, 0, NULL, &glob_buf);
+
+    Log(LOG_INFO, "Loading schedule from %s (found %zd candidates)",
+	    directory, glob_buf.gl_pathc);
+
+    for ( i = 0; i < glob_buf.gl_pathc; i++ ) {
+	read_schedule_file(ev_hdl, glob_buf.gl_pathv[i]);
+    }
+
+    dump_schedule(ev_hdl);
+
+    globfree(&glob_buf);
+    return;
+}
+
+
+

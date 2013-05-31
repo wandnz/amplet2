@@ -13,15 +13,10 @@
 #include <time.h>
 #include <errno.h>
 
-#if HAVE_SYS_INOTIFY_H
-#include <sys/inotify.h>
-#endif
-
 #include <libwandevent.h>
 #include "schedule.h"
 #include "nametable.h"
 #include "debug.h"
-#include "refresh.h"
 
 
 static struct addrinfo *name_table = NULL;
@@ -111,95 +106,6 @@ static int compare_addrinfo(struct addrinfo *a, struct addrinfo *b) {
     }
 
     return 0;
-}
-
-
-
-#if HAVE_SYS_INOTIFY_H
-/*
- * inotify tells us the file has changed, so consume the event, clear the
- * existing nametable and load the new one.
- */
-static void nametable_file_changed_event(struct wand_fdcb_t *evcb,
-	__attribute__((unused)) enum wand_eventtype_t ev) {
-    struct inotify_event buf;
-    file_data_t *data = (file_data_t *)evcb->data;
-
-    if ( read(data->fd, &buf, sizeof(buf)) == sizeof(buf) ) {
-	if ( buf.mask & IN_MODIFY ) {
-	    /*
-	     * schedule relies on the names, so clear them out, load all the
-	     * new names and then reload the schedule.
-	     */
-	    clear_test_schedule(data->ev_hdl);
-	    clear_nametable();
-	    read_nametable_file();
-	    read_schedule_file(data->ev_hdl);
-	}
-    }
-}
-
-#else
-
-/*
- * Check if the nametable file has been modified since the last check. If it
- * has then this invalidates all currently scheduled tests (which will need to
- * be cleared). The file needs to be read and the new tests added to the
- * schedule.
- *
- * TODO do we care about the file changing multiple times a second?
- */
-static void check_nametable_file(struct wand_timer_t *timer) {
-    file_data_t *data = (file_data_t *)timer->data;
-    struct stat statInfo;
-    time_t now;
-
-    /* check if the nametable file has changed since last time */
-    now = time(NULL);
-    if ( stat(NAMETABLE_FILE, &statInfo) != 0 ) {
-	perror("error statting nametable file");
-	exit(1);
-    }
-
-    if ( statInfo.st_mtime > data->last_update ) {
-	/* clear out all events and add new ones */
-	Log(LOG_INFO, "Nametable file modified, updating\n");
-	/*
-	 * schedule relies on the names, so clear them out, load all the
-	 * new names and then reload the schedule.
-	 */
-	clear_test_schedule(data->ev_hdl);
-	clear_nametable();
-	read_nametable_file();
-	read_schedule_file(data->ev_hdl);
-	data->last_update = statInfo.st_mtime;
-	Log(LOG_INFO, "Done updating nametable file\n");
-    }
-
-    /* reschedule the check again */
-    timer->expire = wand_calc_expire(data->ev_hdl, FILE_CHECK_FREQ, 0);
-    timer->prev = NULL;
-    timer->next = NULL;
-    wand_add_timer(data->ev_hdl, timer);
-}
-
-#endif
-
-
-
-/*
- * Setup the automatic refresh of the nametable file using the best approach
- * available of inotify and polling.
- */
-void setup_nametable_refresh(wand_event_handler_t *ev_hdl) {
-#if HAVE_SYS_INOTIFY_H
-    /* use inotify if we are on linux, it is nicer and quicker */
-    setup_file_refresh_inotify(ev_hdl, NAMETABLE_FILE,
-	    nametable_file_changed_event);
-#else
-    /* if missing inotify then use libwandevent timers to check regularly */
-    setup_file_refresh_timer(ev_hdl, NAMETABLE_FILE, check_nametable_file);
-#endif
 }
 
 

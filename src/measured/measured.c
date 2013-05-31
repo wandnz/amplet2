@@ -20,11 +20,6 @@
 #include <confuse.h>
 #include <string.h>
 
-
-#if HAVE_SYS_INOTIFY_H
-#include <sys/inotify.h>
-#endif
-
 #include <libwandevent.h>
 #include "schedule.h"
 #include "watchdog.h"
@@ -94,7 +89,7 @@ static void reload(__attribute__((unused))struct wand_signal_t *signal) {
     }
 
     /* re-read schedule file */
-    read_schedule_file(signal->data);
+    read_schedule_dir(signal->data, SCHEDULE_DIR);
 }
 
 
@@ -299,19 +294,14 @@ int main(int argc, char *argv[]) {
 
     /* read the nametable to get a list of all test targets */
     read_nametable_file();
-    /* check for changes to the nametable file forever */
-    setup_nametable_refresh(ev_hdl);
 
     /* read the schedule file to create the initial test schedule */
-    read_schedule_file(ev_hdl);
-    /* check for any changes to the schedule file forever */
-    setup_schedule_refresh(ev_hdl);
+    read_schedule_dir(ev_hdl, SCHEDULE_DIR);
 
     /* give up control to libwandevent */
     wand_event_run(ev_hdl);
 
     /* if we get control back then it's time to tidy up */
-    /* TODO clear schedule refresher */
     /* TODO what to do about scheduled tasks such as watchdogs? */
     clear_test_schedule(ev_hdl);
     clear_nametable();
