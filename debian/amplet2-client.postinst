@@ -20,6 +20,15 @@ set -e
 
 case "$1" in
     configure)
+        # TODO install rsyslog config here? mark as conffile somewhere/how?
+        if [ ! -f "/etc/rsyslog.d/measured.conf" ]; then
+            cp /usr/share/amplet2/rsyslog/measured.conf /etc/rsyslog.d/90-measured.conf
+            if [ -x "`which invoke-rc.d 2>/dev/null`" ]; then
+                invoke-rc.d rsyslog restart || exit $?
+            else
+                /etc/init.d/rsyslog restart || exit $?
+            fi
+        fi
     ;;
 
     abort-upgrade|abort-remove|abort-deconfigure)
