@@ -1,2 +1,2 @@
-EXTRA_DIST=etc
+EXTRA_DIST=etc doc
 SUBDIRS=src
