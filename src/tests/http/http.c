@@ -17,7 +17,6 @@
 #include "servers.h"
 #include "parsers.h"
 #include "output.h"
-#include "testmain.h"
 
 #include <inttypes.h>
 #include <fcntl.h>

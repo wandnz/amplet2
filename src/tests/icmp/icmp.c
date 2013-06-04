@@ -19,7 +19,6 @@
 //TODO rename files and headers better?
 #include "testlib.h"
 #include "icmp.h"
-#include "testmain.h"
 
 
 /*

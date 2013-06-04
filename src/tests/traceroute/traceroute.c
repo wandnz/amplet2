@@ -20,7 +20,6 @@
 //TODO rename files and headers better?
 #include "testlib.h"
 #include "traceroute.h"
-#include "testmain.h"
 
 
 /*
