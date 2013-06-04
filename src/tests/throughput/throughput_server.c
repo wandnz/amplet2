@@ -19,6 +19,8 @@ int run_throughput(int argc, char *argv[], int count, struct addrinfo **dests);
 test_t *register_test(void);
 void print_throughput(void *data, uint32_t len);
 
+
+
 /**
  * Prints usage information
  */
@@ -44,6 +46,8 @@ static struct option long_options[] =
         {NULL,0,0,0}
     };
 
+
+
 /**
  * Start listening on the given port for incoming tests
  *
@@ -52,7 +56,7 @@ static struct option long_options[] =
  *
  * @return the bound listen_socket or return -1 if this fails
  */
-static int startListening(int port, struct opt_t * sockopts){
+static int startListening(int port, struct opt_t * sockopts) {
     int listen_socket = -1;
     struct addrinfo hints = {0};
     struct addrinfo *addrs, *current;
@@ -72,25 +76,26 @@ static int startListening(int port, struct opt_t * sockopts){
 
     /* The hint should give us a IPv6 and IPv4 binding if possible */
     result = getaddrinfo(NULL, port_num, &hints, &addrs);
-    if(result != 0){
-        Log(LOG_ERR, "getaddrinfo failed : %s", strerror(errno));
+    if ( result != 0 ) {
+        Log(LOG_ERR, "getaddrinfo failed: %s", strerror(errno));
     }
 
-    for(current = addrs; current != NULL ; current = current->ai_next){
+    for ( current = addrs; current != NULL ; current = current->ai_next ) {
 
         /* Open a socket that we can listen on */
         listen_socket = socket(current->ai_family,
                             current->ai_socktype, current->ai_protocol);
-        if (listen_socket == -1) {
-             Log(LOG_WARNING, "startListening failed to create a socket() : %s", strerror(errno));
+        if ( listen_socket == -1 ) {
+             Log(LOG_WARNING, "startListening failed to create a socket(): %s",
+                     strerror(errno));
              continue;
         }
         /* Set socket options */
         doSocketSetup(sockopts, listen_socket);
 
-        if ( bind(listen_socket, current->ai_addr, current->ai_addrlen)
-                                                                == 0)
+        if ( bind(listen_socket, current->ai_addr, current->ai_addrlen) == 0) {
             break; /* successfully bound*/
+        }
 
         /* State of socket is unknown after a failed bind() */
         close(listen_socket);
@@ -99,25 +104,29 @@ static int startListening(int port, struct opt_t * sockopts){
 
     freeaddrinfo(addrs);
 
-    if (listen_socket == -1) {
-        Log(LOG_ERR, "startListening failed to bind the listening socket terminating");
+    if ( listen_socket == -1 ) {
+        Log(LOG_ERR, "startListening failed to bind the listening socket");
         goto errorCleanup;
     }
 
-    /* Now start listening for at most 1 connection we don't want a huge queue here */
+    /* Start listening for at most 1 connection, we don't want a huge queue */
     if (listen(listen_socket, 1) == -1) {
-        Log(LOG_ERR, "startListening failed to listen on our bound socket terminating : %s", strerror(errno));
+        Log(LOG_ERR, "startListening failed to listen on our bound socket: %s",
+                strerror(errno));
         goto errorCleanup;
     }
 
-    Log(LOG_DEBUG, "Successefully listening on port %s", port_num);
+    Log(LOG_DEBUG, "Successfully listening on port %s", port_num);
     return listen_socket;
 
     errorCleanup:
-    if(listen_socket != -1)
+    if ( listen_socket != -1 ) {
         close(listen_socket);
+    }
     return -1;
 }
+
+
 
 /**
  * Return the port a socket is listening on
@@ -126,12 +135,12 @@ static int startListening(int port, struct opt_t * sockopts){
  *          The socket to retrive the port from.
  * @return Host order port
  */
-static uint16_t getSocketPort(int sock_fd){
+static uint16_t getSocketPort(int sock_fd) {
     struct sockaddr_storage ss;
     socklen_t len = sizeof(ss);
 
     getsockname(sock_fd, (struct sockaddr*)&ss,  &len);
-    if(((struct sockaddr *)&ss)->sa_family == AF_INET){
+    if ( ((struct sockaddr *)&ss)->sa_family == AF_INET ) {
         return ntohs((((struct sockaddr_in*)&ss)->sin_port));
     } else {
         return ntohs((((struct sockaddr_in6*)&ss)->sin6_port));
@@ -139,15 +148,16 @@ static uint16_t getSocketPort(int sock_fd){
 }
 
 
+
 /**
  * Serves a test for a connected client
  *
- * @param server_address The address of the server to connect to and run the test
+ * @param server_address Address of the server to connect to and run the test
  * @param options A copy of the program options which also contains the sequence
  *
  * @return 0 if successful, -1 upon error.
  */
-static int serveTest(int control_socket){
+static int serveTest(int control_socket) {
     struct packet_t packet;
     struct test_result_t result;
     int bytes_read;
@@ -157,27 +167,27 @@ static int serveTest(int control_socket){
     int test_socket;
     struct sockaddr_storage client_addr;
     socklen_t client_addrlen = sizeof(client_addr);
+    uint32_t version = 0;
 
     memset(&packet, 0, sizeof(packet));
     memset(&result, 0, sizeof(result));
 
     /* Read the hello and check we are compatable */
-    uint32_t version = 0;
     bytes_read = readPacket(control_socket, &packet, NULL);
 
-    if(readHelloPacket(&packet, &sockopts, &version) != 0){
+    if ( readHelloPacket(&packet, &sockopts, &version) != 0 ) {
         goto errorCleanup;
     }
-    if(version != AMP_THROUGHPUT_TEST_VERSION){
+    if ( version != AMP_THROUGHPUT_TEST_VERSION ) {
         Log(LOG_ERR, "Incompatable Client connecting they are version %"PRIu32" but I'm version %d",
                 version, AMP_THROUGHPUT_TEST_VERSION);
         goto errorCleanup;
     }
 
-    /* No errors so far so make our new testsocket with the given test options */
+    /* No errors so far, make our new testsocket with the given test options */
     sockopts.reuse_addr = 1;
     t_listen = startListening(sockopts.tport, &sockopts);
-    if(t_listen == -1){
+    if ( t_listen == -1 ) {
         Log(LOG_ERR, "Failed to open listening socket terminating");
         goto errorCleanup;
     }
@@ -188,32 +198,38 @@ static int serveTest(int control_socket){
                       (struct sockaddr*) &client_addr, &client_addrlen);
     } while (test_socket == -1 && errno == EINTR ); /* Repeat if interrupted */
 
-    /* For security best to close this here and re-open it later if reconnecting */
+    /* For security best to close this here and re-open later if reconnecting */
     close(t_listen);
     t_listen = -1;
 
-    if(test_socket == -1){
-        Log(LOG_WARNING, "Failed to connect() upon our test listening socket : %s", strerror(errno));
+    if ( test_socket == -1 ) {
+        Log(LOG_WARNING,
+                "Failed to connect() upon our test listening socket: %s",
+                strerror(errno));
     }
 
     /* Wait for something to do from the client */
-    while((bytes_read = readPacket(control_socket, &packet, NULL)) != 0) {
-        switch(packet.header.type){
+    while ( (bytes_read = readPacket(control_socket, &packet, NULL)) != 0 ) {
+        switch ( packet.header.type ) {
             case TPUT_PKT_DATA:
                 /* Send READY here so timestamp is accurate */
                 sendReadyPacket(control_socket, 0);
-                if (incomingTest(test_socket, &result) != 0)
+                if ( incomingTest(test_socket, &result) != 0 ) {
                     goto errorCleanup;
+                }
 
-                if (!sockopts.disable_web10g)
+                if ( !sockopts.disable_web10g ) {
                     web10g = getWeb10GSnap(test_socket);
+                }
 
                 /* Send our result */
-                if (sendResultPacket(control_socket, &result, web10g) != 0)
+                if ( sendResultPacket(control_socket, &result, web10g) != 0 ) {
                     goto errorCleanup;
+                }
 
-                if(web10g != NULL)
+                if ( web10g != NULL ) {
                     free(web10g);
+                }
                 web10g = NULL;
                 continue;
             case TPUT_PKT_SEND:
@@ -225,32 +241,37 @@ static int serveTest(int control_socket){
                     req.duration = packet.types.send.duration_ms;
                     req.packet_size = packet.types.send.packet_size;
                     req.randomise = sockopts.randomise;
-                    Log(LOG_INFO, "Got a send request for pkts : %d dur : %d pkt_size : %d"
-                                    ,req.packets,req.duration, req.packet_size);
+                    Log(LOG_INFO, "Got send request for pkts:%d dur:%d size:%d",
+                            req.packets,req.duration, req.packet_size);
 
                     /* Send the actual packets */
-                    switch(sendPackets(test_socket, &req, &result)){
+                    switch ( sendPackets(test_socket, &req, &result) ) {
                         case -1:
                             /* Failed to write to socket */
                             goto errorCleanup;
                         case 1:
                             /* Bad test request, lets send a packet to keep the
                              * client happy it's still expecting something */
-                            if(sendFinalDataPacket(test_socket) != 0)
+                            if ( sendFinalDataPacket(test_socket) != 0 ) {
                                 goto errorCleanup;
+                            }
 
                         case 0:
                         /* Success or our fake success from case 1: */
-                        if(!sockopts.disable_web10g)
+                        if ( !sockopts.disable_web10g ) {
                             web10g = getWeb10GSnap(test_socket);
-                        /* Unlike old test, send a result for either direction */
-                        if( sendResultPacket(control_socket, &result, web10g) != 0)
+                        }
+                        /* Unlike old test, send result for either direction */
+                        if ( sendResultPacket(control_socket, &result,
+                                    web10g) != 0) {
                             goto errorCleanup;
+                        }
 
                     }
 
-                    if(web10g != NULL)
+                    if ( web10g != NULL ) {
                         free(web10g);
+                    }
                     web10g = NULL;
                     memset(&req, 0, sizeof(req));
                     memset(&result, 0, sizeof(result));
@@ -262,7 +283,7 @@ static int serveTest(int control_socket){
                 /* Ready the listening socket again */
                 sockopts.reuse_addr = 1;
                 t_listen = startListening(sockopts.tport, &sockopts);
-                if(t_listen == -1){
+                if ( t_listen == -1 ) {
                     Log(LOG_ERR, "Failed to open listening socket terminating");
                     goto errorCleanup;
                 }
@@ -270,16 +291,16 @@ static int serveTest(int control_socket){
                 /* Finish this side of the TCP connection */
                 shutdown(test_socket, SHUT_WR);
                 /* Now the client has also closed */
-                if(readPacket(test_socket, &packet, NULL) != 0){
+                if ( readPacket(test_socket, &packet, NULL) != 0 ) {
                     Log(LOG_WARNING, "TPUT_NEW_CONNECTION expected the TCP connection to be closed in this direction");
                 }
                 close(test_socket);
                 sendReadyPacket(control_socket, getSocketPort(t_listen));
-                do{
+                do {
                     test_socket = accept(t_listen,
                                   (struct sockaddr*) &client_addr, &client_addrlen);
-                } while (test_socket == -1 && errno == EINTR); /* Repeat if interrupted */
-                if (test_socket == -1) {
+                } while (test_socket == -1 && errno == EINTR);
+                if ( test_socket == -1 ) {
                     Log(LOG_ERR, "Failed to accept after connection reset");
                     goto errorCleanup;
                 }
@@ -291,29 +312,38 @@ static int serveTest(int control_socket){
                 Log(LOG_INFO, "Client closing test");
                 break;
             default:
-                Log(LOG_WARNING, "serveTest() found a invalid packet.header.type %d", (int) packet.header.type);
+                Log(LOG_WARNING,
+                        "serveTest() found a invalid packet.header.type %d",
+                        (int) packet.header.type);
                 /* Try and continue */
                 continue;
             }
         break;
     }
 
-    if(test_socket != -1)
+    if ( test_socket != -1 ) {
         close(test_socket);
+    }
     return 0;
 
 errorCleanup:
     /* This should kick off the client - we assume they are waiting for us somewhere */
-    if(test_socket != -1)
+    if ( test_socket != -1 ) {
         close(test_socket);
-    if(t_listen != -1)
+    }
+    if ( t_listen != -1 ) {
         close(t_listen);
-    if(control_socket != -1);
+    }
+    if ( control_socket != -1 ) {
         close(control_socket);
-    if(web10g != NULL)
+    }
+    if ( web10g != NULL ) {
         free(web10g);
+    }
     return -1;
 }
+
+
 
 /**
  * The main function of the throughput server.
@@ -324,16 +354,18 @@ int run_throughput(int argc, char *argv[], int count, struct addrinfo **dests) {
     int control_sock; /* Our clients control socket connection */
     int opt; /* Used by getopt() */
     struct opt_t sockopts = {0};
+    struct sockaddr_storage client_addr;
+    socklen_t client_addrlen;
 
     /* Possibly could use dests to limit interfaces to listen on */
 
-    Log(LOG_DEBUG, "Starting throughput server got given %d addresses",count );
-    Log(LOG_INFO, "Our Structure sizes Pkt: %d RptHdr: %d RptRes: %d Rpt10G: %d",
-                sizeof(struct packet_t),
-                sizeof(struct report_header_t),
-                sizeof(struct report_result_t),
-                sizeof(struct report_web10g_t)
-                );
+    Log(LOG_DEBUG, "Starting throughput server got given %d addresses", count);
+    Log(LOG_INFO, "Our Structure sizes Pkt:%d RptHdr:%d RptRes:%d Rpt10G:%d",
+            sizeof(struct packet_t),
+            sizeof(struct report_header_t),
+            sizeof(struct report_result_t),
+            sizeof(struct report_web10g_t)
+       );
 
     /* set some sensible defaults */
     port = DEFAULT_CONTROL_PORT;
@@ -351,26 +383,26 @@ int run_throughput(int argc, char *argv[], int count, struct addrinfo **dests) {
     sockopts.reuse_addr = 1;
     listen_socket = startListening(port, &sockopts);
 
-    if(listen_socket == -1){
+    if ( listen_socket == -1 ) {
         Log(LOG_ERR, "Failed to open listening socket terminating");
         return -1;
     }
 
-    struct sockaddr_storage client_addr;
-    socklen_t client_addrlen = sizeof(client_addr);
+    client_addrlen = sizeof(client_addr);
     do{
         control_sock = accept(listen_socket,
                       (struct sockaddr*) &client_addr, &client_addrlen);
-    } while (control_sock == -1 && errno == EINTR ); /* Repeat if interrupted */
+    } while ( control_sock == -1 && errno == EINTR );
 
     /* Close the listening socket */
     close(listen_socket);
     listen_socket = -1;
 
-    if(control_sock == -1){
-        Log(LOG_WARNING, "Failed to connect() upon our listening socket : %s", strerror(errno));
+    if ( control_sock == -1 ) {
+        Log(LOG_WARNING, "Failed to connect() upon our listening socket: %s",
+                strerror(errno));
     } else {
-        Log(LOG_DEBUG, "Successfully got a  client connection I Should do something");
+        Log(LOG_DEBUG, "Successfully got a client connection I Should do something");
         serveTest(control_sock);
     }
 
@@ -379,6 +411,7 @@ int run_throughput(int argc, char *argv[], int count, struct addrinfo **dests) {
 
     return 0;
 }
+
 
 
 /*
@@ -409,9 +442,6 @@ test_t *register_test() {
 
     /* function to call to setup arguments and run the test */
     new_test->run_callback = run_throughput;
-
-    /* function to call to save the results of the test */
-    //new_test->save_callback = save_skeleton;
 
     /* function to call to pretty print the results of the test */
     new_test->print_callback = print_throughput;

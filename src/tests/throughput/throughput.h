@@ -247,12 +247,12 @@ struct report_web10g_t {
  * A internal format for holding a test result
  */
 struct test_result_t {
-    uint32_t  packets; /* packet count */
-    uint32_t  packet_size; /* packet_size seems a bit pointless maybe remove it?? */
-    uint64_t  bytes; /* Bytes seen */
-    uint64_t  start_ns; /* Start time in nanoseconds */
-    uint64_t  end_ns; /* End time in nanoseconds */
-    uint32_t  done; /* This test has completed */
+    uint32_t packets; /* packet count */
+    uint32_t packet_size; /* packet_size seems a bit pointless maybe remove it?? */
+    uint64_t bytes; /* Bytes seen */
+    uint64_t start_ns; /* Start time in nanoseconds */
+    uint64_t end_ns; /* End time in nanoseconds */
+    uint32_t done; /* This test has completed */
 };
 
 /* A single request */
@@ -264,14 +264,14 @@ struct test_request_t {
     uint32_t randomise;
 
     /* Result for the client and server - these should almost be identical */
-    struct test_result_t * c_result;
-    struct test_result_t * s_result;
+    struct test_result_t *c_result;
+    struct test_result_t *s_result;
 
     /* Web10g results again should mirror each other but interesting to see if they do */
-    struct report_web10g_t * c_web10g;
-    struct report_web10g_t * s_web10g;
+    struct report_web10g_t *c_web10g;
+    struct report_web10g_t *s_web10g;
 
-    struct test_request_t * next;
+    struct test_request_t *next;
 };
 
 
@@ -289,7 +289,7 @@ struct opt_t {
     uint8_t reuse_addr;
     int32_t sock_rcvbuf;
     int32_t sock_sndbuf;
-    char * textual_schedule;
+    char *textual_schedule;
     struct test_request_t * schedule; /* The test sequence */
 };
 
@@ -315,23 +315,23 @@ enum TPUT_PKT_FLAG {
 struct packet_t {
     struct header_t {
         uint32_t type;
-        uint32_t size; /* Size excluding entire header sizeof(struct packet_t) */
-    }header;
+        uint32_t size; /* Size excluding header sizeof(struct packet_t) */
+    } header;
     union type_t {
         struct dataPacket_t {
             uint32_t  more;
-        }data;
+        } data;
         struct sendPacket_t {
             uint32_t  packets;
             uint32_t  packet_size;
             uint64_t  duration_ms;
-        }send;
+        } send;
         struct resultPacket_t {
             uint32_t  packets;
             uint32_t  packet_size;
             uint64_t  bytes;
             uint64_t  duration_ns;
-        }result;
+        } result;
         struct helloPacket_t {
             uint32_t  version;
             uint16_t  tport;
@@ -340,11 +340,11 @@ struct packet_t {
             uint32_t  mss;
             int32_t   sock_rcvbuf;
             int32_t   sock_sndbuf;
-        }hello;
+        } hello;
         struct readyPacket_t {
             uint16_t tport;
-        }ready;
-    }types; //type union
+        } ready;
+    } types; //type union
 }; //packet_t struct
 
 #define MIN(X,Y) (((X) < (Y)) ? (X) : (Y))
@@ -358,35 +358,33 @@ struct packet_t {
 int sendResetPacket(int sock_fd);
 int sendFinalDataPacket(int sock_fd);
 int sendClosePacket(int sock_fd);
-int sendHelloPacket(int sock_fd, struct opt_t * opt);
+int sendHelloPacket(int sock_fd, struct opt_t *opt);
 int sendReadyPacket(int sock_fd, uint16_t tport);
-int sendRequestTestPacket(int sock, const struct test_request_t * req);
-int sendResultPacket(int sock_fd, struct test_result_t * res,
-                                struct report_web10g_t * web10g);
-int readDataPacket(const struct packet_t * packet,
-                                    const int packet_size,
-                                    struct test_result_t * res);
-int readResultPacket(const struct packet_t * p,
-                        struct test_result_t * res);
-int readHelloPacket(const struct packet_t * p, struct opt_t * sockopts,
-                                                    uint32_t * version);
-int readReadyPacket(const struct packet_t * p, uint16_t * tport);
+int sendRequestTestPacket(int sock, const struct test_request_t *req);
+int sendResultPacket(int sock_fd, struct test_result_t *res,
+        struct report_web10g_t *web10g);
+int readDataPacket(const struct packet_t * packet, const int packet_size,
+        struct test_result_t *res);
+int readResultPacket(const struct packet_t *p, struct test_result_t *res);
+int readHelloPacket(const struct packet_t *p, struct opt_t *sockopts,
+        uint32_t *version);
+int readReadyPacket(const struct packet_t *p, uint16_t *tport);
 
 /* do outgoing test */
 int sendPackets(int sock_fd,
-                    struct test_request_t * test_opts,
-                    struct test_result_t * res);
+                    struct test_request_t *test_opts,
+                    struct test_result_t *res);
 /* Receive incoming test */
-int incomingTest(int sock_fd, struct test_result_t * result);
+int incomingTest(int sock_fd, struct test_result_t *result);
 /* Read write individual packets */
-int writePacket(int sock_fd, struct packet_t * packet);
-int readPacket(int test_socket, struct packet_t * packet,
-                    char ** additional);
+int writePacket(int sock_fd, struct packet_t *packet);
+int readPacket(int test_socket, struct packet_t *packet,
+                    char **additional);
 
 void randomMemset(char *data, unsigned int size);
-void printSchedule(struct test_request_t * schedule);
+void printSchedule(struct test_request_t *schedule);
 uint64_t timeNanoseconds(void);
-void doSocketSetup(struct opt_t * options, int sock_fd);
+void doSocketSetup(struct opt_t *options, int sock_fd);
 
 /*
  * Shared function from web10g.c

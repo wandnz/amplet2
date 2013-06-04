@@ -59,6 +59,7 @@ static void usage(char *prog) {
 }
 
 
+
 static struct option long_options[] =
     {
         {"randomise", no_argument, 0, 'r'},
@@ -81,6 +82,8 @@ static struct option long_options[] =
         {NULL,0,0,0}
     };
 
+
+
 /**
  * Parses a schedule argument and appends the result to the end of the
  * existing schedule. Also places the textual representation of the
@@ -92,16 +95,21 @@ static struct option long_options[] =
  * @param request - A string reprensenting the what is to be added to
  *                  the schedule
  */
-static void parseSchedule(struct opt_t * options, char * request){
+static void parseSchedule(struct opt_t * options, char * request) {
     struct test_request_t ** current;
+    long a, b;
+    char *colonPos;
+    int noA, noB;
+    char *pch;
 
     /* Point current to the end of the chain */
     current = &options->schedule;
-    while(*current != NULL)
+    while ( *current != NULL ) {
         current = &(*current)->next;
+    }
 
     /* Put the string onto the end of our current sequence */
-    if(options->textual_schedule != NULL){
+    if ( options->textual_schedule != NULL ) {
         /* +2 one for null and another for an extra ',' */
         options->textual_schedule = realloc(options->textual_schedule,
               strlen(request) + strlen(options->textual_schedule) + 2);
@@ -111,15 +119,10 @@ static void parseSchedule(struct opt_t * options, char * request){
         options->textual_schedule = strdup(request);
     }
 
-    long a, b;
-    char *colonPos;
-    int noA, noB;
-
     Log(LOG_DEBUG, "Parsing the test sequence %s", request);
 
-    char * pch;
     pch = strtok (request,",");
-    while (pch != NULL) {
+    while ( pch != NULL ) {
         /* We assume this is valid
          * And if this isn't isnt marked with request type none anyway */
         *current = (struct test_request_t *) malloc(sizeof(struct test_request_t));
@@ -180,14 +183,17 @@ static void parseSchedule(struct opt_t * options, char * request){
 
             default:
                 Log(LOG_WARNING , "Unknown schedule code in %s (ignored)", pch);
-        }/* switch */
+        };
 
         /* Check test is valid and has a stopping condition*/
-        if( (*current)->type != TPUT_NEW_CONNECTION && (*current)->type != TPUT_NULL ){
-            if( ((*current)->packets == 0 && (*current)->duration == 0)
-                || (*current)->packet_size == 0){
+        if ( (*current)->type != TPUT_NEW_CONNECTION &&
+                (*current)->type != TPUT_NULL ) {
+            if ( ((*current)->packets == 0 && (*current)->duration == 0) ||
+                    (*current)->packet_size == 0 ) {
                 (*current)->type = TPUT_NULL;
-                Log(LOG_WARNING, "Invalid test found in schedule ignoring. Are you using the correct format?");
+                Log(LOG_WARNING,
+                        "Invalid test found in schedule ignoring. "
+                        "Are you using the correct format?");
             }
         }
 
@@ -197,6 +203,8 @@ static void parseSchedule(struct opt_t * options, char * request){
     }
 }
 
+
+
 /**
  * Free the schedule.
  *
@@ -205,7 +213,7 @@ static void parseSchedule(struct opt_t * options, char * request){
 static void freeSchedule(struct opt_t * options){
     struct test_request_t * cur = options->schedule;
 
-    while(cur != NULL){
+    while ( cur != NULL ) {
         struct test_request_t * temp;
         temp = cur->next;
         free(cur);
@@ -214,6 +222,8 @@ static void freeSchedule(struct opt_t * options){
 
     options->schedule = NULL;
 }
+
+
 
 /**
  * Makes a TCP connection to the server.
@@ -230,7 +240,8 @@ static void freeSchedule(struct opt_t * options){
  * @return a valid TCP socket connected to the server. Upon failure -1
  *         is returned.
  */
-static int connectToServer(struct addrinfo * serv_addr, struct opt_t * options, int port){
+static int connectToServer(struct addrinfo *serv_addr, struct opt_t *options,
+        int port) {
     int sock;
 
     /* Get a TCP socket - could be either ipv4 or ipv6 based on the addrinfo */
@@ -241,28 +252,37 @@ static int connectToServer(struct addrinfo * serv_addr, struct opt_t * options, 
         /* Set socket options - Nagle MSS, Buffersizes from setup */
         doSocketSetup(options, sock);
 
-        /* If addrinfo has a valid port use that otherwise put in our default */
-        /* It should be safe to use the IPv4 version here since IPv6 should be in the same place the sizes match*/
-        if( ((struct sockaddr_in *)serv_addr->ai_addr)->sin_port == 0){
+        /*
+         * If addrinfo has a valid port use that otherwise put in our default.
+         * It should be safe to use the IPv4 version here since IPv6 should be
+         * in the same place the sizes match
+         */
+        if ( ((struct sockaddr_in *)serv_addr->ai_addr)->sin_port == 0 ) {
            ((struct sockaddr_in *)serv_addr->ai_addr)->sin_port = htons(port);
         }
 
-        Log(LOG_DEBUG, "Connection has choosen port %d", (int) ntohs(((struct sockaddr_in *)serv_addr->ai_addr)->sin_port));
+        Log(LOG_DEBUG, "Connection has choosen port %d",
+                (int)ntohs(
+                    ((struct sockaddr_in *)serv_addr->ai_addr)->sin_port));
 
-        if( connect(sock, serv_addr->ai_addr, serv_addr->ai_addrlen) == -1){
-            Log(LOG_WARNING, "connectToServer failed to connect() a socket error code : %s", strerror(errno));
+        if ( connect(sock, serv_addr->ai_addr, serv_addr->ai_addrlen) == -1 ) {
+            Log(LOG_WARNING,
+                    "connectToServer failed to connect(): %s", strerror(errno));
             close(sock);
             /* return an error socket */
             sock = -1;
         }
 
     } else {
-        Log(LOG_WARNING, "connectToServer failed to create a socket() : %s", strerror(errno));
+        Log(LOG_WARNING, "connectToServer failed to create a socket(): %s",
+                strerror(errno));
     }
     ((struct sockaddr_in *)serv_addr->ai_addr)->sin_port = 0;
 
     return sock;
 }
+
+
 
 /**
  * Sets a given 16 bytes (i.e. a IPv6 address) to the value of sockaddrin
@@ -273,9 +293,9 @@ static int connectToServer(struct addrinfo * serv_addr, struct opt_t * options, 
  * @param addr
  *          The resulting IPv6 address
  */
-static void getSockaddrAddr(struct sockaddr_storage * ss ,char addr[16]){
+static void getSockaddrAddr(struct sockaddr_storage *ss, char addr[16]) {
 
-    if(ss->ss_family == AF_INET) {
+    if ( ss->ss_family == AF_INET ) {
         struct sockaddr_in *s = (struct sockaddr_in *)ss;
         memset(addr,0, 10);
         memset(&addr[10], 0xFF, 2);
@@ -287,6 +307,8 @@ static void getSockaddrAddr(struct sockaddr_storage * ss ,char addr[16]){
     }
 
 }
+
+
 
 /**
  * Make the binary blob for our report
@@ -314,13 +336,15 @@ static void getSockaddrAddr(struct sockaddr_storage * ss ,char addr[16]){
  * + report_header_t's+
  * +~~~~~~~~~~~~~~~~~ +
  */
-static void report_results(int sock_fd, struct opt_t * options,
+static void report_results(int sock_fd, struct opt_t *options,
                     uint64_t start_time_ns, uint64_t end_time_ns) {
-    struct report_header_t * rh;
-    size_t r_size = sizeof(struct report_header_t) + strlen(options->textual_schedule) + 1;
+    struct report_header_t *rh;
+    size_t r_size = sizeof(struct report_header_t) +
+        strlen(options->textual_schedule) + 1;
     rh = malloc(r_size);
     socklen_t len;
     struct sockaddr_storage ss;
+    struct test_request_t *cur;
 
     /* Build our header up */
     rh->version = REPORT_RESULT_VERSION;
@@ -330,7 +354,7 @@ static void report_results(int sock_fd, struct opt_t * options,
     rh->test_seq_len = strlen(options->textual_schedule) + 1;
 
     /* Fill in the addresses of the connection */
-    if(sock_fd != -1){
+    if ( sock_fd != -1 ) {
         len = sizeof(ss);
         getpeername(sock_fd, (struct sockaddr*)&ss, &len);
         getSockaddrAddr(&ss, rh->server_addr);
@@ -347,11 +371,11 @@ static void report_results(int sock_fd, struct opt_t * options,
         options->textual_schedule, rh->test_seq_len);
 
     /* Loop through the schedule and push the results on to the end */
-    struct test_request_t *cur;
-    for(cur = options->schedule; cur != NULL ; cur = cur->next){
-        struct report_result_t * res;
-        void * temp;
-        switch(cur->type){
+    for ( cur = options->schedule; cur != NULL ; cur = cur->next ) {
+        struct report_result_t *res;
+        void *temp;
+
+        switch ( cur->type ) {
             case TPUT_NULL:
                 continue;
 
@@ -377,8 +401,10 @@ static void report_results(int sock_fd, struct opt_t * options,
 #endif
             case TPUT_2_CLIENT:
             case TPUT_2_SERVER:
-                if(cur->c_result == NULL || cur->s_result == NULL)
-                    continue; /* Something went very wrong */
+                if ( cur->c_result == NULL || cur->s_result == NULL ) {
+                    /* Something went very wrong */
+                    continue;
+                }
                 rh = realloc(rh, r_size + sizeof(struct report_result_t));
                 res = (struct report_result_t  *) (((char * ) rh) + r_size);
                 r_size += sizeof(struct report_result_t);
@@ -399,35 +425,35 @@ static void report_results(int sock_fd, struct opt_t * options,
                 res->has_web10g_server = cur->s_web10g == NULL ? 0 : 1;
 
                 /* Our web10g data is already converted to big endian */
-                if(cur->c_web10g){
+                if ( cur->c_web10g ) {
                     rh = realloc(rh, r_size + sizeof(struct report_web10g_t));
                     temp = ((char * ) rh) + r_size;
                     r_size += sizeof(struct report_web10g_t);
                     memcpy(temp, cur->c_web10g, sizeof(struct report_web10g_t));
                 }
 
-                if(cur->s_web10g){
+                if ( cur->s_web10g ) {
                     rh = realloc(rh, r_size + sizeof(struct report_web10g_t));
                     temp = ((char * ) rh) + r_size;
                     r_size += sizeof(struct report_web10g_t);
                     memcpy(temp, cur->s_web10g, sizeof(struct report_web10g_t));
                 }
                 break;
-        }
+        };
 
-        if(cur->s_result){
+        if ( cur->s_result ) {
             free(cur->s_result);
             cur->s_result = NULL;
         }
-        if(cur->c_result){
+        if ( cur->c_result ) {
             free(cur->c_result);
             cur->c_result = NULL;
         }
-        if(cur->s_web10g){
+        if ( cur->s_web10g ) {
             free(cur->s_web10g);
             cur->s_web10g = NULL;
         }
-        if(cur->c_web10g){
+        if ( cur->c_web10g ) {
             free(cur->c_web10g);
             cur->c_web10g = NULL;
         }
@@ -440,23 +466,25 @@ static void report_results(int sock_fd, struct opt_t * options,
     rh->end_ns = htobe64(rh->end_ns);
     rh->test_seq_len = htobe32(rh->test_seq_len);
 
-    report(AMP_TEST_THROUGHPUT, start_time_ns / (uint64_t) 1000000000, (void*)rh, r_size);
+    report(AMP_TEST_THROUGHPUT, start_time_ns / (uint64_t) 1000000000,
+            (void*)rh, r_size);
     free(rh);
 }
+
+
 
 /**
  * Runs through the provided schedule on every IP address it's given
  *
- * @param server_address The address of the server to connect to and run the test
+ * @param server_address Address of the server to connect to and run the test
  * @param options A copy of the program options which also contains the sequence
  *
  * @return 0 if successful, otherwise -1 on failure
  */
-static int runSchedule(struct addrinfo * serv_addr, struct opt_t * options){
+static int runSchedule(struct addrinfo * serv_addr, struct opt_t * options) {
     int control_socket = -1;
     int test_socket = -1;
     struct packet_t packet;
-    memset(&packet, 0, sizeof(packet));
     uint64_t start_time_ns;
     struct opt_t srv_opts = {0};
     uint16_t actual_test_port = 0;
@@ -464,68 +492,73 @@ static int runSchedule(struct addrinfo * serv_addr, struct opt_t * options){
     /* Loop through the schedule */
     struct test_request_t *cur;
 
+    memset(&packet, 0, sizeof(packet));
+
     /* Connect to the server control socket */
     control_socket = connectToServer(serv_addr, &srv_opts, options->cport);
     start_time_ns = timeNanoseconds();
-    if(control_socket == -1){
+    if ( control_socket == -1 ) {
         Log(LOG_ERR, "Cannot connect to the server control");
         goto errorCleanup;
     }
 
     /* Send version info along with socket preference */
-    if(sendHelloPacket(control_socket, options) != 0)
+    if ( sendHelloPacket(control_socket, options) != 0 ) {
         goto errorCleanup;
+    }
     /* Wait test socket to become ready */
-    if(readPacket(control_socket, &packet, NULL) == 0){
+    if ( readPacket(control_socket, &packet, NULL) == 0 ) {
         Log(LOG_ERR, "Failed to read ready packet");
         goto errorCleanup;
     }
-    if(readReadyPacket(&packet, &actual_test_port) != 0){
+    if ( readReadyPacket(&packet, &actual_test_port) != 0 ) {
         goto errorCleanup;
     }
 
     /* Connect the test socket */
     test_socket = connectToServer(serv_addr, options, actual_test_port);
-    if(test_socket == -1){
+    if ( test_socket == -1 ) {
         Log(LOG_ERR, "Cannot connect to the server testsocket");
         goto errorCleanup;
     }
 
 
-    for(cur = options->schedule; cur != NULL ; cur = cur->next){
-        switch(cur->type){
+    for ( cur = options->schedule; cur != NULL ; cur = cur->next ) {
+        switch ( cur->type ) {
             case TPUT_NULL:
                 continue;
 
             case TPUT_PAUSE:
-                Log(LOG_INFO, "Pausing for %"PRIu32"milliseconds" , cur->duration);
+                Log(LOG_INFO, "Pausing for %"PRIu32"milliseconds",
+                        cur->duration);
                 sleep((int)(cur->duration / 1000));
                 usleep((cur->duration%1000) * 1000);
                 continue;
 
             case TPUT_NEW_CONNECTION:
                 Log(LOG_INFO, "Asking the Server to renew the connection");
-                if( sendResetPacket(control_socket) != 0 ){
+                if ( sendResetPacket(control_socket) != 0 ) {
                     Log(LOG_ERR, "Failed to send reset packet");
                     goto errorCleanup;
                 }
                 /* Wait for server to start listening */
-                if(readPacket(test_socket, &packet, NULL) != 0){
+                if ( readPacket(test_socket, &packet, NULL) != 0 ) {
                     Log(LOG_ERR, "TPUT_NEW_CONNECTION expected the TCP connection to be closed in this direction");
                     goto errorCleanup;
                 }
                 close(test_socket);
                 /* Read the actual port to use */
-                if(readPacket(control_socket, &packet, NULL) == 0){
+                if ( readPacket(control_socket, &packet, NULL) == 0 ) {
                     Log(LOG_ERR, "Failed to read packet");
                     goto errorCleanup;
                 }
-                if(readReadyPacket(&packet , &actual_test_port) != 0){
+                if ( readReadyPacket(&packet , &actual_test_port) != 0 ) {
                     goto errorCleanup;
                 }
                 /* Open up a new one */
-                test_socket = connectToServer(serv_addr, options, actual_test_port);
-                if(test_socket == -1){
+                test_socket = connectToServer(serv_addr, options,
+                        actual_test_port);
+                if ( test_socket == -1 ) {
                     Log(LOG_ERR, "Failed to open a new connection");
                     goto errorCleanup;
                 }
@@ -534,7 +567,7 @@ static int runSchedule(struct addrinfo * serv_addr, struct opt_t * options){
             case TPUT_2_CLIENT:
                 Log(LOG_INFO, "Starting Server to Client Throughput test");
                 /* Request a test from the server */
-                if( sendRequestTestPacket(control_socket, cur) != 0 ){
+                if ( sendRequestTestPacket(control_socket, cur) != 0 ) {
                     goto errorCleanup;
                 }
 
@@ -545,21 +578,22 @@ static int runSchedule(struct addrinfo * serv_addr, struct opt_t * options){
                 memset(cur->s_result, 0, sizeof(struct test_result_t));
 
                 /* Receive the test */
-                if(incomingTest(test_socket, cur->c_result) != 0){
+                if ( incomingTest(test_socket, cur->c_result) != 0 ) {
                     Log(LOG_ERR, "Somthing went wrong when receiving a incoming test from the server");
                     goto errorCleanup;
                 }
 
                 /* No errors so we should have a valid result */
-                if(!options->disable_web10g)
+                if ( !options->disable_web10g ) {
                     cur->c_web10g = getWeb10GSnap(test_socket);
+                }
 
                 /* Get servers result - might even have web10g attached */
                 readPacket(control_socket, &packet, (char **) &cur->s_web10g);
-                if(readResultPacket(&packet, cur->s_result) != 0)
+                if ( readResultPacket(&packet, cur->s_result) != 0 ) {
                     return -1;
+                }
                 Log(LOG_DEBUG, "Received results of test from server");
-
                 continue;
 
             case TPUT_2_SERVER:
@@ -572,27 +606,31 @@ static int runSchedule(struct addrinfo * serv_addr, struct opt_t * options){
                 /* Tell the server we are starting a test */
                 sendFinalDataPacket(control_socket);
                 /* Wait for it get ready */
-                if(readPacket(control_socket, &packet, NULL) == 0){
+                if ( readPacket(control_socket, &packet, NULL) == 0 ) {
                     Log(LOG_ERR, "Unexpected response from server");
                     goto errorCleanup;
                 }
-                if(readReadyPacket(&packet, &actual_test_port) != 0){
+                if ( readReadyPacket(&packet, &actual_test_port) != 0 ) {
                     goto errorCleanup;
                 }
-                if(sendPackets(test_socket, cur, cur->c_result) == 0) {
-                    Log(LOG_DEBUG, "Finished sending - now getting the results");
+                if ( sendPackets(test_socket, cur, cur->c_result) == 0 ) {
+                    Log(LOG_DEBUG, "Finished sending - now getting results");
 
-                    if(!options->disable_web10g)
+                    if ( !options->disable_web10g ) {
                         cur->c_web10g = getWeb10GSnap(test_socket);
-                    if(!readPacket(control_socket, &packet, (char **) &cur->s_web10g )){
+                    }
+                    if ( !readPacket(control_socket, &packet,
+                                (char **) &cur->s_web10g) ) {
                          Log(LOG_ERR,"Failed to get results");
                          goto errorCleanup;
                     }
 
-                    if(readResultPacket(&packet, cur->s_result) != 0)
+                    if ( readResultPacket(&packet, cur->s_result) != 0 ) {
                         goto errorCleanup;
+                    }
 
-                    Log(LOG_DEBUG, "Got results from server %"PRIu32" %"PRIu32" %"PRIu64" %"PRIu64,
+                    Log(LOG_DEBUG, "Got results from server %" PRIu32
+                            " %" PRIu32 " %" PRIu64 " %" PRIu64,
                                     packet.types.result.packets,
                                     packet.types.result.packet_size,
                                     packet.types.result.duration_ns,
@@ -604,7 +642,8 @@ static int runSchedule(struct addrinfo * serv_addr, struct opt_t * options){
                 continue;
 
             default:
-                Log(LOG_WARNING, "runSchedule found an invalid test_request_t->type");
+                Log(LOG_WARNING,
+                        "runSchedule found an invalid test_request_t->type");
                 continue;
         }
     }
@@ -631,12 +670,16 @@ errorCleanup :
     /* See if we can report something anyway */
     report_results(control_socket, options, start_time_ns , timeNanoseconds());
 
-    if(control_socket != -1)
+    if ( control_socket != -1 ) {
         close(control_socket);
-    if(test_socket != -1)
+    }
+    if ( test_socket != -1 ) {
         close(test_socket);
+    }
     return -1;
 }
+
+
 
 /**
  * The main function of the throughput client test.
@@ -645,16 +688,17 @@ int run_throughput(int argc, char *argv[], int count, struct addrinfo **dests) {
     struct opt_t options;
     int opt;
     int i;
-    Log(LOG_DEBUG, "Starting throughput test - got given %d addresses",count );
-
-    Log(LOG_INFO, "Our Structure sizes Pkt: %d RptHdr: %d RptRes: %d Rpt10G: %d",
-                sizeof(struct packet_t),
-                sizeof(struct report_header_t),
-                sizeof(struct report_result_t),
-                sizeof(struct report_web10g_t)
-                );
-
     char modifiable[] = DEFAULT_TEST_SCHEDULE;
+    int option_index = 0;
+
+    Log(LOG_DEBUG, "Starting throughput test - got given %d addresses", count);
+    Log(LOG_INFO, "Our Structure sizes Pkt:%d RptHdr:%d RptRes:%d Rpt10G:%d",
+            sizeof(struct packet_t),
+            sizeof(struct report_header_t),
+            sizeof(struct report_result_t),
+            sizeof(struct report_web10g_t)
+       );
+
     /* set some sensible defaults */
     options.packet_size = DEFAULT_PACKETSIZE;
     options.randomise = 0;
@@ -668,9 +712,10 @@ int run_throughput(int argc, char *argv[], int count, struct addrinfo **dests) {
     options.schedule = NULL;
     options.textual_schedule = NULL;
     options.reuse_addr = 0;
-    int option_index = 0;
 
-    while ( (opt = getopt_long(argc, argv, "?hp:P:rs:o:i:nm:wS:", long_options, &option_index)) != -1 ) {
+    while ( (opt = getopt_long(argc, argv, "?hp:P:rs:o:i:nm:wS:",
+                    long_options, &option_index)) != -1 ) {
+
         switch ( opt ) {
             case 'p': options.cport = atoi(optarg); break;
             case 'P': options.tport = atoi(optarg); break;
@@ -689,7 +734,7 @@ int run_throughput(int argc, char *argv[], int count, struct addrinfo **dests) {
     }
 
     /* If there is no test schedule set it to use the default */
-    if(options.schedule == NULL){
+    if ( options.schedule == NULL ) {
         Log(LOG_DEBUG, "No test schedule using default");
         parseSchedule(&options, modifiable);
     }
@@ -698,18 +743,20 @@ int run_throughput(int argc, char *argv[], int count, struct addrinfo **dests) {
     printSchedule(options.schedule);
 
     /* Loop through all the addresses we are asked to test */
-    for (i=0; i<count; i++) {
+    for ( i = 0; i < count; i++ ) {
         runSchedule(dests[i], &options);
     }
 
     freeSchedule(&options);
-    if(options.textual_schedule != NULL){
+    if ( options.textual_schedule != NULL ) {
         free(options.textual_schedule);
         options.textual_schedule = NULL;
     }
 
     return 0;
 }
+
+
 
 /**
  * Print out a speed in a factor of bits per second
@@ -719,19 +766,19 @@ int run_throughput(int argc, char *argv[], int count, struct addrinfo **dests) {
 static void printSpeed(uint64_t time_ns, uint64_t bytes){
     double x_per_sec = ((double)bytes * 8.0) / ((double) time_ns / 1e9);
 
-    if(x_per_sec > 1000){
+    if ( x_per_sec > 1000 ) {
         x_per_sec /= 1000;
     } else {
         printf("--- Speed: %lf%s\n", x_per_sec, "Bits/s");
         return;
     }
-    if(x_per_sec > 1000){
+    if ( x_per_sec > 1000 ) {
         x_per_sec /= 1000;
     } else {
         printf("--- Speed: %lf%s\n", x_per_sec, "Kb/s");
         return;
     }
-    if(x_per_sec > 1000){
+    if ( x_per_sec > 1000 ) {
         x_per_sec /= 1000;
     } else {
         printf("--- Speed: %lf%s\n", x_per_sec, "Mb/s");
@@ -741,6 +788,8 @@ static void printSpeed(uint64_t time_ns, uint64_t bytes){
     printf("--- Speed: %lf%s\n", x_per_sec, "Gb/s");
 }
 
+
+
 /**
  * Print back our data blob that we made report_results.
  * Remember this is all in big endian byte order
@@ -748,6 +797,8 @@ static void printSpeed(uint64_t time_ns, uint64_t bytes){
 static void print_throughput(void *data, uint32_t len) {
     char name[128];
     struct report_header_t * rh = data;
+    uint32_t count = 1;
+    char *place;
 
     inet_ntop(AF_INET6, &rh->server_addr, name, sizeof(name));
     printf("\n- Got the results test(s) to server address %s \n", name);
@@ -757,19 +808,18 @@ static void print_throughput(void *data, uint32_t len) {
     printf("- Found %d headers\n", be32toh(rh->count));
 
     /* Read the report header results */
-    char * place = (char *) (rh+1);
+    place = (char *) (rh+1);
     printf("- Test schedule was %s\n\n", place);
     place += be32toh(rh->test_seq_len);
-    uint32_t count = 1;
 
     /* Now read back the acutal results */
-    while(count <= be32toh(rh->count)){
-        printf("\n\n--- Test run %d ---\n", count);
+    while ( count <= be32toh(rh->count) ) {
         struct report_result_t *  rr;
         rr = (struct report_result_t *) place;
         place += sizeof(struct report_result_t);
 
-        switch(rr->type){
+        printf("\n\n--- Test run %d ---\n", count);
+        switch ( rr->type ) {
             case TPUT_2_CLIENT:
                 printf("--- Test type server -> client \n");
                 break;
@@ -785,30 +835,35 @@ static void print_throughput(void *data, uint32_t len) {
             default:
                 printf("--- Test type unknown %d \n", (int) rr->type);
         }
-        printf("--- Packets sent/received during test %"PRIu32" \n", be32toh(rr->packets));
-        printf("--- Packet Size for the test %"PRIu32" \n", be32toh(rr->packet_size));
-        printf("--- Test duration %lf secs \n", (double) be64toh(rr->duration_ns) / 1e9);
-        printf("--- Test %"PRIu64" bytes \n", be64toh(rr->bytes));
+        printf("--- Packets sent/received during test %" PRIu32 "\n",
+                be32toh(rr->packets));
+        printf("--- Packet Size for the test %" PRIu32 "\n",
+                be32toh(rr->packet_size));
+        printf("--- Test duration %lf secs \n",
+                (double)be64toh(rr->duration_ns) / 1e9);
+        printf("--- Test %" PRIu64 " bytes\n", be64toh(rr->bytes));
         printSpeed(be64toh(rr->duration_ns), be64toh(rr->bytes));
 
-        if(rr->has_web10g_client){
-            printf("--- Found web10g vars from the client \n");
+        if ( rr->has_web10g_client ) {
+            printf("--- Found web10g vars from the client\n");
             print_web10g((struct report_web10g_t *) place);
             place += sizeof(struct report_web10g_t);
         } else {
             printf("--- No web10g vars from the client \n");
         }
 
-        if(rr->has_web10g_server){
-            printf("--- Found web10g vars from the server \n");
+        if ( rr->has_web10g_server ) {
+            printf("--- Found web10g vars from the server\n");
             print_web10g((struct report_web10g_t *) place);
             place += sizeof(struct report_web10g_t);
         } else {
-            printf("--- No web10g vars from the server \n");
+            printf("--- No web10g vars from the server\n");
         }
         count++;
     }
 }
+
+
 
 /*
  * Register a test to be part of AMP.
