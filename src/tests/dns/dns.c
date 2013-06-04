@@ -169,7 +169,7 @@ static void process_opt_rr(char *rr, struct info_t *info) {
  * claims to have?
  */
 static void process_packet(char *packet, uint16_t ident, struct timeval *now,
-	int count, struct info_t info[], struct opt_t *opt) {
+	int count, struct info_t info[]) {
 
     struct dns_t *header;
     uint16_t recv_ident;
@@ -301,7 +301,7 @@ static void harvest(struct socket_t *sockets, uint16_t ident, int wait,
     while ( get_packet(sockets, packet, opt->udp_payload_size,
 		(struct sockaddr*)&addr, &wait) ) {
 	gettimeofday(&now, NULL);
-	process_packet(packet, ident, &now, count, info, opt);
+	process_packet(packet, ident, &now, count, info);
     }
 }
 

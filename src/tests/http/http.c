@@ -94,7 +94,7 @@ static void report_object_results(struct http_report_object_t *object,
 static int report_server_results(struct http_report_server_t *server,
         struct server_stats_t *server_info) {
 
-    int reported_objects = 0;
+    uint8_t reported_objects = 0;
     struct http_report_object_t *object;
     struct object_stats_t *object_info;
 
@@ -135,8 +135,8 @@ static void report_results(struct timeval *start_time,
     struct http_report_header_t *header;
     struct http_report_server_t *server;
     struct server_stats_t *tmpsrv;
-    int reported_objects = 0;
-    int reported_servers = 0;
+    uint32_t reported_objects = 0;
+    uint32_t reported_servers = 0;
     int len;
 
     Log(LOG_DEBUG, "Building http report, url:%s\n", opt->url);
@@ -169,6 +169,7 @@ static void report_results(struct timeval *start_time,
     }
 
     assert(global.servers == reported_servers);
+    assert(global.objects == reported_objects);
 
     report(AMP_TEST_HTTP, (uint64_t)start_time->tv_sec, (void*)buffer, len);
     free(buffer);
@@ -748,7 +749,7 @@ static void check_messages(CURLM *multi, int *running_handles, int pipeline) {
         curl_multi_remove_handle(multi, handle);
 
         /* split the url before we cleanup the handle (and lose the pointer) */
-        split_url(url, &host, &path);
+        split_url(url, (char*)&host, (char*)&path);
 
         /* no longer participate in the shared dns cache with this handle */
         curl_easy_setopt(handle, CURLOPT_SHARE, NULL);
@@ -1029,7 +1030,6 @@ int run_http(int argc, char *argv[], int count, struct addrinfo **dests) {
     //struct opt_t options;
     struct timeval start_time;
     int dest;
-    uint16_t ident;
 
     Log(LOG_DEBUG, "Starting HTTP test");
 

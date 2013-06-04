@@ -32,15 +32,17 @@ static void print_object(struct http_report_object_t *object) {
     assert(object);
 
     /* original object stats */
-    printf("  OBJECT %s (%d) pipe=%d dns=%d.%.6d c=%d.%.6d p=%d.%.6d t=%d.%.6d "
-            "s=%d.%.6d f=%d.%.6d bytes=%d connects=%d",
+    printf("  OBJECT %s (%d) pipe=%d dns=%" PRIu64 ".%.6" PRIu64
+            " c=%" PRIu64 ".%.6" PRIu64 " p=%" PRIu64 ".%.6" PRIu64
+            " t=%" PRIu64 ".%.6" PRIu64 " s=%" PRIu64 ".%.6" PRIu64
+            " f=%" PRIu64 ".%.6" PRIu64 " bytes=%d connects=%d",
             object->path, object->code, object->pipeline, object->lookup.tv_sec,
             object->lookup.tv_usec, object->connect.tv_sec,
             object->connect.tv_usec, object->start_transfer.tv_sec,
             object->start_transfer.tv_usec, object->total_time.tv_sec,
             object->total_time.tv_usec,
-            (int)object->start.tv_sec, (int)object->start.tv_usec,
-            (int)object->end.tv_sec, (int)object->end.tv_usec,
+            object->start.tv_sec, object->start.tv_usec,
+            object->end.tv_sec, object->end.tv_usec,
             object->size, object->connect_count);
 
     /* further information on caching for medialab */
