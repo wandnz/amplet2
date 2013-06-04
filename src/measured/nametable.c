@@ -80,37 +80,6 @@ static void dump_nametable() {
 
 
 /*
- * Compare two addrinfo structs to see if they are identical.
- */
-static int compare_addrinfo(struct addrinfo *a, struct addrinfo *b) {
-    assert(a);
-    assert(b);
-    assert(a->ai_addr);
-    assert(b->ai_addr);
-
-    if ( a->ai_addr->sa_family != b->ai_addr->sa_family )
-	return 0;
-
-    if ( a->ai_addr->sa_family == AF_INET ) {
-	if ( ((struct sockaddr_in*)a->ai_addr)->sin_addr.s_addr ==
-		((struct sockaddr_in*)b->ai_addr)->sin_addr.s_addr ) {
-	    return 1;
-	}
-
-    } else if ( a->ai_addr->sa_family == AF_INET6 ) {
-	if ( memcmp(((struct sockaddr_in6*)a->ai_addr)->sin6_addr.s6_addr,
-		    ((struct sockaddr_in6*)b->ai_addr)->sin6_addr.s6_addr,
-		    sizeof(struct in6_addr)) == 0 ) {
-	    return 1;
-	}
-    }
-
-    return 0;
-}
-
-
-
-/*
  * Empty the nametable. It's a list of addrinfo structs, so freeaddrinfo()
  * will do all the hard work.
  */
