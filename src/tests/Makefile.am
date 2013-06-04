@@ -20,6 +20,10 @@ if WANT_HTTP_TEST
 SUBDIRS+=http
 endif
 
+if WANT_THROUGHPUT_TEST
+SUBDIRS+=throughput
+endif
+
 if WANT_PYTHON
 SUBDIRS+=python
 endif

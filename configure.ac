@@ -35,6 +35,11 @@ if test "$rabbit_found" = 0; then
     AC_MSG_ERROR(Required library librabbitmq not found; use LDFLAGS to specify library location)
 fi
 
+# check if we have the web10g library, it's ok for it to be missing
+AC_CHECK_LIB([estats], [estats_nl_client_init],
+        [AM_CONDITIONAL(HAVE_ESTATS, true)],
+        [AM_CONDITIONAL(HAVE_ESTATS, false)])
+
 AC_ARG_ENABLE(python,
     AC_HELP_STRING([--enable-python],
 	[Enable the python data exporting (default: yes)]),
@@ -132,6 +137,21 @@ AC_ARG_ENABLE(dns,
 AM_CONDITIONAL(WANT_DNS_TEST,
 	[test x"$want_dns_test" = xtrue])
 
+AC_ARG_ENABLE(throughput,
+    AC_HELP_STRING([--enable-throughput],
+	[Enable the throughput test (default: no)]),
+    [case "${enableval}" in
+    true) ;&
+    yes) want_throughput_test=true ;;
+    false) ;&
+    no)	 want_throughput_test=false ;;
+    *) AC_MSG_ERROR(bad value ${enableval} for --enable-throughput) ;;
+    esac],
+    [want_throughput_test=false])
+# using AM_CONDITIONAL propagates this value through to all Makefile.am files
+AM_CONDITIONAL(WANT_THROUGHPUT_TEST,
+	[test x"$want_throughput_test" = xtrue])
+
 AC_ARG_ENABLE(http,
     AC_HELP_STRING([--enable-http],
 	[Enable the http test (default: yes)]),
@@ -186,6 +206,7 @@ AC_CONFIG_FILES([Makefile
                  src/tests/dns/Makefile
                  src/tests/traceroute/Makefile
                  src/tests/http/Makefile
+                 src/tests/throughput/Makefile
                  src/xferd/Makefile])
 AC_OUTPUT
 
@@ -203,3 +224,4 @@ reportopt "Compiled with skeleton test support" $want_skeleton_test
 reportopt "Compiled with icmp test support" $want_icmp_test
 reportopt "Compiled with dns test support" $want_dns_test
 reportopt "Compiled with http test support" $want_http_test
+reportopt "Compiled with throughput test support" $want_throughput_test
