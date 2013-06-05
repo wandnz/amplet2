@@ -57,7 +57,7 @@
 /* The default test port */
 #define DEFAULT_CONTROL_PORT  8815 /* Could use etc/services like old code */
 #define DEFAULT_TEST_PORT 8816 /* Run test across a seperate port */
-#define DEFAULT_PACKETSIZE  (128 * 1024) // 128-kbyte like iperf uses
+#define DEFAULT_WRITE_SIZE  (128 * 1024) // 128-kbyte like iperf uses
 #define DEFAULT_TPUT_PAUSE  10000
 #define DEFAULT_TEST_SCHEDULE "t10000,n,T10000" /* A useful default test - 10sec in each direction */
 
@@ -105,7 +105,7 @@ struct report_result_t {
     uint64_t duration_ns;
     uint64_t bytes;
     uint32_t packets;
-    uint32_t packet_size;
+    uint32_t write_size;
     uint8_t type; /* The direction of the test S2C or C2S*/
     uint8_t has_web10g_client;
     uint8_t has_web10g_server;
@@ -248,7 +248,7 @@ struct report_web10g_t {
  */
 struct test_result_t {
     uint32_t packets; /* packet count */
-    uint32_t packet_size; /* packet_size seems a bit pointless maybe remove it?? */
+    uint32_t write_size; /* write_size seems a bit pointless maybe remove it?? */
     uint64_t bytes; /* Bytes seen */
     uint64_t start_ns; /* Start time in nanoseconds */
     uint64_t end_ns; /* End time in nanoseconds */
@@ -260,7 +260,7 @@ struct test_request_t {
     enum tput_type type;
     uint32_t packets;
     uint32_t duration; /* pause duration in milliseconds */
-    uint32_t packet_size;
+    uint32_t write_size;
     uint32_t randomise;
 
     /* Result for the client and server - these should almost be identical */
@@ -281,7 +281,7 @@ struct test_request_t {
 struct opt_t {
     uint32_t cport; /* The control port to connect to */
     uint32_t tport; /* The test port to connect to or create */
-    uint32_t packet_size; /* The TCP write size to use */
+    uint32_t write_size; /* The TCP write size to use */
     int32_t sock_mss; /* Set the TCP Maximun segment size */
     uint8_t sock_disable_nagle; /* 0 enable nagale - 1 disable - overriden by /proc/net/tcp/nagle */
     uint8_t randomise;	/* Randomise every packet otherwise continually reuse the same random packet */
@@ -323,12 +323,12 @@ struct packet_t {
         } data;
         struct sendPacket_t {
             uint32_t  packets;
-            uint32_t  packet_size;
+            uint32_t  write_size;
             uint64_t  duration_ms;
         } send;
         struct resultPacket_t {
             uint32_t  packets;
-            uint32_t  packet_size;
+            uint32_t  write_size;
             uint64_t  bytes;
             uint64_t  duration_ns;
         } result;
@@ -363,7 +363,7 @@ int sendReadyPacket(int sock_fd, uint16_t tport);
 int sendRequestTestPacket(int sock, const struct test_request_t *req);
 int sendResultPacket(int sock_fd, struct test_result_t *res,
         struct report_web10g_t *web10g);
-int readDataPacket(const struct packet_t * packet, const int packet_size,
+int readDataPacket(const struct packet_t * packet, const int write_size,
         struct test_result_t *res);
 int readResultPacket(const struct packet_t *p, struct test_result_t *res);
 int readHelloPacket(const struct packet_t *p, struct opt_t *sockopts,

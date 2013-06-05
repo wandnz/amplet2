@@ -24,28 +24,28 @@ test_t *register_test(void);
 static void usage(char *prog) {
                                                                                              /*        | 80char mark*/
     fprintf(stderr, "AMP Throughput Client version %d\n", AMP_THROUGHPUT_TEST_VERSION);
-    fprintf(stderr, "Usage: ./throughput-client [options] [-s testseq] -- addr1 [addr2 ...] \n");
-    fprintf(stderr, "NOTE: The test sequence (-s) should be the last argument before -- \n");
+    fprintf(stderr, "Usage: %s [options] [-s testseq] -- addr1 [addr2 ...] \n", prog);
+    fprintf(stderr, "NOTE: The test schedule (-s) should be the last argument before -- \n");
     fprintf(stderr, "Options:\n");
-    fprintf(stderr, " -r --randomise           Randomise every packet sent\n");
+    fprintf(stderr, " -r --randomise           Randomise data in every packet sent\n");
     fprintf(stderr, " -p --port <port>         The control port number to use (default=%d)\n", DEFAULT_CONTROL_PORT);
     fprintf(stderr, " -P --test-port <port>    The test port number to use (default=%d)\n", DEFAULT_TEST_PORT);
-    fprintf(stderr, " -S --packet-size <bytes> The default packet size (default=%d)\n",(int) DEFAULT_PACKETSIZE );
-    fprintf(stderr, " -o --rcvbuf <bytes>      Maximum size of the send (output) buffer\n");
-    fprintf(stderr, " -i --sndbuf <bytes>      Maximum size of the receive (input) buffer\n");
-    fprintf(stderr, " -n --disable-nagle       Disable nagle i.e. set sockopt TCP_NOWAIT\n");
-    fprintf(stderr, " -m --tcp-mss <bytes>     Set the Maximum TCP Segment Size.\n");
-    fprintf(stderr, " -s --sequence <seq>      A valid test sequence such as \"t10000,n,T10000\"\n");
+    fprintf(stderr, " -S --write-size <bytes>  Length of buffer to write (default=%d)\n",(int) DEFAULT_WRITE_SIZE );
+    fprintf(stderr, " -o --sndbuf <bytes>      Maximum size of the send (output) buffer\n");
+    fprintf(stderr, " -i --rcvbuf <bytes>      Maximum size of the receive (input) buffer\n");
+    fprintf(stderr, " -n --nodelay             Disable Nagle's Algorithm (set TCP_NODELAY)\n");
+    fprintf(stderr, " -m --tcp-mss <bytes>     Set the Maximum TCP Segment Size\n");
+    fprintf(stderr, " -s --schedule <seq>      A valid test schedule such as \"t10000,n,T10000\"\n");
     fprintf(stderr, " -w --disable-web10g      Don't record Web10G results\n");
     fprintf(stderr, " -h -? --help             Print this help\n");
-    fprintf(stderr, "Socket options such as rcvbuf, sndbuf, tcp-mss and nagle will be set on both\n");
+    fprintf(stderr, "Socket options such as rcvbuf, sndbuf, tcp-mss and nodelay will be set on both\n");
     fprintf(stderr, "the client and server. Web10G can be used to check these are set correctly.\n\n");
     fprintf(stderr, "Schedule format:\n");
     fprintf(stderr, "A schedule is a sequence of tests. Each test starts with single character\n");
-    fprintf(stderr, "representing it's type.Tests are separated by a single comma ','.\n");
+    fprintf(stderr, "representing it's type. Tests are separated by a single comma ','.\n");
     fprintf(stderr, "Valid types are listed below:\n");
-    fprintf(stderr, " s<num_packets> Run a server -> client test (Packet size as per --packet-size)\n");
-    fprintf(stderr, " S<num_packets> Run a client -> server test (Packet size as per --packet-size)\n");
+    fprintf(stderr, " s<num_packets> Run a server -> client test\n");
+    fprintf(stderr, " S<num_packets> Run a client -> server test\n");
     fprintf(stderr, " t<ms>          Run a server -> client test for the time given in milliseconds\n");
     fprintf(stderr, " T<ms>          Run a client -> server test for the time given in milliseconds\n");
     fprintf(stderr, " n              Make a new test connection\n");
@@ -65,10 +65,10 @@ static struct option long_options[] =
         {"randomise", no_argument, 0, 'r'},
         {"port", required_argument, 0, 'p'},
         {"test-port", required_argument, 0, 'P'},
-        {"packet-size", required_argument, 0, 'S'},
+        {"write-size", required_argument, 0, 'S'},
         {"rcvbuf", required_argument, 0, 'i'},
         {"sndbuf", required_argument, 0, 'o'},
-        {"disable-nagle", no_argument, 0, 'n'},
+        {"nodelay", no_argument, 0, 'n'},
         {"tcp-mss", required_argument, 0, 'm'},
         {"sequence", required_argument, 0, 's'},
         {"disable-web10g", no_argument, 0, 'w'},
@@ -129,7 +129,7 @@ static void parseSchedule(struct opt_t * options, char * request) {
         (*current)->type = TPUT_NULL;
         (*current)->packets = 0;
         (*current)->duration = 0;
-        (*current)->packet_size = options->packet_size;
+        (*current)->write_size = options->write_size;
         (*current)->randomise = options->randomise;
         (*current)->s_result = (*current)->c_result = NULL;
         (*current)->s_web10g = (*current)->c_web10g = NULL;
@@ -158,7 +158,7 @@ static void parseSchedule(struct opt_t * options, char * request) {
                             pch[0] == 's' ? TPUT_2_CLIENT : TPUT_2_SERVER;
                 (*current)->packets    = a;
                 if(!noB)
-                    (*current)->packet_size = b;
+                    (*current)->write_size = b;
             break;
 
             case 't':
@@ -167,7 +167,7 @@ static void parseSchedule(struct opt_t * options, char * request) {
                             pch[0] == 't' ? TPUT_2_CLIENT : TPUT_2_SERVER;
                 (*current)->duration   = a;
                 if(!noB)
-                    (*current)->packet_size = b;
+                    (*current)->write_size = b;
             break;
 
             case 'p':
@@ -189,7 +189,7 @@ static void parseSchedule(struct opt_t * options, char * request) {
         if ( (*current)->type != TPUT_NEW_CONNECTION &&
                 (*current)->type != TPUT_NULL ) {
             if ( ((*current)->packets == 0 && (*current)->duration == 0) ||
-                    (*current)->packet_size == 0 ) {
+                    (*current)->write_size == 0 ) {
                 (*current)->type = TPUT_NULL;
                 Log(LOG_WARNING,
                         "Invalid test found in schedule ignoring. "
@@ -389,7 +389,7 @@ static void report_results(int sock_fd, struct opt_t *options,
 
                 res->type = cur->type;
                 res->packets = htobe32(0);
-                res->packet_size = htobe32(0);
+                res->write_size = htobe32(0);
                 res->duration_ns = htobe64(cur->duration * (uint64_t) 1000000);
                 res->has_web10g_server = res->has_web10g_client = 0;
                 res->bytes = htobe64(0);
@@ -415,7 +415,7 @@ static void report_results(int sock_fd, struct opt_t *options,
 
                 res->type = cur->type;
                 res->packets = htobe32(result->packets);
-                res->packet_size = htobe32(result->packet_size);
+                res->write_size = htobe32(result->write_size);
                 res->duration_ns = htobe64(result->end_ns - result->start_ns);
                 res->bytes = htobe64(result->bytes);
                 rh->count++;
@@ -632,7 +632,7 @@ static int runSchedule(struct addrinfo * serv_addr, struct opt_t * options) {
                     Log(LOG_DEBUG, "Got results from server %" PRIu32
                             " %" PRIu32 " %" PRIu64 " %" PRIu64,
                                     packet.types.result.packets,
-                                    packet.types.result.packet_size,
+                                    packet.types.result.write_size,
                                     packet.types.result.duration_ns,
                                     packet.types.result.bytes);
                 } else {
@@ -700,7 +700,7 @@ int run_throughput(int argc, char *argv[], int count, struct addrinfo **dests) {
        );
 
     /* set some sensible defaults */
-    options.packet_size = DEFAULT_PACKETSIZE;
+    options.write_size = DEFAULT_WRITE_SIZE;
     options.randomise = 0;
     options.sock_rcvbuf = 0;
     options.sock_sndbuf = 0;
@@ -720,7 +720,7 @@ int run_throughput(int argc, char *argv[], int count, struct addrinfo **dests) {
             case 'p': options.cport = atoi(optarg); break;
             case 'P': options.tport = atoi(optarg); break;
             case 'r': options.randomise = 1; break;
-            case 'S': options.packet_size = atoi(optarg); break;
+            case 'S': options.write_size = atoi(optarg); break;
             case 's': parseSchedule(&options, optarg); break;
             case 'o': options.sock_sndbuf = atoi(optarg); break;
             case 'i': options.sock_rcvbuf = atoi(optarg); break;
@@ -837,8 +837,8 @@ static void print_throughput(void *data, uint32_t len) {
         }
         printf("--- Packets sent/received during test %" PRIu32 "\n",
                 be32toh(rr->packets));
-        printf("--- Packet Size for the test %" PRIu32 "\n",
-                be32toh(rr->packet_size));
+        printf("--- Write Size for the test %" PRIu32 "\n",
+                be32toh(rr->write_size));
         printf("--- Test duration %lf secs \n",
                 (double)be64toh(rr->duration_ns) / 1e9);
         printf("--- Test %" PRIu64 " bytes\n", be64toh(rr->bytes));

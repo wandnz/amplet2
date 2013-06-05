@@ -239,10 +239,10 @@ static int serveTest(int control_socket) {
                     memset(&result, 0, sizeof(result));
                     req.packets = packet.types.send.packets;
                     req.duration = packet.types.send.duration_ms;
-                    req.packet_size = packet.types.send.packet_size;
+                    req.write_size = packet.types.send.write_size;
                     req.randomise = sockopts.randomise;
                     Log(LOG_INFO, "Got send request for pkts:%d dur:%d size:%d",
-                            req.packets,req.duration, req.packet_size);
+                            req.packets,req.duration, req.write_size);
 
                     /* Send the actual packets */
                     switch ( sendPackets(test_socket, &req, &result) ) {

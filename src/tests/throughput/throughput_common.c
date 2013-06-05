@@ -323,7 +323,7 @@ int writePacket(int sock_fd, struct packet_t * packet){
 int readPacket(int test_socket, struct packet_t * packet, char **additional) {
     int result;
     uint32_t bytes_read;
-    char buf[DEFAULT_PACKETSIZE];
+    char buf[DEFAULT_WRITE_SIZE];
 
     bytes_read = 0;
 
@@ -424,29 +424,29 @@ int sendPackets(int sock_fd, struct test_request_t *test_opts,
         Log(LOG_ERR, "no terminating condition for test, either packets or duration must be set\n");
         return 1;
     }
-    if ( test_opts->packet_size <  sizeof(struct packet_t) ) {
+    if ( test_opts->write_size <  sizeof(struct packet_t) ) {
         Log(LOG_ERR, "Packet size is too small (%d < %d)",
-                test_opts->packet_size, sizeof(struct packet_t));
+                test_opts->write_size, sizeof(struct packet_t));
         return 1;
     }
-    if ( test_opts->packet_size > MAX_MALLOC ) {
+    if ( test_opts->write_size > MAX_MALLOC ) {
         Log(LOG_ERR, "Packet size is large (%d > %d)",
-                test_opts->packet_size, MAX_MALLOC);
+                test_opts->write_size, MAX_MALLOC);
         return 1;
     }
 
     /* Log the stopping condition */
     if ( test_opts->packets > 0 ) {
         Log(LOG_DEBUG, "Sending %d %d byte packets\n",
-                test_opts->packets,  test_opts->packet_size);
+                test_opts->packets,  test_opts->write_size);
     }
     if ( test_opts->duration > 0 ) {
         Log(LOG_DEBUG, "Sending %d byte packets for %ldms\n",
-                test_opts->packet_size, test_opts->duration);
+                test_opts->write_size, test_opts->duration);
     }
 
     /* Build our packet */
-    packet_out = (struct packet_t *) malloc(test_opts->packet_size);
+    packet_out = (struct packet_t *) malloc(test_opts->write_size);
     if ( packet_out == NULL ) {
         Log(LOG_ERR, "sendPackets() malloc failed : %s\n",
         strerror(errno));
@@ -454,7 +454,7 @@ int sendPackets(int sock_fd, struct test_request_t *test_opts,
     }
     memset(packet_out, 0, sizeof(struct packet_t));
     packet_out->header.type = TPUT_PKT_DATA;
-    packet_out->header.size = test_opts->packet_size - sizeof(struct packet_t);
+    packet_out->header.size = test_opts->write_size - sizeof(struct packet_t);
     packet_out->types.data.more = 1;
     randomMemset((char *)(packet_out+1), packet_out->header.size);
 
@@ -487,7 +487,7 @@ int sendPackets(int sock_fd, struct test_request_t *test_opts,
             free(packet_out);
             return -1;
         }
-        res->bytes += test_opts->packet_size;
+        res->bytes += test_opts->write_size;
     }//while we need to send more packets
 
     res->end_ns = timeNanoseconds();
@@ -528,7 +528,7 @@ int incomingTest(int sock_fd, struct test_result_t * result) {
                     Log(LOG_DEBUG, "incomingTest() Got result from myself "
                                     "%"PRIu32" %"PRIu32" %"PRIu64" %"PRIu64,
                                     result->packets,
-                                    result->packet_size,
+                                    result->write_size,
                                     result->end_ns - result->start_ns,
                                     result->bytes);
                     return 0;
@@ -560,12 +560,12 @@ static void htobePacket(struct packet_t * p) {
             break;
         case TPUT_PKT_SEND:
             p->types.send.packets = htobe32(p->types.send.packets);
-            p->types.send.packet_size = htobe32(p->types.send.packet_size);
+            p->types.send.write_size = htobe32(p->types.send.write_size);
             p->types.send.duration_ms = htobe64(p->types.send.duration_ms);
             break;
         case TPUT_PKT_RESULT:
             p->types.result.packets = htobe32(p->types.result.packets);
-            p->types.result.packet_size = htobe32(p->types.result.packet_size);
+            p->types.result.write_size = htobe32(p->types.result.write_size);
             p->types.result.bytes = htobe64(p->types.result.bytes);
             p->types.result.duration_ns = htobe64(p->types.result.duration_ns);
             break;
@@ -606,12 +606,12 @@ static void betohPacket(struct packet_t * p) {
             break;
         case TPUT_PKT_SEND:
             p->types.send.packets = be32toh(p->types.send.packets);
-            p->types.send.packet_size = be32toh(p->types.send.packet_size);
+            p->types.send.write_size = be32toh(p->types.send.write_size);
             p->types.send.duration_ms = be64toh(p->types.send.duration_ms);
             break;
         case TPUT_PKT_RESULT:
             p->types.result.packets = be32toh(p->types.result.packets);
-            p->types.result.packet_size = be32toh(p->types.result.packet_size);
+            p->types.result.write_size = be32toh(p->types.result.write_size);
             p->types.result.bytes = be64toh(p->types.result.bytes);
             p->types.result.duration_ns = be64toh(p->types.result.duration_ns);
             break;
@@ -654,7 +654,7 @@ uint64_t timeNanoseconds(void){
  *
  * @param packet
  *          A packet previously received
- * @param packet_size
+ * @param write_size
  *          The size of the packet returned by readPacket()
  * @param res
  *          A test result structure to store this result into, keeps the
@@ -662,7 +662,7 @@ uint64_t timeNanoseconds(void){
  *
  * @return 0 upon success, -1 if an error occurs like an unexpected packet type.
  */
-int readDataPacket(const struct packet_t * packet, const int packet_size,
+int readDataPacket(const struct packet_t * packet, const int write_size,
                                     struct test_result_t *res) {
     if ( packet->header.type != TPUT_PKT_DATA ) {
         return -1;
@@ -681,11 +681,11 @@ int readDataPacket(const struct packet_t * packet, const int packet_size,
     }
 
     res->packets++;
-    res->bytes += packet_size;
+    res->bytes += write_size;
 
     if ( !packet->types.data.more ) {
         /* No more packets to be received means we should send our results */
-        res->packet_size = packet_size;
+        res->write_size = write_size;
         res->done = 1;
         res->end_ns = timeNanoseconds();
     }
@@ -714,7 +714,7 @@ int sendResultPacket(int sock_fd, struct test_result_t *res,
     p.header.size = ( web10g == NULL ? 0 : sizeof(struct report_web10g_t) );
     p.types.result.bytes = res->bytes;
     p.types.result.duration_ns = res->end_ns - res->start_ns;
-    p.types.result.packet_size = res->packet_size;
+    p.types.result.write_size = res->write_size;
     p.types.result.packets = res->packets;
 
     if ( web10g == NULL ) {
@@ -876,13 +876,13 @@ int sendRequestTestPacket(int sock, const struct test_request_t * req) {
     p.header.type = TPUT_PKT_SEND;
     p.header.size = 0;
     p.types.send.duration_ms = req->duration;
-    p.types.send.packet_size = req->packet_size;
+    p.types.send.write_size = req->write_size;
     p.types.send.packets = req->packets;
 
     Log(LOG_INFO, "Sending a TPUT_PKT_SEND request - "
-            "packets: %d duration: %d packet_size: %d",
+            "packets: %d duration: %d write_size: %d",
             p.types.send.packets, p.types.send.duration_ms,
-            p.types.send.packet_size);
+            p.types.send.write_size);
 
     return writePacket(sock, &p);
 }
@@ -908,7 +908,7 @@ int readResultPacket(const struct packet_t *p, struct test_result_t *res) {
 
     res->done = 1;
     res->bytes = p->types.result.bytes;
-    res->packet_size = p->types.result.packet_size;
+    res->write_size = p->types.result.write_size;
     res->packets = p->types.result.packets;
     res->start_ns = 0;
     res->end_ns = p->types.result.duration_ns;
@@ -998,7 +998,7 @@ void printSchedule(struct test_request_t *schedule) {
            default : Log(LOG_DEBUG, "Found a bad type"); break;
        }
        Log(LOG_DEBUG, "packets: %d duration: %d packetsize: %d randomise: %d",
-               cur->packets, cur->duration, cur->packet_size, cur->randomise);
+               cur->packets, cur->duration, cur->write_size, cur->randomise);
    }
    Log(LOG_DEBUG, "Finshed schedule");
 }
