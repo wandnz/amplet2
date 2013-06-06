@@ -457,8 +457,8 @@ int sendPackets(int sock_fd, struct test_request_t *test_opts,
         /* Log(LOG_DEBUG, "runtime = %ld/%ld", run_time_ms,
                         test_opts->duration); */
 
-        /* Randomise every packet */
-        if ( test_opts->randomise ) {
+        /* Randomise the first packet, possibly every packet if option set */
+        if ( test_opts->randomise || res->bytes == 0 ) {
             randomMemset((char *)(packet_out+1), packet_out->header.size);
         }
 
