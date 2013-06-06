@@ -674,6 +674,7 @@ int readDataPacket(const struct packet_t * packet, const int write_size,
     if ( res->packets == 0 ) {
         Log(LOG_INFO, "Received first packet from incoming test");
         res->start_ns = timeNanoseconds();
+        res->write_size = write_size;
     }
 
     res->packets++;
@@ -681,7 +682,6 @@ int readDataPacket(const struct packet_t * packet, const int write_size,
 
     if ( !packet->types.data.more ) {
         /* No more packets to be received means we should send our results */
-        res->write_size = write_size;
         res->done = 1;
         res->end_ns = timeNanoseconds();
     }
