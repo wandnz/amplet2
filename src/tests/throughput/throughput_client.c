@@ -93,7 +93,7 @@ static struct option long_options[] =
  * @param request - A string reprensenting the what is to be added to
  *                  the schedule
  */
-static void parseSchedule(struct opt_t * options, char * request) {
+static void parseSchedule(struct opt_t *options, char *request) {
     struct test_request_t ** current;
     long arg;
     int noArg;
@@ -120,9 +120,12 @@ static void parseSchedule(struct opt_t * options, char * request) {
 
     pch = strtok (request,",");
     while ( pch != NULL ) {
-        /* We assume this is valid
-         * And if this isn't isnt marked with request type none anyway */
-        *current = (struct test_request_t *) malloc(sizeof(struct test_request_t));
+        /*
+         * We assume this is valid and if this isn't then it is marked with
+         * request type none anyway
+         */
+        *current = (struct test_request_t *)
+            malloc(sizeof(struct test_request_t));
         (*current)->type = TPUT_NULL;
         (*current)->bytes = 0;
         (*current)->duration = 0;
@@ -193,11 +196,11 @@ static void parseSchedule(struct opt_t * options, char * request) {
  *
  * @param options - A options structure to free the enclosed schedule.
  */
-static void freeSchedule(struct opt_t * options){
-    struct test_request_t * cur = options->schedule;
+static void freeSchedule(struct opt_t *options){
+    struct test_request_t *cur = options->schedule;
 
     while ( cur != NULL ) {
-        struct test_request_t * temp;
+        struct test_request_t *temp;
         temp = cur->next;
         free(cur);
         cur = temp;
@@ -244,7 +247,7 @@ static int connectToServer(struct addrinfo *serv_addr, struct opt_t *options,
            ((struct sockaddr_in *)serv_addr->ai_addr)->sin_port = htons(port);
         }
 
-        Log(LOG_DEBUG, "Connection has choosen port %d",
+        Log(LOG_DEBUG, "Connection has chosen port %d",
                 (int)ntohs(
                     ((struct sockaddr_in *)serv_addr->ai_addr)->sin_port));
 
@@ -364,24 +367,8 @@ static void report_results(int sock_fd, struct opt_t *options,
 
             case TPUT_NEW_CONNECTION:
             case TPUT_PAUSE:
-#if 0
-                /* General pattern here set res to point to end of the memory */
-                rh = realloc(rh, r_size + sizeof(struct report_result_t));
-                res = (struct report_result_t  *) (((char * ) rh) + r_size);
-                r_size += sizeof(struct report_result_t);
-
-                res->type = cur->type;
-                res->packets = htobe32(0);
-                res->write_size = htobe32(0);
-                res->duration_ns = htobe64(cur->duration * (uint64_t) 1000000);
-                res->has_web10g_server = res->has_web10g_client = 0;
-                res->bytes = htobe64(0);
-
-                rh->count++;
-                break;
-#else
                 continue;
-#endif
+
             case TPUT_2_CLIENT:
             case TPUT_2_SERVER:
                 if ( cur->c_result == NULL || cur->s_result == NULL ) {
@@ -389,11 +376,11 @@ static void report_results(int sock_fd, struct opt_t *options,
                     continue;
                 }
                 rh = realloc(rh, r_size + sizeof(struct report_result_t));
-                res = (struct report_result_t  *) (((char * ) rh) + r_size);
+                res = (struct report_result_t  *) (((char *) rh) + r_size);
                 r_size += sizeof(struct report_result_t);
 
                 /* Get the result from the receiving side */
-                struct test_result_t * result = cur->type == TPUT_2_CLIENT ?
+                struct test_result_t *result = cur->type == TPUT_2_CLIENT ?
                             cur->c_result : cur->s_result;
 
                 res->type = cur->type;
@@ -410,14 +397,14 @@ static void report_results(int sock_fd, struct opt_t *options,
                 /* Our web10g data is already converted to big endian */
                 if ( cur->c_web10g ) {
                     rh = realloc(rh, r_size + sizeof(struct report_web10g_t));
-                    temp = ((char * ) rh) + r_size;
+                    temp = ((char *) rh) + r_size;
                     r_size += sizeof(struct report_web10g_t);
                     memcpy(temp, cur->c_web10g, sizeof(struct report_web10g_t));
                 }
 
                 if ( cur->s_web10g ) {
                     rh = realloc(rh, r_size + sizeof(struct report_web10g_t));
-                    temp = ((char * ) rh) + r_size;
+                    temp = ((char *) rh) + r_size;
                     r_size += sizeof(struct report_web10g_t);
                     memcpy(temp, cur->s_web10g, sizeof(struct report_web10g_t));
                 }
@@ -464,7 +451,7 @@ static void report_results(int sock_fd, struct opt_t *options,
  *
  * @return 0 if successful, otherwise -1 on failure
  */
-static int runSchedule(struct addrinfo * serv_addr, struct opt_t * options) {
+static int runSchedule(struct addrinfo *serv_addr, struct opt_t *options) {
     int control_socket = -1;
     int test_socket = -1;
     struct packet_t packet;
@@ -512,10 +499,10 @@ static int runSchedule(struct addrinfo * serv_addr, struct opt_t * options) {
                 continue;
 
             case TPUT_PAUSE:
-                Log(LOG_INFO, "Pausing for %"PRIu32"milliseconds",
+                Log(LOG_INFO, "Pausing for %" PRIu32 "milliseconds",
                         cur->duration);
                 sleep((int)(cur->duration / 1000));
-                usleep((cur->duration%1000) * 1000);
+                usleep((cur->duration % 1000) * 1000);
                 continue;
 
             case TPUT_NEW_CONNECTION:
@@ -526,7 +513,8 @@ static int runSchedule(struct addrinfo * serv_addr, struct opt_t * options) {
                 }
                 /* Wait for server to start listening */
                 if ( readPacket(test_socket, &packet, NULL) != 0 ) {
-                    Log(LOG_ERR, "TPUT_NEW_CONNECTION expected the TCP connection to be closed in this direction");
+                    Log(LOG_ERR, "TPUT_NEW_CONNECTION expected the TCP "
+                            "connection to be closed in this direction");
                     goto errorCleanup;
                 }
                 close(test_socket);
@@ -562,7 +550,8 @@ static int runSchedule(struct addrinfo * serv_addr, struct opt_t * options) {
 
                 /* Receive the test */
                 if ( incomingTest(test_socket, cur->c_result) != 0 ) {
-                    Log(LOG_ERR, "Somthing went wrong when receiving a incoming test from the server");
+                    Log(LOG_ERR, "Something went wrong when receiving an "
+                            "incoming test from the server");
                     goto errorCleanup;
                 }
 
@@ -787,7 +776,7 @@ static void printSpeed(uint64_t time_ns, uint64_t bytes){
  */
 static void print_throughput(void *data, uint32_t len) {
     char name[128];
-    struct report_header_t * rh = data;
+    struct report_header_t *rh = data;
     uint32_t count = 1;
     char *place;
 
@@ -805,7 +794,7 @@ static void print_throughput(void *data, uint32_t len) {
 
     /* Now read back the acutal results */
     while ( count <= be32toh(rh->count) ) {
-        struct report_result_t *  rr;
+        struct report_result_t *rr;
         rr = (struct report_result_t *) place;
         place += sizeof(struct report_result_t);
 

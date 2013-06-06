@@ -56,7 +56,7 @@ static struct option long_options[] =
  *
  * @return the bound listen_socket or return -1 if this fails
  */
-static int startListening(int port, struct opt_t * sockopts) {
+static int startListening(int port, struct opt_t *sockopts) {
     int listen_socket = -1;
     struct addrinfo hints = {0};
     struct addrinfo *addrs, *current;
@@ -161,7 +161,7 @@ static int serveTest(int control_socket) {
     struct packet_t packet;
     struct test_result_t result;
     int bytes_read;
-    struct report_web10g_t * web10g = NULL;
+    struct report_web10g_t *web10g = NULL;
     struct opt_t sockopts = {0};
     int t_listen;
     int test_socket;
@@ -193,9 +193,9 @@ static int serveTest(int control_socket) {
     }
     sendReadyPacket(control_socket, getSocketPort(t_listen));
 
-    do{
+    do {
         test_socket = accept(t_listen,
-                      (struct sockaddr*) &client_addr, &client_addrlen);
+                (struct sockaddr*) &client_addr, &client_addrlen);
     } while (test_socket == -1 && errno == EINTR ); /* Repeat if interrupted */
 
     /* For security best to close this here and re-open later if reconnecting */
@@ -389,7 +389,7 @@ int run_throughput(int argc, char *argv[], int count, struct addrinfo **dests) {
     }
 
     client_addrlen = sizeof(client_addr);
-    do{
+    do {
         control_sock = accept(listen_socket,
                       (struct sockaddr*) &client_addr, &client_addrlen);
     } while ( control_sock == -1 && errno == EINTR );

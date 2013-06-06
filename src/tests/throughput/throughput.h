@@ -290,7 +290,7 @@ struct opt_t {
     int32_t sock_rcvbuf;
     int32_t sock_sndbuf;
     char *textual_schedule;
-    struct test_request_t * schedule; /* The test sequence */
+    struct test_request_t *schedule; /* The test sequence */
 };
 
 /* All of our packet types */
@@ -363,7 +363,7 @@ int sendReadyPacket(int sock_fd, uint16_t tport);
 int sendRequestTestPacket(int sock, const struct test_request_t *req);
 int sendResultPacket(int sock_fd, struct test_result_t *res,
         struct report_web10g_t *web10g);
-int readDataPacket(const struct packet_t * packet, const int write_size,
+int readDataPacket(const struct packet_t *packet, const int write_size,
         struct test_result_t *res);
 int readResultPacket(const struct packet_t *p, struct test_result_t *res);
 int readHelloPacket(const struct packet_t *p, struct opt_t *sockopts,

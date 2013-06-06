@@ -15,10 +15,10 @@
 
 
 /* Declare our static functions */
-static void htobePacket(struct packet_t * p);
-static void betohPacket(struct packet_t * p);
-static int setVerifySockopt(int sock_fd, int * newValue, int proto,
-        int opt, const char * optname);
+static void htobePacket(struct packet_t *p);
+static void betohPacket(struct packet_t *p);
+static int setVerifySockopt(int sock_fd, int *newValue, int proto,
+        int opt, const char *optname);
 
 
 
@@ -65,8 +65,8 @@ void randomMemset(char *data, unsigned int size){
  *
  * @param return 0 if success - otherwise -1
  */
-static int setVerifySockopt(int sock_fd, int * newValue, int proto,
-        int opt, const char * optname) {
+static int setVerifySockopt(int sock_fd, int *newValue, int proto,
+        int opt, const char *optname) {
     socklen_t newValueSize;
     int ret;
 
@@ -76,16 +76,17 @@ static int setVerifySockopt(int sock_fd, int * newValue, int proto,
         Log(LOG_WARNING, "setsockopt failed to set the %s option to %d: %s",
                 optname,  *newValue, strerror(errno));
         return -1;
-    } else {
-        /* Verify */
-        *newValue = 0;
-        ret = getsockopt(sock_fd, proto, opt, newValue, &newValueSize);
-        if ( ret != 0 ) {
-            Log(LOG_WARNING, "getsockopt failed to get the %s option: %s",
-                    optname, strerror(errno));
-            return -1;
-        }
     }
+
+    /* Verify */
+    *newValue = 0;
+    ret = getsockopt(sock_fd, proto, opt, newValue, &newValueSize);
+    if ( ret != 0 ) {
+        Log(LOG_WARNING, "getsockopt failed to get the %s option: %s",
+                optname, strerror(errno));
+        return -1;
+    }
+
     /* Success */
     return 0;
 }
@@ -102,7 +103,7 @@ static int setVerifySockopt(int sock_fd, int * newValue, int proto,
  * @param sock_fd
  *          The socket file descriptor to apply this to.
  */
-void doSocketSetup(struct opt_t * options, int sock_fd){
+void doSocketSetup(struct opt_t *options, int sock_fd){
     int ret;
     int newValue;
 
@@ -110,7 +111,7 @@ void doSocketSetup(struct opt_t * options, int sock_fd){
         return;
     }
 
-     /*~~~~~~~~~~~~~~~~~~~~~~~~ TCP_MAXSEG ~~~~~~~~~~~~~~~~~~~~~~~~~*/
+    /* set TCP_MAXSEG option */
     if ( options->sock_mss > 0 ) {
 #ifdef TCP_MAXSEG
         newValue = options->sock_mss;
@@ -118,9 +119,9 @@ void doSocketSetup(struct opt_t * options, int sock_fd){
                 TCP_MAXSEG, "TCP_MAXSEG");
 
         if ( ret == 0 && newValue != options->sock_mss ) {
-            Log(LOG_WARNING, "setsockopt suceeded however getsockopt"
+            Log(LOG_WARNING, "setsockopt succeeded however getsockopt"
                                 " doesn't agree - wanted TCP_MAXSEG set"
-                                " :%"PRId32 " but got :%d",
+                                " :%" PRId32 " but got :%d",
                                 options->sock_mss, newValue);
             /* TODO SHOULD set max mss to what we really used for reporting?? */
         }
@@ -131,14 +132,14 @@ void doSocketSetup(struct opt_t * options, int sock_fd){
 #endif
     }
 
-    /*~~~~~~~~~~~~~~~~~~~~~~~~ TCP_NODELAY ~~~~~~~~~~~~~~~~~~~~~~~~~*/
+    /* set TCP_NODELAY option */
     if ( options->sock_disable_nagle ) {
 #ifdef TCP_NODELAY
         newValue = 1;
         ret = setVerifySockopt(sock_fd, &newValue, IPPROTO_TCP,
                 TCP_NODELAY, "TCP_NODELAY");
         if ( ret == 0 && newValue == 0 ) {
-            Log(LOG_WARNING, "setsockopt suceeded disabling nagle"
+            Log(LOG_WARNING, "setsockopt succeeded disabling nagle"
                     " however getsockopt still says its enabled");
         }
 
@@ -150,14 +151,14 @@ void doSocketSetup(struct opt_t * options, int sock_fd){
 #endif
     }
 
-    /*~~~~~~~~~~~~~~~~~~~~~~~~ SO_RCVBUF ~~~~~~~~~~~~~~~~~~~~~~~~~*/
+    /* set SO_RCVBUF option */
     if ( options->sock_rcvbuf > 0 ) {
 #ifdef SO_RCVBUF
         newValue = options->sock_rcvbuf;
         ret = setVerifySockopt(sock_fd, &newValue, SOL_SOCKET,
                 SO_RCVBUF, "SO_RCVBUF");
         if ( ret == 0 && newValue / 2 != options->sock_rcvbuf ) {
-            Log(LOG_WARNING, "setsockopt suceeded however getsockopt"
+            Log(LOG_WARNING, "setsockopt succeeded however getsockopt"
                     " doesn't agree - wanted SO_RCVBUF set"
                     " :%" PRId32 " but got :%d",
                     options->sock_rcvbuf, newValue);
@@ -172,9 +173,9 @@ void doSocketSetup(struct opt_t * options, int sock_fd){
             ret = setVerifySockopt(sock_fd, &newValue, SOL_SOCKET,
                     SO_RCVBUFFORCE, "SO_RCVBUFFORCE");
             if ( ret == 0 && newValue / 2 != options->sock_rcvbuf ) {
-                Log(LOG_WARNING, "setsockopt suceeded however"
+                Log(LOG_WARNING, "setsockopt succeeded however"
                         " getsockopt doesn't agree - wanted "
-                        "SO_RCVBUFFORCE set :%"PRId32" but got :%d",
+                        "SO_RCVBUFFORCE set :%" PRId32 " but got :%d",
                         options->sock_rcvbuf, newValue);
             }
         }
@@ -186,14 +187,14 @@ void doSocketSetup(struct opt_t * options, int sock_fd){
 #endif /* SO_RCVBUF */
     }
 
-    /*~~~~~~~~~~~~~~~~~~~~~~~~ SO_SNDBUF ~~~~~~~~~~~~~~~~~~~~~~~~~*/
+    /* set SO_SNDBUF option */
     if ( options->sock_sndbuf > 0 ) {
 #ifdef SO_SNDBUF
         newValue = options->sock_sndbuf;
         ret = setVerifySockopt(sock_fd, &newValue, SOL_SOCKET,
                 SO_SNDBUF, "SO_SNDBUF");
         if ( ret == 0 && newValue / 2 != options->sock_sndbuf ) {
-            Log(LOG_WARNING, "setsockopt suceeded however getsockopt "
+            Log(LOG_WARNING, "setsockopt succeeded however getsockopt "
                     "doesn't agree - wanted SO_SNDBUF set "
                     ":%" PRId32 " but got :%d",
                     options->sock_sndbuf, newValue);
@@ -208,7 +209,7 @@ void doSocketSetup(struct opt_t * options, int sock_fd){
             ret = setVerifySockopt(sock_fd, &newValue, SOL_SOCKET,
                                     SO_SNDBUFFORCE, "SO_SNDBUFFORCE");
             if ( ret == 0 && newValue / 2 != options->sock_sndbuf ) {
-                Log(LOG_WARNING, "setsockopt suceeded however"
+                Log(LOG_WARNING, "setsockopt succeeded however"
                         " getsockopt doesn't agree - wanted "
                         "SO_SNDBUFFORCE set :%" PRId32 " but got :%d",
                         options->sock_sndbuf, newValue);
@@ -223,14 +224,14 @@ void doSocketSetup(struct opt_t * options, int sock_fd){
 #endif /* SO_SNDBUF */
     }
 
-    /*~~~~~~~~~~~~~~~~~~~~~~~~ SO_REUSEADDR ~~~~~~~~~~~~~~~~~~~~~~~~*/
+    /* set SO_REUSEADDR option */
     if (options->reuse_addr ) {
 #ifdef SO_REUSEADDR
         newValue = 1;
         ret = setVerifySockopt(sock_fd, &newValue, SOL_SOCKET,
                 SO_REUSEADDR, "SO_REUSEADDR");
         if ( ret == 0 && newValue == 0 ) {
-            Log(LOG_WARNING, "setsockopt suceeded disabling nagle"
+            Log(LOG_WARNING, "setsockopt succeeded in setting SO_REUSEADDR"
                     " however getsockopt still says its enabled");
         }
         Log(LOG_INFO, "setsockopt set SO_REUSEADDR to :%d", newValue);
@@ -321,7 +322,7 @@ int writePacket(int sock_fd, struct packet_t *packet){
  *         A failure includes a socket error, early packet termination
  *         and EOF reached before reading any packet.
  */
-int readPacket(int test_socket, struct packet_t * packet, char **additional) {
+int readPacket(int test_socket, struct packet_t *packet, char **additional) {
     int result;
     uint32_t bytes_read;
     char buf[DEFAULT_WRITE_SIZE];
@@ -505,7 +506,7 @@ int sendPackets(int sock_fd, struct test_request_t *test_opts,
  *
  * @return 0 upon success otherwise -1
  */
-int incomingTest(int sock_fd, struct test_result_t * result) {
+int incomingTest(int sock_fd, struct test_result_t *result) {
     struct packet_t packet;
     int bytes_read;
 
@@ -549,7 +550,7 @@ int incomingTest(int sock_fd, struct test_result_t * result) {
  * @param p
  *          A pointer to the packet to convert
  */
-static void htobePacket(struct packet_t * p) {
+static void htobePacket(struct packet_t *p) {
     switch ( p->header.type ) {
         case TPUT_PKT_DATA:
             p->types.data.more = htobe32(p->types.data.more);
@@ -593,7 +594,7 @@ static void htobePacket(struct packet_t * p) {
  * @param p
  *          A pointer to the packet to convert
  */
-static void betohPacket(struct packet_t * p) {
+static void betohPacket(struct packet_t *p) {
     p->header.type = be32toh(p->header.type);
     p->header.size = be32toh(p->header.size);
     switch ( p->header.type ) {
@@ -636,7 +637,7 @@ static void betohPacket(struct packet_t * p) {
  * mutiplied to nanoseconds.
  */
 uint64_t timeNanoseconds(void){
-    /* TODO see if clock_gettime() can be used for a truely high resolution */
+    /* TODO see if clock_gettime() can be used for a truly high resolution */
     struct timeval t = {0};
     gettimeofday(&t, NULL);
     return (uint64_t) t.tv_sec * (uint64_t) 1000000000 +
@@ -658,7 +659,7 @@ uint64_t timeNanoseconds(void){
  *
  * @return 0 upon success, -1 if an error occurs like an unexpected packet type.
  */
-int readDataPacket(const struct packet_t * packet, const int write_size,
+int readDataPacket(const struct packet_t *packet, const int write_size,
                                     struct test_result_t *res) {
     if ( packet->header.type != TPUT_PKT_DATA ) {
         return -1;
@@ -666,7 +667,7 @@ int readDataPacket(const struct packet_t * packet, const int write_size,
 
     if ( res->done ) {
         /* Should always wipe the result for the next test */
-        Log(LOG_ERR, "receivingPackets() is using a finished test result.");
+        Log(LOG_ERR, "readDataPacket() is using a finished test result.");
         return -1;
     }
 
@@ -705,6 +706,9 @@ int readDataPacket(const struct packet_t * packet, const int write_size,
 int sendResultPacket(int sock_fd, struct test_result_t *res,
         struct report_web10g_t *web10g){
     struct packet_t p;
+    struct packet_t *p_web10g;
+    int ret;
+
     memset(&p, 0, sizeof(p));
     p.header.type = TPUT_PKT_RESULT;
     p.header.size = ( web10g == NULL ? 0 : sizeof(struct report_web10g_t) );
@@ -717,21 +721,19 @@ int sendResultPacket(int sock_fd, struct test_result_t *res,
         /* Nothing extra */
         p.header.size = 0;
         return writePacket(sock_fd, &p);
-    } else {
-        /* Concatenate the packet and the web10g data then send */
-        int ret;
-        struct packet_t * p_web10g = malloc( sizeof(struct packet_t)
-                                + sizeof(struct report_web10g_t) );
-
-        p.header.size = sizeof(struct report_web10g_t);
-        memcpy(p_web10g, &p, sizeof(struct packet_t));
-        memcpy(p_web10g + 1, web10g, sizeof(struct report_web10g_t));
-
-        ret = writePacket(sock_fd, p_web10g);
-
-        free(p_web10g);
-        return ret;
     }
+
+    /* Concatenate the packet and the web10g data then send */
+    p_web10g = malloc(sizeof(struct packet_t) + sizeof(struct report_web10g_t));
+
+    p.header.size = sizeof(struct report_web10g_t);
+    memcpy(p_web10g, &p, sizeof(struct packet_t));
+    memcpy(p_web10g + 1, web10g, sizeof(struct report_web10g_t));
+
+    ret = writePacket(sock_fd, p_web10g);
+
+    free(p_web10g);
+    return ret;
 }
 
 
@@ -786,7 +788,7 @@ int sendFinalDataPacket(int sock_fd) {
  * @return The result of writePacket() - NOTE : The packet will always
  *         construct successfully.
  */
-int sendHelloPacket(int sock_fd, struct opt_t * opt) {
+int sendHelloPacket(int sock_fd, struct opt_t *opt) {
     struct packet_t p;
     memset(&p, 0, sizeof(p));
     p.header.type = TPUT_PKT_HELLO;
@@ -865,7 +867,7 @@ int sendReadyPacket(int sock_fd, uint16_t tport) {
  *
  * @return The result of writePacket()
  */
-int sendRequestTestPacket(int sock, const struct test_request_t * req) {
+int sendRequestTestPacket(int sock, const struct test_request_t *req) {
     struct packet_t p;
 
     memset(&p, 0 , sizeof(p));
@@ -923,7 +925,7 @@ int readResultPacket(const struct packet_t *p, struct test_result_t *res) {
  *          The successfully connected tport number.
  * @return 0 upon success, -1 upon failure such as a invalid type
  */
-int readReadyPacket(const struct packet_t * p, uint16_t * tport) {
+int readReadyPacket(const struct packet_t *p, uint16_t *tport) {
     if ( p->header.type != TPUT_PKT_READY ) {
         Log(LOG_ERR, "Required a ready packet but type %d instead",
                 p->header.type);
