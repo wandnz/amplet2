@@ -256,7 +256,7 @@ void doSocketSetup(struct opt_t * options, int sock_fd){
  *
  * @return 0 if successful, -1 if failure.
  */
-int writePacket(int sock_fd, struct packet_t * packet){
+int writePacket(int sock_fd, struct packet_t *packet){
     int res;
     int total_written = 0;
     int total_size = packet->header.size + sizeof(struct packet_t);
@@ -297,7 +297,8 @@ int writePacket(int sock_fd, struct packet_t * packet){
 
     Log(LOG_DEBUG, "successfully sent %d of %d bytes", total_written,
             total_size);
-    return 0;
+
+    return total_written;
 }
 
 
@@ -414,58 +415,42 @@ int readPacket(int test_socket, struct packet_t * packet, char **additional) {
 int sendPackets(int sock_fd, struct test_request_t *test_opts,
                 struct test_result_t *res) {
 
-    uint32_t p_count; /* Count of packets we have sent */
     int more; /* Still got more to send ? */
     uint64_t run_time_ms;
     struct packet_t *packet_out; /* the packet header and data */
+    uint32_t bytes_sent = 0;
 
     /* Make sure the test is valid */
-    if ( test_opts->packets == 0 && test_opts->duration == 0 ) {
-        Log(LOG_ERR, "no terminating condition for test, either packets or duration must be set\n");
-        return 1;
-    }
-    if ( test_opts->write_size <  sizeof(struct packet_t) ) {
-        Log(LOG_ERR, "Packet size is too small (%d < %d)",
-                test_opts->write_size, sizeof(struct packet_t));
-        return 1;
-    }
-    if ( test_opts->write_size > MAX_MALLOC ) {
-        Log(LOG_ERR, "Packet size is large (%d > %d)",
-                test_opts->write_size, MAX_MALLOC);
+    if ( test_opts->bytes == 0 && test_opts->duration == 0 ) {
+        Log(LOG_ERR, "no terminating condition for test");
         return 1;
     }
 
     /* Log the stopping condition */
-    if ( test_opts->packets > 0 ) {
-        Log(LOG_DEBUG, "Sending %d %d byte packets\n",
-                test_opts->packets,  test_opts->write_size);
+    if ( test_opts->bytes > 0 ) {
+        Log(LOG_DEBUG, "Sending %d bytes\n", test_opts->bytes);
     }
     if ( test_opts->duration > 0 ) {
-        Log(LOG_DEBUG, "Sending %d byte packets for %ldms\n",
-                test_opts->write_size, test_opts->duration);
+        Log(LOG_DEBUG, "Sending for %ldms\n", test_opts->duration);
     }
 
     /* Build our packet */
     packet_out = (struct packet_t *) malloc(test_opts->write_size);
     if ( packet_out == NULL ) {
-        Log(LOG_ERR, "sendPackets() malloc failed : %s\n",
-        strerror(errno));
+        Log(LOG_ERR, "sendPackets() malloc failed : %s\n", strerror(errno));
         return 1;
     }
     memset(packet_out, 0, sizeof(struct packet_t));
     packet_out->header.type = TPUT_PKT_DATA;
     packet_out->header.size = test_opts->write_size - sizeof(struct packet_t);
     packet_out->types.data.more = 1;
-    randomMemset((char *)(packet_out+1), packet_out->header.size);
 
     /* Note starting time */
-    p_count = 0;
     run_time_ms = 0;
     res->start_ns = timeNanoseconds();
     more = 1;
 
     while ( more ) {
-        p_count++;
         res->end_ns = timeNanoseconds();
         run_time_ms = (res->end_ns - res->start_ns) / 1e6;
         /* Log(LOG_DEBUG, "runtime = %ld/%ld", run_time_ms,
@@ -477,18 +462,29 @@ int sendPackets(int sock_fd, struct test_request_t *test_opts,
         }
 
         /* Check if we have meet our exit condition */
-        more = (test_opts->packets != 0 && p_count < test_opts->packets) ||
-            (test_opts->duration != 0 && run_time_ms < test_opts->duration);
-        if ( !more ) {
-            packet_out->types.data.more = 0;
+        if ( (test_opts->bytes != 0 &&
+                    test_opts->bytes - res->bytes < test_opts->write_size) ) {
+            /* send the smaller remaining portion and mark end of data */
+            packet_out->header.size = test_opts->bytes - res->bytes -
+                sizeof(struct packet_t);
+            more = 0;
+
+        } else if ( test_opts->duration != 0 &&
+                run_time_ms >= test_opts->duration) {
+            /* mark end of data, we have reached our time limit */
+            more = 0;
         }
-        if ( writePacket(sock_fd, packet_out) != 0 ) {
+
+        packet_out->types.data.more = more;
+
+        if ( (bytes_sent = writePacket(sock_fd, packet_out)) < 0 ) {
             Log(LOG_ERR, "sendPackets() could not send data packet\n");
             free(packet_out);
             return -1;
         }
-        res->bytes += test_opts->write_size;
-    }//while we need to send more packets
+
+        res->bytes += bytes_sent;
+    }
 
     res->end_ns = timeNanoseconds();
     free(packet_out);
@@ -559,7 +555,7 @@ static void htobePacket(struct packet_t * p) {
             p->types.data.more = htobe32(p->types.data.more);
             break;
         case TPUT_PKT_SEND:
-            p->types.send.packets = htobe32(p->types.send.packets);
+            p->types.send.bytes = htobe64(p->types.send.bytes);
             p->types.send.write_size = htobe32(p->types.send.write_size);
             p->types.send.duration_ms = htobe64(p->types.send.duration_ms);
             break;
@@ -605,7 +601,7 @@ static void betohPacket(struct packet_t * p) {
             p->types.data.more = be32toh(p->types.data.more);
             break;
         case TPUT_PKT_SEND:
-            p->types.send.packets = be32toh(p->types.send.packets);
+            p->types.send.bytes = be64toh(p->types.send.bytes);
             p->types.send.write_size = be32toh(p->types.send.write_size);
             p->types.send.duration_ms = be64toh(p->types.send.duration_ms);
             break;
@@ -877,11 +873,11 @@ int sendRequestTestPacket(int sock, const struct test_request_t * req) {
     p.header.size = 0;
     p.types.send.duration_ms = req->duration;
     p.types.send.write_size = req->write_size;
-    p.types.send.packets = req->packets;
+    p.types.send.bytes = req->bytes;
 
     Log(LOG_INFO, "Sending a TPUT_PKT_SEND request - "
-            "packets: %d duration: %d write_size: %d",
-            p.types.send.packets, p.types.send.duration_ms,
+            "bytes: %d duration: %d write_size: %d",
+            p.types.send.bytes, p.types.send.duration_ms,
             p.types.send.write_size);
 
     return writePacket(sock, &p);
@@ -997,8 +993,8 @@ void printSchedule(struct test_request_t *schedule) {
            case TPUT_2_SERVER: Log(LOG_DEBUG, "Found a TPUT_2_SERVER"); break;
            default : Log(LOG_DEBUG, "Found a bad type"); break;
        }
-       Log(LOG_DEBUG, "packets: %d duration: %d packetsize: %d randomise: %d",
-               cur->packets, cur->duration, cur->write_size, cur->randomise);
+       Log(LOG_DEBUG, "bytes:%d duration:%d writesize:%d randomise:%d",
+               cur->bytes, cur->duration, cur->write_size, cur->randomise);
    }
    Log(LOG_DEBUG, "Finshed schedule");
 }

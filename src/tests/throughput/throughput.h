@@ -258,7 +258,7 @@ struct test_result_t {
 /* A single request */
 struct test_request_t {
     enum tput_type type;
-    uint32_t packets;
+    uint64_t bytes;
     uint32_t duration; /* pause duration in milliseconds */
     uint32_t write_size;
     uint32_t randomise;
@@ -322,9 +322,9 @@ struct packet_t {
             uint32_t  more;
         } data;
         struct sendPacket_t {
-            uint32_t  packets;
-            uint32_t  write_size;
+            uint64_t  bytes;
             uint64_t  duration_ms;
+            uint32_t  write_size;
         } send;
         struct resultPacket_t {
             uint32_t  packets;

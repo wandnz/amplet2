@@ -223,7 +223,7 @@ static int serveTest(int control_socket) {
                 }
 
                 /* Send our result */
-                if ( sendResultPacket(control_socket, &result, web10g) != 0 ) {
+                if ( sendResultPacket(control_socket, &result, web10g) < 0 ) {
                     goto errorCleanup;
                 }
 
@@ -237,12 +237,12 @@ static int serveTest(int control_socket) {
                     struct test_request_t req;
                     memset(&req, 0, sizeof(req));
                     memset(&result, 0, sizeof(result));
-                    req.packets = packet.types.send.packets;
                     req.duration = packet.types.send.duration_ms;
                     req.write_size = packet.types.send.write_size;
+                    req.bytes = packet.types.send.bytes;
                     req.randomise = sockopts.randomise;
-                    Log(LOG_INFO, "Got send request for pkts:%d dur:%d size:%d",
-                            req.packets,req.duration, req.write_size);
+                    Log(LOG_INFO, "Got send request, dur:%d bytes:%d writes:%d",
+                            req.duration, req.bytes, req.write_size);
 
                     /* Send the actual packets */
                     switch ( sendPackets(test_socket, &req, &result) ) {
@@ -252,7 +252,7 @@ static int serveTest(int control_socket) {
                         case 1:
                             /* Bad test request, lets send a packet to keep the
                              * client happy it's still expecting something */
-                            if ( sendFinalDataPacket(test_socket) != 0 ) {
+                            if ( sendFinalDataPacket(test_socket) < 0 ) {
                                 goto errorCleanup;
                             }
 
@@ -263,7 +263,7 @@ static int serveTest(int control_socket) {
                         }
                         /* Unlike old test, send result for either direction */
                         if ( sendResultPacket(control_socket, &result,
-                                    web10g) != 0) {
+                                    web10g) < 0) {
                             goto errorCleanup;
                         }
 

@@ -44,17 +44,15 @@ static void usage(char *prog) {
     fprintf(stderr, "A schedule is a sequence of tests. Each test starts with single character\n");
     fprintf(stderr, "representing it's type. Tests are separated by a single comma ','.\n");
     fprintf(stderr, "Valid types are listed below:\n");
-    fprintf(stderr, " s<num_packets> Run a server -> client test\n");
-    fprintf(stderr, " S<num_packets> Run a client -> server test\n");
+    fprintf(stderr, " s<num_bytes> Run a server -> client test\n");
+    fprintf(stderr, " S<num_bytes> Run a client -> server test\n");
     fprintf(stderr, " t<ms>          Run a server -> client test for the time given in milliseconds\n");
     fprintf(stderr, " T<ms>          Run a client -> server test for the time given in milliseconds\n");
     fprintf(stderr, " n              Make a new test connection\n");
     fprintf(stderr, " p<ms>          Time to pause for the time given in milliseconds\n");
-    fprintf(stderr, "Additionally a s,S,t,T test can specify the packet size to use for that\n");
-    fprintf(stderr, "individual test by placing the size after a colon ':'.\n");
     fprintf(stderr, "Example -s \"t1000,T1000\" - Run two tests each for 1 second first S2C then C2S\n");
-    fprintf(stderr, "Example -s \"s10:1000,n,S10:1000\" - Run two tests S2C then C2S each sending");
-    fprintf(stderr, "       10x1000 byte 'packets' with the connection reset in between\n");
+    fprintf(stderr, "Example -s \"s10000,n,S10000\" - Run two tests S2C then C2S each sending");
+    fprintf(stderr, "       10,000 bytes with the connection reset in between\n");
     exit(0);
 }
 
@@ -97,9 +95,8 @@ static struct option long_options[] =
  */
 static void parseSchedule(struct opt_t * options, char * request) {
     struct test_request_t ** current;
-    long a, b;
-    char *colonPos;
-    int noA, noB;
+    long arg;
+    int noArg;
     char *pch;
 
     /* Point current to the end of the chain */
@@ -127,7 +124,7 @@ static void parseSchedule(struct opt_t * options, char * request) {
          * And if this isn't isnt marked with request type none anyway */
         *current = (struct test_request_t *) malloc(sizeof(struct test_request_t));
         (*current)->type = TPUT_NULL;
-        (*current)->packets = 0;
+        (*current)->bytes = 0;
         (*current)->duration = 0;
         (*current)->write_size = options->write_size;
         (*current)->randomise = options->randomise;
@@ -135,51 +132,38 @@ static void parseSchedule(struct opt_t * options, char * request) {
         (*current)->s_web10g = (*current)->c_web10g = NULL;
         (*current)->next = NULL;
 
-        a = b = 0;                                 //placate gcc
+        arg = 0;
         if ( pch[1] == '\0' ) {
-            noA = 1;
-            noB = 1;
+            noArg = 1;
         } else {
-            noA = 0;
-            a = atol(pch + 1);
-            colonPos = index(pch + 1, ':');
-            if ( colonPos == NULL ) {
-              noB = 1;
-            } else {
-              noB = 0;
-              b = atol(colonPos + 1);
-            }
+            noArg = 0;
+            arg = atol(pch + 1);
         } //schedule has > 1 character
 
         switch ( pch[0] ) {
             case 's':
             case 'S':
-                (*current)->type =
-                            pch[0] == 's' ? TPUT_2_CLIENT : TPUT_2_SERVER;
-                (*current)->packets    = a;
-                if(!noB)
-                    (*current)->write_size = b;
-            break;
+                (*current)->type = (pch[0] == 's')?TPUT_2_CLIENT:TPUT_2_SERVER;
+                (*current)->bytes = arg;
+                /* TODO enforce minimum bytes of sizeof(struct packet_t) */
+                break;
 
             case 't':
             case 'T':
-                (*current)->type =
-                            pch[0] == 't' ? TPUT_2_CLIENT : TPUT_2_SERVER;
-                (*current)->duration   = a;
-                if(!noB)
-                    (*current)->write_size = b;
-            break;
+                (*current)->type = (pch[0] == 't')?TPUT_2_CLIENT:TPUT_2_SERVER;
+                (*current)->duration = arg;
+                break;
 
             case 'p':
             case 'P':
                 (*current)->type  = TPUT_PAUSE;
-                (*current)->duration   = (noA ? DEFAULT_TPUT_PAUSE : a);
-            break;
+                (*current)->duration = (noArg ? DEFAULT_TPUT_PAUSE : arg);
+                break;
 
             case 'n':
             case 'N':
                 (*current)->type = TPUT_NEW_CONNECTION;
-            break;
+                break;
 
             default:
                 Log(LOG_WARNING , "Unknown schedule code in %s (ignored)", pch);
@@ -188,8 +172,7 @@ static void parseSchedule(struct opt_t * options, char * request) {
         /* Check test is valid and has a stopping condition*/
         if ( (*current)->type != TPUT_NEW_CONNECTION &&
                 (*current)->type != TPUT_NULL ) {
-            if ( ((*current)->packets == 0 && (*current)->duration == 0) ||
-                    (*current)->write_size == 0 ) {
+            if ( (*current)->bytes == 0 && (*current)->duration == 0 ) {
                 (*current)->type = TPUT_NULL;
                 Log(LOG_WARNING,
                         "Invalid test found in schedule ignoring. "
@@ -503,7 +486,7 @@ static int runSchedule(struct addrinfo * serv_addr, struct opt_t * options) {
     }
 
     /* Send version info along with socket preference */
-    if ( sendHelloPacket(control_socket, options) != 0 ) {
+    if ( sendHelloPacket(control_socket, options) < 0 ) {
         goto errorCleanup;
     }
     /* Wait test socket to become ready */
@@ -537,7 +520,7 @@ static int runSchedule(struct addrinfo * serv_addr, struct opt_t * options) {
 
             case TPUT_NEW_CONNECTION:
                 Log(LOG_INFO, "Asking the Server to renew the connection");
-                if ( sendResetPacket(control_socket) != 0 ) {
+                if ( sendResetPacket(control_socket) < 0 ) {
                     Log(LOG_ERR, "Failed to send reset packet");
                     goto errorCleanup;
                 }
@@ -567,7 +550,7 @@ static int runSchedule(struct addrinfo * serv_addr, struct opt_t * options) {
             case TPUT_2_CLIENT:
                 Log(LOG_INFO, "Starting Server to Client Throughput test");
                 /* Request a test from the server */
-                if ( sendRequestTestPacket(control_socket, cur) != 0 ) {
+                if ( sendRequestTestPacket(control_socket, cur) < 0 ) {
                     goto errorCleanup;
                 }
 
@@ -659,7 +642,7 @@ static int runSchedule(struct addrinfo * serv_addr, struct opt_t * options) {
     report_results(control_socket, options, start_time_ns , timeNanoseconds());
 
     Log(LOG_INFO, "Closing test");
-    if( sendClosePacket(control_socket) != 0)
+    if( sendClosePacket(control_socket) < 0)
          Log(LOG_WARNING, "Failed to send close message");
 
     close(control_socket);
@@ -731,6 +714,14 @@ int run_throughput(int argc, char *argv[], int count, struct addrinfo **dests) {
             case '?':
             default: usage(argv[0]); exit(0);
         };
+    }
+
+    /* make sure write size is sensible */
+    if ( options.write_size < sizeof(struct packet_t) ||
+            options.write_size > MAX_MALLOC ) {
+        Log(LOG_ERR, "Write size invalid, should be %d < x < %d, got %d",
+                sizeof(struct packet_t), MAX_MALLOC, options.write_size);
+        return 1;
     }
 
     /* If there is no test schedule set it to use the default */
