@@ -1,0 +1,75 @@
+# AMP schedule
+#
+# Any file in this directory is treated as a schedule file, describing
+# which tests should be performed, when they should occur, and which sites
+# they should target. The schedules from all files in this directory are
+# combined together to create the complete schedule for this instance of
+# measured.
+#
+# The schedules are read in when measured first starts and also whenever
+# it receives a SIGHUP signal. Using the "reload" option to the init script
+# will send a SIGHUP to a running measured.
+#
+# The schedule format is similar to that of the previous AMP schedule. A
+# test is usually repeated at some frequency during a particular period,
+# with controls over which part of the period it is run. Each test is
+# described by a single line, in this format:
+#
+# <target>,<test>,<repeat-period>,<start-ms>,<end-ms>,<freq-ms>,<args>
+#
+# target:
+#       The name of the destination to test to. If this name is in the AMP
+#       nametable file then the listed address will be used, otherwise the
+#       name will be resolved using whatever DNS servers are configured for
+#       the host. The maximum number of resolved addresses returned can be
+#       controlled by appending a colon with the maximum number, e.g.
+#       www.example.org:1 - test to a single resolved address for the site
+#       www.example.org:* - test to all resolved addresses for the site
+#
+# test:
+#       The name of the test to run. Examples of tests currently included
+#       in AMP are: icmp, traceroute, dns, http, throughput
+#
+# repeat-period:
+#       A single letter describing the frequency at which the schedule
+#       should be repeated. H=hourly, D=daily, W=weekly
+#
+# start-ms:
+#       The time in milliseconds after the start of the repeat period that
+#       the first run of this test should be scheduled.
+#
+# end-ms:
+#       The time in milliseconds after the start of the repeat period that
+#       the test should stop being scheduled.
+#
+# freq-ms:
+#       The frequency in milliseconds at which the test should be repeated
+#       within this repeat period. A value of zero means to run the test
+#       only once within the period (don't repeat).
+#
+# args:
+#       Any fields after the first 6 are treated as parameters to the test.
+#       If no parameters are given then the test will run with the default
+#       values, which (depending on what the particular test expects) may or
+#       may not be enough to properly run the test.
+#
+#
+# EXAMPLES:
+#
+# Run an icmp test to amp-foo every 10 seconds, starting at midnight:
+#       amp-foo,icmp,D,0,86400000,10000
+#
+# Run an icmp test to amp-foo every 10 minutes, starting at midnight and
+# using random packet sizes:
+#       amp-foo,icmp,D,0,86400000,600000, -r
+#
+# Run a dns test to amp-foo every 10 minutes, starting at midnight,
+# querying for www.example.org IN AAAA:
+#       amp-foo,dns,D,86400000,600000, -q www.example.org -c IN -t AAAA
+#
+# Run a traceroute test to amp-foo every 15 minutes, starting at noon and
+# stopping 3 hours later:
+#       amp-foo,traceroute,D,43200000,54000000,900000
+#
+# Run a traceroute test to amp-foo once a week on Sunday morning:
+#       amp-foo,traceroute,W,0,604800000,0

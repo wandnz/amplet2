@@ -1,0 +1,20 @@
+# AMP nametable
+#
+# This file contains a list of mappings of name to IP address, similar in
+# approach to /etc/hosts. This allows the use of names to refer to test
+# targets without involving DNS lookups.
+#
+# These mappings are read in when measured first starts and also whenever
+# it receives a SIGHUP signal. Using the "reload" option to the init script
+# will send a SIGHUP to a running measured.
+#
+# There should not be entries with duplicate names in this file - if there
+# are then only the first one listed will be used, later entries will be
+# ignored. Duplicate IP addresses are allowed.
+#
+# EXAMPLES:
+#
+# amp-foo 10.1.2.3
+# local.test.site 192.168.0.1
+# amp-bar 192.168.0.1
+# ipv6-target 2001:dead:beef::1
