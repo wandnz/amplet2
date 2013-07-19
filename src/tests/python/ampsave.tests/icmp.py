@@ -66,7 +66,7 @@ def get_data(data):
                     "ttl": ttl,
                     "packet_size": packet_size,
                     "random": random,
-                    "loss": True if rtt is None else False,
+                    "loss": 1 if rtt is None else 0,
                 }
             )
 	offset += item_len
