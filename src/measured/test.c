@@ -68,7 +68,7 @@ static void run_test(const test_schedule_item_t * const item) {
 		sizeof(struct addrinfo*) * item->dest_count);
     }
 
-    /* resolve any names that need to be done at rest run time */
+    /* resolve any names that need to be done at test run time */
     if ( item->resolve != NULL ) {
 	struct addrinfo hint;
 	struct addrinfo *tmp;
@@ -100,8 +100,8 @@ static void run_test(const test_schedule_item_t * const item) {
 	     * how many of the addresses we should actually test to.
 	     */
 	    for ( tmp = resolve->addr; tmp != NULL; tmp = tmp->ai_next ) {
-		if ( item->resolve->count > 0 &&
-			addr_resolve_count >= item->resolve->count ) {
+		if ( resolve->count > 0 &&
+			addr_resolve_count >= resolve->count ) {
 		    break;
 		}
 
