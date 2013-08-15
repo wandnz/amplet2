@@ -164,11 +164,6 @@ static int is_icmp4_error(struct iphdr *ip, struct icmphdr *icmp,
     assert(embedded_ip);
     assert(embedded_udp);
 
-    /* TTL exceeded, this is fine */
-    if ( icmp->type == ICMP_TIME_EXCEEDED ) {
-        return 0;
-    }
-
     /* source port doesn't match ours, this response is not for us */
     if ( ntohs(embedded_udp->source) != ident ) {
         return 1;
@@ -193,6 +188,11 @@ static int is_icmp4_error(struct iphdr *ip, struct icmphdr *icmp,
          */
         info[index].retry = 1;
         return 1;
+    }
+
+    /* TTL exceeded, this is fine */
+    if ( icmp->type == ICMP_TIME_EXCEEDED ) {
+        return 0;
     }
 
     /* it's some other error, record the type and code */
