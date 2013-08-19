@@ -1,3 +1,11 @@
+amplet2 (0.1.5-1) unstable; urgency=low
+  * New upstream release.
+  * Fixed traceroute test to properly ignore other tests TTL exceeded messages.
+  * Fixed an issue where resolving test addresses would not return all of them.
+  * Added basic SSL authentication to the broker.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Mon, 19 Aug 2013 16:11:19 +1200
+
 amplet2 (0.1.4-1) unstable; urgency=low
 
   * New upstream release.
