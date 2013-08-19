@@ -5,6 +5,9 @@
 #include <unistd.h>
 #include <stdint.h>
 
+#include <amqp_ssl_socket.h>
+#include <amqp_tcp_socket.h>
+
 #include "messaging.h"
 #include "debug.h"
 #include "modules.h"
@@ -19,27 +22,66 @@
  * TODO can we detect this going away and reconnect if it does so?
  */
 int connect_to_broker() {
-    int sock;
+    amqp_socket_t *sock;
 
     /* this connection will be held open forever while measured runs */
     Log(LOG_DEBUG, "Opening new connection to broker on %s:%d\n",
 	    vars.collector, vars.port);
 
     conn = amqp_new_connection();
-    if ( (sock = amqp_open_socket(vars.collector, vars.port)) < 0 ) {
-	Log(LOG_ERR, "Failed to open socket to broker %s:%d",
-		vars.collector, vars.port);
-	return -1;
-    }
 
-    amqp_set_sockfd(conn, sock);
+    if ( vars.ssl ) {
 
-    /* login to the broker */
-    /* TODO use a better auth mechanism than plain SASL with guest/guest */
-    if ( (amqp_login(conn, "/", 0, AMQP_FRAME_MAX, 0, AMQP_SASL_METHOD_PLAIN,
-	    "guest", "guest")).reply_type != AMQP_RESPONSE_NORMAL ) {
-	Log(LOG_ERR, "Failed to login to broker");
-	return -1;
+        if ( (sock = amqp_ssl_socket_new(conn)) == NULL ) {
+            Log(LOG_ERR, "Failed to create SSL socket\n");
+            return -1;
+        }
+
+        if ( amqp_ssl_socket_set_cacert(sock, vars.cacert) != 0 ) {
+            Log(LOG_ERR, "Failed to set CA certificate\n");
+            return -1;
+        }
+
+        if ( amqp_ssl_socket_set_key(sock, vars.cert, vars.key) != 0 ) {
+            Log(LOG_ERR, "Failed to set client certificate\n");
+            return -1;
+        }
+
+        if ( amqp_socket_open(sock, vars.collector, vars.port) != 0 ) {
+            Log(LOG_ERR, "Failed to open connection to %s:%s",
+                    vars.collector, vars.port);
+            return -1;
+        }
+
+        /* login using EXTERNAL, no need to specify user name */
+        if ( (amqp_login(conn, "/", 0, AMQP_FRAME_MAX, 0,
+                        AMQP_SASL_METHOD_EXTERNAL)
+             ).reply_type != AMQP_RESPONSE_NORMAL ) {
+            Log(LOG_ERR, "Failed to login to broker");
+            return -1;
+        }
+
+    } else {
+
+        if ( (sock = amqp_tcp_socket_new(conn)) == NULL ) {
+            Log(LOG_ERR, "Failed to create TCP socket\n");
+            return -1;
+        }
+
+        if ( amqp_socket_open(sock, vars.collector, vars.port) != 0 ) {
+            Log(LOG_ERR, "Failed to open connection to %s:%s",
+                    vars.collector, vars.port);
+            return -1;
+        }
+
+        /* login using PLAIN, must specify username and password */
+        /* TODO make credentials configurable, or remove this entirely? */
+        if ( (amqp_login(conn, "/", 0, AMQP_FRAME_MAX,0,
+                        AMQP_SASL_METHOD_PLAIN, "guest", "guest")
+             ).reply_type != AMQP_RESPONSE_NORMAL ) {
+            Log(LOG_ERR, "Failed to login to broker");
+            return -1;
+        }
     }
 
     return 0;
@@ -134,12 +176,19 @@ int report_to_broker(test_type_t type, uint64_t timestamp, void *bytes,
 	AMQP_BASIC_CONTENT_TYPE_FLAG |
 	AMQP_BASIC_DELIVERY_MODE_FLAG |
 	AMQP_BASIC_HEADERS_FLAG |
-	AMQP_BASIC_TIMESTAMP_FLAG;
+	AMQP_BASIC_TIMESTAMP_FLAG |
+        AMQP_BASIC_USER_ID_FLAG;
 
     props.content_type = amqp_cstring_bytes("application/octet-stream");
     props.delivery_mode = 2; /* persistent delivery mode */
     props.headers = headers;
     props.timestamp = timestamp;
+    /*
+     * If the userid is set, it must match the authenticated username or the
+     * message will be rejected by the rabbitmq broker. If it is not set then
+     * the message will be rejected by the NNTSC dataparser
+     */
+    props.user_id = amqp_cstring_bytes(vars.ampname);
 
     /* jump dump a binary blob similar to old style? */
     data.len = len;
