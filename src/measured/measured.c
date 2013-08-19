@@ -137,11 +137,15 @@ static int parse_config(char *filename, struct amp_global_t *vars) {
     cfg_t *cfg, *cfg_collector;
 
     cfg_opt_t opt_collector[] = {
-	CFG_STR("address", AMQP_SERVER, CFGF_NONE),
-	CFG_INT("port", AMQP_PORT, CFGF_NONE),
-	CFG_STR("exchange", "amp_exchange", CFGF_NONE),
-	CFG_STR("routingkey", "test", CFGF_NONE),
-	CFG_END()
+        CFG_STR("address", AMQP_SERVER, CFGF_NONE),
+        CFG_INT("port", AMQP_PORT, CFGF_NONE),
+        CFG_STR("exchange", "amp_exchange", CFGF_NONE),
+        CFG_STR("routingkey", "test", CFGF_NONE),
+        CFG_BOOL("ssl", cfg_false, CFGF_NONE),
+        CFG_STR("cacert", NULL, CFGF_NONE),
+        CFG_STR("key", NULL, CFGF_NONE),
+        CFG_STR("cert", NULL, CFGF_NONE),
+        CFG_END()
     };
 
     cfg_opt_t measured_opts[] = {
@@ -188,6 +192,10 @@ static int parse_config(char *filename, struct amp_global_t *vars) {
 	vars->port = cfg_getint(cfg_collector, "port");
 	vars->exchange = strdup(cfg_getstr(cfg_collector, "exchange"));
 	vars->routingkey = strdup(cfg_getstr(cfg_collector, "routingkey"));
+	vars->ssl = cfg_getbool(cfg_collector, "ssl");
+	vars->cacert = strdup(cfg_getstr(cfg_collector, "cacert"));
+	vars->key = strdup(cfg_getstr(cfg_collector, "key"));
+	vars->cert = strdup(cfg_getstr(cfg_collector, "cert"));
     }
 
     cfg_free(cfg);

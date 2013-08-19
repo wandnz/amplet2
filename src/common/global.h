@@ -10,7 +10,11 @@ struct amp_global_t {
     char *testdir;
     char *exchange;
     char *routingkey;
+    int ssl;
+    char *cacert;
+    char *key;
+    char *cert;
 };
-    
+
 struct amp_global_t vars;
 #endif
