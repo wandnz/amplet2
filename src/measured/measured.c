@@ -142,9 +142,9 @@ static int parse_config(char *filename, struct amp_global_t *vars) {
         CFG_STR("exchange", "amp_exchange", CFGF_NONE),
         CFG_STR("routingkey", "test", CFGF_NONE),
         CFG_BOOL("ssl", cfg_false, CFGF_NONE),
-        CFG_STR("cacert", NULL, CFGF_NONE),
-        CFG_STR("key", NULL, CFGF_NONE),
-        CFG_STR("cert", NULL, CFGF_NONE),
+        CFG_STR("cacert", AMQP_CACERT_FILE, CFGF_NONE),
+        CFG_STR("key", AMQP_KEY_FILE, CFGF_NONE),
+        CFG_STR("cert", AMQP_CERT_FILE, CFGF_NONE),
         CFG_END()
     };
 
@@ -187,15 +187,15 @@ static int parse_config(char *filename, struct amp_global_t *vars) {
     }
 
     for ( i=0; i<cfg_size(cfg, "collector"); i++) {
-	cfg_collector = cfg_getnsec(cfg, "collector", i);
-	vars->collector = strdup(cfg_getstr(cfg_collector, "address"));
-	vars->port = cfg_getint(cfg_collector, "port");
-	vars->exchange = strdup(cfg_getstr(cfg_collector, "exchange"));
-	vars->routingkey = strdup(cfg_getstr(cfg_collector, "routingkey"));
-	vars->ssl = cfg_getbool(cfg_collector, "ssl");
-	vars->cacert = strdup(cfg_getstr(cfg_collector, "cacert"));
-	vars->key = strdup(cfg_getstr(cfg_collector, "key"));
-	vars->cert = strdup(cfg_getstr(cfg_collector, "cert"));
+        cfg_collector = cfg_getnsec(cfg, "collector", i);
+        vars->collector = strdup(cfg_getstr(cfg_collector, "address"));
+        vars->port = cfg_getint(cfg_collector, "port");
+        vars->exchange = strdup(cfg_getstr(cfg_collector, "exchange"));
+        vars->routingkey = strdup(cfg_getstr(cfg_collector, "routingkey"));
+        vars->ssl = cfg_getbool(cfg_collector, "ssl");
+        vars->cacert = strdup(cfg_getstr(cfg_collector, "cacert"));
+        vars->key = strdup(cfg_getstr(cfg_collector, "key"));
+        vars->cert = strdup(cfg_getstr(cfg_collector, "cert"));
     }
 
     cfg_free(cfg);
