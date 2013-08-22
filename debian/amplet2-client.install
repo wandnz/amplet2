@@ -1,5 +1,7 @@
 usr/bin/measured usr/sbin
 usr/lib/*so
 usr/lib/amplet2/tests/*so
-etc/amplet2/*
+etc/amplet2/measured.conf
+etc/amplet2/nametable
+etc/amplet2/schedule.d/*
 usr/share/amplet2/rsyslog/*
