@@ -1,4 +1,11 @@
+amplet2 (0.1.5-2) unstable; urgency=low
+
+  * Include rabbitmq configuration in the package and install if possible.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Thu, 22 Aug 2013 15:40:22 +1200
+
 amplet2 (0.1.5-1) unstable; urgency=low
+
   * New upstream release.
   * Fixed traceroute test to properly ignore other tests TTL exceeded messages.
   * Fixed an issue where resolving test addresses would not return all of them.
