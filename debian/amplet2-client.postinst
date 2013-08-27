@@ -30,6 +30,14 @@ case "$1" in
             fi
         fi
 
+        # Enable the shovel plugin for rabbitmq
+        if [ -x "`which rabbitmq-plugins 2>/dev/null`" ]; then
+            rabbitmq-plugins enable rabbitmq_shovel || exit $?
+        else
+            echo "Can't enable shovel plugin, aborting"
+            exit 1
+        fi
+
         # TODO for now we assume that rabbitmq-server is only present
         # because of us, so we can use the main instance and default config
         # file location
