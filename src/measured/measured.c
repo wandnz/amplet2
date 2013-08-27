@@ -19,6 +19,7 @@
 #include <unistd.h>
 #include <confuse.h>
 #include <string.h>
+#include <limits.h>
 
 #include <libwandevent.h>
 #include "schedule.h"
@@ -149,12 +150,7 @@ static int parse_config(char *filename, struct amp_global_t *vars) {
     };
 
     cfg_opt_t measured_opts[] = {
-	/*
-	 *  TODO location of certificate files? actually needed for broker to
-	 * broker communication, so can't specify them here?
-	 */
-        /* TODO default ampname to hostname */
-	CFG_STR("ampname", "unknown", CFGF_NONE),
+	CFG_STR("ampname", NULL, CFGF_NONE),
 	CFG_STR("testdir", AMP_TEST_DIRECTORY, CFGF_NONE),
         CFG_INT_CB("loglevel", LOG_INFO, CFGF_NONE, &callback_verify_loglevel),
 	CFG_SEC("collector", opt_collector, CFGF_NONE),
@@ -179,7 +175,20 @@ static int parse_config(char *filename, struct amp_global_t *vars) {
 	return -1;
     }
 
-    vars->ampname = strdup(cfg_getstr(cfg, "ampname"));
+    if ( cfg_getstr(cfg, "ampname") != NULL ) {
+        /* ampname has been set by the user, use it as is */
+        vars->ampname = strdup(cfg_getstr(cfg, "ampname"));
+    } else {
+        /* ampname has not been set by the user, use the hostname instead */
+        char hostname[HOST_NAME_MAX + 1];
+        memset(hostname, 0, HOST_NAME_MAX + 1);
+        if ( gethostname(hostname, HOST_NAME_MAX) == 0 ) {
+            vars->ampname = strdup(hostname);
+        } else {
+            Log(LOG_ALERT, "Failed to guess ampname from hostname, aborting.");
+            return -1;
+        }
+    }
     vars->testdir = strdup(cfg_getstr(cfg, "testdir"));
     /* only use configured loglevel if it's not forced on the command line */
     if ( !log_level_override ) {
