@@ -1,3 +1,12 @@
+amplet2 (0.1.6-1) unstable; urgency=low
+
+  * New upstream release
+  * Split into two packages, one using a local broker, one without.
+  * Reworked messaging code slightly to use better userids.
+  * Use hostname as the default value of ampname.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Tue, 27 Aug 2013 19:06:38 +1200
+
 amplet2 (0.1.5-2) unstable; urgency=low
 
   * Include rabbitmq configuration in the package and install if possible.

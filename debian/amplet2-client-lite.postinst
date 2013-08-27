@@ -30,37 +30,12 @@ case "$1" in
             fi
         fi
 
-        # Enable the shovel plugin for rabbitmq
-        if [ -x "`which rabbitmq-plugins 2>/dev/null`" ]; then
-            rabbitmq-plugins enable rabbitmq_shovel || exit $?
-        else
-            echo "Can't enable shovel plugin, aborting"
-            exit 1
-        fi
-
-        # TODO for now we assume that rabbitmq-server is only present
-        # because of us, so we can use the main instance and default config
-        # file location
-        if [ ! -f "/etc/rabbitmq/rabbitmq.config" ]; then
-            ln -s /etc/amplet2/shovel.config /etc/rabbitmq/rabbitmq.config
-            if [ -x "`which invoke-rc.d 2>/dev/null`" ]; then
-                invoke-rc.d rabbitmq restart || exit $?
-            else
-                /etc/init.d/rabbitmq restart || exit $?
-            fi
-        else
-            echo "/etc/rabbitmq/rabbitmq.config already exists."
-            echo "Please merge with /etc/amplet2/shovel.config and restart rabbitmq"
-            exit 1
-        fi
-
         # Install the appropriate config as the main measured.conf
         if [ ! -f "/etc/amplet2/measured.conf" ]; then
-            ln -s /etc/amplet2/measured-local.conf /etc/amplet2/measured.conf
+            ln -s /etc/amplet2/measured-lite.conf /etc/amplet2/measured.conf
         else
             echo "/etc/amplet2/measured.conf already exists, skipping"
         fi
-
     ;;
 
     abort-upgrade|abort-remove|abort-deconfigure)

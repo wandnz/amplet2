@@ -17,6 +17,15 @@ Description: AMP Network Performance Measurement Suite - Client Tools
  targets. The resulting data is transferred back to one or more collectors.
  Software to run an AMP collector is found in the amp-server package.
 
+Package: amplet2-client-lite
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, libwandevent, libcurl3, librabbitmq0
+Description: AMP Network Performance Measurement Suite - Client Tools
+ This package contains the client tools for the AMP Measurement Suite. These
+ tools read a schedule file and measure the network performance to specified
+ targets. The resulting data is transferred back to one or more collectors.
+ Software to run an AMP collector is found in the amp-server package.
+
 Package: amplet2-server
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}, rabbitmq-server
