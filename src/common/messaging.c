@@ -77,7 +77,7 @@ int connect_to_broker() {
         /* login using PLAIN, must specify username and password */
         /* TODO make credentials configurable, or remove this entirely? */
         if ( (amqp_login(conn, "/", 0, AMQP_FRAME_MAX,0,
-                        AMQP_SASL_METHOD_PLAIN, "guest", "guest")
+                        AMQP_SASL_METHOD_PLAIN, vars.ampname, vars.ampname)
              ).reply_type != AMQP_RESPONSE_NORMAL ) {
             Log(LOG_ERR, "Failed to login to broker");
             return -1;
@@ -156,6 +156,7 @@ int report_to_broker(test_type_t type, uint64_t timestamp, void *bytes,
      *	- timestamp? already a property, but i need to set
      */
 
+    /* XXX deprecated, remove, the name is now done with validated user_id */
     /* The name of the reporting monitor (our local ampname) */
     table_entries[0].key = amqp_cstring_bytes("x-amp-source-monitor");
     table_entries[0].value.kind = AMQP_FIELD_KIND_UTF8;
