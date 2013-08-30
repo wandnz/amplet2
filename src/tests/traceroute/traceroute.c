@@ -299,13 +299,21 @@ static void process_ipv4_packet(char *packet, struct timeval now,
         return;
     }
 
-    /* set everything up for the next hop */
-    if ( ++(info[index].ttl) > MAX_HOPS_IN_PATH ) {
+    if ( info[index].ttl >= MAX_HOPS_IN_PATH ) {
         info[index].done = 1;
-        info[index].ttl--;//XXX lets do this differently
     } else {
-        info[index].attempts = 0;
-        info[index].no_reply_count = 0;
+        /*
+         * Only reset these counters if the response was on time, otherwise
+         * we have already moved on and they are no longer related to this
+         * hop. The only reason we have got this far was to record the address
+         * and latency rather than ignoring this response packet entirely and
+         * leaving a gap that could have been avoided.
+         */
+        if ( info[index].hop[ttl - 1].delay < LOSS_TIMEOUT ) {
+            info[index].ttl++;
+            info[index].attempts = 0;
+            info[index].no_reply_count = 0;
+        }
     }
 }
 
@@ -415,13 +423,21 @@ static void process_ipv6_packet(char *packet, struct sockaddr_in6 *addr,
         return;
     }
 
-    /* set everything up for the next hop */
-    if ( ++(info[index].ttl) > MAX_HOPS_IN_PATH ) {
+    if ( info[index].ttl >= MAX_HOPS_IN_PATH ) {
         info[index].done = 1;
-        info[index].ttl--;//XXX lets do this differently
     } else {
-        info[index].attempts = 0;
-        info[index].no_reply_count = 0;
+        /*
+         * Only reset these counters if the response was on time, otherwise
+         * we have already moved on and they are no longer related to this
+         * hop. The only reason we have got this far was to record the address
+         * and latency rather than ignoring this response packet entirely and
+         * leaving a gap that could have been avoided.
+         */
+        if ( info[index].hop[ttl - 1].delay < LOSS_TIMEOUT ) {
+            info[index].ttl++;
+            info[index].attempts = 0;
+            info[index].no_reply_count = 0;
+        }
     }
 
 }
