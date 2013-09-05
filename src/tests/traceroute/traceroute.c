@@ -26,22 +26,21 @@
  * Fill out the IP and UDP header in the given data blob with the appropriate
  * values for our probes.
  */
-static int build_ipv4_probe(void *packet, int id, int ttl, uint16_t ident,
-        struct addrinfo *dest) {
+static int build_ipv4_probe(void *packet, uint16_t packet_size, int id,
+        int ttl, uint16_t ident, struct addrinfo *dest) {
 
     struct iphdr *ip;
     struct udphdr *udp;
-    int length;
 
     assert(packet);
+    assert(packet_size >= MIN_TRACEROUTE_PROBE_LEN);
 
     ip = (struct iphdr *)packet;
     memset(ip, 0, sizeof(struct iphdr));
 
     ip->version = 4;
     ip->ihl = 5;
-    length = (ip->ihl << 2) + sizeof(struct udphdr);
-    ip->tot_len = htons(length);
+    ip->tot_len = htons(packet_size);
     ip->id = htons(id);
     ip->ttl = ttl;
     ip->protocol = IPPROTO_UDP;
@@ -50,9 +49,9 @@ static int build_ipv4_probe(void *packet, int id, int ttl, uint16_t ident,
     udp = (struct udphdr *)(packet + (ip->ihl << 2));
     udp->source = htons(ident);
     udp->dest = htons(TRACEROUTE_DEST_PORT);
-    udp->len = htons(sizeof(struct udphdr));
+    udp->len = htons(packet_size - ((ip->ihl << 2) + sizeof(struct udphdr)));
 
-    return length;
+    return packet_size;
 }
 
 
@@ -61,8 +60,8 @@ static int build_ipv4_probe(void *packet, int id, int ttl, uint16_t ident,
  * Fill out the body of the UDP packet in the given data blob with the
  * appropriate values for our probes.
  */
-static int build_ipv6_probe(void *packet, int id, uint16_t ident,
-        struct addrinfo *dest) {
+static int build_ipv6_probe(void *packet, uint16_t packet_size, int id,
+        uint16_t ident, struct addrinfo *dest) {
 
     struct ipv6_body_t *ipv6_body;
     ipv6_body = (struct ipv6_body_t *)packet;
@@ -71,7 +70,7 @@ static int build_ipv6_probe(void *packet, int id, uint16_t ident,
     ((struct sockaddr_in6 *)dest->ai_addr)->sin6_port =
         htons(TRACEROUTE_DEST_PORT);
 
-    return sizeof(struct ipv6_body_t);
+    return packet_size;
 }
 
 
@@ -95,13 +94,15 @@ static void send_probe(struct socket_t *ip_sockets, int dest_id, int ttl,
     switch ( dest->ai_family ) {
         case AF_INET: {
             sock = ip_sockets->socket;
-            length = build_ipv4_probe(packet, id, ttl, ident, dest);
+            length = build_ipv4_probe(packet, opt->packet_size, id, ttl,
+                    ident, dest);
         } break;
 
         case AF_INET6: {
             sock = ip_sockets->socket6;
             setsockopt(sock, SOL_IPV6, IPV6_UNICAST_HOPS, &ttl, sizeof(ttl));
-            length = build_ipv6_probe(packet, id, ident, dest);
+            length = build_ipv6_probe(packet, opt->packet_size, id,
+                    ident, dest);
         } break;
 
         default:
