@@ -295,8 +295,7 @@ static void process_ipv4_packet(char *packet, struct timeval now,
     }
 
     if ( icmp->type == ICMP_DEST_UNREACH ) {
-        /* XXX why on earth is -5 the marker value? not -1? */
-        if ( info[index].ttl == -5 ) {
+        if ( info[index].ttl == TRACEROUTE_FULL_PATH_PROBE_TTL ) {
             info[index].ttl = MAX_HOPS_IN_PATH - embedded_ip->ttl + 1;
         }
         info[index].done = 1;
@@ -419,7 +418,7 @@ static void process_ipv6_packet(char *packet, struct sockaddr_in6 *addr,
     /* port unreachable means we have reached the destination */
     if ( icmp6->icmp6_type == ICMP6_DST_UNREACH &&
             icmp6->icmp6_code == ICMP6_DST_UNREACH_NOPORT ) {
-        if ( info[index].ttl == -5 ) { //XXX again, why -5?
+        if ( info[index].ttl == TRACEROUTE_FULL_PATH_PROBE_TTL ) {
             info[index].ttl = MAX_HOPS_IN_PATH -
                 embedded_ipv6->ip6_ctlun.ip6_un1.ip6_un1_hlim + 1;
         }

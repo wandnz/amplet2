@@ -29,7 +29,7 @@
 #define TRACEROUTE_NO_REPLY_LIMIT 5
 
 /* TTL marker for probing full path length */
-#define TRACEROUTE_FULL_PATH_PROBE (-5)
+#define TRACEROUTE_FULL_PATH_PROBE_TTL (-5)
 
 #define HOP_ADDR(index,ttl) (info[index].hop[ttl - 1].addr)
 #define HOP_REPLY(index,ttl) (info[index].hop[ttl - 1].reply)
