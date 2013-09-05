@@ -492,14 +492,16 @@ static int inc_attempt_counter(struct info_t *info) {
     info->no_reply_count++;
 
     /* Check if we haven't missed too many responses in the path */
-    if ( info->no_reply_count >= TRACEROUTE_NO_REPLY_LIMIT ) {
+    if ( info->path_length == 0 &&
+            info->no_reply_count >= TRACEROUTE_NO_REPLY_LIMIT ) {
         /* Give up, too many missing replies */
         info->done = 1;
         return 0;
     }
 
     /* Check if we haven't already tried too many hops */
-    if ( info->ttl >= MAX_HOPS_IN_PATH ) {
+    if ( info->ttl >= MAX_HOPS_IN_PATH ||
+            (info->path_length > 0 && info->ttl > info->path_length) ) {
         /* Path is too long, stop here */
         info->done = 1;
         return 0;
@@ -510,6 +512,51 @@ static int inc_attempt_counter(struct info_t *info) {
     info->attempts = 1;
     return 1;
 }
+
+
+
+/*
+ * Send a high-TTL probe to try to get a response from the target, establishing
+ * the maximum path length that should be probed. If there is no response then
+ * the traceroute test will continue until the destination does respond, or
+ * 5 consecutive hops fail to respond.
+ */
+#if 0
+static uint8_t get_path_length(struct socket_t *icmp_sockets,
+        struct socket_t *ip_sockets, uint16_t ident,
+        struct addrinfo *dest, struct opt_t *opt) {
+
+    struct info_t info;
+    int i;
+
+    /*
+     * Change the ident value so we don't later confuse these packets
+     * with our test traffic
+     */
+    ident = ident + 1;
+
+    memset(&info, 0, sizeof(info));
+    info.addr = dest;
+    info.ttl = TRACEROUTE_FULL_PATH_PROBE_TTL;
+
+    send_probe(ip_sockets, 0, MAX_HOPS_IN_PATH, ident, dest, &info, opt);
+    harvest(icmp_sockets, ident, 1000000, 1, &info);
+
+    /* Free any response data */
+    for ( i = 0; i < MAX_HOPS_IN_PATH; i++ ) {
+        if ( info.hop[i].reply ) {
+            /* we've allocated ai_addr ourselves, so have to free it */
+            free(info.hop[i].addr->ai_addr);
+            freeaddrinfo(info.hop[i].addr);
+        }
+    }
+
+    if ( info.done && info.err_type == 0 ) {
+        return info.ttl;
+    }
+    return 0;
+}
+#endif
 
 
 
@@ -793,6 +840,19 @@ int run_traceroute(int argc, char *argv[], int count, struct addrinfo **dests) {
 
     /* set destinations and initialise path information */
     for ( i=0; i<count; i++ ) {
+#if 0
+        /* try to establish the length of the path so that we don't send
+         * too many probes, or probe the end host multiple times if it is
+         * slow to respond.
+         */
+        info[i].path_length = get_path_length(&icmp_sockets, &ip_sockets,
+                ident, dests[i], &options);
+        if ( info[i].path_length <= 2 ) {
+            Log(LOG_DEBUG, "Path length is too short (%d), ignoring\n",
+                    info[i].path_length);
+            info[i].path_length = 0;
+        }
+#endif
         info[i].addr = dests[i];
         info[i].ttl = 1;
     }

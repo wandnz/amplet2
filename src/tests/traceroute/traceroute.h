@@ -73,6 +73,7 @@ struct info_t {
     struct timeval last_time_sent;	/* when the probe was sent */
     struct addrinfo *addr;	/* address probe was sent to */
     int8_t ttl;		        /* TTL or hop limit of response packet */
+    uint8_t path_length;
     uint8_t done;
     uint8_t retry;
     uint8_t attempts;
