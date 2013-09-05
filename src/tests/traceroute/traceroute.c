@@ -232,10 +232,13 @@ static void process_ipv4_packet(char *packet, struct timeval now,
 
     /*
      * We can't do anything if there is no room in the response for an
-     * embedded UDP packet.
+     * embedded UDP packet. We need enough data for the IP header, ICMP
+     * header, embedded IP header (that we initially sent, no options)
+     * and the embedded UDP header (that we initially sent).
      */
     if ( ntohs(ip->tot_len) <
-            (ip->ihl << 2) + sizeof(struct icmphdr) + sizeof(struct udphdr) ) {
+            (ip->ihl << 2) + sizeof(struct icmphdr) + sizeof(struct iphdr) +
+            sizeof(struct udphdr) ) {
         Log(LOG_DEBUG, "Reponse too small for embedded data: %d bytes",
                 ntohs(ip->tot_len));
         return;

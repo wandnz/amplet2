@@ -14,6 +14,7 @@
         sizeof(struct udphdr) + sizeof(struct ipv6_body_t))
 
 /* timeout in usec to wait before declaring the response lost, currently 5s */
+/* TODO this used to be 20s, if we make it too short do we break stuff? */
 #define LOSS_TIMEOUT 5000000
 
 /* TODO we can do this better than a fixed size buffer */
@@ -26,6 +27,9 @@
 
 /* number of consecutive timeouts required before giving up on a path */
 #define TRACEROUTE_NO_REPLY_LIMIT 5
+
+/* TTL marker for probing full path length */
+#define TRACEROUTE_FULL_PATH_PROBE (-5)
 
 #define HOP_ADDR(index,ttl) (info[index].hop[ttl - 1].addr)
 #define HOP_REPLY(index,ttl) (info[index].hop[ttl - 1].reply)
