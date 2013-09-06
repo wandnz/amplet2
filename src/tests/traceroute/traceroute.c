@@ -49,7 +49,7 @@ static int build_ipv4_probe(void *packet, uint16_t packet_size, int id,
     udp = (struct udphdr *)(packet + (ip->ihl << 2));
     udp->source = htons(ident);
     udp->dest = htons(TRACEROUTE_DEST_PORT);
-    udp->len = htons(packet_size - ((ip->ihl << 2) + sizeof(struct udphdr)));
+    udp->len = htons(packet_size - ((ip->ihl << 2)));
 
     return packet_size;
 }
