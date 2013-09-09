@@ -111,7 +111,7 @@ int main(int argc, char *argv[]) {
 
     /* accept pretty much anything and take whatever we get back */
     memset(&hint, 0, sizeof(struct addrinfo));
-    hint.ai_flags = 0;
+    hint.ai_flags = AI_ADDRCONFIG;
     hint.ai_family = AF_UNSPEC;
     hint.ai_socktype = SOCK_STREAM;
     hint.ai_protocol = 0;
@@ -130,6 +130,11 @@ int main(int argc, char *argv[]) {
 		    test_info->max_targets);
 	    break;
 	}
+
+        /*
+         * TODO resolve addresses in the same way measured does, with
+         * qualifiers for number of addresses and address families.
+         */
 
 	if ( getaddrinfo(argv[i], NULL, &hint, &result) != 0 ) {
 	    perror("getaddrinfo");

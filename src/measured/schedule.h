@@ -45,6 +45,7 @@ struct resolve_dest {
     char *name;			/* name to be resolved */
     struct addrinfo *addr;	/* temp store for the result of getaddrinfo */
     uint8_t count;		/* maximum count of resolved addresses to use */
+    int family;                 /* family of addresses to resolve */
     struct resolve_dest *next;
 };
 typedef struct resolve_dest resolve_dest_t;

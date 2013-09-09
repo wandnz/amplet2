@@ -77,7 +77,6 @@ static void run_test(const test_schedule_item_t * const item) {
 
 	memset(&hint, 0, sizeof(struct addrinfo));
 	hint.ai_flags = AI_ADDRCONFIG;	/* only fetch addresses we can use */
-	hint.ai_family = AF_UNSPEC;	/* get both ipv4 and ipv6 addresses */
 	hint.ai_socktype = SOCK_STREAM; /* limit it to a single socket type */
 	hint.ai_protocol = 0;
 	hint.ai_addrlen = 0;
@@ -88,6 +87,12 @@ static void run_test(const test_schedule_item_t * const item) {
 	/* loop over all destinations that need to be resolved and add them */
 	for ( resolve=item->resolve; resolve != NULL; resolve=resolve->next ) {
 	    int addr_resolve_count = 0;
+
+            /*
+             * The schedule can determine which family we use for each name,
+             * defaults to AF_UNSPEC to resolve both v4 and v6 addresses.
+             */
+            hint.ai_family = resolve->family;
 
 	    /* accept pretty much everything we get back */
 	    if ( getaddrinfo(resolve->name, NULL, &hint, &resolve->addr)!= 0 ) {
@@ -129,6 +134,11 @@ static void run_test(const test_schedule_item_t * const item) {
 	for ( offset = 0; offset<argc; offset++ ) {
 	    Log(LOG_DEBUG, "arg%d: %s\n", offset, argv[offset]);
 	}
+
+        /* TODO set up any servers that need to be setup? or allow the tests
+         * to do that themselves? We've already forked so we aren't holding
+         * anyone up, but who makes more sense to control this?
+         */
 
 	/* actually run the test */
 	test->run_callback(argc, argv, item->dest_count + total_resolve_count,

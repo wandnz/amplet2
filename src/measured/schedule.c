@@ -557,29 +557,37 @@ static void read_schedule_file(wand_event_handler_t *ev_hdl, char *filename) {
 
 	    test->resolve = (resolve_dest_t*)malloc(sizeof(resolve_dest_t));
 	    test->resolve->name = strdup(strtok(target, ":"));
+            test->resolve->family = AF_UNSPEC;
 	    test->resolve->addr = NULL;
 	    test->resolve->next = NULL;
 	    test->resolve_count = 1;
 	    /*
-	     * TODO use a different character than colon? or find a new/better
-	     * way to represent ipv6 targets than ":v6"?
-	     */
-	    /*
-	     * the schedule can determine how many addresses are resolved.
+	     * the schedule can determine how many addresses of what address
+             * families are resolved:
 	     * www.foo.com	-- resolve a single address
 	     * www.foo.com:1	-- resolve a single address
 	     * www.foo.com:n	-- resolve up to n addresses
 	     * www.foo.com:*	-- resolve all addresses
 	     * www.foo.com:0	-- resolve all addresses
+             * www.foo.com:v4   -- resolve a single ipv4 addresses
+             * www.foo.com:v6   -- resolve a single ipv6 addresses
+             * www.foo.com:*:v4 -- resolve all ipv4 addresses
+             * www.foo.com:*:v6 -- resolve all ipv6 addresses
 	     */
 	    if ( (count_str=strtok(NULL, ":")) == NULL ) {
 		test->resolve->count = 1;
 	    } else {
-		if (strncmp(count_str, "*", 1) == 0 ) {
-		    test->resolve->count = 0;
-		} else {
-		    test->resolve->count = atoi(count_str);
-		}
+                do {
+                    if (strncmp(count_str, "*", 1) == 0 ) {
+                        test->resolve->count = 0;
+                    } else if ( strncmp(count_str, "v4", 2) == 0 ) {
+                        test->resolve->family = AF_INET;
+                    } else if ( strncmp(count_str, "v6", 2) == 0 ) {
+                        test->resolve->family = AF_INET6;
+                    } else {
+                        test->resolve->count = atoi(count_str);
+                    }
+                } while ( (count_str=strtok(NULL, ":")) != NULL );
 	    }
 	}
 
