@@ -129,8 +129,8 @@ void read_nametable_file() {
     Log(LOG_INFO, "Loading nametable from %s", NAMETABLE_FILE);
 
     if ( (in = fopen(NAMETABLE_FILE, "r")) == NULL ) {
-	Log(LOG_ALERT, "Failed to open nametable file: %s\n", strerror(errno));
-	exit(1);
+	Log(LOG_WARNING, "Skipping nametable file: %s\n", strerror(errno));
+	return;
     }
 
     while ( fgets(line, sizeof(line), in) != NULL ) {
