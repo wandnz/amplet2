@@ -1,5 +1,6 @@
 usr/sbin
 etc/amplet2
+etc/amplet2/keys
 etc/amplet2/schedule.d
 usr/lib/amplet2/tests
 var/log/amplet2

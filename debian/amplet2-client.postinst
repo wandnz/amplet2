@@ -20,6 +20,13 @@ set -e
 
 case "$1" in
     configure)
+
+        # Debian packaging will create the directory with standard permissions
+        chown measure: /etc/amplet2/keys
+        chmod 700 /etc/amplet2/keys
+        # TODO fetch the keys somehow and save them here
+
+
         # TODO install rsyslog config here? mark as conffile somewhere/how?
         if [ ! -f "/etc/rsyslog.d/measured.conf" ]; then
             cp /usr/share/amplet2/rsyslog/measured.conf /etc/rsyslog.d/90-measured.conf
@@ -52,6 +59,14 @@ case "$1" in
             echo "/etc/rabbitmq/rabbitmq.config already exists."
             echo "Please merge with /etc/amplet2/shovel.config and restart rabbitmq"
             exit 1
+        fi
+
+        # TODO create vhost just for AMP?
+        # create the local user with the same name that we will use for
+        # reporting upstream - in this case it's the FQDN
+        if [ -x "`which rabbitmqctl 2>/dev/null`" ]; then
+            #rabbitmqctl add_user $USER $USER
+            #rabbitmqctl set_permissions -p / $USER ".*" ".*" ".*"
         fi
 
         # Install the appropriate config as the main measured.conf
