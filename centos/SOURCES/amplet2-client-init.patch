@@ -1,0 +1,140 @@
+--- a/amplet2-client.init	1970-01-01 00:00:00.000000000 +0000
++++ b/amplet2-client.init	2013-08-27 04:41:45.531954930 +0000
+@@ -0,0 +1,137 @@
++#!/bin/sh
++### BEGIN INIT INFO
++# Provides:          amplet2
++# Required-Start:    $remote_fs $network $local_fs
++# Required-Stop:     $remote_fs $network $local_fs
++# Default-Start:     2 3 4 5
++# Default-Stop:      0 1 6
++# Short-Description: AMP measurement daemon
++# Description:       AMP measurement daemon
++### END INIT INFO
++
++# Author: Brendon Jones <brendonj@waikato.ac.nz>
++
++# PATH should only include /usr/* if it runs after the mountnfs.sh script
++PATH=/sbin:/usr/sbin:/bin:/usr/bin
++DESC=amplet2-client             # Introduce a short description here
++PKG_NAME=amplet2-client
++DAEMON_NAME=measured            # Introduce the short server's name here
++DAEMON=/usr/sbin/$DAEMON_NAME   # Introduce the server's location here
++DAEMON_ARGS="-d"                # Arguments to run the daemon with
++PIDFILE=/var/run/$NAME.pid      # TODO create a proper pidfile
++SCRIPTNAME=/etc/init.d/$PKG_NAME
++START_DAEMON=1
++
++# Exit if the package is not installed
++[ -x $DAEMON ] || exit 0
++
++# Read configuration variable file if it is present
++[ -r /etc/default/$PKG_NAME ] && . /etc/default/$PKG_NAME
++
++# Don't start the daemon unless it has been manually enabled in
++# /etc/default/amplet2-client. There is too much configuration required
++# to assume it can be started initially.
++[ $START_DAEMON -gt 0 ] || exit 0
++
++# source function library
++. /etc/rc.d/init.d/functions
++
++log_daemon_msg()
++{
++	echo -n $@
++}
++
++log_end_msg()
++{
++	echo
++}
++#
++# Function that starts the daemon/service
++#
++do_start()
++{
++	# XXX we don't properly do a pidfile yet, so this can start multiple
++	# instances of measured
++        daemon --user=measure $DAEMON $DAEMON_ARGS
++        # Add code here, if necessary, that waits for the process to be ready
++        # to handle requests from services started subsequently which depend
++        # on this one.  As a last resort, sleep for some time.
++}
++
++#
++# Function that stops the daemon/service
++#
++do_stop()
++{
++        # Return
++        #   0 if daemon has been stopped
++        #   1 if daemon was already stopped
++        #   2 if daemon could not be stopped
++        #   other if a failure occurred
++        killproc $DAEMON
++        RETVAL="$?"
++        [ "$RETVAL" = 2 ] && return 2
++        [ "$RETVAL" = 7 ] && return 1
++	# Many daemons don't delete their pidfiles when they exit.
++        #rm -f $PIDFILE
++        return "$RETVAL"
++}
++
++#
++# Function that sends a SIGHUP to the daemon/service
++#
++do_reload() {
++        #
++        # If the daemon can reload its configuration without
++        # restarting (for example, when it is sent a SIGHUP),
++        # then implement that here.
++        #
++        killproc $DAEMON -HUP
++}
++
++case "$1" in
++  start)
++    [ "$VERBOSE" != no ] && echo -n "Starting $DESC: $DAEMON_NAME"
++    do_start
++    echo
++  ;;
++  stop)
++        [ "$VERBOSE" != no ] && echo -n "Stopping $DESC: $DAEMON_NAME"
++        do_stop
++	echo
++        ;;
++  status)
++       status "$DAEMON" "$PKG_NAME" && exit 0 || exit $?
++       ;;
++  reload|force-reload)
++        #
++        # If do_reload() is not implemented then leave this commented out
++	# and leave 'force-reload' as an alias for 'restart'.
++        #
++        [ "$VERBOSE" != no ] && echo -n "Reloading $DESC: $DAEMON_NAME"
++        do_reload
++	echo
++        ;;
++  restart)
++        #
++        # If the "reload" option is implemented then remove the
++        # 'force-reload' alias
++        #
++        echo -n "Restarting $DESC $DAEMON_NAME"
++        do_stop
++        case "$?" in
++          0|1)
++                do_start
++		;;
++          *)
++                # Failed to stop
++                ;;
++        esac
++	echo
++        ;;
++  *)
++        echo "Usage: $SCRIPTNAME {start|stop|status|restart|reload}" >&2
++        #echo "Usage: $SCRIPTNAME {start|stop|status|restart|force-reload}" >&2
++        exit 3
++        ;;
++esac

@@ -1,0 +1,58 @@
+diff -Naur rabbitmq-c-master/librabbitmq/amqp.h rabbitmq-c-sasl-external/librabbitmq/amqp.h
+--- rabbitmq-c-master/librabbitmq/amqp.h	2013-08-22 11:32:52.000000000 +1200
++++ rabbitmq-c-sasl-external/librabbitmq/amqp.h	2013-08-22 17:21:43.214661033 +1200
+@@ -633,7 +633,8 @@
+  * \since v0.1
+  */
+ typedef enum amqp_sasl_method_enum_ {
+-  AMQP_SASL_METHOD_PLAIN = 0      /**< the PLAIN SASL method for authentication to the broker */
++  AMQP_SASL_METHOD_PLAIN = 0,     /**< the PLAIN SASL method for authentication to the broker */
++  AMQP_SASL_METHOD_EXTERNAL = 1   /**< the EXTERNAL SASL method for authentication to the broker */
+ } amqp_sasl_method_enum;
+ 
+ /**
+diff -Naur rabbitmq-c-master/librabbitmq/amqp_socket.c rabbitmq-c-sasl-external/librabbitmq/amqp_socket.c
+--- rabbitmq-c-master/librabbitmq/amqp_socket.c	2013-08-22 11:32:52.000000000 +1200
++++ rabbitmq-c-sasl-external/librabbitmq/amqp_socket.c	2013-08-22 17:21:43.186660536 +1200
+@@ -465,6 +465,11 @@
+     res.len = 5;
+     break;
+ 
++  case AMQP_SASL_METHOD_EXTERNAL:
++    res.bytes = "EXTERNAL";
++    res.len = 8;
++    break;
++
+   default:
+     amqp_abort("Invalid SASL method: %d", (int) method);
+   }
+@@ -501,6 +506,17 @@
+     memcpy(response_buf + username_len + 2, password, password_len);
+     break;
+   }
++  case AMQP_SASL_METHOD_EXTERNAL: {
++    /* The documentation suggests that the response here can be empty to use
++     * the identity the server associated with the authentication credentials,
++     * or be non-empty to use the credentials specified in this response. For
++     * now we only allow an empty response.
++     *
++     * TODO: allow credentials to be specified here similar to PLAIN auth.
++     */
++    response = amqp_empty_bytes;
++    break;
++  }
+   default:
+     amqp_abort("Invalid SASL method: %d", (int) method);
+   }
+@@ -1129,7 +1145,10 @@
+ 
+     response_bytes = sasl_response(channel_pool,
+                      sasl_method, vl);
+-    if (response_bytes.bytes == NULL) {
++
++    /* Some SASL responses don't contain data (e.g. EXTERNAL), others should */
++    if (response_bytes.bytes == NULL &&
++        sasl_method != AMQP_SASL_METHOD_EXTERNAL) {
+       res = AMQP_STATUS_NO_MEMORY;
+       goto error_res;
+     }
