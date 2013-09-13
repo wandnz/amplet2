@@ -1,3 +1,19 @@
+amplet2 (0.1.7-2) unstable; urgency=low
+
+  * Create keys directory and set permissions appropriately.
+  * Prepare to create local rabbitmq users (but don't yet).
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Fri, 13 Sep 2013 15:27:39 +1200
+
+amplet2 (0.1.7-1) unstable; urgency=low
+
+  * New upstream release.
+  * Fixed incorrect packet sizes in traceroute test.
+  * Fixed method of dealing with late response packets in traceroute test.
+  * Schedule file can now limit name resolution to ipv4/ipv6.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Mon, 9 Sep 2013 14:29:56 +1200
+
 amplet2 (0.1.6-1) unstable; urgency=low
 
   * New upstream release
