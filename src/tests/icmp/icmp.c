@@ -82,7 +82,7 @@ static void icmp_error(char *packet, uint16_t ident, struct info_t info[]) {
      */
     if ( ip->tot_len < (ip->ihl << 2) + sizeof(struct iphdr) +
 	    (sizeof(struct icmphdr) * 2) ) {
-	Log(LOG_WARNING, "ICMP reply too small for embedded packet data");
+	Log(LOG_DEBUG, "ICMP reply too small for embedded packet data");
 	return;
     }
 
