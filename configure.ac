@@ -35,6 +35,16 @@ if test "$rabbit_found" = 0; then
     AC_MSG_ERROR(Required library librabbitmq not found; use LDFLAGS to specify library location)
 fi
 
+# we use libcurl to fetch remote schedules and to perform the http test
+AC_CHECK_LIB(curl, curl_global_init, libcurl_found=1, libcurl_found=0)
+if test "$libcurl_found" = 0; then
+    AC_MSG_ERROR(Required library libcurl not found; use LDFLAGS to specify library location)
+fi
+AC_CHECK_HEADER(curl/curl.h, curl_h_found=1, curl_h_found=0)
+if test "$curl_h_found" = 0; then
+    AC_MSG_ERROR(Required headers for libcurl not found; use CLFAGS to specify header location)
+fi
+
 # check if we have the web10g library, it's ok for it to be missing
 AC_CHECK_LIB([estats], [estats_nl_client_init],
         [AM_CONDITIONAL(HAVE_ESTATS, true)],
@@ -169,24 +179,6 @@ AM_CONDITIONAL(WANT_HTTP_TEST,
 if test x"$want_http_test" = xtrue; then
     # check there is a lexer to build the scanner
     AM_PROG_LEX
-
-    # just want to check it exists, don't want everything to link with this.
-    # http2 test will take care of actually linking with it
-    AC_CHECK_LIB(curl, curl_global_init, libcurl_found=1, libcurl_found=0)
-    if test "$libcurl_found" = 0; then
-        AC_MSG_NOTICE([Attempting to build with support for the http2 test but])
-        AC_MSG_NOTICE([libcurl could not be found. Please install your curl])
-        AC_MSG_NOTICE([development libraries and try again])
-        AC_MSG_ERROR([Bailing])
-    fi
-
-    AC_CHECK_HEADER(curl/curl.h, curl_h_found=1, curl_h_found=0)
-    if test "$curl_h_found" = 0; then
-        AC_MSG_NOTICE([Attempting to build with support for the http2 test but])
-        AC_MSG_NOTICE([the curl headers could not be found. Please install])
-        AC_MSG_NOTICE([your curl development libraries and try again], )
-        AC_MSG_ERROR([Bailing])
-    fi
 
     # Check if the curl library is new enough to support curl_multi_timeout
     AC_CHECK_LIB(curl, curl_multi_timeout, AC_DEFINE([HAVE_CURL_MULTI_TIMEOUT], [1], [Define to 1 if you have the libcurl curl_multi_timeout function]),)

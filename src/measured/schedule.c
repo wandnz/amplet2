@@ -13,6 +13,7 @@
 #include <signal.h>
 #include <assert.h>
 #include <glob.h>
+#include <curl/curl.h>
 
 #include <libwandevent.h>
 #include "schedule.h"
@@ -667,3 +668,117 @@ void read_schedule_dir(wand_event_handler_t *ev_hdl, char *directory) {
 
 
 
+/*
+ * Try to fetch a schedule file from a remote server if there is a fresher one
+ * available, replacing any existing one that has been previously fetched.
+ * Returns -1 on error, 0 if no update was needed, 1 if the file was
+ * successfully fetched and updated.
+ *
+ * TODO put error strings in based on errno for useful messages
+ * TODO keep history of downloaded schedules? Previous 1 or 2?
+ * TODO enable SSL
+ * TODO connection timeout should be short, to not delay startup?
+ */
+int update_remote_schedule(char *url) {
+    CURL *curl;
+
+    Log(LOG_INFO, "Fetching remote schedule file from %s", url);
+
+    curl = curl_easy_init();
+
+    if ( curl ) {
+        CURLcode res;
+        int stat_result;
+        struct stat statbuf;
+        long code;
+        long filetime;
+        long cond_unmet;
+        double length;
+        FILE *tmpfile;
+
+        /* Open the temporary file we read the remote schedule into */
+        if ( (tmpfile = fopen(TMP_REMOTE_SCHEDULE_FILE, "w")) == NULL ) {
+            Log(LOG_WARNING, "Failed to open temporary schedule %s",
+                    TMP_REMOTE_SCHEDULE_FILE);
+            curl_easy_cleanup(curl);
+            return -1;
+        }
+
+        curl_easy_setopt(curl, CURLOPT_URL, url);
+        curl_easy_setopt(curl, CURLOPT_USERAGENT, PACKAGE_STRING);
+        curl_easy_setopt(curl, CURLOPT_FILETIME, 1);
+        curl_easy_setopt(curl, CURLOPT_WRITEDATA, tmpfile);
+        /*
+        curl_easy_setopt(curl, CURLOPT_SSLCERTTYPE, "PEM");
+        curl_easy_setopt(curl, CURLOPT_SSLCERT, pCertFile);
+        curl_easy_setopt(curl, CURLOPT_SSLKEY, pKeyName);
+        curl_easy_setopt(curl, CURLOPT_CAINFO, pCACertFile);
+        curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 1);
+        */
+
+        /*
+         * Check if remote schedule file exists locally, and when it was last
+         * modified. If it doesn't exist we fetch it, if it does exist then we
+         * fetch it conditional on there being a newer version.
+         */
+        stat_result = stat(REMOTE_SCHEDULE_FILE, &statbuf);
+
+        if ( stat_result < 0 && errno != ENOENT) {
+            /* don't fetch the file, something is wrong with the path */
+            Log(LOG_WARNING, "Failed to stat schedule file %s",
+                    REMOTE_SCHEDULE_FILE);
+            fclose(tmpfile);
+            curl_easy_cleanup(curl);
+            return -1;
+
+        } else if ( stat_result == 0 ) {
+            /* we have a file already, only fetch if there is a newer one */
+            curl_easy_setopt(curl, CURLOPT_TIMECONDITION,
+                    CURL_TIMECOND_IFMODSINCE);
+            curl_easy_setopt(curl, CURLOPT_TIMEVALUE, statbuf.st_mtime);
+            Log(LOG_DEBUG, "Local schedule Last-Modified:%d", statbuf.st_mtime);
+        }
+
+        /* perform the GET */
+        res = curl_easy_perform(curl);
+
+        /* close our temporary file, it is either empty or full of new data */
+        fclose(tmpfile);
+
+        if ( res != CURLE_OK ) {
+            Log(LOG_WARNING, "Failed to fetch remote schedule: %s",
+                    curl_easy_strerror(res));
+            fclose(tmpfile);
+            curl_easy_cleanup(curl);
+            return -1;
+        }
+
+        /* TODO theoretically we should check the return value of getinfo */
+        curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &code);
+        curl_easy_getinfo(curl, CURLINFO_FILETIME, &filetime);
+        curl_easy_getinfo(curl, CURLINFO_CONTENT_LENGTH_DOWNLOAD, &length);
+        curl_easy_getinfo(curl, CURLINFO_CONDITION_UNMET, &cond_unmet);
+        curl_easy_cleanup(curl);
+
+        Log(LOG_DEBUG, "HTTP %ld Last-Modified:%d Length:%.0f",
+                code, filetime, length);
+
+        /* if a new file was fetched then move it into position */
+        if ( cond_unmet == 0 && length > 0 ) {
+            Log(LOG_INFO, "New schedule file fetched!");
+            if ( rename(TMP_REMOTE_SCHEDULE_FILE, REMOTE_SCHEDULE_FILE) < 0 ) {
+                Log(LOG_WARNING, "Error moving fetched schedule file %s to %s",
+                        TMP_REMOTE_SCHEDULE_FILE, REMOTE_SCHEDULE_FILE);
+                return -1;
+            }
+            return 1;
+        }
+
+        Log(LOG_INFO, "No new schedule file available");
+        return 0;
+    }
+
+    Log(LOG_WARNING,
+            "Failed to initialise curl, skipping fetch of remote schedule");
+    return -1;
+}

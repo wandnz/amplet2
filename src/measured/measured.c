@@ -21,6 +21,7 @@
 #include <string.h>
 #include <limits.h>
 
+#include <curl/curl.h>
 #include <libwandevent.h>
 #include "schedule.h"
 #include "watchdog.h"
@@ -47,6 +48,7 @@ static void usage(char *prog) {
     fprintf(stderr, "  -v, --version     Print version information and exit\n");
     fprintf(stderr, "  -x, --debug       Enable extra debug output\n");
     fprintf(stderr, "  -c <config>       Specify config file\n");
+    fprintf(stderr, "  -r, --noremote    Don't fetch remote schedules\n");
 }
 
 
@@ -135,7 +137,7 @@ static int callback_verify_loglevel(cfg_t *cfg, cfg_opt_t *opt,
 static int parse_config(char *filename, struct amp_global_t *vars) {
     int ret;
     unsigned int i;
-    cfg_t *cfg, *cfg_collector;
+    cfg_t *cfg, *cfg_sub;
 
     cfg_opt_t opt_collector[] = {
         CFG_STR("address", AMQP_SERVER, CFGF_NONE),
@@ -149,11 +151,22 @@ static int parse_config(char *filename, struct amp_global_t *vars) {
         CFG_END()
     };
 
+    cfg_opt_t opt_remotesched[] = {
+        CFG_BOOL("fetch", cfg_false, CFGF_NONE),
+        CFG_STR("url", NULL, CFGF_NONE),
+        /*
+        CFG_STR("cacert", AMQP_CACERT_FILE, CFGF_NONE),
+        CFG_STR("key", AMQP_KEY_FILE, CFGF_NONE),
+        CFG_STR("cert", AMQP_CERT_FILE, CFGF_NONE),
+        */
+    };
+
     cfg_opt_t measured_opts[] = {
 	CFG_STR("ampname", NULL, CFGF_NONE),
 	CFG_STR("testdir", AMP_TEST_DIRECTORY, CFGF_NONE),
         CFG_INT_CB("loglevel", LOG_INFO, CFGF_NONE, &callback_verify_loglevel),
 	CFG_SEC("collector", opt_collector, CFGF_NONE),
+        CFG_SEC("remotesched", opt_remotesched, CFGF_NONE),
 	CFG_END()
     };
 
@@ -195,16 +208,24 @@ static int parse_config(char *filename, struct amp_global_t *vars) {
         log_level = cfg_getint(cfg, "loglevel");
     }
 
-    for ( i=0; i<cfg_size(cfg, "collector"); i++) {
-        cfg_collector = cfg_getnsec(cfg, "collector", i);
-        vars->collector = strdup(cfg_getstr(cfg_collector, "address"));
-        vars->port = cfg_getint(cfg_collector, "port");
-        vars->exchange = strdup(cfg_getstr(cfg_collector, "exchange"));
-        vars->routingkey = strdup(cfg_getstr(cfg_collector, "routingkey"));
-        vars->ssl = cfg_getbool(cfg_collector, "ssl");
-        vars->cacert = strdup(cfg_getstr(cfg_collector, "cacert"));
-        vars->key = strdup(cfg_getstr(cfg_collector, "key"));
-        vars->cert = strdup(cfg_getstr(cfg_collector, "cert"));
+    for ( i=0; i<cfg_size(cfg, "collector"); i++ ) {
+        cfg_sub = cfg_getnsec(cfg, "collector", i);
+        vars->collector = strdup(cfg_getstr(cfg_sub, "address"));
+        vars->port = cfg_getint(cfg_sub, "port");
+        vars->exchange = strdup(cfg_getstr(cfg_sub, "exchange"));
+        vars->routingkey = strdup(cfg_getstr(cfg_sub, "routingkey"));
+        vars->ssl = cfg_getbool(cfg_sub, "ssl");
+        vars->cacert = strdup(cfg_getstr(cfg_sub, "cacert"));
+        vars->key = strdup(cfg_getstr(cfg_sub, "key"));
+        vars->cert = strdup(cfg_getstr(cfg_sub, "cert"));
+    }
+
+    for ( i=0; i<cfg_size(cfg, "remotesched"); i++ ) {
+        cfg_sub = cfg_getnsec(cfg, "remotesched", i);
+        vars->fetch_remote = cfg_getbool(cfg_sub, "fetch");
+        if ( cfg_getstr(cfg_sub, "url") != NULL ) {
+            vars->schedule_url = strdup(cfg_getstr(cfg_sub, "url"));
+        }
     }
 
     cfg_free(cfg);
@@ -221,6 +242,7 @@ int main(int argc, char *argv[]) {
     struct wand_signal_t sigchld_ev;
     struct wand_signal_t sighup_ev;
     char *config_file = NULL;
+    int fetch_remote = 1;
 
     while ( 1 ) {
 	static struct option long_options[] = {
@@ -230,11 +252,12 @@ int main(int argc, char *argv[]) {
 	    {"version", no_argument, 0, 'v'},
 	    {"debug", no_argument, 0, 'x'},
 	    {"config", required_argument, 0, 'c'},
+	    {"noremote", required_argument, 0, 'r'},
 	    {0, 0, 0, 0}
 	};
 
 	int opt_ind = 0;
-	int c = getopt_long(argc, argv, "dhvxc:", long_options, &opt_ind);
+	int c = getopt_long(argc, argv, "dhvxc:r", long_options, &opt_ind);
 	if ( c == -1 )
 	    break;
 
@@ -260,6 +283,10 @@ int main(int argc, char *argv[]) {
 		/* specify a configuration file */
 		config_file = optarg;
 		break;
+            case 'r':
+                /* override config settings and don't fetch remote schedules */
+                fetch_remote = 0;
+                break;
 	    case 'h':
 	    default:
 		usage(argv[0]);
@@ -286,10 +313,23 @@ int main(int argc, char *argv[]) {
 	return -1;
     }
 
+    /* set up curl while we are still the only measured process running */
+    curl_global_init(CURL_GLOBAL_ALL);
+
     /* set up event handlers */
     wand_event_init();
     ev_hdl = wand_create_event_handler();
     assert(ev_hdl);
+
+    /* fetch remote schedule configuration if it is fresher than what we have */
+    if ( fetch_remote && vars.fetch_remote ) {
+        if ( vars.schedule_url == NULL ) {
+            Log(LOG_WARNING,
+                    "Remote schedule enabled but no url set, skipping");
+        } else {
+            update_remote_schedule(vars.schedule_url);
+        }
+    }
 
     /* set up a handler to deal with SIGINT so we can shutdown nicely */
     sigint_ev.signum = SIGINT;
@@ -326,6 +366,10 @@ int main(int argc, char *argv[]) {
     wand_del_signal(&sigchld_ev);
     wand_del_signal(&sighup_ev);
     wand_destroy_event_handler(ev_hdl);
+
+    /* finish up with curl */
+    /* TODO what if we are in the middle of updating remote schedule files? */
+    curl_global_cleanup();
 
     /* clear out all the test modules that were registered */
     unregister_tests();
