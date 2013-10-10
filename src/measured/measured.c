@@ -342,11 +342,16 @@ int main(int argc, char *argv[]) {
     sigchld_ev.data = ev_hdl;
     wand_add_signal(&sigchld_ev);
 
-    /* set up handler to deal with SIGHUP to reload available tests */
-    sighup_ev.signum = SIGHUP;
-    sighup_ev.callback = reload;
-    sighup_ev.data = ev_hdl;
-    wand_add_signal(&sighup_ev);
+    /*
+     * Set up handler to deal with SIGHUP to reload available tests if running
+     * without a TTY. With a TTY we want SIGHUP to terminate measured.
+     */
+    if ( !isatty(fileno(stdout)) ) {
+        sighup_ev.signum = SIGHUP;
+        sighup_ev.callback = reload;
+        sighup_ev.data = ev_hdl;
+        wand_add_signal(&sighup_ev);
+    }
 
     /* read the nametable to get a list of all test targets */
     read_nametable_file();
