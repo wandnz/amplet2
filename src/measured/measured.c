@@ -27,7 +27,6 @@
 #include "watchdog.h"
 #include "test.h"
 #include "nametable.h"
-#include "daemonise.h"
 #include "debug.h"
 #include "messaging.h"
 #include "modules.h"
