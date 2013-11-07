@@ -55,7 +55,7 @@ def get_data(data):
 
 	results.append(
 		{
-		    "target": name.rstrip("\0"), 
+		    "destination": name.rstrip("\0"), 
 		    "instance": instance.rstrip("\0"),
 		    "address": addr,
 		    "rtt": rtt, 
