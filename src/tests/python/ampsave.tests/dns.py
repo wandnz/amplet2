@@ -4,8 +4,8 @@ import socket
 # TODO move to another file
 class VersionMismatch(Exception):
     def __init__(self, got, expected):
-	self.got = got 
-	self.expected = expected 
+	self.got = got
+	self.expected = expected
     def __str__(self):
 	return "%d != %d" % (self.got, self.expected)
 
@@ -15,10 +15,10 @@ AMP_DNS_TEST_VERSION = 2013022000
 
 def get_data(data):
     """
-    Extract the DNS test results from the data blob. 
+    Extract the DNS test results from the data blob.
 
-    The test result data consists of a single dns_report header_t followed 
-    by a number of dns_report_item_t structures with the individual test 
+    The test result data consists of a single dns_report header_t followed
+    by a number of dns_report_item_t structures with the individual test
     results. Both of these are described in src/tests/dns/dns.h
     """
     header_len = struct.calcsize("=I256sHHHBB")
@@ -29,7 +29,7 @@ def get_data(data):
     if version != AMP_DNS_TEST_VERSION:
 	raise VersionMismatch(version, AMP_DNS_TEST_VERSION)
     offset = struct.calcsize("=I")
-    
+
     # read the rest of the header that records test options
     query,qtype,qclass,payload,opts,count = struct.unpack_from("=256sHHHBB", data, offset)
 
@@ -40,11 +40,11 @@ def get_data(data):
     while count > 0:
 	# "p" pascal string could be useful here, length byte before string
 	name,instance,addr,rtt,qlen,size,ans,aut,add,flags,res,family,ttl = struct.unpack_from("=128s256s16siIIHHHHHBB", data, offset)
-	
-	# the C structure understands how to access the flags in the 
+
+	# the C structure understands how to access the flags in the
 	# appropriate byte order, but that doesn't help us here - swap it.
 	flags = socket.ntohs(flags)
-    
+
 	if family == socket.AF_INET:
 	    addr = socket.inet_ntop(family, addr[:4])
 	elif family == socket.AF_INET6:
@@ -55,11 +55,11 @@ def get_data(data):
 
 	results.append(
 		{
-		    "destination": name.rstrip("\0"), 
+		    "destination": name.rstrip("\0"),
 		    "instance": instance.rstrip("\0"),
 		    "address": addr,
-		    "rtt": rtt, 
-		    "query_len": qlen, 
+		    "rtt": rtt,
+		    "query_len": qlen,
 		    "response_size": size,
 		    "total_answer": ans,
 		    "total_authority": aut,
