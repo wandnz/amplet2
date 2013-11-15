@@ -4,11 +4,11 @@
 # which tests should be performed, when they should occur, and which sites
 # they should target. The schedules from all files in this directory are
 # combined together to create the complete schedule for this instance of
-# measured.
+# amplet.
 #
-# The schedules are read in when measured first starts and also whenever
+# The schedules are read in when amplet first starts and also whenever
 # it receives a SIGHUP signal. Using the "reload" option to the init script
-# will send a SIGHUP to a running measured.
+# will send a SIGHUP to a running amplet.
 #
 # The schedule format is similar to that of the previous AMP schedule. A
 # test is usually repeated at some frequency during a particular period,

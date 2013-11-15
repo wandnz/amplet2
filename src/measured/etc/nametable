@@ -4,9 +4,9 @@
 # approach to /etc/hosts. This allows the use of names to refer to test
 # targets without involving DNS lookups.
 #
-# These mappings are read in when measured first starts and also whenever
+# These mappings are read in when amplet first starts and also whenever
 # it receives a SIGHUP signal. Using the "reload" option to the init script
-# will send a SIGHUP to a running measured.
+# will send a SIGHUP to a running amplet.
 #
 # There should not be entries with duplicate names in this file - if there
 # are then only the first one listed will be used, later entries will be
