@@ -1027,7 +1027,6 @@ static void usage(char *prog) {
 int run_http(int argc, char *argv[], int count, struct addrinfo **dests) {
     int opt;
     //struct opt_t options;
-    struct timeval start_time;
     int dest;
 
     Log(LOG_DEBUG, "Starting HTTP test");
@@ -1088,7 +1087,7 @@ int run_http(int argc, char *argv[], int count, struct addrinfo **dests) {
     }
 
     /* send report */
-    report_results(&start_time, server_list, &options);
+    report_results(&global.start, server_list, &options);
 
     /* TODO, free everything */
     //free(server_list);
