@@ -22,14 +22,14 @@ case "$1" in
     configure)
 
         # Debian packaging will create the directory with standard permissions
-        chown measure: /etc/amplet2/keys
-        chmod 700 /etc/amplet2/keys
+        chown measure: /etc/amplet/keys
+        chmod 700 /etc/amplet/keys
         # TODO fetch the keys somehow and save them here
 
 
         # TODO install rsyslog config here? mark as conffile somewhere/how?
-        if [ ! -f "/etc/rsyslog.d/measured.conf" ]; then
-            cp /usr/share/amplet2/rsyslog/measured.conf /etc/rsyslog.d/90-measured.conf
+        if [ ! -f "/etc/rsyslog.d/amplet.conf" ]; then
+            cp /usr/share/amplet/rsyslog/amplet.conf /etc/rsyslog.d/90-amplet.conf
             if [ -x "`which invoke-rc.d 2>/dev/null`" ]; then
                 invoke-rc.d rsyslog restart || exit $?
             else
@@ -49,7 +49,7 @@ case "$1" in
         # because of us, so we can use the main instance and default config
         # file location
         if [ ! -f "/etc/rabbitmq/rabbitmq.config" ]; then
-            ln -s /etc/amplet2/shovel.config /etc/rabbitmq/rabbitmq.config
+            ln -s /etc/amplet/shovel.config /etc/rabbitmq/rabbitmq.config
             if [ -x "`which invoke-rc.d 2>/dev/null`" ]; then
                 invoke-rc.d rabbitmq restart || exit $?
             else
@@ -57,7 +57,7 @@ case "$1" in
             fi
         else
             echo "/etc/rabbitmq/rabbitmq.config already exists."
-            echo "Please merge with /etc/amplet2/shovel.config and restart rabbitmq"
+            echo "Please merge with /etc/amplet/shovel.config and restart rabbitmq"
             exit 1
         fi
 
@@ -69,11 +69,11 @@ case "$1" in
             #rabbitmqctl set_permissions -p / $USER ".*" ".*" ".*"
         fi
 
-        # Install the appropriate config as the main measured.conf
-        if [ ! -f "/etc/amplet2/measured.conf" ]; then
-            ln -s /etc/amplet2/measured-local.conf /etc/amplet2/measured.conf
+        # Install the appropriate config as the main amplet.conf
+        if [ ! -f "/etc/amplet/amplet.conf" ]; then
+            ln -s /etc/amplet/amplet-local.conf /etc/amplet/amplet.conf
         else
-            echo "/etc/amplet2/measured.conf already exists, skipping"
+            echo "/etc/amplet/amplet.conf already exists, skipping"
         fi
 
     ;;

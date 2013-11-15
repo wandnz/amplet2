@@ -1,9 +1,9 @@
-usr/bin/measured usr/sbin
+usr/bin/amplet usr/sbin
 usr/lib/*so
-usr/lib/amplet2/tests/*so
-etc/amplet2/shovel.config
-etc/amplet2/measured-local.conf
-etc/amplet2/measured-lite.conf
-etc/amplet2/nametable
-etc/amplet2/schedule.d/*
-usr/share/amplet2/rsyslog/*
+usr/lib/amplet/tests/*so
+etc/amplet/shovel.config
+etc/amplet/amplet-local.conf
+etc/amplet/amplet-lite.conf
+etc/amplet/nametable
+etc/amplet/schedule.d/*
+usr/share/amplet/rsyslog/*

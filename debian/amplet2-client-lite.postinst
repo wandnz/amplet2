@@ -21,8 +21,8 @@ set -e
 case "$1" in
     configure)
         # TODO install rsyslog config here? mark as conffile somewhere/how?
-        if [ ! -f "/etc/rsyslog.d/measured.conf" ]; then
-            cp /usr/share/amplet2/rsyslog/measured.conf /etc/rsyslog.d/90-measured.conf
+        if [ ! -f "/etc/rsyslog.d/amplet.conf" ]; then
+            cp /usr/share/amplet/rsyslog/amplet.conf /etc/rsyslog.d/90-amplet.conf
             if [ -x "`which invoke-rc.d 2>/dev/null`" ]; then
                 invoke-rc.d rsyslog restart || exit $?
             else
@@ -30,11 +30,11 @@ case "$1" in
             fi
         fi
 
-        # Install the appropriate config as the main measured.conf
-        if [ ! -f "/etc/amplet2/measured.conf" ]; then
-            ln -s /etc/amplet2/measured-lite.conf /etc/amplet2/measured.conf
+        # Install the appropriate config as the main amplet.conf
+        if [ ! -f "/etc/amplet/amplet.conf" ]; then
+            ln -s /etc/amplet/amplet-lite.conf /etc/amplet/amplet.conf
         else
-            echo "/etc/amplet2/measured.conf already exists, skipping"
+            echo "/etc/amplet/amplet.conf already exists, skipping"
         fi
     ;;
 

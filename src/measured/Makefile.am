@@ -8,10 +8,10 @@ SUBDIRS=etc
 #AM_CFLAGS=-DAMP_CONFIG_DIR=\"$(prefix)/etc\"
 #AM_CFLAGS+=-DAMP_TEST_DIRECTORY=\"$(prefix)/tests\"
 
-bin_PROGRAMS=measured
-measured_SOURCES=measured.c schedule.c watchdog.c test.c nametable.c
-measured_CFLAGS=-I../tests/ -I../common/ -DAMP_CONFIG_DIR=\"$(sysconfdir)/$(PACKAGE)\" -DAMP_TEST_DIRECTORY=\"$(libdir)/$(PACKAGE)/tests\" -rdynamic
-measured_LDFLAGS=-L../tests/ -L../common/ -lamp -lcurl
+bin_PROGRAMS=amplet
+amplet_SOURCES=measured.c schedule.c watchdog.c test.c nametable.c
+amplet_CFLAGS=-I../tests/ -I../common/ -DAMP_CONFIG_DIR=\"$(sysconfdir)/$(PACKAGE)\" -DAMP_TEST_DIRECTORY=\"$(libdir)/$(PACKAGE)/tests\" -rdynamic
+amplet_LDFLAGS=-L../tests/ -L../common/ -lamp -lcurl
 
 sharedir=$(pkgdatadir)/rsyslog
 dist_share_DATA=rsyslog/*

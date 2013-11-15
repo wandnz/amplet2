@@ -1,7 +1,7 @@
 usr/sbin
-etc/amplet2
-etc/amplet2/keys
-etc/amplet2/schedule.d
-usr/lib/amplet2/tests
-var/log/amplet2
-usr/share/amplet2/rsyslog/
+etc/amplet
+etc/amplet/keys
+etc/amplet/schedule.d
+usr/lib/amplet/tests
+var/log/amplet
+usr/share/amplet/rsyslog/

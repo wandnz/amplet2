@@ -13,9 +13,9 @@
 
 # PATH should only include /usr/* if it runs after the mountnfs.sh script
 PATH=/sbin:/usr/sbin:/bin:/usr/bin
-DESC=amplet2-client             # Introduce a short description here
+DESC=amplet                     # Introduce a short description here
 PKG_NAME=amplet2-client
-DAEMON_NAME=measured            # Introduce the short server's name here
+DAEMON_NAME=amplet              # Introduce the short server's name here
 DAEMON=/usr/sbin/$DAEMON_NAME   # Introduce the server's location here
 DAEMON_ARGS="-d"                # Arguments to run the daemon with
 PIDFILE=/var/run/$NAME.pid      # TODO create a proper pidfile
@@ -29,7 +29,7 @@ START_DAEMON=1
 [ -r /etc/default/$PKG_NAME ] && . /etc/default/$PKG_NAME
 
 # Don't start the daemon unless it has been manually enabled in
-# /etc/default/amplet2-client. There is too much configuration required
+# /etc/default/amplet. There is too much configuration required
 # to assume it can be started initially.
 [ $START_DAEMON -gt 0 ] || exit 0
 
