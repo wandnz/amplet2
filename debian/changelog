@@ -1,3 +1,24 @@
+amplet2 (0.1.8-3) unstable; urgency=low
+
+  * Remove pointless init scripts and default files from amplet2-server, for
+    now it only needs to be the python test parsing.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Fri, 18 Oct 2013 11:44:55 +1200
+
+amplet2 (0.1.8-2) unstable; urgency=low
+
+  * Depend on custom librabbitmq library instead of normal one
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Wed, 16 Oct 2013 12:03:35 +1200
+
+amplet2 (0.1.8-1) unstable; urgency=low
+
+  * Quieten some log messages in tests.
+  * Deal properly with SIGHUP when not run as a daemon.
+  * Basic support for fetching remote configs over HTTP.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Tue, 15 Oct 2013 13:28:08 +1200
+
 amplet2 (0.1.7-2) unstable; urgency=low
 
   * Create keys directory and set permissions appropriately.
