@@ -293,10 +293,10 @@ int main(int argc, char *argv[]) {
 	};
     }
 
-    Log(LOG_INFO, "amplet starting");
+    Log(LOG_INFO, "amplet2 starting");
 
     if ( !config_file ) {
-	config_file = AMP_CONFIG_DIR "/amplet.conf";
+	config_file = AMP_CONFIG_DIR "/amplet2.conf";
     }
 
     if ( parse_config(config_file, &vars) < 0 ) {

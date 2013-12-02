@@ -1,9 +1,9 @@
-usr/bin/amplet usr/sbin
+usr/bin/amplet2 usr/sbin
 usr/lib/*so
-usr/lib/amplet/tests/*so
-etc/amplet/shovel.config
-etc/amplet/amplet-local.conf
-etc/amplet/amplet-lite.conf
-etc/amplet/nametable
-etc/amplet/schedule.d/*
-usr/share/amplet/rsyslog/*
+usr/lib/amplet2/tests/*so
+etc/amplet2/shovel.config
+etc/amplet2/amplet2-local.conf
+etc/amplet2/amplet2-lite.conf
+etc/amplet2/nametable
+etc/amplet2/schedule.d/*
+usr/share/amplet2/rsyslog/*
