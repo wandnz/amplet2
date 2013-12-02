@@ -17,7 +17,6 @@ DESC=amplet2                    # Introduce a short description here
 PKG_NAME=amplet2-client
 DAEMON_NAME=amplet2             # Introduce the short server's name here
 DAEMON=/usr/sbin/$DAEMON_NAME   # Introduce the server's location here
-DAEMON_ARGS="-d"                # Arguments to run the daemon with
 PIDFILE=/var/run/$NAME.pid      # TODO create a proper pidfile
 SCRIPTNAME=/etc/init.d/$PKG_NAME
 START_DAEMON=1
@@ -52,7 +51,7 @@ do_start()
 	start-stop-daemon --start --quiet --exec $DAEMON --test > /dev/null \
 		|| return 1
 	start-stop-daemon --start --quiet --exec $DAEMON -- \
-		$DAEMON_ARGS \
+		$DAEMON_OPTS \
 		|| return 2
 	# Add code here, if necessary, that waits for the process to be ready
 	# to handle requests from services started subsequently which depend
