@@ -71,11 +71,11 @@ case "$1" in
             #rabbitmqctl set_permissions -p / $USER ".*" ".*" ".*"
         fi
 
-        # Install the appropriate config as the main amplet2.conf
-        if [ ! -f "/etc/${PACKAGE}/amplet2.conf" ]; then
-            ln -s /etc/${PACKAGE}/amplet2-local.conf /etc/${PACKAGE}/amplet2.conf
+        # Install the appropriate config as the main client.conf
+        if [ ! -f "/etc/${PACKAGE}/client.conf" ]; then
+            ln -s /etc/${PACKAGE}/client-local.conf /etc/${PACKAGE}/client.conf
         else
-            echo "/etc/${PACKAGE}/amplet2.conf already exists, skipping"
+            echo "/etc/${PACKAGE}/client.conf already exists, skipping"
         fi
 
     ;;

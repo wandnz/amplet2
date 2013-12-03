@@ -2,7 +2,7 @@ usr/bin/amplet2 usr/sbin
 usr/lib/*so
 usr/lib/amplet2/tests/*so
 etc/amplet2/shovel.config
-etc/amplet2/client-local.conf
+etc/amplet2/client-lite.conf
 etc/amplet2/nametable
 etc/amplet2/schedule.d/*
 usr/share/amplet2/rsyslog/*

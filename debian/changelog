@@ -1,3 +1,10 @@
+amplet2 (0.1.10-1) unstable; urgency=low
+
+  * Still struggling to find consistency with file names.
+  * Don't install both versions of the config file, limit it based on package.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Mon,  4 Dec 2013 11:15:37 +1300
+
 amplet2 (0.1.9-1) unstable; urgency=low
 
   * Fix http test to use the correct start timestamp
