@@ -1,3 +1,9 @@
+amplet2 (0.1.10-2) unstable; urgency=low
+
+  * Make sure init/default scripts are named appropriately in lite package.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Mon,  4 Dec 2013 12:03:19 +1300
+
 amplet2 (0.1.10-1) unstable; urgency=low
 
   * Still struggling to find consistency with file names.
