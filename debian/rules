@@ -25,4 +25,4 @@ override_dh_installinit:
 	dh_installinit --name=amplet2-client
 
 override_dh_auto_configure:
-	dh_auto_configure -- CFLAGS="-I/home/brendonj/rabbitmq/rabbitmq-c-0.4.0/librabbitmq/ -I/home/brendonj/libwandevent/trunk/ -I/home/brendonj/curl-7.29.0/include/" LDFLAGS="-L/home/brendonj/libwandevent/trunk/.libs/ -L/home/brendonj/rabbitmq/rabbitmq-c-0.4.0/librabbitmq/.libs -L/home/brendonj/curl-7.29.0/lib/.libs" --disable-http
+	dh_auto_configure -- CFLAGS="-I/home/brendonj/rabbitmq/rabbitmq-c-0.4.0/librabbitmq/ -I/home/brendonj/libwandevent/trunk/ -I/home/brendonj/curl-7.29.0/include/" LDFLAGS="-L/home/brendonj/libwandevent/trunk/.libs/ -L/home/brendonj/rabbitmq/rabbitmq-c-0.4.0/librabbitmq/.libs -L/home/brendonj/curl-7.29.0/lib/.libs"

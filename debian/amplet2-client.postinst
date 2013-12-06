@@ -22,9 +22,7 @@ PACKAGE="amplet2"
 
 case "$1" in
     configure)
-
         # Debian packaging will create the directory with standard permissions
-        chown measure: /etc/${PACKAGE}/keys
         chmod 700 /etc/${PACKAGE}/keys
         # TODO fetch the keys somehow and save them here
 
@@ -39,36 +37,42 @@ case "$1" in
             fi
         fi
 
-        # Enable the shovel plugin for rabbitmq
-        if [ -x "`which rabbitmq-plugins 2>/dev/null`" ]; then
-            rabbitmq-plugins enable rabbitmq_shovel || exit $?
-        else
-            echo "Can't enable shovel plugin, aborting"
-            exit 1
-        fi
-
-        # TODO for now we assume that rabbitmq-server is only present
-        # because of us, so we can use the main instance and default config
-        # file location
-        if [ ! -f "/etc/rabbitmq/rabbitmq.config" ]; then
-            ln -s /etc/${PACKAGE}/shovel.config /etc/rabbitmq/rabbitmq.config
-            if [ -x "`which invoke-rc.d 2>/dev/null`" ]; then
-                invoke-rc.d rabbitmq restart || exit $?
+        # Don't do anything with rabbit if $HOME isn't set, as some of the
+        # rabbit scripts require it. The only obvious case where $HOME isn't
+        # set is when this is being run with puppet, in which case this is all
+        # taken care of anyway.
+        if [ -n "$HOME" ]; then
+            # Enable the shovel plugin for rabbitmq
+            if [ -x "`which rabbitmq-plugins 2>/dev/null`" ]; then
+                rabbitmq-plugins enable rabbitmq_shovel || exit $?
             else
-                /etc/init.d/rabbitmq restart || exit $?
+                echo "Can't enable shovel plugin, aborting"
+                exit 1
             fi
-        else
-            echo "/etc/rabbitmq/rabbitmq.config already exists."
-            echo "Please merge with /etc/${PACKAGE}/shovel.config and restart rabbitmq"
-            exit 1
-        fi
 
-        # TODO create vhost just for AMP?
-        # create the local user with the same name that we will use for
-        # reporting upstream - in this case it's the FQDN
-        if [ -x "`which rabbitmqctl 2>/dev/null`" ]; then
-            #rabbitmqctl add_user $USER $USER
-            #rabbitmqctl set_permissions -p / $USER ".*" ".*" ".*"
+            # TODO for now we assume that rabbitmq-server is only present
+            # because of us, so we can use the main instance and default config
+            # file location
+            if [ ! -f "/etc/rabbitmq/rabbitmq.config" ]; then
+                ln -s /etc/${PACKAGE}/shovel.config /etc/rabbitmq/rabbitmq.config
+                if [ -x "`which invoke-rc.d 2>/dev/null`" ]; then
+                    invoke-rc.d rabbitmq-server restart || exit $?
+                else
+                    /etc/init.d/rabbitmq-server restart || exit $?
+                fi
+            else
+                echo "/etc/rabbitmq/rabbitmq.config already exists."
+                echo "Please merge with /etc/${PACKAGE}/shovel.config and restart rabbitmq"
+            fi
+
+            # TODO create vhost just for AMP?
+            # create the local user with the same name that we will use for
+            # reporting upstream - in this case it's the FQDN
+            if [ -x "`which rabbitmqctl 2>/dev/null`" ]; then
+                echo "Skipping rabbit config temporarily"
+                #rabbitmqctl add_user $USER $USER
+                #rabbitmqctl set_permissions -p / $USER ".*" ".*" ".*"
+            fi
         fi
 
         # Install the appropriate config as the main client.conf

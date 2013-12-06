@@ -22,6 +22,11 @@ PACKAGE="amplet2"
 
 case "$1" in
     configure)
+        # Debian packaging will create the directory with standard permissions
+        chmod 700 /etc/${PACKAGE}/keys
+        # TODO fetch the keys somehow and save them here
+
+
         # TODO install rsyslog config here? mark as conffile somewhere/how?
         if [ ! -f "/etc/rsyslog.d/amplet2.conf" ]; then
             cp /usr/share/${PACKAGE}/rsyslog/amplet2.conf /etc/rsyslog.d/90-amplet2.conf
