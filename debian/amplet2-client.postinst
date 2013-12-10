@@ -23,6 +23,7 @@ PACKAGE="amplet2"
 case "$1" in
     configure)
         # Debian packaging will create the directory with standard permissions
+        chown -r rabbitmq:root /etc/${PACKAGE}/keys
         chmod 700 /etc/${PACKAGE}/keys
         # TODO fetch the keys somehow and save them here
 

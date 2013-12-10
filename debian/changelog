@@ -1,3 +1,9 @@
+amplet2 (0.1.10-9) unstable; urgency=low
+
+  * Give the rabbitmq user access to the keys it needs to run the shovel.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Mon,  9 Dec 2013 14:35:32 +1300
+
 amplet2 (0.1.10-8) unstable; urgency=low
 
   * Enable the http test.
