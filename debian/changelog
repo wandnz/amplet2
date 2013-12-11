@@ -1,3 +1,9 @@
+amplet2 (0.1.10-10) unstable; urgency=low
+
+  * Use the correct argument to chown to get recursion.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Thu, 12 Dec 2013 09:36:50 +1300
+
 amplet2 (0.1.10-9) unstable; urgency=low
 
   * Give the rabbitmq user access to the keys it needs to run the shovel.
