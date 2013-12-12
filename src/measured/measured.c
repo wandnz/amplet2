@@ -158,6 +158,7 @@ static int parse_config(char *filename, struct amp_global_t *vars) {
         CFG_STR("key", AMQP_KEY_FILE, CFGF_NONE),
         CFG_STR("cert", AMQP_CERT_FILE, CFGF_NONE),
         */
+        CFG_END()
     };
 
     cfg_opt_t measured_opts[] = {
