@@ -561,26 +561,26 @@ static void read_schedule_file(wand_event_handler_t *ev_hdl, char *filename) {
             test->resolve->family = AF_UNSPEC;
 	    test->resolve->addr = NULL;
 	    test->resolve->next = NULL;
-	    test->resolve_count = 1;
+	    test->resolve_count = 0;
 	    /*
 	     * the schedule can determine how many addresses of what address
              * families are resolved:
-	     * www.foo.com	-- resolve a single address
+	     * www.foo.com	-- resolve all addresses
 	     * www.foo.com:1	-- resolve a single address
 	     * www.foo.com:n	-- resolve up to n addresses
-	     * www.foo.com:*	-- resolve all addresses
-	     * www.foo.com:0	-- resolve all addresses
-             * www.foo.com:v4   -- resolve a single ipv4 addresses
-             * www.foo.com:v6   -- resolve a single ipv6 addresses
-             * www.foo.com:*:v4 -- resolve all ipv4 addresses
-             * www.foo.com:*:v6 -- resolve all ipv6 addresses
+             * www.foo.com:v4   -- resolve all ipv4 addresses
+             * www.foo.com:v6   -- resolve all ipv6 addresses
+             * www.foo.com:n:v4 -- resolve up to n ipv4 addresses
+             * www.foo.com:n:v6 -- resolve up to n ipv6 addresses
 	     */
-	    if ( (count_str=strtok(NULL, ":")) == NULL ) {
-		test->resolve->count = 1;
-	    } else {
+	    if ( (count_str=strtok(NULL, ":")) != NULL ) {
                 do {
                     if (strncmp(count_str, "*", 1) == 0 ) {
-                        test->resolve->count = 0;
+                        /*
+                         * Do nothing - backwards compatability with old
+                         * schedules that defaulted to a single address and
+                         * needed the * to resolve to all.
+                         */
                     } else if ( strncmp(count_str, "v4", 2) == 0 ) {
                         test->resolve->family = AF_INET;
                     } else if ( strncmp(count_str, "v6", 2) == 0 ) {
