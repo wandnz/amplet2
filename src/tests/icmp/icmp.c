@@ -311,8 +311,17 @@ static void send_packet(struct socket_t *raw_sockets, int seq, uint16_t ident,
 	harvest(raw_sockets, ident, delay, count, info);
     }
 
-    /* record the time the packet was sent */
-    gettimeofday(&(info[seq].time_sent), NULL);
+    if ( delay < 0 ) {
+        /*
+         * mark this as done if the packet failed to send properly, we don't
+         * want to wait for a response that will never arrive.
+         */
+        info[seq].reply = 1;
+        memset(&(info[seq].time_sent), 0, sizeof(struct timeval));
+    } else {
+        /* record the time the packet was sent */
+        gettimeofday(&(info[seq].time_sent), NULL);
+    }
 }
 
 
@@ -412,7 +421,7 @@ static void report_results(struct timeval *start_time, int count,
 	};
 
 	/* TODO do we want to truncate to milliseconds like the old test? */
-	if ( info[i].reply &&
+	if ( info[i].reply && info[i].time_sent.tv_sec > 0 &&
                 (info[i].err_type == ICMP_REDIRECT ||
                  (info[i].err_type == 0 && info[i].err_code == 0)) ) {
 	    //printf("%dms ", (int)((info[i].delay/1000.0) + 0.5));

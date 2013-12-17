@@ -191,7 +191,8 @@ int delay_send_packet(int sock, char *packet, int size, struct addrinfo *dest) {
 
     /* TODO determine error and/or send any unsent bytes */
     if ( bytes_sent != size ) {
-	Log(LOG_ERR, "Only sent %d of %d bytes", bytes_sent, size);
+        Log(LOG_DEBUG, "Only sent %d of %d bytes", bytes_sent, size);
+        return -1;
     }
 
     return 0;

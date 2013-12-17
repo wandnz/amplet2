@@ -117,8 +117,25 @@ static void send_probe(struct socket_t *ip_sockets, int dest_id, int ttl,
 
     /* record the time the packet was sent */
     if ( info != NULL ) {
-        gettimeofday(&(info[dest_id].hop[ttl - 1].time_sent), NULL);
         info[dest_id].retry = 0;
+        if ( delay < 0 ) {
+            /*
+             * Mark this as done if the packet failed to send properly, we
+             * don't want to wait for a response that will never arrive. We
+             * also fill in 5 null hops in the path to make it appear the
+             * same as other failed traceroutes, but without having to send
+             * a heap of packets.
+             */
+            int i;
+            info[dest_id].done = 1;
+            info[dest_id].ttl = 5;
+            for ( i = 0; i < info[dest_id].ttl; i++ ) {
+                info[dest_id].hop[i].addr = NULL;
+            }
+
+        } else {
+            gettimeofday(&(info[dest_id].hop[ttl - 1].time_sent), NULL);
+        }
     }
 }
 

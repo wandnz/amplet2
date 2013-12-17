@@ -441,9 +441,20 @@ static void send_packet(struct socket_t *sockets, uint16_t seq, uint16_t ident,
 	harvest(sockets, ident, delay, count, info, opt);
     }
 
-    gettimeofday(&(info[seq].time_sent), NULL);
+    if ( delay < 0 ) {
+        /*
+         * mark this as done if the packet failed to send properly, we don't
+         * want to wait for a response that will never arrive.
+         */
+        memset(&(info[seq].time_sent), 0, sizeof(struct timeval));
+        info[seq].reply = 1;
+    } else {
+        /* record the time the packet was sent */
+        gettimeofday(&(info[seq].time_sent), NULL);
+        info[seq].reply = 0;
+    }
+
     info[seq].addr = dest;
-    info[seq].reply = 0;
     info[seq].dnssec_response = 0;
     info[seq].query_length = qbuf_len;
     info[seq].response[0] = '\0';
@@ -561,7 +572,8 @@ static void report_results(struct timeval *start_time, int count,
 		    sizeof(item->instance));
 	}
 
-	if ( info[i].reply /* TODO check response code too? */) {
+        /* TODO check response code too? */
+	if ( info[i].reply && info[i].time_sent.tv_sec > 0 ) {
 	    item->rtt = info[i].delay;
 	} else {
 	    item->rtt = -1;
