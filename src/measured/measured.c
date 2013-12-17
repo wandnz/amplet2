@@ -243,6 +243,7 @@ int main(int argc, char *argv[]) {
     struct wand_signal_t sighup_ev;
     char *config_file = NULL;
     int fetch_remote = 1;
+    int backgrounded = 0;
 
     while ( 1 ) {
 	static struct option long_options[] = {
@@ -268,6 +269,7 @@ int main(int argc, char *argv[]) {
 		    perror("daemon");
 		    return -1;
 		}
+                backgrounded = 1;
 		break;
 	    case 'v':
 		/* print version and build info */
@@ -347,7 +349,7 @@ int main(int argc, char *argv[]) {
      * Set up handler to deal with SIGHUP to reload available tests if running
      * without a TTY. With a TTY we want SIGHUP to terminate measured.
      */
-    if ( !isatty(fileno(stdout)) ) {
+    if ( backgrounded ) {
         sighup_ev.signum = SIGHUP;
         sighup_ev.callback = reload;
         sighup_ev.data = ev_hdl;
@@ -369,7 +371,9 @@ int main(int argc, char *argv[]) {
     clear_nametable();
     wand_del_signal(&sigint_ev);
     wand_del_signal(&sigchld_ev);
-    wand_del_signal(&sighup_ev);
+    if ( backgrounded ) {
+        wand_del_signal(&sighup_ev);
+    }
     wand_destroy_event_handler(ev_hdl);
 
     /* finish up with curl */
