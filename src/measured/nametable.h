@@ -10,10 +10,16 @@
 
 #define MAX_NAMETABLE_HOSTS 1024
 
+struct nametable_item {
+    struct addrinfo *addr;
+    struct nametable_item *next;
+    uint8_t count;
+};
+typedef struct nametable_item nametable_t;
 
 void read_nametable_file(void);
 void setup_nametable_refresh(wand_event_handler_t *ev_hdl);
-struct addrinfo *name_to_address(char *name);
+nametable_t *name_to_address(char *name);
 void clear_nametable(void);
 
 #endif

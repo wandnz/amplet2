@@ -19,7 +19,7 @@
 #include "debug.h"
 
 
-static struct addrinfo *name_table = NULL;
+static nametable_t *name_table = NULL;
 
 
 /*
@@ -34,13 +34,26 @@ static struct addrinfo *name_table = NULL;
  * canonical name to the name we use for it.
  */
 static void insert_nametable_entry(char *name, struct addrinfo *info) {
+    nametable_t *item;
     assert(name);
     assert(info);
     assert(info->ai_next == NULL);
 
     info->ai_canonname = strdup(name);
-    info->ai_next = name_table;
-    name_table = info;
+
+    if ( (item = name_to_address(name)) == NULL ) {
+        /* if it doesn't exist, create it with the single struct addrinfo */
+        item = (nametable_t *)malloc(sizeof(nametable_t));
+        item->addr = info;
+        item->next = NULL;
+        item->count = 1;
+        name_table = item;
+    } else {
+        /* if it does exist, add this struct addrinfo to the list */
+        info->ai_next = item->addr;
+        item->addr = info;
+        item->count++;
+    }
 }
 
 
@@ -50,30 +63,33 @@ static void insert_nametable_entry(char *name, struct addrinfo *info) {
  */
 static void dump_nametable() {
     struct addrinfo *tmp;
+    nametable_t *item;
     char address[INET6_ADDRSTRLEN];
 
     Log(LOG_DEBUG, "====== NAMETABLE ======");
 
-    for ( tmp=name_table; tmp != NULL; tmp=tmp->ai_next ) {
-	assert(tmp);
-	assert(tmp->ai_addr);
-	assert(tmp->ai_canonname);
-	if ( tmp->ai_addr->sa_family == AF_INET ) {
-	    inet_ntop(AF_INET,
-		    &((struct sockaddr_in*)tmp->ai_addr)->sin_addr,
-		    address, INET6_ADDRSTRLEN);
+    for ( item=name_table; item != NULL; item=item->next ) {
+        for ( tmp=item->addr; tmp != NULL; tmp=tmp->ai_next ) {
+            assert(tmp);
+            assert(tmp->ai_addr);
+            assert(tmp->ai_canonname);
+            if ( tmp->ai_addr->sa_family == AF_INET ) {
+                inet_ntop(AF_INET,
+                        &((struct sockaddr_in*)tmp->ai_addr)->sin_addr,
+                        address, INET6_ADDRSTRLEN);
 
-	} else if ( tmp->ai_addr->sa_family == AF_INET6 ) {
-	    inet_ntop(AF_INET6,
-		    &((struct sockaddr_in6*)tmp->ai_addr)->sin6_addr,
-		    address, INET6_ADDRSTRLEN);
+            } else if ( tmp->ai_addr->sa_family == AF_INET6 ) {
+                inet_ntop(AF_INET6,
+                        &((struct sockaddr_in6*)tmp->ai_addr)->sin6_addr,
+                        address, INET6_ADDRSTRLEN);
 
-	} else {
-	    Log(LOG_WARNING, "unknown address family: %d\n",
-		    tmp->ai_addr->sa_family);
-	    continue;
-	}
-	Log(LOG_DEBUG, "%s %s\n", tmp->ai_canonname, address);
+            } else {
+                Log(LOG_WARNING, "unknown address family: %d\n",
+                        tmp->ai_addr->sa_family);
+                continue;
+            }
+            Log(LOG_DEBUG, "%s %s\n", tmp->ai_canonname, address);
+        }
     }
 }
 
@@ -84,8 +100,21 @@ static void dump_nametable() {
  * will do all the hard work.
  */
 void clear_nametable() {
+    nametable_t *item;
+    nametable_t *tmp;
+
     if ( name_table != NULL ) {
-	freeaddrinfo(name_table);
+        for ( item=name_table; item != NULL; /* increment in body */ ) {
+            /* free addresses for current item */
+            if ( item->addr != NULL ) {
+                freeaddrinfo(item->addr);
+            }
+
+            /* free current item */
+            tmp = item;
+            item = item->next;
+            free(tmp);
+        }
 	name_table = NULL;
     }
 }
@@ -96,8 +125,9 @@ void clear_nametable() {
  * Traverse the list and return the first address structure that has the
  * given name.
  */
-struct addrinfo *name_to_address(char *name) {
+nametable_t *name_to_address(char *name) {
     struct addrinfo *tmp;
+    nametable_t *item;
 
     assert(name);
 
@@ -105,10 +135,12 @@ struct addrinfo *name_to_address(char *name) {
 	return NULL;
     }
 
-    for ( tmp=name_table; tmp != NULL; tmp=tmp->ai_next ) {
-	if ( strcmp(name, tmp->ai_canonname) == 0 ) {
-	    return tmp;
-	}
+    for ( item=name_table; item != NULL; item=item->next ) {
+        assert(item->addr);
+        assert(item->addr->ai_canonname);
+        if ( strcmp(name, item->addr->ai_canonname) == 0 ) {
+            return item;
+        }
     }
 
     return NULL;
@@ -147,13 +179,6 @@ void read_nametable_file() {
 	    continue;
 	if ( (address = strtok(NULL, NAMETABLE_DELIMITER)) == NULL )
 	    continue;
-
-	if ( name_to_address(name) != NULL ) {
-	    Log(LOG_WARNING,
-		    "Duplicate entry in name table for destination '%s'\n",
-		    name);
-	    continue;
-	}
 
 	Log(LOG_DEBUG, "Loaded name:%s address:%s\n", name, address);
 	memset(&hint, 0, sizeof(struct addrinfo));

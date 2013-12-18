@@ -494,6 +494,7 @@ static void read_schedule_file(wand_event_handler_t *ev_hdl, char *filename) {
 	char *target, *testname, *repeat, *params;
 	long start, end, frequency;
 	struct timeval next;
+        nametable_t *addresses;
 	test_type_t test_id;
 
 	lineno++;
@@ -545,10 +546,17 @@ static void read_schedule_file(wand_event_handler_t *ev_hdl, char *filename) {
 	test->dest_count = 0;
 
 	/* check if the destination is in the nametable */
-	if ( name_to_address(target) != NULL ) {
-	    test->dests = (struct addrinfo **)malloc(sizeof(struct addrinfo*));
-	    *test->dests = name_to_address(target);
-	    test->dest_count = 1;
+        if ( (addresses = name_to_address(target)) != NULL ) {
+            struct addrinfo *addr;
+            int i;
+            /* add all the addresses in the addrinfo chain to the test */
+            test->dests = (struct addrinfo **)malloc(
+                    sizeof(struct addrinfo*) * addresses->count);
+            for ( addr=addresses->addr; addr != NULL; addr=addr->ai_next ) {
+                test->dests[i] = addr;
+                i++;
+            }
+            test->dest_count = addresses->count;
 	} else {
 	    /* if it isn't then it will be resolved at test time */
 	    char *count_str;
@@ -592,10 +600,11 @@ static void read_schedule_file(wand_event_handler_t *ev_hdl, char *filename) {
 	    }
 	}
 
-	if ( params == NULL || strlen(params) < 1 )
+	if ( params == NULL || strlen(params) < 1 ) {
 	    test->params = NULL;
-	else
+	} else {
 	    test->params = parse_param_string(params);
+        }
 
 	/* if this test can have multiple target we may not need a new one */
 	if ( amp_tests[test_id]->max_targets != 1 ) {
