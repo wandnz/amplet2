@@ -1,3 +1,19 @@
+amplet2 (0.1.12-1) unstable; urgency=low
+
+  * New upstream release.
+  * Resolve all target names in the schedule file by default.
+  * Deal more gracefully in tests with packets that can't be sent.
+  * Allow the same name to be defined multiple times in the nametable.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Wed, 18 Dec 2013 13:42:08 +1300
+
+amplet2 (0.1.11-1) unstable; urgency=low
+
+  * New upstream release.
+  * Properly terminate libconfuse option structures.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Thu, 12 Dec 2013 11:16:21 +1300
+
 amplet2 (0.1.10-10) unstable; urgency=low
 
   * Use the correct argument to chown to get recursion.
