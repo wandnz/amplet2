@@ -569,7 +569,8 @@ static void read_schedule_file(wand_event_handler_t *ev_hdl, char *filename) {
             test->resolve->family = AF_UNSPEC;
 	    test->resolve->addr = NULL;
 	    test->resolve->next = NULL;
-	    test->resolve_count = 0;
+            test->resolve_count = 1;    /* one name to resolve */
+            test->resolve->count = 0;   /* resolve all address for name */
 	    /*
 	     * the schedule can determine how many addresses of what address
              * families are resolved:
