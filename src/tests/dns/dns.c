@@ -310,8 +310,8 @@ static void harvest(struct socket_t *sockets, uint16_t ident, int wait,
 /*
  * Build a DNS query based on the user options.
  */
-static char *create_dns_query(uint16_t ident, int *len, struct opt_t *opt) {
-    int total_len;
+static char *create_dns_query(uint16_t ident, uint32_t *len, struct opt_t *opt){
+    uint32_t total_len;
     struct dns_t *header;
     struct dns_query_t *query_info;
     struct dns_opt_rr_t *additional;
@@ -409,10 +409,17 @@ static void send_packet(struct socket_t *sockets, uint16_t seq, uint16_t ident,
     struct addrinfo tmpdst;
     int delay;
     char *qbuf;
-    int qbuf_len;
 
     /* make a copy of the destination so we can modify the port */
     memcpy(&tmpdst, dest, sizeof(struct addrinfo));
+
+    /*
+     * Set initial values for the info block for this test - it has already
+     * been memset to zero, so only need to set those that have values. Do
+     * this before any return statements, so we have a little bit of info
+     * in case we abort early.
+     */
+    info[seq].addr = dest;
 
     /* determine the appropriate socket to use and port field to set */
     switch ( dest->ai_family ) {
@@ -435,9 +442,10 @@ static void send_packet(struct socket_t *sockets, uint16_t seq, uint16_t ident,
 	return;
     }
 
-    qbuf = create_dns_query(seq + ident, &qbuf_len, opt);
+    qbuf = create_dns_query(seq + ident, &(info[seq].query_length), opt);
 
-    while ( (delay = delay_send_packet(sock, qbuf, qbuf_len, &tmpdst)) > 0 ) {
+    while ( (delay = delay_send_packet(sock, qbuf, info[seq].query_length,
+                    &tmpdst)) > 0 ) {
 	harvest(sockets, ident, delay, count, info, opt);
     }
 
@@ -451,15 +459,7 @@ static void send_packet(struct socket_t *sockets, uint16_t seq, uint16_t ident,
     } else {
         /* record the time the packet was sent */
         gettimeofday(&(info[seq].time_sent), NULL);
-        info[seq].reply = 0;
     }
-
-    info[seq].addr = dest;
-    info[seq].dnssec_response = 0;
-    info[seq].query_length = qbuf_len;
-    info[seq].response[0] = '\0';
-    info[seq].addr_count = 0;
-    info[seq].ttl = 0;
 
     free(qbuf);
 }
@@ -799,6 +799,7 @@ int run_dns(int argc, char *argv[], int count, struct addrinfo **dests) {
 
     /* allocate space to store information about each request sent */
     info = (struct info_t *)malloc(sizeof(struct info_t) * count);
+    memset(info, 0, sizeof(struct info_t) * count);
 
     /* send a test packet to each destination */
     for ( dest = 0; dest < count; dest++ ) {
