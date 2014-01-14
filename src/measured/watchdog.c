@@ -18,7 +18,8 @@
  * maximum duration is based on the test (determined at registration time)
  * and passed in as a maximum number of seconds.
  */
-void add_test_watchdog(wand_event_handler_t *ev_hdl, pid_t pid, uint16_t max) {
+void add_test_watchdog(wand_event_handler_t *ev_hdl, pid_t pid, uint16_t max,
+        char *testname) {
     struct wand_timer_t *timer;
     schedule_item_t *item;
     kill_schedule_item_t *kill;
@@ -26,6 +27,7 @@ void add_test_watchdog(wand_event_handler_t *ev_hdl, pid_t pid, uint16_t max) {
     /* store information about the test so we can kill it later */
     kill = (kill_schedule_item_t *)malloc(sizeof(kill_schedule_item_t));
     kill->pid = pid;
+    kill->testname = testname;
     item = (schedule_item_t *)malloc(sizeof(schedule_item_t));
     item->type = EVENT_CANCEL_TEST;
     item->ev_hdl = ev_hdl;
@@ -133,6 +135,13 @@ void kill_running_test(struct wand_timer_t *timer) {
     assert(item->type == EVENT_CANCEL_TEST);
     assert(item->data.kill);
     assert(item->data.kill->pid > 0);
+    assert(item->data.kill->testname);
+
+    /* TODO is this enough information? We could track the actual test schedule
+     * item and then print all sorts of information about the destinations etc
+     */
+    Log(LOG_WARNING, "Watchdog killed %s test that ran too long",
+            item->data.kill->testname);
 
     /* TODO send SIGINT first like amp1 did? killpg() vs kill() */
     /* kill the test */

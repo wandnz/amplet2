@@ -78,6 +78,7 @@ typedef struct test_schedule_item {
  */ 
 typedef struct kill_schedule_item {
     pid_t pid;			    /* pid of test process to kill */
+    char *testname;                 /* name of the test to kill */
 } kill_schedule_item_t;
 
 /*
