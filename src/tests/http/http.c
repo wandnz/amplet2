@@ -1113,7 +1113,7 @@ test_t *register_test() {
     new_test->max_targets = 1;
 
     /* maximum duration this test should take before being killed */
-    new_test->max_duration = 60;
+    new_test->max_duration = 300;
 
     /* function to call to setup arguments and run the test */
     new_test->run_callback = run_http;
