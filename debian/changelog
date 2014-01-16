@@ -1,3 +1,13 @@
+amplet2 (0.1.13-1) unstable; urgency=low
+
+  * New upstream release.
+  * Fix possibly uninitialised values being reported by DNS test.
+  * Fix segfault when exiting traceroute test.
+  * Increase watchdog timeouts for killing tests.
+  * Log basic information about any test that gets killed for running too long.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Thu, 16 Jan 2014 14:22:20 +1300
+
 amplet2 (0.1.12-1) unstable; urgency=low
 
   * New upstream release.
