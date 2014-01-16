@@ -942,8 +942,18 @@ int run_traceroute(int argc, char *argv[], int count, struct addrinfo **dests) {
         for ( hop = 0; hop < MAX_HOPS_IN_PATH; hop++ ) {
             if ( info[i].hop[hop].reply ) {
                 /* we've allocated ai_addr ourselves, so have to free it */
-                free(info[i].hop[hop].addr->ai_addr);
-                freeaddrinfo(info[i].hop[hop].addr);
+                /* TODO: freeing this data without the explicit checks for
+                 * NULL was causing segfaults, but I can't see a way for these
+                 * not to be set if reply is set? Reply is set immediately
+                 * before allocating this memory.
+                 */
+                if ( info[i].hop[hop].addr->ai_addr != NULL ) {
+                    free(info[i].hop[hop].addr->ai_addr);
+                }
+                /* XXX freeaddrinfo should deal with freeing ai_addr too? */
+                if ( info[i].hop[hop].addr != NULL ) {
+                    freeaddrinfo(info[i].hop[hop].addr);
+                }
             }
         }
     }
