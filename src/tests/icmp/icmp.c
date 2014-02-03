@@ -387,8 +387,8 @@ static void report_results(struct timeval *start_time, int count,
 
     /* single header at the start of the buffer describes the test options */
     header = (struct icmp_report_header_t *)buffer;
-    header->version = AMP_ICMP_TEST_VERSION;
-    header->packet_size = opt->packet_size;
+    header->version = htonl(AMP_ICMP_TEST_VERSION);
+    header->packet_size = htons(opt->packet_size);
     header->random = opt->random;
     header->count = count;
     len = sizeof(struct icmp_report_header_t);
@@ -430,9 +430,9 @@ static void report_results(struct timeval *start_time, int count,
                 (info[i].err_type == ICMP_REDIRECT ||
                  (info[i].err_type == 0 && info[i].err_code == 0)) ) {
 	    //printf("%dms ", (int)((info[i].delay/1000.0) + 0.5));
-	    item->rtt = info[i].delay;
+	    item->rtt = htonl(info[i].delay);
 	} else {
-	    item->rtt = -1;
+	    item->rtt = htonl(-1);
 	}
 
         len += sizeof(struct icmp_report_item_t);
@@ -595,11 +595,11 @@ void print_icmp(void *data, uint32_t len) {
     assert(len >= sizeof(struct icmp_report_header_t));
     assert(len >= sizeof(struct icmp_report_header_t) +
 	    header->count * sizeof(struct icmp_report_item_t));
-    assert(header->version == AMP_ICMP_TEST_VERSION);
+    assert(ntohl(header->version) == AMP_ICMP_TEST_VERSION);
 
     printf("\n");
     printf("AMP icmp test, %u destinations, %u byte packets ", header->count,
-	    header->packet_size);
+	    ntohs(header->packet_size));
     if ( header->random ) {
 	printf("(random size)\n");
     } else {
@@ -619,14 +619,14 @@ void print_icmp(void *data, uint32_t len) {
 	inet_ntop(item->family, item->address, addrstr, INET6_ADDRSTRLEN);
 	printf(" (%s)",	addrstr);
 
-	if ( item->rtt < 0 ) {
+	if ( ntohl(item->rtt) < 0 ) {
 	    if ( item->err_type == 0 ) {
 		printf(" missing");
 	    } else {
 		printf(" error");
 	    }
 	} else {
-	    printf(" %dus", item->rtt);
+	    printf(" %dus", ntohl(item->rtt));
 	}
 	printf(" (%u/%u)\n", item->err_type, item->err_code);
     }

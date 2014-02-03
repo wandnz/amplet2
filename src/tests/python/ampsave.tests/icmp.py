@@ -11,7 +11,7 @@ class VersionMismatch(Exception):
 
 
 # version needs to keep up with the version number in src/tests/icmp/icmp.h
-AMP_ICMP_TEST_VERSION = 2013121800
+AMP_ICMP_TEST_VERSION = 2014020300
 
 def get_data(data):
     """
@@ -21,17 +21,19 @@ def get_data(data):
     by a number of icmp_report_item_t structures with the individual test
     results. Both of these are described in src/tests/icmp/icmp.h
     """
-    header_len = struct.calcsize("=IhBB")
-    item_len = struct.calcsize("=16siBBBB7sB")
+    header_len = struct.calcsize("!IhBB")
+    item_len = struct.calcsize("!16siBBBBB")
 
-    # check the version number first before looking at anything else
-    version, = struct.unpack_from("=I", data, 0)
+    # Check the version number first before looking at anything else.
+    # Using the "!" format will automatically convert from network to host
+    # byte order, which is pretty cool.
+    version, = struct.unpack_from("!I", data, 0)
     if version != AMP_ICMP_TEST_VERSION:
 	raise VersionMismatch(version, AMP_ICMP_TEST_VERSION)
-    offset = struct.calcsize("=I")
+    offset = struct.calcsize("!I")
 
     # read the rest of the header that records test options
-    packet_size,random,count = struct.unpack_from("=hBB", data, offset)
+    packet_size,random,count = struct.unpack_from("!hBB", data, offset)
 
     offset = header_len
     results = []
@@ -41,11 +43,11 @@ def get_data(data):
         # "p" pascal string could be useful here, length byte before string
         # except that they don't appear to work in any useful fashion
         # http://bugs.python.org/issue2981
-        addr,rtt,family,errtype,errcode,ttl,pad,namelen = struct.unpack_from(
-                "=16siBBBB7sB", data, offset)
+        addr,rtt,family,errtype,errcode,ttl,namelen = struct.unpack_from(
+                "!16siBBBBB", data, offset)
         assert(namelen > 0 and namelen < 255)
         offset += item_len
-        (name,) = struct.unpack_from("=%ds" % namelen, data, offset)
+        (name,) = struct.unpack_from("!%ds" % namelen, data, offset)
         offset += namelen
 
         assert(namelen == len(name))
@@ -58,17 +60,13 @@ def get_data(data):
 	    #print "Unknown address family %d" % family
 	    raise ValueError
 
-        # Use a proper python None value to mark this rather than a -1
-        if rtt < 0:
-            rtt = None
-
         # TODO should things like loss be included here, or leave them up
         # to the next stage to calculate them? Easier just to do it here?
         results.append(
                 {
                     "target": name.rstrip("\0"),
                     "address": addr,
-                    "rtt": rtt,
+                    "rtt": rtt if rtt >= 0 else None,
                     "error_type": errtype,
                     "error_code": errcode,
                     "ttl": ttl,
