@@ -6,7 +6,7 @@
 #include <netdb.h>
 
 /* use the current date with 2 digit count appended as version: YYYYMMDDXX */
-#define AMP_ICMP_TEST_VERSION 2013022000
+#define AMP_ICMP_TEST_VERSION 2013121800
 
 /* by default use an 84 byte packet, because that's what it has always been */
 #define DEFAULT_ICMP_ECHO_REQUEST_LEN 84
@@ -38,7 +38,7 @@ struct opt_t {
 
 
 /*
- * Information block recording data for each icmp echo request test packet 
+ * Information block recording data for each icmp echo request test packet
  * that is sent, and when the response is received.
  */
 struct info_t {
@@ -54,8 +54,6 @@ struct info_t {
 
 
 struct icmp_report_item_t {
-    /* TODO make the name field variable length? */
-    char ampname[128];
     /* nicer way than storing just 16 bytes for the address? */
     char address[16];
     int32_t rtt;
@@ -63,6 +61,10 @@ struct icmp_report_item_t {
     uint8_t err_type;
     uint8_t err_code;
     uint8_t ttl;
+    /* XXX do we want to add 7 bytes of padding here before namelen? */
+    /* XXX byte ordering */
+    char reserved[7];
+    uint8_t namelen;
 };
 
 struct icmp_report_header_t {

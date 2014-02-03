@@ -4,6 +4,12 @@
 #include "tests.h"
 #include "debug.h"
 
+/*
+ * maximum length of a string in a report - the python code uses one byte
+ * to determine how much to read from the buffer
+ */
+#define MAX_STRING_FIELD 255
+
 /* minimum time in usec allowed between sending test packets */
 #define MIN_INTER_PACKET_DELAY 100
 

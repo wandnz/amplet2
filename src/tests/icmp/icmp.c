@@ -370,16 +370,20 @@ static void report_results(struct timeval *start_time, int count,
     char *buffer;
     struct icmp_report_header_t *header;
     struct icmp_report_item_t *item;
-    int len;
+    int len, maxlen;
 
     Log(LOG_DEBUG, "Building icmp report, count:%d, psize:%d, rand:%d\n",
 	    count, opt->packet_size, opt->random);
-
-    /* allocate space for all our results - XXX could this get too large? */
-    len = sizeof(struct icmp_report_header_t) +
-	count * sizeof(struct icmp_report_item_t);
-    buffer = malloc(len);
-    memset(buffer, 0, len);
+    /* XXX could this get too large? */
+    /*
+     * Allocate space for all our results:
+     * 1 main header, 1 report item + 255 bytes of max ampname size per test
+     */
+    maxlen = (sizeof(struct icmp_report_header_t)) +
+        (count * sizeof(struct icmp_report_item_t)) +
+        (count * MAX_STRING_FIELD);
+    buffer = malloc(maxlen);
+    memset(buffer, 0, maxlen);
 
     /* single header at the start of the buffer describes the test options */
     header = (struct icmp_report_header_t *)buffer;
@@ -387,20 +391,21 @@ static void report_results(struct timeval *start_time, int count,
     header->packet_size = opt->packet_size;
     header->random = opt->random;
     header->count = count;
+    len = sizeof(struct icmp_report_header_t);
 
     /* add results for all the destinations */
     for ( i = 0; i < count; i++ ) {
+        char *ampname = address_to_name(info[i].addr);
+        assert(ampname);
+        assert(strlen(ampname) < MAX_STRING_FIELD);
 
-	item = (struct icmp_report_item_t *)(buffer +
-		sizeof(struct icmp_report_header_t) +
-		i * sizeof(struct icmp_report_item_t));
-
+        /* fill the report item with results of a test */
+        item = (struct icmp_report_item_t *)(buffer + len);
 	item->err_type = info[i].err_type;
 	item->err_code = info[i].err_code;
-	strncpy(item->ampname, address_to_name(info[i].addr),
-		sizeof(item->ampname));
 	item->family = info[i].addr->ai_family;
 	item->ttl = info[i].ttl;
+
 	switch ( item->family ) {
 	    case AF_INET:
 		memcpy(item->address,
@@ -429,6 +434,13 @@ static void report_results(struct timeval *start_time, int count,
 	} else {
 	    item->rtt = -1;
 	}
+
+        len += sizeof(struct icmp_report_item_t);
+
+        /* add variable length ampname onto the buffer, after the report item */
+        item->namelen = strlen(ampname) + 1;
+        strncpy(buffer + len, ampname, MAX_STRING_FIELD);
+        len += item->namelen;
 	Log(LOG_DEBUG, "icmp result %d: %dus, %d/%d\n", i, item->rtt,
 		item->err_type, item->err_code);
     }
@@ -576,11 +588,12 @@ void print_icmp(void *data, uint32_t len) {
     struct icmp_report_header_t *header = (struct icmp_report_header_t*)data;
     struct icmp_report_item_t *item;
     char addrstr[INET6_ADDRSTRLEN];
-    int i;
+    int i, offset;
+    char *ampname;
 
     assert(data != NULL);
     assert(len >= sizeof(struct icmp_report_header_t));
-    assert(len == sizeof(struct icmp_report_header_t) +
+    assert(len >= sizeof(struct icmp_report_header_t) +
 	    header->count * sizeof(struct icmp_report_item_t));
     assert(header->version == AMP_ICMP_TEST_VERSION);
 
@@ -593,13 +606,19 @@ void print_icmp(void *data, uint32_t len) {
 	printf("(fixed size)\n");
     }
 
+    offset = sizeof(struct icmp_report_header_t);
+
     for ( i=0; i<header->count; i++ ) {
-	item = (struct icmp_report_item_t*)(data +
-		sizeof(struct icmp_report_header_t) +
-		i * sizeof(struct icmp_report_item_t));
-	printf("%s", item->ampname);
+        item = (struct icmp_report_item_t*)(data + offset);
+        offset += sizeof(struct icmp_report_item_t);
+
+        ampname = (char *)data + offset;
+        offset += item->namelen;
+	printf("%s", ampname);
+
 	inet_ntop(item->family, item->address, addrstr, INET6_ADDRSTRLEN);
 	printf(" (%s)",	addrstr);
+
 	if ( item->rtt < 0 ) {
 	    if ( item->err_type == 0 ) {
 		printf(" missing");
