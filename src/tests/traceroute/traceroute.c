@@ -652,6 +652,7 @@ static int open_sockets(struct socket_t *icmp_sockets,
 static void extract_address(void *dst, const struct addrinfo *src) {
     assert(src);
     assert(dst);
+    memset(dst, 0, sizeof(struct in6_addr));
 
     switch ( src->ai_family ) {
         case AF_INET:
@@ -664,7 +665,6 @@ static void extract_address(void *dst, const struct addrinfo *src) {
             break;
         default:
             Log(LOG_WARNING, "Unknown address family %d\n", src->ai_family);
-            memset(dst, 0, 16);//XXX
             break;
     };
 }
@@ -684,44 +684,51 @@ static void report_results(struct timeval *start_time, int count,
     struct traceroute_report_hop_t *hop;
     int len;
     char addrstr[INET6_ADDRSTRLEN];
-    int reported_hops = 0;
+    int offset;
 
     Log(LOG_DEBUG, "Building traceroute report, count:%d, psize:%d, rand:%d\n",
 	    count, opt->packet_size, opt->random);
 
-    /* allocate space for our header and paths XXX could this get too large? */
-    len = sizeof(struct traceroute_report_header_t) +
-	count * sizeof(struct traceroute_report_path_t);
+    /* allocate space for our header */
+    len = sizeof(struct traceroute_report_header_t);
     buffer = malloc(len);
     memset(buffer, 0, len);
 
     /* single header at the start of the buffer describes the test options */
     header = (struct traceroute_report_header_t *)buffer;
-    header->version = AMP_TRACEROUTE_TEST_VERSION;
-    header->packet_size = opt->packet_size;
+    header->version = htonl(AMP_TRACEROUTE_TEST_VERSION);
+    header->packet_size = htons(opt->packet_size);
     header->random = opt->random;
     header->count = count;
 
+    offset = sizeof(struct traceroute_report_header_t);
+
     /* add results for all the destinations */
     for ( i = 0; i < count; i++ ) {
+        char *ampname = address_to_name(info[i].addr);
+        assert(ampname);
+        assert(strlen(ampname) < MAX_STRING_FIELD);
 
-        /* add in space for the hops on this path  */
-        len += info[i].ttl * sizeof(struct traceroute_report_hop_t);
+        /* add in space for the path header and its hops */
+        len += (sizeof(struct traceroute_report_path_t)) +
+            (info[i].ttl * sizeof(struct traceroute_report_hop_t)) +
+            (strlen(ampname) + 1);
         buffer = realloc(buffer, len);
 
         /* global information regarding this particular path */
-	path = (struct traceroute_report_path_t *)(buffer +
-		sizeof(struct traceroute_report_header_t) +
-		i * sizeof(struct traceroute_report_path_t) +
-                reported_hops * sizeof(struct traceroute_report_hop_t));
+        path = (struct traceroute_report_path_t *)(buffer + offset);
+        offset += sizeof(struct traceroute_report_path_t);
 
-	strncpy(path->name, address_to_name(info[i].addr),
-		sizeof(path->name));
 	path->family = info[i].addr->ai_family;
 	path->length = info[i].ttl;
         path->err_code = info[i].err_code;
         path->err_type = info[i].err_type;
         extract_address(&path->address, info[i].addr);
+
+        /* add variable length ampname onto the buffer, after the path item */
+        path->namelen = strlen(ampname) + 1;
+        strncpy(buffer + offset, ampname, path->namelen);
+        offset += path->namelen;
 
         inet_ntop(path->family, path->address, addrstr, INET6_ADDRSTRLEN);
 	Log(LOG_DEBUG, "path result %d: %d hops to %s\n", i, path->length,
@@ -729,19 +736,17 @@ static void report_results(struct timeval *start_time, int count,
 
         /* per-hop information for this path */
         for ( hopcount = 0; hopcount < path->length; hopcount++ ) {
-            hop = (struct traceroute_report_hop_t *)(((char *)path) +
-                    sizeof(struct traceroute_report_path_t) +
-                    (hopcount * sizeof(struct traceroute_report_hop_t)));
+            hop = (struct traceroute_report_hop_t *)(buffer + offset);
+            offset += sizeof(struct traceroute_report_hop_t);
 
             if ( info[i].hop[hopcount].addr == NULL ) {
                 memset(hop->address, 0, sizeof(hop->address));
-                hop->rtt = -1;
+                hop->rtt = htonl(-1);
             } else {
                 extract_address(hop->address, info[i].hop[hopcount].addr);
-                hop->rtt = info[i].hop[hopcount].delay;
+                hop->rtt = htonl(info[i].hop[hopcount].delay);
             }
             inet_ntop(path->family, hop->address, addrstr, INET6_ADDRSTRLEN);
-            reported_hops++;
             Log(LOG_DEBUG, " %d: %s %d\n", hopcount+1, addrstr, hop->rtt);
         }
     }
@@ -973,46 +978,49 @@ void print_traceroute(void *data, uint32_t len) {
     struct traceroute_report_path_t *path;
     struct traceroute_report_hop_t *hop;
     char addrstr[INET6_ADDRSTRLEN];
-    int i;
+    int i, offset;
     int hopcount;
-    int reported_hops = 0;
+    char *ampname;
 
     assert(data != NULL);
     assert(len >= sizeof(struct traceroute_report_header_t));
-    assert(header->version == AMP_TRACEROUTE_TEST_VERSION);
+    assert(ntohl(header->version) == AMP_TRACEROUTE_TEST_VERSION);
 
     printf("\n");
     printf("AMP traceroute test, %u destinations, %u byte packets ",
-            header->count, header->packet_size);
+            header->count, ntohs(header->packet_size));
     if ( header->random ) {
 	printf("(random size)\n");
     } else {
 	printf("(fixed size)\n");
     }
 
+    offset = sizeof(struct traceroute_report_header_t);
+
     for ( i=0; i<header->count; i++ ) {
         /* specific path information */
-	path = (struct traceroute_report_path_t*)(data +
-		sizeof(struct traceroute_report_header_t) +
-		i * sizeof(struct traceroute_report_path_t) +
-                reported_hops * sizeof(struct traceroute_report_hop_t));
+        path = (struct traceroute_report_path_t*)(data + offset);
+        offset += sizeof(struct traceroute_report_path_t);
+
+        ampname = (char *)data + offset;
+        offset += path->namelen;
+
         printf("\n");
-	printf("%s", path->name);
+	printf("%s", ampname);
 	inet_ntop(path->family, path->address, addrstr, INET6_ADDRSTRLEN);
 	printf(" (%s)\n", addrstr);
 
         /* per-hop information for this path */
         for ( hopcount = 0; hopcount < path->length; hopcount++ ) {
-           hop = (struct traceroute_report_hop_t *)(((char *)path) +
-                   sizeof(struct traceroute_report_path_t) +
-                   (hopcount * sizeof(struct traceroute_report_hop_t)));
+           hop = (struct traceroute_report_hop_t*)(data + offset);
+           offset += sizeof(struct traceroute_report_hop_t);
+
            inet_ntop(path->family, hop->address, addrstr, INET6_ADDRSTRLEN);
-           printf(" %.2d  %s %dus", hopcount+1, addrstr, hop->rtt);
+           printf(" %.2d  %s %dus", hopcount+1, addrstr, ntohl(hop->rtt));
            if ( path->err_type > 0 ) {
                 printf(" error: %d/%d", path->err_type, path->err_code);
            }
            printf("\n");
-           reported_hops++;
         }
     }
     printf("\n");

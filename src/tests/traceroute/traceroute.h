@@ -6,7 +6,7 @@
 #include <netdb.h>
 
 /* use the current date with 2 digit count appended as version: YYYYMMDDXX */
-#define AMP_TRACEROUTE_TEST_VERSION 2013032800
+#define AMP_TRACEROUTE_TEST_VERSION 2014020300
 
 #define DEFAULT_TRACEROUTE_PROBE_LEN 60
 
@@ -86,26 +86,23 @@ struct info_t {
 struct traceroute_report_hop_t {
     char address[16];
     int32_t rtt;
-    uint32_t reserved;
-};
+} __attribute__((__packed__));
 
 struct traceroute_report_path_t {
-    /* TODO make the name field variable length? */
-    char name[128];
     /* nicer way than storing just 16 bytes for the address? */
     char address[16];
-    uint32_t reserved;
     uint8_t family;
     uint8_t length;
     uint8_t err_type;
     uint8_t err_code;
-};
+    uint8_t namelen;
+} __attribute__((__packed__));
 
 struct traceroute_report_header_t {
     uint32_t version;
     uint16_t packet_size;
     uint8_t random;
     uint8_t count;
-};
+} __attribute__((__packed__));
 
 #endif
