@@ -4,10 +4,10 @@
 #include "tests.h"
 
 /* use the current date with 2 digit count appended as version: YYYYMMDDXX */
-#define AMP_DNS_TEST_VERSION 2013022000
+#define AMP_DNS_TEST_VERSION 2014020400
 
-/* maximum size in bytes of a DNS name */
-#define MAX_DNS_NAME_LEN 256
+/* maximum size in bytes of a DNS name - 255 bytes */
+#define MAX_DNS_NAME_LEN MAX_STRING_FIELD
 
 /* timeout in usec to wait before declaring the response lost, currently 20s */
 #define LOSS_TIMEOUT 20000000
@@ -59,7 +59,7 @@ union flags_t {
 #endif
     } fields;
     uint16_t bytes;
-};
+} __attribute__((__packed__));
 
 struct dns_t {
     uint16_t id;
@@ -158,9 +158,6 @@ struct opt_t {
 
 
 struct dns_report_item_t {
-    /* TODO make the name field variable length? */
-    char ampname[128];
-    char instance[MAX_DNS_NAME_LEN];
     /* nicer way than storing just 16 bytes for the address? */
     char address[16];
     int32_t rtt;
@@ -170,15 +167,14 @@ struct dns_report_item_t {
     uint16_t total_authority;
     uint16_t total_additional;
     union flags_t flags;
-    uint16_t reserved;
     uint8_t family;
     uint8_t ttl;
-};
+    uint8_t namelen;
+    uint8_t instancelen;
+} __attribute__((__packed__));
 
 struct dns_report_header_t {
     uint32_t version;
-    /* TODO make the name field variable length? */
-    char query[MAX_DNS_NAME_LEN];
     uint16_t query_type;
     uint16_t query_class;
     uint16_t udp_payload_size;
@@ -187,6 +183,7 @@ struct dns_report_header_t {
     uint8_t nsid:1;
     uint8_t reserved:5;
     uint8_t count;
-};
+    uint8_t querylen;
+} __attribute__((__packed__));
 
 #endif

@@ -11,7 +11,7 @@ class VersionMismatch(Exception):
 
 
 # version needs to keep up with the version number in src/tests/icmp/icmp.h
-AMP_DNS_TEST_VERSION = 2013022000
+AMP_DNS_TEST_VERSION = 2014020400
 
 def get_data(data):
     """
@@ -21,29 +21,48 @@ def get_data(data):
     by a number of dns_report_item_t structures with the individual test
     results. Both of these are described in src/tests/dns/dns.h
     """
-    header_len = struct.calcsize("=I256sHHHBB")
-    item_len = struct.calcsize("=128s256s16siIIHHHHHBB")
+    header_len = struct.calcsize("!IHHHBBB")
+    item_len = struct.calcsize("!16siIIHHHHBBBB")
 
     # check the version number first before looking at anything else
-    version, = struct.unpack_from("=I", data, 0)
+    version, = struct.unpack_from("!I", data, 0)
     if version != AMP_DNS_TEST_VERSION:
 	raise VersionMismatch(version, AMP_DNS_TEST_VERSION)
-    offset = struct.calcsize("=I")
+    offset = struct.calcsize("!I")
 
     # read the rest of the header that records test options
-    query,qtype,qclass,payload,opts,count = struct.unpack_from("=256sHHHBB", data, offset)
+    qtype,qclass,payload,opts,count,querylen = struct.unpack_from("!HHHBBB", data, offset)
 
+    # get the variable length query string that follows the header
+    assert(querylen > 0 and querylen < 255)
     offset = header_len
+    (query,) = struct.unpack_from("!%ds" % querylen, data, offset)
+    offset += querylen
+    assert(querylen == len(query))
+
     results = []
 
     # extract every item in the data portion of the message
     while count > 0:
 	# "p" pascal string could be useful here, length byte before string
-	name,instance,addr,rtt,qlen,size,ans,aut,add,flags,res,family,ttl = struct.unpack_from("=128s256s16siIIHHHHHBB", data, offset)
+	addr,rtt,qlen,size,ans,aut,add,flags,family,ttl,namelen,instancelen = struct.unpack_from("!16siIIHHHHBBBB", data, offset)
 
-	# the C structure understands how to access the flags in the
-	# appropriate byte order, but that doesn't help us here - swap it.
-	flags = socket.ntohs(flags)
+        # get the variable length ampname string that follows the data
+        assert(namelen > 0 and namelen < 255)
+        offset += item_len
+        (name,) = struct.unpack_from("!%ds" % namelen, data, offset)
+        offset += namelen
+        assert(namelen == len(name))
+
+        if instancelen > 0:
+            # get the variable length instance string that follows the data
+            assert(instancelen > 0 and instancelen < 255)
+            (instance,) = struct.unpack_from("!%ds" % instancelen, data, offset)
+            offset += instancelen
+            assert(instancelen == len(instance))
+        else:
+            # otherwise no specific instance name, just use the server name
+            instance = name
 
 	if family == socket.AF_INET:
 	    addr = socket.inet_ntop(family, addr[:4])
@@ -78,7 +97,6 @@ def get_data(data):
 		    "ttl": ttl,
 		    }
 		)
-	offset += item_len
 	count -= 1
 
     return {

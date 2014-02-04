@@ -498,46 +498,51 @@ static void report_results(struct timeval *start_time, int count,
     char *buffer;
     struct dns_report_header_t *header;
     struct dns_report_item_t *item;
-    int len;
+    int len, maxlen;
 
     Log(LOG_DEBUG, "Building dns report, count:%d, query:%s\n",
 	    count, opt->query_string);
 
     /* allocate space for all our results - XXX could this get too large? */
-    len = sizeof(struct dns_report_header_t) +
-	count * sizeof(struct dns_report_item_t);
-    buffer = malloc(len);
-    memset(buffer, 0, len);
+    maxlen = sizeof(struct dns_report_header_t) +
+        (strlen(opt->query_string) + 1) +
+	(count * sizeof(struct dns_report_item_t)) +
+        (2 * count * MAX_STRING_FIELD);
+    buffer = malloc(maxlen);
+    memset(buffer, 0, maxlen);
 
     /* single header at the start of the buffer describes the test options */
     header = (struct dns_report_header_t *)buffer;
-    header->version = AMP_DNS_TEST_VERSION;
-    strncpy(header->query, opt->query_string, MAX_DNS_NAME_LEN);
-    header->query_type = opt->query_type;
-    header->query_class = opt->query_class;
+    header->version = htonl(AMP_DNS_TEST_VERSION);
+    header->query_type = htons(opt->query_type);
+    header->query_class = htons(opt->query_class);
     header->recurse = opt->recurse;
     header->dnssec = opt->dnssec;
     header->nsid = opt->nsid;
-    header->udp_payload_size = opt->udp_payload_size;
+    header->udp_payload_size = htons(opt->udp_payload_size);
     header->count = count;
+    len = sizeof(struct dns_report_header_t);
+
+    header->querylen = strlen(opt->query_string) + 1;
+    strncpy(buffer + len, opt->query_string, header->querylen);
+    len += header->querylen;
 
     /* add results for all the destinations */
     for ( i = 0; i < count; i++ ) {
+        char *ampname = address_to_name(info[i].addr);
+        assert(ampname);
+        assert(strlen(ampname) < MAX_STRING_FIELD);
 
-	item = (struct dns_report_item_t *)(buffer +
-		sizeof(struct dns_report_header_t) +
-		i * sizeof(struct dns_report_item_t));
-
-	item->response_size = info[i].bytes;
-	item->flags.bytes = info[i].flags.bytes;
-	item->total_answer = info[i].total_answer;
-	item->total_authority = info[i].total_authority;
-	item->total_additional = info[i].total_additional;
-	strncpy(item->ampname, address_to_name(info[i].addr),
-		sizeof(item->ampname));
+        item = (struct dns_report_item_t *)(buffer + len);
+	item->response_size = htonl(info[i].bytes);
+	item->flags.bytes = info[i].flags.bytes; /* already in network order */
+	item->total_answer = htons(info[i].total_answer);
+	item->total_authority = htons(info[i].total_authority);
+	item->total_additional = htons(info[i].total_additional);
 	item->family = info[i].addr->ai_family;
-	item->query_length = info[i].query_length;
+	item->query_length = htonl(info[i].query_length);
 	item->ttl = info[i].ttl;
+        len += sizeof(struct dns_report_item_t);
 	/*
 	 * TODO this response code is different to the actual rcode in the
 	 * response packet - do we need both of them?
@@ -564,20 +569,28 @@ static void report_results(struct timeval *start_time, int count,
 		break;
 	};
 
-	/* some servers will return an instance name */
-	if ( strlen(info[i].response) > 0 ) {
-	    strncpy(item->instance, info[i].response, sizeof(item->instance));
-	} else {
-	    strncpy(item->instance, address_to_name(info[i].addr),
-		    sizeof(item->instance));
-	}
-
         /* TODO check response code too? */
 	if ( info[i].reply && info[i].time_sent.tv_sec > 0 ) {
-	    item->rtt = info[i].delay;
+	    item->rtt = htonl(info[i].delay);
 	} else {
-	    item->rtt = -1;
+	    item->rtt = htonl(-1);
 	}
+
+        /* add variable length ampname onto the buffer, after the report item */
+        item->namelen = strlen(ampname) + 1;
+        strncpy(buffer + len, ampname, item->namelen);
+        len += item->namelen;
+
+	/* some servers will return an instance name, variable length */
+	if ( strlen(info[i].response) > 0 ) {
+            assert(strlen(info[i].response) < MAX_STRING_FIELD);
+            item->instancelen = strlen(info[i].response) + 1;
+            strncpy(buffer + len, info[i].response, item->instancelen);
+            len += item->instancelen;
+	} else {
+            item->instancelen = 0;
+	}
+
 	Log(LOG_DEBUG, "dns result %d: %dus\n", i, item->rtt);
     }
 
@@ -850,20 +863,25 @@ void print_dns(void *data, uint32_t len) {
     struct dns_report_header_t *header = (struct dns_report_header_t*)data;
     struct dns_report_item_t *item;
     char addrstr[INET6_ADDRSTRLEN];
-    int i;
+    int i, offset;
+    char *ampname, *query, *instance;
 
     assert(data != NULL);
     assert(len >= sizeof(struct dns_report_header_t));
-    assert(len == sizeof(struct dns_report_header_t) +
+    assert(len >= sizeof(struct dns_report_header_t) +
 	    header->count * sizeof(struct dns_report_item_t));
-    assert(header->version == AMP_DNS_TEST_VERSION);
+    assert(ntohl(header->version) == AMP_DNS_TEST_VERSION);
+
+    offset = sizeof(struct dns_report_header_t);
+    query = (char *)data + offset;
+    offset += header->querylen;
 
     /* print global configuration options */
     printf("\n");
     printf("AMP dns test, %u destinations, %s %s %s",
-	    header->count, header->query,
-	    get_query_class_string(header->query_class),
-	    get_query_type_string(header->query_type));
+	    header->count, query,
+	    get_query_class_string(ntohs(header->query_class)),
+	    get_query_type_string(ntohs(header->query_type)));
     printf("\n");
 
     if ( header->recurse || header->dnssec || header->nsid ) {
@@ -876,28 +894,43 @@ void print_dns(void *data, uint32_t len) {
 
     /* print per test results */
     for ( i=0; i<header->count; i++ ) {
-	item = (struct dns_report_item_t*)(data +
-		sizeof(struct dns_report_header_t) +
-		i * sizeof(struct dns_report_item_t));
+        item = (struct dns_report_item_t*)(data + offset);
+        offset += sizeof(struct dns_report_item_t);
 
-	printf("SERVER: %s", item->ampname);
+        ampname = (char *)data + offset;
+        offset += item->namelen;
+
+        if ( item->instancelen > 0 ) {
+            instance = (char *)data + offset;
+            offset += item->instancelen;
+        } else {
+            instance = NULL;
+        }
+
+	printf("SERVER: %s", ampname);
 	inet_ntop(item->family, item->address, addrstr, INET6_ADDRSTRLEN);
-	if ( item->rtt < 0 ) {
+	if ( ((int32_t)ntohl(item->rtt)) < 0 ) {
 	    printf(" (%s) no response\n", addrstr);
 	    continue;
 	} else {
 	    /* Suppress instance name if it's the same as the ampname */
-            if ( strncmp(item->ampname,item->instance,INET6_ADDRSTRLEN) == 0 ) {
+            if ( instance == NULL ) {
                 printf(" (%s)", addrstr);
             } else {
-                printf(" (%s,%s)", addrstr, item->instance);
+                printf(" (%s,%s)", addrstr, instance);
             }
-	    printf(" %dus", item->rtt);
+	    printf(" %dus", ntohl(item->rtt));
 	}
 	printf("\n");
 
-	printf("MSG SIZE sent: %d, rcvd: %d, ", item->query_length,
-		item->response_size);
+	printf("MSG SIZE sent: %d, rcvd: %d, ", ntohl(item->query_length),
+		ntohl(item->response_size));
+
+        /*
+         * The flags struct is set up to deal with it being in network byte
+         * order, so don't bother byte swapping it here before printing the
+         * various fields.
+         */
 	printf("opcode: %s, status: %s\n",
 		get_opcode_string(item->flags.fields.opcode),
 		get_status_string(item->flags.fields.rcode));
@@ -913,8 +946,8 @@ void print_dns(void *data, uint32_t len) {
 	printf("; ");
 
 	printf("QUERY: 1, ANSWER: %d, AUTHORITY: %d, ADDITIONAL: %d\n",
-		item->total_answer, item->total_authority,
-		item->total_additional);
+		ntohs(item->total_answer), ntohs(item->total_authority),
+		ntohs(item->total_additional));
 	printf("\n");
     }
 }
