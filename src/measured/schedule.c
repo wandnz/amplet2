@@ -548,7 +548,7 @@ static void read_schedule_file(wand_event_handler_t *ev_hdl, char *filename) {
 	/* check if the destination is in the nametable */
         if ( (addresses = name_to_address(target)) != NULL ) {
             struct addrinfo *addr;
-            int i;
+            int i = 0;
             /* add all the addresses in the addrinfo chain to the test */
             test->dests = (struct addrinfo **)malloc(
                     sizeof(struct addrinfo*) * addresses->count);
