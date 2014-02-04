@@ -619,7 +619,7 @@ void print_icmp(void *data, uint32_t len) {
 	inet_ntop(item->family, item->address, addrstr, INET6_ADDRSTRLEN);
 	printf(" (%s)",	addrstr);
 
-	if ( ntohl(item->rtt) < 0 ) {
+	if ( ((int32_t)ntohl(item->rtt)) < 0 ) {
 	    if ( item->err_type == 0 ) {
 		printf(" missing");
 	    } else {
