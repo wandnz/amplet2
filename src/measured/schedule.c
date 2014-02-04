@@ -758,7 +758,6 @@ int update_remote_schedule(char *url) {
         if ( res != CURLE_OK ) {
             Log(LOG_WARNING, "Failed to fetch remote schedule: %s",
                     curl_easy_strerror(res));
-            fclose(tmpfile);
             curl_easy_cleanup(curl);
             return -1;
         }
