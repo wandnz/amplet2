@@ -4,10 +4,10 @@ import socket
 # TODO move to another file
 class VersionMismatch(Exception):
     def __init__(self, got, expected):
-	self.got = got
-	self.expected = expected
+        self.got = got
+        self.expected = expected
     def __str__(self):
-	return "%d != %d" % (self.got, self.expected)
+        return "%d != %d" % (self.got, self.expected)
 
 
 # TODO move to another file
@@ -38,7 +38,7 @@ def get_data(data):
     # check the version number first before looking at anything else
     version, = struct.unpack_from("!I", data, 0)
     if version != AMP_TRACEROUTE_TEST_VERSION:
-	raise VersionMismatch(version, AMP_TRACEROUTE_TEST_VERSION)
+        raise VersionMismatch(version, AMP_TRACEROUTE_TEST_VERSION)
     offset = struct.calcsize("!I")
 
     # read the rest of the header that records test options
@@ -50,10 +50,10 @@ def get_data(data):
     # extract every path in the data portion of the message
     while count > 0:
 	# "p" pascal string could be useful here, length byte before string
-	addr,family,length,errtype,errcode,namelen = struct.unpack_from(
+        addr,family,length,errtype,errcode,namelen = struct.unpack_from(
 		"!16sBBBBB", data, offset)
         assert(namelen > 0 and namelen < 255)
-	offset += path_len
+        offset += path_len
         (name,) = struct.unpack_from("!%ds" % namelen, data, offset)
         offset += namelen
 
@@ -90,6 +90,6 @@ def get_data(data):
 
         # Add this whole path with hops to the results
         results.append(path)
-	count -= 1
+        count -= 1
 
     return results

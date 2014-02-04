@@ -4,10 +4,10 @@ import socket
 # TODO move to another file
 class VersionMismatch(Exception):
     def __init__(self, got, expected):
-	self.got = got
-	self.expected = expected
+        self.got = got
+        self.expected = expected
     def __str__(self):
-	return "%d != %d" % (self.got, self.expected)
+        return "%d != %d" % (self.got, self.expected)
 
 
 # version needs to keep up with the version number in src/tests/icmp/icmp.h
@@ -29,7 +29,7 @@ def get_data(data):
     # byte order, which is pretty cool.
     version, = struct.unpack_from("!I", data, 0)
     if version != AMP_ICMP_TEST_VERSION:
-	raise VersionMismatch(version, AMP_ICMP_TEST_VERSION)
+        raise VersionMismatch(version, AMP_ICMP_TEST_VERSION)
     offset = struct.calcsize("!I")
 
     # read the rest of the header that records test options
@@ -52,13 +52,13 @@ def get_data(data):
 
         assert(namelen == len(name))
 
-	if family == socket.AF_INET:
-	    addr = socket.inet_ntop(family, addr[:4])
-	elif family == socket.AF_INET6:
-	    addr = socket.inet_ntop(family, addr)
-	else:
-	    #print "Unknown address family %d" % family
-	    raise ValueError
+        if family == socket.AF_INET:
+            addr = socket.inet_ntop(family, addr[:4])
+        elif family == socket.AF_INET6:
+            addr = socket.inet_ntop(family, addr)
+        else:
+            #print "Unknown address family %d" % family
+            raise ValueError
 
         # TODO should things like loss be included here, or leave them up
         # to the next stage to calculate them? Easier just to do it here?
@@ -75,6 +75,6 @@ def get_data(data):
                     "loss": 1 if rtt is None else 0,
                 }
             )
-	count -= 1
+        count -= 1
 
     return results

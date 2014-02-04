@@ -4,10 +4,10 @@ import socket
 # TODO move to another file
 class VersionMismatch(Exception):
     def __init__(self, got, expected):
-	self.got = got
-	self.expected = expected
+        self.got = got
+        self.expected = expected
     def __str__(self):
-	return "%d != %d" % (self.got, self.expected)
+        return "%d != %d" % (self.got, self.expected)
 
 
 # version needs to keep up with the version number in src/tests/icmp/icmp.h
@@ -27,7 +27,7 @@ def get_data(data):
     # check the version number first before looking at anything else
     version, = struct.unpack_from("!I", data, 0)
     if version != AMP_DNS_TEST_VERSION:
-	raise VersionMismatch(version, AMP_DNS_TEST_VERSION)
+        raise VersionMismatch(version, AMP_DNS_TEST_VERSION)
     offset = struct.calcsize("!I")
 
     # read the rest of the header that records test options
@@ -45,7 +45,7 @@ def get_data(data):
     # extract every item in the data portion of the message
     while count > 0:
 	# "p" pascal string could be useful here, length byte before string
-	addr,rtt,qlen,size,ans,aut,add,flags,family,ttl,namelen,instancelen = struct.unpack_from("!16siIIHHHHBBBB", data, offset)
+        addr,rtt,qlen,size,ans,aut,add,flags,family,ttl,namelen,instancelen = struct.unpack_from("!16siIIHHHHBBBB", data, offset)
 
         # get the variable length ampname string that follows the data
         assert(namelen > 0 and namelen < 255)
@@ -64,15 +64,15 @@ def get_data(data):
             # otherwise no specific instance name, just use the server name
             instance = name
 
-	if family == socket.AF_INET:
-	    addr = socket.inet_ntop(family, addr[:4])
-	elif family == socket.AF_INET6:
-	    addr = socket.inet_ntop(family, addr)
-	else:
-	    #print "Unknown address family %d" % family
-	    raise ValueError
+        if family == socket.AF_INET:
+            addr = socket.inet_ntop(family, addr[:4])
+        elif family == socket.AF_INET6:
+            addr = socket.inet_ntop(family, addr)
+        else:
+            #print "Unknown address family %d" % family
+            raise ValueError
 
-	results.append(
+        results.append(
 		{
 		    "destination": name.rstrip("\0"),
 		    "instance": instance.rstrip("\0"),
@@ -97,7 +97,7 @@ def get_data(data):
 		    "ttl": ttl,
 		    }
 		)
-	count -= 1
+        count -= 1
 
     return {
 	"query": query.rstrip("\0"),
@@ -112,57 +112,57 @@ def get_data(data):
 
 def get_query_class(qclass):
     if qclass == 0x01:
-	return "IN"
+        return "IN"
     return "0x%.02x" % qclass
 
 def get_query_type(qtype):
     if qtype == 0x01:
-	return "A"
+        return "A"
     if qtype == 0x02:
-	return "NS"
+        return "NS"
     if qtype == 0x06:
-	return "SOA"
+        return "SOA"
     if qtype == 0x0c:
-	return "PTR"
+        return "PTR"
     if qtype == 0x0e:
-	return "MX"
+        return "MX"
     if qtype == 0x1c:
-	return "AAAA"
+        return "AAAA"
     if qtype == 0xff:
-	return "ANY"
+        return "ANY"
     return "0x%.02x" % qtype
 
 def get_opcode_name(opcode):
     if opcode == 0:
-	return "QUERY"
+        return "QUERY"
     if opcode == 1:
-	return "IQUERY"
+        return "IQUERY"
     if opcode == 2:
-	return "STATUS"
+        return "STATUS"
     return "0x%.02x" % opcode
 
 def get_rcode_name(rcode):
     if rcode == 0x0:
-	return "NOERROR"
+        return "NOERROR"
     if rcode == 0x1:
-	return "FORMERR"
+        return "FORMERR"
     if rcode == 0x2:
-	return "SERVFAIL"
+        return "SERVFAIL"
     if rcode == 0x3:
-	return "NXDOMAIN";
+        return "NXDOMAIN"
     if rcode == 0x4:
-	return "NOTIMP";
+        return "NOTIMP"
     if rcode == 0x5:
-	return "REFUSED";
+        return "REFUSED"
     if rcode == 0x6:
-	return "YXDOMAIN";
+        return "YXDOMAIN"
     if rcode == 0x7:
-	return "YXRRSET";
+        return "YXRRSET"
     if rcode == 0x8:
-	return "NXRRSET";
+        return "NXRRSET"
     if rcode == 0x9:
-	return "NOTAUTH";
+        return "NOTAUTH"
     if rcode == 0xa:
-	return "NOTZONE";
+        return "NOTZONE"
 
 

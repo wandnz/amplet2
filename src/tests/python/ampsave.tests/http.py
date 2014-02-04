@@ -4,10 +4,10 @@ import socket
 # TODO move to another file
 class VersionMismatch(Exception):
     def __init__(self, got, expected):
-	self.got = got
-	self.expected = expected
+        self.got = got
+        self.expected = expected
     def __str__(self):
-	return "%d != %d" % (self.got, self.expected)
+        return "%d != %d" % (self.got, self.expected)
 
 
 # TODO fix stupidly long lines
@@ -33,7 +33,7 @@ def get_data(data):
     # check the version number first before looking at anything else
     version, = struct.unpack_from("=I", data, 0)
     if version != AMP_HTTP_TEST_VERSION:
-	raise VersionMismatch(version, AMP_HTTP_TEST_VERSION)
+        raise VersionMismatch(version, AMP_HTTP_TEST_VERSION)
     offset = struct.calcsize("=II")
 
     # read the rest of the header that records test options
@@ -60,7 +60,7 @@ def get_data(data):
     while servers > 0:
 	# "p" pascal string could be useful here, length byte before string
         host,start_s,start_us,end_s,end_us,addr,pad1,size,pad2,obj,pad3 = struct.unpack_from("=128sQQQQ46sHiHBB", data, offset)
-	offset += server_len
+        offset += server_len
 
         server = {
             "hostname": host.rstrip("\0"),
@@ -114,6 +114,6 @@ def get_data(data):
 
         # Add this whole server with objects to the results
         results["servers"].append(server)
-	servers -= 1
+        servers -= 1
 
     return results
