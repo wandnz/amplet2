@@ -126,7 +126,6 @@ void clear_nametable() {
  * given name.
  */
 nametable_t *name_to_address(char *name) {
-    struct addrinfo *tmp;
     nametable_t *item;
 
     assert(name);

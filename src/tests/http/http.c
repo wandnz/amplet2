@@ -1027,7 +1027,6 @@ static void usage(char *prog) {
 int run_http(int argc, char *argv[], int count, struct addrinfo **dests) {
     int opt;
     //struct opt_t options;
-    int dest;
 
     Log(LOG_DEBUG, "Starting HTTP test");
 
