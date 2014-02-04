@@ -29,7 +29,6 @@
  * Dump a debug information line about a scheduled test.
  */
 static void dump_event_run_test(test_schedule_item_t *item) {
-    int i;
 
     assert(item);
 
@@ -40,6 +39,7 @@ static void dump_event_run_test(test_schedule_item_t *item) {
     if ( item->params == NULL ) {
 	printf(" (no args)");
     } else {
+        int i;
 	/* params is a NULL terminated array */
 	for ( i=0; item->params[i] != NULL; i++ ) {
 	    printf(" %s", item->params[i]);
@@ -99,10 +99,10 @@ static void dump_schedule(wand_event_handler_t *ev_hdl) {
  * destinations it has.
  */
 static void free_test_schedule_item(test_schedule_item_t *item) {
-    int i;
 
     /* free any test parameters, NULL terminated array */
     if ( item->params != NULL ) {
+        int i;
 	for ( i=0; item->params[i] != NULL; i++ ) {
 	    free(item->params[i]);
 	}
@@ -344,7 +344,6 @@ struct timeval get_next_schedule_time(wand_event_handler_t *ev_hdl,
  * merge together to make one scheduled test with multiple destinations.
  */
 static int compare_test_items(test_schedule_item_t *a, test_schedule_item_t *b){
-    int i;
 
     if ( a->test_id != b->test_id )
 	return 0;
@@ -362,6 +361,7 @@ static int compare_test_items(test_schedule_item_t *a, test_schedule_item_t *b){
 	return 0;
 
     if ( a->params != NULL && b->params != NULL ) {
+        int i;
 	/* if both params are not null, make sure they are identical */
 	for ( i=0; a->params[i] != NULL && b->params != NULL; i++ ) {
 	    if ( strcmp(a->params[i], b->params[i]) != 0 )
