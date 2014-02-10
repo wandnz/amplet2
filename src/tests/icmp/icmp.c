@@ -222,6 +222,7 @@ static void harvest(struct socket_t *raw_sockets, uint16_t ident, int wait,
     char packet[2048]; //XXX can we be sure of a max size for recv packets?
     struct timeval now;
     struct sockaddr_in6 addr;
+    struct iphdr *ip;
 
     /* read packets until we hit the timeout, or we have all we expect.
      * Note that wait is reduced by get_packet()
@@ -235,7 +236,8 @@ static void harvest(struct socket_t *raw_sockets, uint16_t ident, int wait,
 	 * for the icmp6 header to be returned so we can be sure we are
 	 * checking the right things?
 	 */
-	switch ( ((struct iphdr*)packet)->version ) {
+        ip = (struct iphdr*)packet;
+        switch ( ip->version ) {
 	    case 4: process_ipv4_packet(packet, ident, now, count, info);
 		    break;
 	    default: /* unless we ask we don't have an ipv6 header here */

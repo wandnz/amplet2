@@ -473,6 +473,7 @@ static void harvest(struct socket_t *icmp_sockets, uint16_t ident, int wait,
     struct sockaddr_storage addr;
     char packet[2048]; //XXX what is a sensible maximum size?
     struct timeval now;
+    struct iphdr *ip;
 
     /*
      * Read packets until we hit the timeout. Note that wait is reduced by
@@ -482,7 +483,8 @@ static void harvest(struct socket_t *icmp_sockets, uint16_t ident, int wait,
                 &wait) ) {
 
 	gettimeofday(&now, NULL);
-        switch ( ((struct iphdr*)packet)->version ) {
+        ip = (struct iphdr*)packet;
+        switch ( ip->version ) {
             case 4: process_ipv4_packet(packet, now, ident, count, info);
 		    break;
 	    default: /* we don't have an ipv6 header here */
