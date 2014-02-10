@@ -23,7 +23,7 @@ CHAR	    [a-zA-Z0-9_ ]
 
 %}
 
-%x script noscript comment img dbquote squote linktag style
+%x script scriptbody noscript comment img dbquote squote linktag style
 %%
 
 "<!--"				{ yy_push_state(comment); };
@@ -41,13 +41,16 @@ CHAR	    [a-zA-Z0-9_ ]
 
 
 "<script"			{ yy_push_state(script); };
-<script>[^s<\n]*		{ /* eat anything that's not a 's' */ };
+<script>">"                     { yy_push_state(scriptbody); };
+<script>[^s<>\n]*		{ /* eat all non 's' or angle bracket */ };
+<script>\n			{ };
 <script,img>"s"			{ /* eat up 's's not followed by 'r's */ };
 <script,img>"src=\""		{ yy_push_state(dbquote); };
 <script,img>"src=\'"		{ yy_push_state(squote); };
-<script>"<"[^/\n]*		{ };
-<script>\n			{ };
-<script>"</script>"		{ yy_pop_state(); };
+
+<scriptbody>[^<]*               { /* eat anything that's not a '<' */ };
+<scriptbody>"<"[^/\n]*          { /* eat any '<'s not followed by '/' */ };
+<scriptbody>"</script>"         { yy_pop_state(); yy_pop_state(); };
 
 
 "<img"				{ yy_push_state(img); };
@@ -91,9 +94,9 @@ CHAR	    [a-zA-Z0-9_ ]
 					parsed_complete_object(url);
 				    }
 				    if ( yy_top_state() == style ) {
-					yy_pop_state();
+                                        yy_pop_state();
                                     }
-				    yy_pop_state();
+                                    yy_pop_state();
 				};
 
 <squote>[^']{1}			{ url[url_index] = yytext[0]; url_index++; };
@@ -104,9 +107,9 @@ CHAR	    [a-zA-Z0-9_ ]
 					parsed_complete_object(url);
 				    }
 				    if ( yy_top_state() == style ) {
-					yy_pop_state();
+                                        yy_pop_state();
                                     }
-				    yy_pop_state();
+                                    yy_pop_state();
 				};
 
 
