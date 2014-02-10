@@ -16,7 +16,7 @@ AC_SEARCH_LIBS(dlopen, dl)
 
 # Checks for typedefs, structures, and compiler characteristics.
 if test "$GCC" = "yes"; then
-    CFLAGS="$CFLAGS -g -Wall -W -Wmissing-prototypes"
+    CFLAGS="$CFLAGS -g -Wall -W -Wmissing-prototypes -Wextra -Wstrict-prototypes -O2"
 fi
 
 # Checks for library functions.
