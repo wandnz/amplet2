@@ -280,7 +280,7 @@ struct timeval get_next_schedule_time(wand_event_handler_t *ev_hdl,
 	char repeat, uint64_t start, uint64_t end, uint64_t frequency) {
 
     time_t period_start, period_end, test_end;
-    struct timeval now, next;
+    struct timeval now, next = {0,0};
     int64_t diff;
     int next_repeat;
 
@@ -647,7 +647,7 @@ static void read_schedule_file(wand_event_handler_t *ev_hdl, char *filename) {
  */
 void read_schedule_dir(wand_event_handler_t *ev_hdl, char *directory) {
     glob_t glob_buf;
-    int i;
+    unsigned int i;
     char full_loc[MAX_PATH_LENGTH];
 
     assert(ev_hdl);

@@ -79,7 +79,7 @@ struct server_stats_t {
     fd_set *except_fdset;
     int *max_fd;
     int *running_handles;
-    int *pipelen;
+    uint32_t *pipelen;
     int num_pipelines;
     struct object_stats_t **pipelines;
     struct object_stats_t *pending;

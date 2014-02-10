@@ -459,9 +459,9 @@ struct server_stats_t *add_object(char *url) {
 
 
 
-static int select_pipeline(struct server_stats_t *server, int threshold) {
+static int select_pipeline(struct server_stats_t *server, uint32_t threshold) {
     int index = 0;
-    int smallest_size;
+    uint32_t smallest_size;
     int smallest_index;
     int i;
 
@@ -780,7 +780,7 @@ static int fetch(char *url) {
     struct timeval timeout;
     fd_set read_fdset, write_fdset, except_fdset;
     CURLM *multi;
-    int result;
+    int result = 0;
     long wait;
     int index;
     int j;
@@ -889,8 +889,8 @@ static int fetch(char *url) {
                 }
 
                 if ( max_fd < 0 ) {
-                    Log(LOG_WARNING, "max_fd not set!\n");
-                    break;
+                    Log(LOG_ERR, "max_fd not set!\n");
+                    exit(-1);
                 }
 
                 /* check how long we should be waiting for before timing out */
@@ -1024,7 +1024,8 @@ static void usage(char *prog) {
  */
 //XXX dests should not have anything in it?
 //XXX how about dests has the hostname/address and url just appends to that?
-int run_http(int argc, char *argv[], int count, struct addrinfo **dests) {
+int run_http(int argc, char *argv[], __attribute__((unused))int count,
+        __attribute__((unused))struct addrinfo **dests) {
     int opt;
     //struct opt_t options;
 
