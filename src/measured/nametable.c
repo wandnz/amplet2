@@ -61,7 +61,7 @@ static void insert_nametable_entry(char *name, struct addrinfo *info) {
 /*
  * Dump the entire contents of the nametable for debugging.
  */
-static void dump_nametable() {
+static void dump_nametable(void) {
     struct addrinfo *tmp;
     nametable_t *item;
     char address[INET6_ADDRSTRLEN];

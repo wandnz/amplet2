@@ -105,6 +105,6 @@ typedef struct test {
 } test_t;
 
 
-typedef test_t * (*test_reg_ptr) ();
+typedef test_t * (*test_reg_ptr) (void);
 
 #endif

@@ -14,7 +14,7 @@
 
 
 /* FIXME? this is pretty much a copy and paste of code in test.c */
-static test_t *get_test_info() {
+static test_t *get_test_info(void) {
     void *hdl;
     test_t *test_info;
     const char *error = NULL;
