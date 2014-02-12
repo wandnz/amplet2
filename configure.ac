@@ -196,6 +196,7 @@ AC_CONFIG_FILES([Makefile
                  src/tests/python/Makefile
                  src/tests/skeleton/Makefile
                  src/tests/icmp/Makefile
+                 src/tests/icmp/test/Makefile
                  src/tests/dns/Makefile
                  src/tests/traceroute/Makefile
                  src/tests/http/Makefile

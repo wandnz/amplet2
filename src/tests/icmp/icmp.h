@@ -25,6 +25,9 @@ int run_icmp(int argc, char *argv[], int count, struct addrinfo **dests);
 int save_icmp(char *monitor, uint64_t timestamp, void *data, uint32_t len);
 void print_icmp(void *data, uint32_t len);
 test_t *register_test(void);
+#if UNIT_TEST
+uint16_t amp_test_icmp_checksum(uint16_t *packet, int size);
+#endif
 
 /*
  * User defined test options that control packet size and timing.

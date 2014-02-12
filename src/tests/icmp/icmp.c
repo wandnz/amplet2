@@ -663,3 +663,10 @@ test_t *register_test() {
 
     return new_test;
 }
+
+
+#if UNIT_TEST
+uint16_t amp_test_icmp_checksum(uint16_t *packet, int size) {
+    return checksum(packet, size);
+}
+#endif
