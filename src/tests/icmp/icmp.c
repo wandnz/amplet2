@@ -31,7 +31,7 @@
  * Calculate the icmp header checksum. Based on the checkSum() function found
  * in AMP at src/lib/checksum.c
  */
-static int checksum(uint16_t *packet, int size) {
+static uint16_t checksum(uint16_t *packet, int size) {
     register uint16_t answer;
     register uint64_t sum;
     uint16_t odd;
