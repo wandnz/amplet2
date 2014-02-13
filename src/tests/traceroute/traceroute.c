@@ -1057,3 +1057,16 @@ test_t *register_test() {
 
     return new_test;
 }
+
+
+#if UNIT_TEST
+int amp_traceroute_build_ipv4_probe(void *packet, uint16_t packet_size, int id,
+        int ttl, uint16_t ident, struct addrinfo *dest) {
+    return build_ipv4_probe(packet, packet_size, id, ttl, ident, dest);
+}
+
+int amp_traceroute_build_ipv6_probe(void *packet, uint16_t packet_size, int id,
+        uint16_t ident, struct addrinfo *dest) {
+    return build_ipv6_probe(packet, packet_size, id, ident, dest);
+}
+#endif
