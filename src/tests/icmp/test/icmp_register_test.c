@@ -7,7 +7,7 @@
 /*
  * Check that the icmp test registration is vaguely sane.
  */
-int main(int argc, char *argv[]) {
+int main(void) {
     test_t *info = register_test();
 
     assert(info != NULL);

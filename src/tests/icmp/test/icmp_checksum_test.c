@@ -11,7 +11,7 @@
  * We could do some more testing on less regular patterns if we really
  * felt that there was a need for it, but this gives us some basic coverage.
  */
-int main(int argc, char *argv[]) {
+int main(void) {
     char packet[MAXLEN];
 
     /* all zeroes */
