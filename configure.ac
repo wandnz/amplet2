@@ -199,6 +199,7 @@ AC_CONFIG_FILES([Makefile
                  src/tests/icmp/test/Makefile
                  src/tests/dns/Makefile
                  src/tests/traceroute/Makefile
+                 src/tests/traceroute/test/Makefile
                  src/tests/http/Makefile
                  src/tests/throughput/Makefile
                  src/xferd/Makefile])
