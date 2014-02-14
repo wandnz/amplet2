@@ -19,7 +19,7 @@
 #include "debug.h"
 
 
-static nametable_t *name_table = NULL;
+nametable_t *name_table = NULL;
 
 
 /*
@@ -203,3 +203,8 @@ void read_nametable_file() {
     dump_nametable();
 }
 
+#if UNIT_TEST
+void nametable_test_insert_nametable_entry(char *name, struct addrinfo *info) {
+    insert_nametable_entry(name, info);
+}
+#endif

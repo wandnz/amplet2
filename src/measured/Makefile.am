@@ -1,5 +1,5 @@
 EXTRA_DIST=*.h
-SUBDIRS=etc
+SUBDIRS=. etc test
 
 # TODO: There is probably a better way to do this so we can override them
 # individually on the command line without having to override them all.

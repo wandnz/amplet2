@@ -21,5 +21,8 @@ void read_nametable_file(void);
 void setup_nametable_refresh(wand_event_handler_t *ev_hdl);
 nametable_t *name_to_address(char *name);
 void clear_nametable(void);
+#if UNIT_TEST
+void nametable_test_insert_nametable_entry(char *name, struct addrinfo *info);
+#endif
 
 #endif

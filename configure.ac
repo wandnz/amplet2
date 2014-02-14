@@ -190,6 +190,7 @@ fi
 AC_CONFIG_FILES([Makefile
                  src/Makefile
                  src/measured/Makefile
+                 src/measured/test/Makefile
                  src/measured/etc/Makefile
                  src/common/Makefile
                  src/tests/Makefile
