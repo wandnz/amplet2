@@ -45,7 +45,7 @@ static void insert_nametable_entry(char *name, struct addrinfo *info) {
         /* if it doesn't exist, create it with the single struct addrinfo */
         item = (nametable_t *)malloc(sizeof(nametable_t));
         item->addr = info;
-        item->next = NULL;
+        item->next = name_table;
         item->count = 1;
         name_table = item;
     } else {
