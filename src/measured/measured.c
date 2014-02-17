@@ -153,11 +153,9 @@ static int parse_config(char *filename, struct amp_global_t *vars) {
     cfg_opt_t opt_remotesched[] = {
         CFG_BOOL("fetch", cfg_false, CFGF_NONE),
         CFG_STR("url", NULL, CFGF_NONE),
-        /*
         CFG_STR("cacert", AMQP_CACERT_FILE, CFGF_NONE),
         CFG_STR("key", AMQP_KEY_FILE, CFGF_NONE),
         CFG_STR("cert", AMQP_CERT_FILE, CFGF_NONE),
-        */
         CFG_END()
     };
 
@@ -220,11 +218,24 @@ static int parse_config(char *filename, struct amp_global_t *vars) {
         vars->cert = strdup(cfg_getstr(cfg_sub, "cert"));
     }
 
+    /* parse the config for remote fetching of schedule files */
     for ( i=0; i<cfg_size(cfg, "remotesched"); i++ ) {
         cfg_sub = cfg_getnsec(cfg, "remotesched", i);
+        /* check that it is enabled */
         vars->fetch_remote = cfg_getbool(cfg_sub, "fetch");
         if ( cfg_getstr(cfg_sub, "url") != NULL ) {
             vars->schedule_url = strdup(cfg_getstr(cfg_sub, "url"));
+            /* if it's https, then we need to set up ssl */
+            if ( strncasecmp(vars->schedule_url, "https",
+                        strlen("https")) == 0 ) {
+                vars->fetch_ssl.cacert = strdup(cfg_getstr(cfg_sub, "cacert"));
+                vars->fetch_ssl.key = strdup(cfg_getstr(cfg_sub, "key"));
+                vars->fetch_ssl.cert = strdup(cfg_getstr(cfg_sub, "cert"));
+            } else {
+                vars->fetch_ssl.cacert = NULL;
+                vars->fetch_ssl.key = NULL;
+                vars->fetch_ssl.cert = NULL;
+            }
         }
     }
 
@@ -329,7 +340,8 @@ int main(int argc, char *argv[]) {
             Log(LOG_WARNING,
                     "Remote schedule enabled but no url set, skipping");
         } else {
-            update_remote_schedule(vars.schedule_url);
+            update_remote_schedule(vars.schedule_url, vars.fetch_ssl.cacert,
+                    vars.fetch_ssl.cert, vars.fetch_ssl.key);
         }
     }
 

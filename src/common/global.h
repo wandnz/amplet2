@@ -3,6 +3,12 @@
 
 #include <stdint.h>
 
+typedef struct amp_ssl_opt {
+    char *cacert;
+    char *key;
+    char *cert;
+} amp_ssl_opt_t;
+
 struct amp_global_t {
     char *ampname;
     char *collector;
@@ -16,6 +22,9 @@ struct amp_global_t {
     char *cert;
     int fetch_remote;
     char *schedule_url;
+    amp_ssl_opt_t fetch_ssl;
+    /* TODO make a collector ssl struct too */
+    // amp_ssl_t collector_ssl;
 };
 
 struct amp_global_t vars;

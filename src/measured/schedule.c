@@ -686,10 +686,9 @@ void read_schedule_dir(wand_event_handler_t *ev_hdl, char *directory) {
  *
  * TODO put error strings in based on errno for useful messages
  * TODO keep history of downloaded schedules? Previous 1 or 2?
- * TODO enable SSL
  * TODO connection timeout should be short, to not delay startup?
  */
-int update_remote_schedule(char *url) {
+int update_remote_schedule(char *url, char *cacert, char *cert, char *key) {
     CURL *curl;
 
     Log(LOG_INFO, "Fetching remote schedule file from %s", url);
@@ -705,6 +704,7 @@ int update_remote_schedule(char *url) {
         long cond_unmet;
         double length;
         FILE *tmpfile;
+        char errorbuf[CURL_ERROR_SIZE];
 
         /* Open the temporary file we read the remote schedule into */
         if ( (tmpfile = fopen(TMP_REMOTE_SCHEDULE_FILE, "w")) == NULL ) {
@@ -718,13 +718,25 @@ int update_remote_schedule(char *url) {
         curl_easy_setopt(curl, CURLOPT_USERAGENT, PACKAGE_STRING);
         curl_easy_setopt(curl, CURLOPT_FILETIME, 1);
         curl_easy_setopt(curl, CURLOPT_WRITEDATA, tmpfile);
-        /*
-        curl_easy_setopt(curl, CURLOPT_SSLCERTTYPE, "PEM");
-        curl_easy_setopt(curl, CURLOPT_SSLCERT, pCertFile);
-        curl_easy_setopt(curl, CURLOPT_SSLKEY, pKeyName);
-        curl_easy_setopt(curl, CURLOPT_CAINFO, pCACertFile);
-        curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 1);
-        */
+        /* get slightly more detailed error messages, useful with ssl */
+        curl_easy_setopt(curl, CURLOPT_ERRORBUFFER, errorbuf);
+
+        /* use ssl if required (a good idea!) */
+        if ( cacert != NULL && cert != NULL && key != NULL ) {
+               Log(LOG_DEBUG, "CACERT=%s", cacert);
+               Log(LOG_DEBUG, "KEY=%s", key);
+               Log(LOG_DEBUG, "CERT=%s", cert);
+
+               curl_easy_setopt(curl, CURLOPT_SSLCERTTYPE, "PEM");
+               curl_easy_setopt(curl, CURLOPT_SSLCERT, cert);
+               curl_easy_setopt(curl, CURLOPT_SSLKEYTYPE, "PEM");
+               curl_easy_setopt(curl, CURLOPT_SSLKEY, key);
+               curl_easy_setopt(curl, CURLOPT_CAINFO, cacert);
+
+               /* make sure we try to verify who we are talking to */
+               curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 1);
+               curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 2);
+        }
 
         /*
          * Check if remote schedule file exists locally, and when it was last
@@ -755,14 +767,15 @@ int update_remote_schedule(char *url) {
         /* close our temporary file, it is either empty or full of new data */
         fclose(tmpfile);
 
+        /* don't do anything if the file wasn't fetched ok */
         if ( res != CURLE_OK ) {
             Log(LOG_WARNING, "Failed to fetch remote schedule: %s",
                     curl_easy_strerror(res));
+            Log(LOG_WARNING, "%s", errorbuf);
             curl_easy_cleanup(curl);
             return -1;
         }
 
-        /* TODO theoretically we should check the return value of getinfo */
         curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &code);
         curl_easy_getinfo(curl, CURLINFO_FILETIME, &filetime);
         curl_easy_getinfo(curl, CURLINFO_CONTENT_LENGTH_DOWNLOAD, &length);
@@ -773,7 +786,7 @@ int update_remote_schedule(char *url) {
                 code, filetime, length);
 
         /* if a new file was fetched then move it into position */
-        if ( cond_unmet == 0 && length > 0 ) {
+        if ( code == 200 && cond_unmet == 0 && length > 0 ) {
             Log(LOG_INFO, "New schedule file fetched!");
             if ( rename(TMP_REMOTE_SCHEDULE_FILE, REMOTE_SCHEDULE_FILE) < 0 ) {
                 Log(LOG_WARNING, "Error moving fetched schedule file %s to %s",

@@ -107,5 +107,5 @@ void read_schedule_dir(wand_event_handler_t *ev_hdl, char *directory);
 void setup_schedule_refresh(wand_event_handler_t *ev_hdl);
 struct timeval get_next_schedule_time(wand_event_handler_t *ev_hdl, 
 	char repeat, uint64_t start, uint64_t end, uint64_t frequency);
-int update_remote_schedule(char *server);
+int update_remote_schedule(char *server, char *cacert, char *cert, char *key);
 #endif
