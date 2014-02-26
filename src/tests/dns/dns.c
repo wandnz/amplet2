@@ -978,5 +978,8 @@ test_t *register_test() {
     /* function to call to pretty print the results of the test */
     new_test->print_callback = print_dns;
 
+    /* the dns test doesn't require us to run a custom server */
+    new_test->server_callback = NULL;
+
     return new_test;
 }

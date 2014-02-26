@@ -81,6 +81,12 @@ typedef struct test {
      */
     void (*print_callback)(void *data, uint32_t len);
 
+    /*
+     * Pointer to a function that will start up the server portion of a test
+     * if required.
+     */
+    void (*server_callback)(int argc, char *argv[], SSL *ssl);
+
 #if 0
     /*
      * A string containing the name of the binary that should be run to perform
