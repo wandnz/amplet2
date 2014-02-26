@@ -433,7 +433,7 @@ static int merge_scheduled_tests(struct wand_event_handler_t *ev_hdl,
 		    (sched_test->dest_count + sched_test->resolve_count) <
 		    amp_tests[item->test_id]->max_targets ) {
 
-		fprintf(stderr, "merging tests\n");
+		/*fprintf(stderr, "merging tests\n");*/
 
 		/*
 	 	 * resize the dests pointers to make room for the new dest
