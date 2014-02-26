@@ -10,6 +10,9 @@
 #include "debug.h"
 #include "tests.h"
 #include "modules.h"
+#include "ssl.h"
+#include "global.h" /* just for temporary ssl testing stuff */
+#include "messaging.h" /* just for temporary ssl testing stuff */
 
 
 
@@ -74,6 +77,20 @@ int main(int argc, char *argv[]) {
 
     /* load information about the test, including the callback functions */
     test_info = get_test_info();
+
+    /* Initialise SSL if the test requires a remote server */
+    if ( test_info->server_callback != NULL ) {
+        /* these need values for standalone tests to work with remote servers */
+        vars.cacert = AMQP_CACERT_FILE;
+        vars.cert = AMQP_CERT_FILE;
+        vars.key = AMQP_KEY_FILE;
+        vars.control_port = "8869"; /* XXX */
+        if ( (ssl_ctx = initialise_ssl()) == NULL ) {
+            Log(LOG_ALERT, "Failed to initialise SSL, aborting");
+            return -1;
+        }
+    }
+
     /*
      * FIXME is this the best way to get this looking like it does when
      * run through measured? Just filling in the one value that we know we
@@ -187,6 +204,11 @@ int main(int argc, char *argv[]) {
         }
         free(dests);
     }
+
+    if ( ssl_ctx != NULL ) {
+        ssl_cleanup();
+    }
+
     dlclose(test_info->dlhandle);
     free(test_info->name);
     free(test_info);

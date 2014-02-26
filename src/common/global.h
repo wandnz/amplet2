@@ -22,6 +22,9 @@ struct amp_global_t {
     char *cert;
     int fetch_remote;
     char *schedule_url;
+    int control_enabled;
+    char *control_port;
+    char *control_address;
     amp_ssl_opt_t fetch_ssl;
     /* TODO make a collector ssl struct too */
     // amp_ssl_t collector_ssl;

@@ -4,5 +4,5 @@ EXTRA_DIST=*.h
 # object that gets installed into the system...
 libampdir=$(libdir)
 libamp_LTLIBRARIES=libamp.la
-libamp_la_SOURCES=debug.c messaging.c modules.c testlib.c
+libamp_la_SOURCES=debug.c messaging.c modules.c testlib.c ssl.c
 libamp_la_LDFLAGS=-module -avoid-version -lrabbitmq

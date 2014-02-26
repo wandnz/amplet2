@@ -16,6 +16,8 @@
 #include "tests.h"
 #include "modules.h"
 #include "messaging.h"
+#include "ssl.h"
+#include "global.h"
 
 
 
@@ -239,4 +241,139 @@ char *address_to_name(struct addrinfo *address) {
     assert(address);
     assert(address->ai_canonname);
     return address->ai_canonname;
+}
+
+
+
+/*
+ * Send a port number over an SSL connection. Mostly just a convenience for
+ * starting test servers to save having to remember how to send SSL data and
+ * byteswap.
+ */
+int send_server_port(SSL *ssl, uint16_t port) {
+    assert(ssl);
+    assert(ssl_ctx);
+
+    port = htons(port);
+
+    if ( SSL_write(ssl, &port, sizeof(port)) != sizeof(port) ) {
+        return -1;
+    }
+
+    return 0;
+}
+
+
+
+/*
+ * Open an SSL connection to another AMP monitor and ask them to start a
+ * server for a particular test. This will return the port number that the
+ * server is running on.
+ */
+uint16_t start_remote_server(test_type_t type, struct addrinfo *dest) {
+    SSL *ssl;
+    X509 *server_cert;
+    int sock;
+    uint16_t bytes, server_port, control_port;
+    int res;
+
+    assert(dest);
+    assert(dest->ai_addr);
+    assert(vars.control_port);
+
+    if ( ssl_ctx == NULL ) {
+        Log(LOG_WARNING, "Can't start remote server, no SSL configuration");
+        return 0;
+    }
+
+    Log(LOG_DEBUG, "Starting remote server for test type %d", type);
+
+    /* vars.control_port is a char*, cause getaddrinfo needs that elsewhere */
+    control_port = atol(vars.control_port);
+    switch ( dest->ai_family ) {
+        case AF_INET: ((struct sockaddr_in *)dest->ai_addr)->sin_port =
+                      htons(control_port);
+                      break;
+        case AF_INET6: ((struct sockaddr_in6 *)dest->ai_addr)->sin6_port =
+                       htons(control_port);
+                       break;
+        default: return 0;
+    };
+
+    /* TODO try again if we fail to connect */
+
+    /* Open connection to the remote AMP monitor */
+    if ( (sock = socket(dest->ai_family, SOCK_STREAM, IPPROTO_TCP)) < 0 ) {
+        Log(LOG_DEBUG, "Failed to create socket");
+        return 0;
+    }
+
+    if ( connect(sock, dest->ai_addr, dest->ai_addrlen) < 0 ) {
+        Log(LOG_DEBUG, "Failed to connect socket");
+        return 0;
+    }
+
+    /* Send the test type, so the other end can set up watchdogs etc */
+    if ( send(sock, &type, 1, 0) < 0 ) {
+        Log(LOG_DEBUG, "Failed to send test type");
+        close(sock);
+        return 0;
+    }
+
+    /* Open up the ssl channel and validate the cert against our CA cert */
+    /* TODO CRL or OCSP to deal with revocation of certificates */
+
+    /* Do the SSL handshake */
+    if ( (ssl = ssl_connect(ssl_ctx, sock) ) == NULL ) {
+        Log(LOG_DEBUG, "Failed to setup SSL connection");
+        close(sock);
+        return 0;
+    }
+
+    /* Recover the server's certificate */
+    server_cert = SSL_get_peer_certificate(ssl);
+    if ( server_cert == NULL ) {
+        Log(LOG_DEBUG, "Failed to get peer certificate");
+        close(sock);
+        return 0;
+    }
+
+    /* Validate the hostname */
+    if ( matches_common_name(dest->ai_canonname, server_cert) != 0 ) {
+        Log(LOG_DEBUG, "Hostname validation failed");
+        X509_free(server_cert);
+        ssl_shutdown(ssl);
+        close(sock);
+        return 0;
+    }
+
+    Log(LOG_DEBUG, "Successfully validated peer cert");
+
+    /* TODO send any test parameters? */
+    /* Get the port number the remote server is on */
+    bytes = 0;
+    while ( bytes < sizeof(server_port) ) {
+        /* read the message straight into the port variable, 2 bytes long */
+        res = SSL_read(ssl, ((char*)&server_port) + bytes, sizeof(server_port));
+        if ( res > 0 ) {
+            bytes += res;
+        }
+    }
+
+    /* Response didn't make sense, zero the port so the client knows */
+    if ( bytes != sizeof(server_port) ) {
+        Log(LOG_WARNING, "Expected %d bytes, got %d bytes, not a valid port",
+                sizeof(server_port), bytes);
+        server_port = 0;
+    }
+
+    server_port = ntohs(server_port);
+
+    Log(LOG_DEBUG, "Remote port number: %d", server_port);
+
+    X509_free(server_cert);
+    ssl_shutdown(ssl);
+    close(sock);
+
+    return server_port;
 }

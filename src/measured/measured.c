@@ -31,6 +31,8 @@
 #include "messaging.h"
 #include "modules.h"
 #include "global.h"
+#include "control.h"
+#include "ssl.h"
 
 wand_event_handler_t *ev_hdl;
 
@@ -159,12 +161,20 @@ static int parse_config(char *filename, struct amp_global_t *vars) {
         CFG_END()
     };
 
+    cfg_opt_t opt_control[] = {
+        CFG_BOOL("enabled", cfg_false, CFGF_NONE),
+        CFG_STR("port", CONTROL_PORT, CFGF_NONE),
+        CFG_STR("address", NULL, CFGF_NONE),
+        CFG_END()
+    };
+
     cfg_opt_t measured_opts[] = {
 	CFG_STR("ampname", NULL, CFGF_NONE),
 	CFG_STR("testdir", AMP_TEST_DIRECTORY, CFGF_NONE),
         CFG_INT_CB("loglevel", LOG_INFO, CFGF_NONE, &callback_verify_loglevel),
 	CFG_SEC("collector", opt_collector, CFGF_NONE),
         CFG_SEC("remotesched", opt_remotesched, CFGF_NONE),
+        CFG_SEC("control", opt_control, CFGF_NONE),
 	CFG_END()
     };
 
@@ -206,6 +216,7 @@ static int parse_config(char *filename, struct amp_global_t *vars) {
         log_level = cfg_getint(cfg, "loglevel");
     }
 
+    /* parse the config for the collector we should report data to */
     for ( i=0; i<cfg_size(cfg, "collector"); i++ ) {
         cfg_sub = cfg_getnsec(cfg, "collector", i);
         vars->collector = strdup(cfg_getstr(cfg_sub, "address"));
@@ -239,6 +250,20 @@ static int parse_config(char *filename, struct amp_global_t *vars) {
         }
     }
 
+    /*
+     * Parse the config for the control socket. It will only start if enabled
+     * and SSL gets set up properly. It uses the same SSL settings as for
+     * reporting data, so they don't need to be configured here.
+     */
+    for ( i=0; i<cfg_size(cfg, "control"); i++ ) {
+        cfg_sub = cfg_getnsec(cfg, "control", i);
+        vars->control_enabled = cfg_getbool(cfg_sub, "enabled");
+        vars->control_port = strdup(cfg_getstr(cfg_sub, "port"));
+        if ( cfg_getstr(cfg_sub, "address") != NULL ) {
+            vars->control_address = strdup(cfg_getstr(cfg_sub, "address"));
+        }
+    }
+
     cfg_free(cfg);
     return 0;
 }
@@ -252,6 +277,7 @@ int main(int argc, char *argv[]) {
     struct wand_signal_t sigint_ev;
     struct wand_signal_t sigchld_ev;
     struct wand_signal_t sighup_ev;
+    struct wand_fdcb_t control_ev;
     char *config_file = NULL;
     int fetch_remote = 1;
     int backgrounded = 0;
@@ -329,6 +355,11 @@ int main(int argc, char *argv[]) {
     /* set up curl while we are still the only measured process running */
     curl_global_init(CURL_GLOBAL_ALL);
 
+    /* set up SSL certificates etc */
+    if ( (ssl_ctx = initialise_ssl()) == NULL ) {
+        Log(LOG_WARNING, "Failed to initialise SSL, disabling control socket");
+    }
+
     /* set up event handlers */
     wand_event_init();
     ev_hdl = wand_create_event_handler();
@@ -356,6 +387,19 @@ int main(int argc, char *argv[]) {
     sigchld_ev.callback = child_reaper;
     sigchld_ev.data = ev_hdl;
     wand_add_signal(&sigchld_ev);
+
+    /* create the control socket and add an event listener for it */
+    if ( vars.control_enabled && ssl_ctx != NULL ) {
+        int fd = initialise_control_socket(vars.control_address,
+                vars.control_port);
+        if ( fd > 0 ) {
+            control_ev.fd = fd;
+            control_ev.flags = EV_READ;
+            control_ev.data = ev_hdl;
+            control_ev.callback = control_establish_callback;
+            wand_add_event(ev_hdl, &control_ev);
+        }
+    }
 
     /*
      * Set up handler to deal with SIGHUP to reload available tests if running
@@ -387,6 +431,8 @@ int main(int argc, char *argv[]) {
         wand_del_signal(&sighup_ev);
     }
     wand_destroy_event_handler(ev_hdl);
+
+    ssl_cleanup();
 
     /* finish up with curl */
     /* TODO what if we are in the middle of updating remote schedule files? */
