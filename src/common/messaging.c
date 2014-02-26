@@ -48,7 +48,7 @@ int connect_to_broker() {
         }
 
         if ( amqp_socket_open(sock, vars.collector, vars.port) != 0 ) {
-            Log(LOG_ERR, "Failed to open connection to %s:%s",
+            Log(LOG_ERR, "Failed to open connection to %s:%d",
                     vars.collector, vars.port);
             return -1;
         }
