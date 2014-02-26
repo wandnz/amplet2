@@ -5,6 +5,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netdb.h>
+#include <openssl/ssl.h>
 
 /* TODO move elsewhere to more global config file */
 #define MAX_PATH_LENGTH 10000
