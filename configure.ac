@@ -102,6 +102,20 @@ AC_ARG_ENABLE(skeleton,
 # using AM_CONDITIONAL propagates this value through to all Makefile.am files
 AM_CONDITIONAL(WANT_SKELETON_TEST, [test x"$want_skeleton_test" = xtrue])
 
+AC_ARG_ENABLE(remoteskeleton,
+    AC_HELP_STRING([--enable-remoteskeleton],
+	[Enable the remote skeleton test (default: no)]),
+    [case "${enableval}" in
+    true) ;&
+    yes) want_remoteskeleton_test=true ;;
+    false) ;&
+    no)	 want_remoteskeleton_test=false ;;
+    *) AC_MSG_ERROR(bad value ${enableval} for --enable-skeleton) ;;
+    esac],
+    [want_remoteskeleton_test=false])
+# using AM_CONDITIONAL propagates this value through to all Makefile.am files
+AM_CONDITIONAL(WANT_REMOTESKELETON_TEST, [test x"$want_remoteskeleton_test" = xtrue])
+
 AC_ARG_ENABLE(icmp,
     AC_HELP_STRING([--enable-icmp], 
 	[Enable the icmp test (default: yes)]),
@@ -205,6 +219,7 @@ AC_CONFIG_FILES([Makefile
                  src/tests/traceroute/test/Makefile
                  src/tests/http/Makefile
                  src/tests/throughput/Makefile
+                 src/tests/remoteskeleton/Makefile
                  src/xferd/Makefile])
 AC_OUTPUT
 
@@ -219,6 +234,7 @@ reportopt() {
 reportopt "Compiled with python reporting support" $want_python
 reportopt "Compiled with syslog logging" $want_syslog
 reportopt "Compiled with skeleton test support" $want_skeleton_test
+reportopt "Compiled with remote skeleton test support" $want_remoteskeleton_test
 reportopt "Compiled with icmp test support" $want_icmp_test
 reportopt "Compiled with dns test support" $want_dns_test
 reportopt "Compiled with http test support" $want_http_test

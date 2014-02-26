@@ -27,3 +27,7 @@ endif
 if WANT_PYTHON
 SUBDIRS+=python
 endif
+
+if WANT_REMOTESKELETON_TEST
+SUBDIRS+=remoteskeleton
+endif
