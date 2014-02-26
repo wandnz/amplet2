@@ -11,5 +11,4 @@ dns_la_SOURCES=dns.c
 dns_la_CFLAGS=-rdynamic
 dns_la_LDFLAGS=-module -avoid-version -L../../common/ -lamp
 
-AM_CFLAGS=-g -Wall -W -rdynamic
 INCLUDES=-I../ -I../../common/

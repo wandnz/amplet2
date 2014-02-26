@@ -12,5 +12,4 @@ icmp_la_SOURCES=icmp.c
 icmp_la_CFLAGS=-rdynamic
 icmp_la_LDFLAGS=-module -avoid-version -L../../common/ -lamp
 
-AM_CFLAGS=-g -Wall -W -rdynamic
 INCLUDES=-I../ -I../../common/

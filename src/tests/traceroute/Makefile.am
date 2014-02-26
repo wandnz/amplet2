@@ -12,5 +12,4 @@ trace_la_SOURCES=traceroute.c
 trace_la_CFLAGS=-rdynamic
 trace_la_LDFLAGS=-module -avoid-version -L../../common/ -lamp
 
-AM_CFLAGS=-g -Wall -W -rdynamic
 INCLUDES=-I../ -I../../common/
