@@ -86,7 +86,7 @@ static void cancel_test_watchdog(wand_event_handler_t *ev_hdl, pid_t pid) {
  * finish at the same time, possibly causing libwandevent not to fire this
  * event for every child, so loop around and consume all the children.
  */
-void child_reaper(__attribute__((unused))struct wand_signal_t *signal) {
+void child_reaper(struct wand_signal_t *signal) {
     siginfo_t infop;
 
     while ( 1 ) {
