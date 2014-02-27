@@ -276,6 +276,7 @@ uint16_t start_remote_server(test_type_t type, struct addrinfo *dest) {
     int sock;
     uint16_t bytes, server_port, control_port;
     int res;
+    int attempts;
 
     assert(dest);
     assert(dest->ai_addr);
@@ -300,18 +301,49 @@ uint16_t start_remote_server(test_type_t type, struct addrinfo *dest) {
         default: return 0;
     };
 
-    /* TODO try again if we fail to connect */
-
     /* Open connection to the remote AMP monitor */
     if ( (sock = socket(dest->ai_family, SOCK_STREAM, IPPROTO_TCP)) < 0 ) {
         Log(LOG_DEBUG, "Failed to create socket");
         return 0;
     }
 
-    if ( connect(sock, dest->ai_addr, dest->ai_addrlen) < 0 ) {
-        Log(LOG_DEBUG, "Failed to connect socket");
-        return 0;
-    }
+    /* Try a few times to connect, but give up after failing too many times */
+    attempts = 0;
+    do {
+        char addrstr[INET6_ADDRSTRLEN];
+        if ( (res = connect(sock, dest->ai_addr, dest->ai_addrlen)) < 0 ) {
+            attempts++;
+
+            /*
+             * The destination is from our nametable, so it should have a
+             * useful canonical name set, we aren't relying on getaddrinfo.
+             */
+            Log(LOG_DEBUG, "Failed to connect to %s (%s) attempt %d/%d: %s",
+                    dest->ai_canonname,
+                    amp_inet_ntop(dest, addrstr), attempts,
+                    MAX_CONNECT_ATTEMPTS, strerror(errno));
+
+            if ( attempts >= MAX_CONNECT_ATTEMPTS ) {
+                Log(LOG_WARNING,
+                        "Failed too many times connecting to %s (%s), aborting",
+                        dest->ai_canonname, amp_inet_ntop(dest, addrstr));
+                return 0;
+            }
+
+            /*
+             * Don't bother with exponential backoff or similar, just try a
+             * few times in case something funny is going on, then give up.
+             * XXX is it actually worth trying more than once? Are there
+             * error codes that should cause us just to stop immediately?
+             * Or any error codes that we know are only temporary? How long
+             * should we keep trying for until it becomes not worth it, because
+             * we are no longer at the time our test was scheduled?
+             */
+            Log(LOG_DEBUG, "Waiting %d seconds before trying again",
+                    CONTROL_CONNECT_DELAY);
+            sleep(CONTROL_CONNECT_DELAY);
+        }
+    } while ( res < 0 );
 
     /* Send the test type, so the other end can set up watchdogs etc */
     if ( send(sock, &type, 1, 0) < 0 ) {
