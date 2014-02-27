@@ -5,6 +5,7 @@
 #include <string.h>
 #include <syslog.h>
 #include <unistd.h>
+#include <arpa/inet.h>
 
 #include "config.h"
 #include "debug.h"
@@ -101,4 +102,30 @@ void Log(int priority, const char *fmt, ...)
 	fprintf(out, "%s %s: %s\n", date, prefix, buffer);
 	fclose(out);
     }
+}
+
+
+
+/*
+ * A more sensible inet_ntop that can figure out what to do for different
+ * address families on its own. Takes an addrinfo structure (rather than a
+ * in_addr or in6_addr), and a buffer to return the result in. Internally it
+ * uses this information to call inet_ntop with sensible arguments.
+ */
+const char *amp_inet_ntop(struct addrinfo *addr, char *buffer) {
+    void *addrptr;
+
+    assert(addr);
+    assert(buffer);
+
+    switch ( addr->ai_family ) {
+        case AF_INET: addrptr = &((struct sockaddr_in*)addr->ai_addr)->sin_addr;
+                      break;
+        case AF_INET6: addrptr = &((struct sockaddr_in6*)
+                               addr->ai_addr)->sin6_addr;
+                       break;
+        default: snprintf(buffer, INET6_ADDRSTRLEN, "unknown"); return buffer;
+    };
+
+    return inet_ntop(addr->ai_family, addrptr, buffer, INET6_ADDRSTRLEN);
 }
