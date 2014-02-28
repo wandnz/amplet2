@@ -56,7 +56,18 @@ static void dump_event_run_test(test_schedule_item_t *item) {
 static void dump_event_cancel_test(kill_schedule_item_t *item) {
     assert(item);
 
-    printf("EVENT_CANCEL_TEST pid:%d", item->pid);
+    printf("EVENT_CANCEL_TEST pid:%d\n", item->pid);
+}
+
+
+
+/*
+ * Dump a debug information line about a scheduled watchdog to kill a test.
+ */
+static void dump_event_fetch_schedule(fetch_schedule_item_t *item) {
+    assert(item);
+
+    printf("EVENT_FETCH_SCHEDULE %s\n", item->schedule_url);
 }
 
 
@@ -85,6 +96,9 @@ static void dump_schedule(wand_event_handler_t *ev_hdl) {
 				 break;
 	    case EVENT_CANCEL_TEST: dump_event_cancel_test(item->data.kill);
 				    break;
+            case EVENT_FETCH_SCHEDULE:
+                                    dump_event_fetch_schedule(item->data.fetch);
+                                    break;
 	    default: printf("UNKNOWN\n"); continue;
 	};
     }
@@ -679,6 +693,49 @@ void read_schedule_dir(wand_event_handler_t *ev_hdl, char *directory) {
 
 
 /*
+ *
+ */
+void remote_schedule_callback(struct wand_timer_t *timer) {
+    schedule_item_t *item;
+    fetch_schedule_item_t *data;
+    pid_t pid;
+
+    Log(LOG_DEBUG, "Timer fired for remote schedule checking");
+
+    item = (schedule_item_t *)timer->data;
+    assert(item->type == EVENT_FETCH_SCHEDULE);
+
+    data = (fetch_schedule_item_t *)item->data.fetch;
+
+    /* fork off a process to do the actual check */
+    if ( (pid = fork()) < 0 ) {
+        Log(LOG_WARNING, "Failed to fork for fetching remote schedule: %s",
+                strerror(errno));
+        return;
+    } else if ( pid == 0 ) {
+        if ( update_remote_schedule(data->schedule_url, data->cacert,
+                data->cert, data->key) > 0 ) {
+            /* send SIGUSR1 to parent to reload schedule */
+            Log(LOG_DEBUG, "Sending SIGUSR1 to parent to reload schedule");
+            kill(getppid(), SIGUSR1);
+        }
+        exit(0);
+    }
+
+    /* TODO should we have a watchdog on this task? */
+    add_test_watchdog(item->ev_hdl, pid, SCHEDULE_FETCH_TIMEOUT,
+            "Remote schedule fetch");
+
+    /* reschedule checking for schedule updates */
+    timer->expire = wand_calc_expire(item->ev_hdl, SCHEDULE_FETCH_FREQUENCY, 0);
+    timer->prev = NULL;
+    timer->next = NULL;
+    wand_add_timer(item->ev_hdl, timer);
+}
+
+
+
+/*
  * Try to fetch a schedule file from a remote server if there is a fresher one
  * available, replacing any existing one that has been previously fetched.
  * Returns -1 on error, 0 if no update was needed, 1 if the file was
@@ -727,14 +784,18 @@ int update_remote_schedule(char *url, char *cacert, char *cert, char *key) {
                Log(LOG_DEBUG, "KEY=%s", key);
                Log(LOG_DEBUG, "CERT=%s", cert);
 
+                /* set the client cert and key that we present the server */
                curl_easy_setopt(curl, CURLOPT_SSLCERTTYPE, "PEM");
                curl_easy_setopt(curl, CURLOPT_SSLCERT, cert);
                curl_easy_setopt(curl, CURLOPT_SSLKEYTYPE, "PEM");
                curl_easy_setopt(curl, CURLOPT_SSLKEY, key);
+
+               /* set the CA cert that we validate the server against */
                curl_easy_setopt(curl, CURLOPT_CAINFO, cacert);
 
-               /* make sure we try to verify who we are talking to */
+               /* Try to verify the certificate */
                curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 1);
+               /* Try to verify hostname/commonname */
                curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 2);
         }
 

@@ -75,12 +75,13 @@ static void stop_running(__attribute__((unused))struct wand_signal_t *signal) {
 
 
 /*
- * If measured gets sent a SIGHUP then it should reload all the available
- * test modules and then re-read the schedule file taking into account the
- * new list of available tests.
+ * If measured gets sent a SIGHUP or SIGUSR1 then it should reload all the
+ * available test modules and then re-read the schedule file taking into
+ * account the new list of available tests.
  */
 static void reload(__attribute__((unused))struct wand_signal_t *signal) {
-    Log(LOG_INFO, "Received SIGHUP, reloading all configuration");
+    Log(LOG_INFO, "Received signal %d, reloading all configuration",
+            signal->signum);
 
     /* cancel all scheduled tests (let running ones finish) */
     clear_test_schedule(signal->data);
@@ -158,6 +159,7 @@ static int parse_config(char *filename, struct amp_global_t *vars) {
         CFG_STR("cacert", AMQP_CACERT_FILE, CFGF_NONE),
         CFG_STR("key", AMQP_KEY_FILE, CFGF_NONE),
         CFG_STR("cert", AMQP_CERT_FILE, CFGF_NONE),
+        CFG_INT("frequency", SCHEDULE_FETCH_FREQUENCY, CFGF_NONE),
         CFG_END()
     };
 
@@ -236,6 +238,7 @@ static int parse_config(char *filename, struct amp_global_t *vars) {
         vars->fetch_remote = cfg_getbool(cfg_sub, "fetch");
         if ( cfg_getstr(cfg_sub, "url") != NULL ) {
             vars->schedule_url = strdup(cfg_getstr(cfg_sub, "url"));
+            vars->fetch_freq = cfg_getint(cfg_sub, "frequency");
             /* if it's https, then we need to set up ssl */
             if ( strncasecmp(vars->schedule_url, "https",
                         strlen("https")) == 0 ) {
@@ -277,7 +280,9 @@ int main(int argc, char *argv[]) {
     struct wand_signal_t sigint_ev;
     struct wand_signal_t sigchld_ev;
     struct wand_signal_t sighup_ev;
+    struct wand_signal_t sigusr1_ev;
     struct wand_fdcb_t control_ev;
+    struct wand_timer_t fetch_ev;
     char *config_file = NULL;
     int fetch_remote = 1;
     int backgrounded = 0;
@@ -371,8 +376,33 @@ int main(int argc, char *argv[]) {
             Log(LOG_WARNING,
                     "Remote schedule enabled but no url set, skipping");
         } else {
+            schedule_item_t *item;
+            fetch_schedule_item_t *fetch_item;
+
+            /* do a fetch now, while blocking the main process */
             update_remote_schedule(vars.schedule_url, vars.fetch_ssl.cacert,
                     vars.fetch_ssl.cert, vars.fetch_ssl.key);
+
+            /* save the arguments so we can use them again later */
+            fetch_item = (fetch_schedule_item_t *)
+                malloc(sizeof(fetch_schedule_item_t));
+            fetch_item->schedule_url = vars.schedule_url;
+            fetch_item->cacert = vars.fetch_ssl.cacert;
+            fetch_item->cert = vars.fetch_ssl.cert;
+            fetch_item->key = vars.fetch_ssl.key;
+
+            item = (schedule_item_t *)malloc(sizeof(schedule_item_t));
+            item->type = EVENT_FETCH_SCHEDULE;
+            item->ev_hdl = ev_hdl;
+            item->data.fetch = fetch_item;
+
+            /* create the timer event for fetching schedules */
+            fetch_ev.expire = wand_calc_expire(ev_hdl, vars.fetch_freq, 0);
+            fetch_ev.callback = remote_schedule_callback;
+            fetch_ev.data = item;
+            fetch_ev.prev = NULL;
+            fetch_ev.next = NULL;
+            wand_add_timer(ev_hdl, &fetch_ev);
         }
     }
 
@@ -411,6 +441,12 @@ int main(int argc, char *argv[]) {
         sighup_ev.data = ev_hdl;
         wand_add_signal(&sighup_ev);
     }
+
+    /* SIGUSR1 should also reload tests/schedules, we use this internally */
+    sigusr1_ev.signum = SIGUSR1;
+    sigusr1_ev.callback = reload;
+    sigusr1_ev.data = ev_hdl;
+    wand_add_signal(&sigusr1_ev);
 
     /* read the nametable to get a list of all test targets */
     read_nametable_file();

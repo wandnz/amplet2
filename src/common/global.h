@@ -22,6 +22,7 @@ struct amp_global_t {
     char *cert;
     int fetch_remote;
     char *schedule_url;
+    int fetch_freq;
     int control_enabled;
     char *control_port;
     char *control_address;
