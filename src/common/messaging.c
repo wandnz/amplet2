@@ -37,12 +37,13 @@ int connect_to_broker() {
             return -1;
         }
 
-        if ( amqp_ssl_socket_set_cacert(sock, vars.cacert) != 0 ) {
+        if ( amqp_ssl_socket_set_cacert(sock, vars.amqp_ssl.cacert) != 0 ) {
             Log(LOG_ERR, "Failed to set CA certificate\n");
             return -1;
         }
 
-        if ( amqp_ssl_socket_set_key(sock, vars.cert, vars.key) != 0 ) {
+        if ( amqp_ssl_socket_set_key(sock, vars.amqp_ssl.cert,
+                    vars.amqp_ssl.key) != 0 ) {
             Log(LOG_ERR, "Failed to set client certificate\n");
             return -1;
         }

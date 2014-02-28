@@ -97,7 +97,8 @@ SSL_CTX* initialise_ssl(void) {
 
     Log(LOG_INFO, "Initialising SSL");
 
-    if ( vars.cacert == NULL || vars.cert == NULL || vars.key == NULL ) {
+    if ( vars.amqp_ssl.cacert == NULL || vars.amqp_ssl.cert == NULL ||
+            vars.amqp_ssl.key == NULL ) {
         Log(LOG_WARNING, "Can't initialise SSL, certs and keys aren't set");
         return NULL;
     }
@@ -118,14 +119,14 @@ SSL_CTX* initialise_ssl(void) {
             SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT, NULL);
 
     /* Load our certificate */
-    if ( SSL_CTX_use_certificate_chain_file(ssl_ctx, vars.cert) != 1 ) {
+    if ( SSL_CTX_use_certificate_chain_file(ssl_ctx,vars.amqp_ssl.cert) != 1 ) {
         Log(LOG_WARNING, "Couldn't load certificate.\n");
         ssl_cleanup();
         return NULL;
     }
 
     /* Load our private key */
-    if ( SSL_CTX_use_PrivateKey_file(ssl_ctx, vars.key,
+    if ( SSL_CTX_use_PrivateKey_file(ssl_ctx, vars.amqp_ssl.key,
                 SSL_FILETYPE_PEM) != 1 ) {
         Log(LOG_WARNING, "Couldn't load private key.\n");
         ssl_cleanup();
@@ -140,7 +141,7 @@ SSL_CTX* initialise_ssl(void) {
     }
 
     /* Load our cacert we will validate others against */
-    if (SSL_CTX_load_verify_locations(ssl_ctx, vars.cacert, NULL) != 1) {
+    if (SSL_CTX_load_verify_locations(ssl_ctx,vars.amqp_ssl.cacert,NULL) != 1) {
         Log(LOG_WARNING, "Couldn't load certificate trust store.\n");
         ssl_cleanup();
         return NULL;

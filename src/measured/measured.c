@@ -226,9 +226,9 @@ static int parse_config(char *filename, struct amp_global_t *vars) {
         vars->exchange = strdup(cfg_getstr(cfg_sub, "exchange"));
         vars->routingkey = strdup(cfg_getstr(cfg_sub, "routingkey"));
         vars->ssl = cfg_getbool(cfg_sub, "ssl");
-        vars->cacert = strdup(cfg_getstr(cfg_sub, "cacert"));
-        vars->key = strdup(cfg_getstr(cfg_sub, "key"));
-        vars->cert = strdup(cfg_getstr(cfg_sub, "cert"));
+        vars->amqp_ssl.cacert = strdup(cfg_getstr(cfg_sub, "cacert"));
+        vars->amqp_ssl.key = strdup(cfg_getstr(cfg_sub, "key"));
+        vars->amqp_ssl.cert = strdup(cfg_getstr(cfg_sub, "cert"));
     }
 
     /* parse the config for remote fetching of schedule files */
