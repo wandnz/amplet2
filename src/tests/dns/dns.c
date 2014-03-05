@@ -752,6 +752,8 @@ int run_dns(int argc, char *argv[], int count, struct addrinfo **dests) {
     struct socket_t sockets;
     int dest;
     uint16_t ident;
+    struct addrinfo *sourcev4, *sourcev6;
+    char *device;
 
     Log(LOG_DEBUG, "Starting DNS test");
 
@@ -764,9 +766,15 @@ int run_dns(int argc, char *argv[], int count, struct addrinfo **dests) {
     options.dnssec = 0;
     options.nsid = 0;
     options.perturbate = 0;
+    sourcev4 = NULL;
+    sourcev6 = NULL;
+    device = NULL;
 
-    while ( (opt = getopt(argc, argv, "hq:t:c:z:rsn")) != -1 ) {
+    while ( (opt = getopt(argc, argv, "hI:q:t:c:z:rsn4:6:")) != -1 ) {
 	switch ( opt ) {
+            case '4': sourcev4 = get_numeric_address(optarg); break;
+            case '6': sourcev6 = get_numeric_address(optarg); break;
+            case 'I': device = optarg; break;
 	    case 'q': options.query_string = strdup(optarg); break;
 	    case 't': options.query_type = get_query_type(optarg); break;
 	    case 'c': options.query_class = get_query_class(optarg); break;
@@ -799,6 +807,17 @@ int run_dns(int argc, char *argv[], int count, struct addrinfo **dests) {
 	Log(LOG_ERR, "Unable to open sockets, aborting test");
 	free(options.query_string);
 	exit(-1);
+    }
+
+    if ( device && bind_sockets_to_device(&sockets, device) < 0 ) {
+        Log(LOG_ERR, "Unable to bind raw ICMP socket to device, aborting test");
+        exit(-1);
+    }
+
+    if ( (sourcev4 || sourcev6) &&
+            bind_sockets_to_address(&sockets, sourcev4, sourcev6) < 0 ) {
+        Log(LOG_ERR,"Unable to bind raw ICMP socket to address, aborting test");
+        exit(-1);
     }
 
     if ( gettimeofday(&start_time, NULL) != 0 ) {
