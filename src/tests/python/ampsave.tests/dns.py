@@ -87,9 +87,9 @@ def get_data(data):
 			"rd": bool(flags & 0x0100),
 			"tc": bool(flags & 0x0200),
 			"aa": bool(flags & 0x0400),
-			"opcode": get_opcode_name(flags & 0x7800),
+			"opcode": int(flags & 0x7800),
 			"qr": bool(flags & 0x8000),
-			"rcode": get_rcode_name(flags & 0x000f),
+			"rcode": int(flags & 0x000f),
 			"cd": bool(flags & 0x0010),
 			"ad": bool(flags & 0x0020),
 			"ra": bool(flags & 0x0080),
@@ -131,38 +131,4 @@ def get_query_type(qtype):
     if qtype == 0xff:
         return "ANY"
     return "0x%.02x" % qtype
-
-def get_opcode_name(opcode):
-    if opcode == 0:
-        return "QUERY"
-    if opcode == 1:
-        return "IQUERY"
-    if opcode == 2:
-        return "STATUS"
-    return "0x%.02x" % opcode
-
-def get_rcode_name(rcode):
-    if rcode == 0x0:
-        return "NOERROR"
-    if rcode == 0x1:
-        return "FORMERR"
-    if rcode == 0x2:
-        return "SERVFAIL"
-    if rcode == 0x3:
-        return "NXDOMAIN"
-    if rcode == 0x4:
-        return "NOTIMP"
-    if rcode == 0x5:
-        return "REFUSED"
-    if rcode == 0x6:
-        return "YXDOMAIN"
-    if rcode == 0x7:
-        return "YXRRSET"
-    if rcode == 0x8:
-        return "NXRRSET"
-    if rcode == 0x9:
-        return "NOTAUTH"
-    if rcode == 0xa:
-        return "NOTZONE"
-
 
