@@ -795,6 +795,8 @@ int run_traceroute(int argc, char *argv[], int count, struct addrinfo **dests) {
     int min_wait;
     int delay;
     uint16_t ident;
+    struct addrinfo *sourcev4, *sourcev6;
+    char *device;
 
     Log(LOG_DEBUG, "Starting TRACEROUTE test");
 
@@ -802,9 +804,15 @@ int run_traceroute(int argc, char *argv[], int count, struct addrinfo **dests) {
     options.packet_size = DEFAULT_TRACEROUTE_PROBE_LEN;
     options.random = 0;
     options.perturbate = 0;
+    sourcev4 = NULL;
+    sourcev6 = NULL;
+    device = NULL;
 
-    while ( (opt = getopt(argc, argv, "hp:rs:S:")) != -1 ) {
+    while ( (opt = getopt(argc, argv, "hI:p:rs:S:4:6:")) != -1 ) {
 	switch ( opt ) {
+            case '4': sourcev4 = get_numeric_address(optarg); break;
+            case '6': sourcev6 = get_numeric_address(optarg); break;
+            case 'I': device = optarg; break;
 	    case 'p': options.perturbate = atoi(optarg); break;
 	    case 'r': options.random = 1; break;
 	    case 's': options.packet_size = atoi(optarg); break;
@@ -841,6 +849,17 @@ int run_traceroute(int argc, char *argv[], int count, struct addrinfo **dests) {
     if ( !open_sockets(&icmp_sockets, &ip_sockets) ) {
 	Log(LOG_ERR, "Unable to open sockets, aborting test");
 	exit(-1);
+    }
+
+    if ( device && bind_sockets_to_device(&ip_sockets, device) < 0 ) {
+        Log(LOG_ERR, "Unable to bind raw ICMP socket to device, aborting test");
+        exit(-1);
+    }
+
+    if ( (sourcev4 || sourcev6) &&
+            bind_sockets_to_address(&ip_sockets, sourcev4, sourcev6) < 0 ) {
+        Log(LOG_ERR,"Unable to bind raw ICMP socket to address, aborting test");
+        exit(-1);
     }
 
     if ( gettimeofday(&start_time, NULL) != 0 ) {
