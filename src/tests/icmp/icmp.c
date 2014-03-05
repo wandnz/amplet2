@@ -443,7 +443,7 @@ static void report_results(struct timeval *start_time, int count,
         item->namelen = strlen(ampname) + 1;
         strncpy(buffer + len, ampname, MAX_STRING_FIELD);
         len += item->namelen;
-	Log(LOG_DEBUG, "icmp result %d: %dus, %d/%d\n", i, item->rtt,
+	Log(LOG_DEBUG, "icmp result %d: %dus, %d/%d\n", i, htonl(item->rtt),
 		item->err_type, item->err_code);
     }
 
@@ -460,6 +460,9 @@ static void usage(char *prog) {
     fprintf(stderr, "Usage: %s [-r] [-p perturbate] [-s packetsize]\n", prog);
     fprintf(stderr, "\n");
     fprintf(stderr, "Options:\n");
+    fprintf(stderr, "  -I <iface>\tSource interface name\n");
+    fprintf(stderr, "  -4 <address>\tSource IPv4 address\n");
+    fprintf(stderr, "  -6 <address>\tSource IPv6 address\n");
     fprintf(stderr, "  -r\t\tUse a random packet size for each test\n");
     fprintf(stderr, "  -p <ms>\tMaximum number of milliseconds to delay test\n");
     fprintf(stderr, "  -s <bytes>\tFixed packet size to use for each test\n");
@@ -483,6 +486,8 @@ int run_icmp(int argc, char *argv[], int count, struct addrinfo **dests) {
     struct info_t *info;
     int dest;
     uint16_t ident;
+    struct addrinfo *sourcev4, *sourcev6;
+    char *device;
 
     Log(LOG_DEBUG, "Starting ICMP test");
 
@@ -490,9 +495,15 @@ int run_icmp(int argc, char *argv[], int count, struct addrinfo **dests) {
     options.packet_size = DEFAULT_ICMP_ECHO_REQUEST_LEN;
     options.random = 0;
     options.perturbate = 0;
+    sourcev4 = NULL;
+    sourcev6 = NULL;
+    device = NULL;
 
-    while ( (opt = getopt(argc, argv, "hp:rs:S:")) != -1 ) {
+    while ( (opt = getopt(argc, argv, "hI:p:rs:S:4:6:")) != -1 ) {
 	switch ( opt ) {
+            case '4': sourcev4 = get_numeric_address(optarg); break;
+            case '6': sourcev6 = get_numeric_address(optarg); break;
+            case 'I': device = optarg; break;
 	    case 'p': options.perturbate = atoi(optarg); break;
 	    case 'r': options.random = 1; break;
 	    case 's': options.packet_size = atoi(optarg); break;
@@ -530,6 +541,17 @@ int run_icmp(int argc, char *argv[], int count, struct addrinfo **dests) {
     if ( !open_sockets(&raw_sockets) ) {
 	Log(LOG_ERR, "Unable to open raw ICMP sockets, aborting test");
 	exit(-1);
+    }
+
+    if ( device && bind_sockets_to_device(&raw_sockets, device) < 0 ) {
+        Log(LOG_ERR, "Unable to bind raw ICMP socket to device, aborting test");
+        exit(-1);
+    }
+
+    if ( (sourcev4 || sourcev6) &&
+            bind_sockets_to_address(&raw_sockets, sourcev4, sourcev6) < 0 ) {
+        Log(LOG_ERR,"Unable to bind raw ICMP socket to address, aborting test");
+        exit(-1);
     }
 
     if ( gettimeofday(&start_time, NULL) != 0 ) {
