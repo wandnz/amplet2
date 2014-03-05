@@ -35,6 +35,9 @@ struct opt_t {
     int pipelining_maxrequests;                 /* max outstanding requests */
     int caching;                               /* allow cached content */
     int pipe_size_before_skip;
+    char *device;                               /* source device name */
+    char *sourcev4;                             /* source v4 address */
+    char *sourcev6;                             /* source v6 address */
 };
 
 struct cache_headers_t {

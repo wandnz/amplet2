@@ -584,6 +584,30 @@ CURL *pipeline_next_object(struct server_stats_t *server) {
     curl_easy_setopt(object->handle, CURLOPT_LOW_SPEED_LIMIT, 1);
     curl_easy_setopt(object->handle, CURLOPT_LOW_SPEED_TIME, 30);
 
+#if 0
+    /*
+     * XXX if we bind to multiple addresses, only the last one is used (even
+     * if they are different address families). This means if we want to test
+     * to a v4 address but end up bound to a v6 address, it doesn't work.
+     */
+    if ( options.device ) {
+        curl_easy_setopt(object->handle, CURLOPT_INTERFACE, options.device);
+    }
+    if ( options.sourcev4 ) {
+        curl_easy_setopt(object->handle, CURLOPT_INTERFACE, options.sourcev4);
+    }
+    if ( options.sourcev6 ) {
+        curl_easy_setopt(object->handle, CURLOPT_INTERFACE, options.sourcev6);
+    }
+
+    /* if we have bound to a particular address family, use it exclusively */
+    if ( options.sourcev4 && !options.sourcev6 ) {
+        curl_easy_setopt(object->handle, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V4);
+    } else if ( options.sourcev6 && !options.sourcev4 ) {
+        curl_easy_setopt(object->handle, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V6);
+    }
+#endif
+
     //if ( strcmp(options.url, object->url) == 0 ) {
     if ( strcmp(options.host, object->server_name) == 0 &&
             strcmp(options.path, object->path) == 0 ) {
@@ -1001,6 +1025,9 @@ static void usage(char *prog) {
     printf("Usage: %s -u <url> [OPTIONS]\n", prog);
     printf("\n");
     printf("Options:\n");
+    printf("  -I <iface>\tSource interface name\n");
+    printf("  -4 <address>\tSource IPv4 address\n");
+    printf("  -6 <address>\tSource IPv6 address\n");
     printf("  -u <url>\tURL of the page to fetch\n");
     printf("  -k \t\tDisable keep-alives (def:enabled)\n");
     printf("  -m <max>\tMaximum number of connections (def:24)\n");
@@ -1041,9 +1068,17 @@ int run_http(int argc, char *argv[], __attribute__((unused))int count,
     options.pipelining_maxrequests = 4;
     options.caching = 0;
     options.pipe_size_before_skip = 2;
+    options.device = NULL;
+    options.sourcev4 = NULL;
+    options.sourcev6 = NULL;
 
-    while ( (opt = getopt(argc, argv, "u:km:s:x:pr:cz:h")) != -1 ) {
+    while ( (opt = getopt(argc, argv, "u:km:s:x:pr:cz:hI:4:6:")) != -1 ) {
 	switch ( opt ) {
+            case 'I': /*options.device = optarg; break;*/
+            case '4': /*options.sourcev4 = optarg; break;*/
+            case '6': /*options.sourcev6 = optarg; break;*/
+                Log(LOG_DEBUG, "Temporarily ignoring source iface/addresses");
+                break;
 	    //case 'u': strncpy(options.url, optarg, MAX_URL_LEN); break;
 	    case 'u': split_url(optarg, options.host, options.path);
                       strncpy(options.url, optarg, MAX_URL_LEN); break;
