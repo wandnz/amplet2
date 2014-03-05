@@ -41,8 +41,10 @@ wand_event_handler_t *ev_hdl;
 /*
  * Print a simple usage statement showing how to run the program.
  */
-static void usage(char *prog) {
-    fprintf(stderr, "Usage: %s [-dvx] [-c <config>]\n", prog);
+static void usage(void) {
+
+    fprintf(stderr, "Usage: amplet2 [-dvx] [-c <config>] [-I <iface>]\n"
+            "               [-4 <address>] [-6 <address>]\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "Options:\n");
     fprintf(stderr, "  -d, --daemonise   Detach and run in background\n");
@@ -50,6 +52,9 @@ static void usage(char *prog) {
     fprintf(stderr, "  -x, --debug       Enable extra debug output\n");
     fprintf(stderr, "  -c <config>       Specify config file\n");
     fprintf(stderr, "  -r, --noremote    Don't fetch remote schedules\n");
+    fprintf(stderr, "  -I <iface>        Override source interface name\n");
+    fprintf(stderr, "  -4 <address>      Override source IPv4 address\n");
+    fprintf(stderr, "  -6 <address>      Override source IPv6 address\n");
 }
 
 
@@ -222,17 +227,17 @@ static int parse_config(char *filename, struct amp_global_t *vars) {
     }
 
     /* should we be testing using a particular interface */
-    if ( cfg_getstr(cfg, "interface") != NULL ) {
+    if ( vars->interface == NULL && cfg_getstr(cfg, "interface") != NULL ) {
         vars->interface = strdup(cfg_getstr(cfg, "interface"));
     }
 
     /* should we be testing using a particular source ipv4 address */
-    if ( cfg_getstr(cfg, "sourcev4") != NULL ) {
+    if ( vars->sourcev4 == NULL && cfg_getstr(cfg, "sourcev4") != NULL ) {
         vars->sourcev4 = strdup(cfg_getstr(cfg, "sourcev4"));
     }
 
     /* should we be testing using a particular source ipv6 address */
-    if ( cfg_getstr(cfg, "sourcev6") != NULL ) {
+    if ( vars->sourcev6 == NULL && cfg_getstr(cfg, "sourcev6") != NULL ) {
         vars->sourcev6 = strdup(cfg_getstr(cfg, "sourcev6"));
     }
 
@@ -314,11 +319,15 @@ int main(int argc, char *argv[]) {
 	    {"debug", no_argument, 0, 'x'},
 	    {"config", required_argument, 0, 'c'},
 	    {"noremote", required_argument, 0, 'r'},
+	    {"interface", required_argument, 0, 'I'},
+	    {"sourcev4", required_argument, 0, '4'},
+	    {"sourcev6", required_argument, 0, '6'},
 	    {0, 0, 0, 0}
 	};
 
 	int opt_ind = 0;
-	int c = getopt_long(argc, argv, "dhvxc:r", long_options, &opt_ind);
+	int c = getopt_long(argc, argv, "dhvxc:rI:4:6:",
+                long_options, &opt_ind);
 	if ( c == -1 )
 	    break;
 
@@ -349,9 +358,21 @@ int main(int argc, char *argv[]) {
                 /* override config settings and don't fetch remote schedules */
                 fetch_remote = 0;
                 break;
+            case 'I':
+                /* override config settings and set the source interface */
+                vars.interface = optarg;
+                break;
+            case '4':
+                /* override config settings and set the source IPv4 address */
+                vars.sourcev4 = optarg;
+                break;
+            case '6':
+                /* override config settings and set the source IPv6 address */
+                vars.sourcev6 = optarg;
+                break;
 	    case 'h':
 	    default:
-		usage(argv[0]);
+		usage();
 		exit(0);
 	};
     }
