@@ -409,3 +409,141 @@ uint16_t start_remote_server(test_type_t type, struct addrinfo *dest) {
 
     return server_port;
 }
+
+
+
+/*
+ *
+ */
+struct addrinfo *get_numeric_address(char *address) {
+    struct addrinfo hints, *result;
+
+    assert(address);
+
+    Log(LOG_DEBUG, "Trying to get numeric host for %s", address);
+
+    memset(&hints, 0, sizeof(struct addrinfo));
+    hints.ai_family = AF_UNSPEC;
+    hints.ai_flags = AI_NUMERICHOST;
+    /* XXX do we need to set socktype or protocol? */
+
+    /* check if the given string is one of our addresses */
+    if ( getaddrinfo(address, NULL, &hints, &result) == 0 ) {
+        return result;
+    }
+
+    return NULL;
+}
+
+
+
+/*
+ * Bind a socket to a particular network device.
+ */
+static int bind_socket_to_device(int sock, char *device) {
+    assert(device);
+
+    Log(LOG_DEBUG, "Trying to bind socket to device '%s'", device);
+
+    if ( setsockopt(sock, SOL_SOCKET, SO_BINDTODEVICE, device,
+                strlen(device)+1) < 0 ) {
+        Log(LOG_WARNING, "Failed to bind to device %s", device);
+        return -1;
+    }
+
+    return 0;
+}
+
+
+
+/*
+ * Bind a socket to a particular address.
+ */
+static int bind_socket_to_address(int sock, struct addrinfo *address) {
+    char addrstr[INET6_ADDRSTRLEN];
+
+    assert(address);
+    assert(sock >= 0);
+
+    Log(LOG_DEBUG, "Binding socket to source address %s",
+            amp_inet_ntop(address, addrstr));
+
+    if ( bind(sock, ((struct sockaddr*)address->ai_addr),
+                address->ai_addrlen) < 0 ) {
+        Log(LOG_DEBUG, "Failed to bind socket to address: %s", strerror(errno));
+        return -1;
+    }
+
+    return 0;
+}
+
+
+
+/*
+ * Bind all sockets in the test socket structure to a particular device.
+ * Will only try to bind valid test sockets - if one of the IPv4 and IPv6
+ * sockets isn't set then it will be ignored.
+ */
+int bind_sockets_to_device(struct socket_t *sockets, char *device) {
+    Log(LOG_DEBUG, "Binding ICMP test to interface %s", device);
+    assert(sockets);
+    assert(sockets->socket >= 0 || sockets->socket6 >= 0);
+    assert(device);
+
+    if ( sockets->socket >= 0 ) {
+        if ( bind_socket_to_device(sockets->socket, device) < 0 ) {
+            Log(LOG_DEBUG, "Failed to bind IPv4 socket to device %s", device);
+            return -1;
+        }
+    }
+
+    if ( sockets->socket6 >= 0 ) {
+        if ( bind_socket_to_device(sockets->socket6, device) < 0 ) {
+            Log(LOG_DEBUG, "Failed to bind IPv6 socket to device %s", device);
+            return -1;
+        }
+    }
+
+    return 0;
+}
+
+
+
+/*
+ * Bind the sockets in the test socket structure to a particular source
+ * address (one for IPv4 and one for IPv6 obviously). Will only try to bind
+ * valid test sockets - if one of the IPv4 and IPv6 sockets isn't set or
+ * there is no address set for that family then it will be ignored.
+ */
+int bind_sockets_to_address(struct socket_t *sockets,
+        struct addrinfo *sourcev4, struct addrinfo *sourcev6) {
+    char addrstr[INET6_ADDRSTRLEN];
+
+    assert(sockets);
+    assert( (sockets->socket >= 0 && sourcev4) ||
+            (sockets->socket6 >= 0 && sourcev6) );
+
+    if ( sourcev4 && sockets->socket >= 0 ) {
+        Log(LOG_DEBUG, "Binding ICMP test to source IPv4 address %s",
+                amp_inet_ntop(sourcev4, addrstr));
+
+        if ( bind_socket_to_address(sockets->socket, sourcev4) < 0 ) {
+            Log(LOG_DEBUG, "Failed to bind IPv4 socket to address: %s",
+                amp_inet_ntop(sourcev4, addrstr));
+            return -1;
+        }
+    }
+
+    if ( sourcev6 && sockets->socket6 >= 0 ) {
+        Log(LOG_DEBUG, "Binding ICMP test to source IPv6 address %s",
+                amp_inet_ntop(sourcev6, addrstr));
+
+        if ( bind_socket_to_address(sockets->socket6, sourcev6) < 0 ) {
+            Log(LOG_DEBUG, "Failed to bind IPv6 socket to address: %s",
+                amp_inet_ntop(sourcev6, addrstr));
+            return -1;
+        }
+    }
+
+    return 0;
+}

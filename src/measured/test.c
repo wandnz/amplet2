@@ -14,6 +14,7 @@
 #include "debug.h"
 #include "nametable.h"
 #include "modules.h"
+#include "global.h" /* hopefully temporary, just to get source iface/address */
 
 
 
@@ -45,6 +46,24 @@ static void run_test(const test_schedule_item_t * const item) {
 
     test = amp_tests[item->test_id];
     argv[argc++] = test->name;
+
+    /* set the outgoing interface if configured at the global level */
+    if ( vars.interface != NULL ) {
+        argv[argc++] = "-I";
+        argv[argc++] = vars.interface;
+    }
+
+    /* set the outgoing source v4 address if configured at the global level */
+    if ( vars.sourcev4 != NULL ) {
+        argv[argc++] = "-4";
+        argv[argc++] = vars.sourcev4;
+    }
+
+    /* set the outgoing source v6 if configured at the global level */
+    if ( vars.sourcev6 != NULL ) {
+        argv[argc++] = "-6";
+        argv[argc++] = vars.sourcev6;
+    }
 
     /* add in any of the test parameters from the schedule file */
     if ( item->params != NULL ) {
