@@ -173,6 +173,9 @@ static int parse_config(char *filename, struct amp_global_t *vars) {
     cfg_opt_t measured_opts[] = {
 	CFG_STR("ampname", NULL, CFGF_NONE),
 	CFG_STR("testdir", AMP_TEST_DIRECTORY, CFGF_NONE),
+	CFG_STR("interface", NULL, CFGF_NONE),
+	CFG_STR("sourcev4", NULL, CFGF_NONE),
+	CFG_STR("sourcev6", NULL, CFGF_NONE),
         CFG_INT_CB("loglevel", LOG_INFO, CFGF_NONE, &callback_verify_loglevel),
 	CFG_SEC("collector", opt_collector, CFGF_NONE),
         CFG_SEC("remotesched", opt_remotesched, CFGF_NONE),
@@ -216,6 +219,21 @@ static int parse_config(char *filename, struct amp_global_t *vars) {
     /* only use configured loglevel if it's not forced on the command line */
     if ( !log_level_override ) {
         log_level = cfg_getint(cfg, "loglevel");
+    }
+
+    /* should we be testing using a particular interface */
+    if ( cfg_getstr(cfg, "interface") != NULL ) {
+        vars->interface = strdup(cfg_getstr(cfg, "interface"));
+    }
+
+    /* should we be testing using a particular source ipv4 address */
+    if ( cfg_getstr(cfg, "sourcev4") != NULL ) {
+        vars->sourcev4 = strdup(cfg_getstr(cfg, "sourcev4"));
+    }
+
+    /* should we be testing using a particular source ipv6 address */
+    if ( cfg_getstr(cfg, "sourcev6") != NULL ) {
+        vars->sourcev6 = strdup(cfg_getstr(cfg, "sourcev6"));
     }
 
     /* parse the config for the collector we should report data to */

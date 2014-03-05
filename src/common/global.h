@@ -14,6 +14,9 @@ struct amp_global_t {
     char *collector;
     uint16_t port;
     char *testdir;
+    char *interface;
+    char *sourcev4;
+    char *sourcev6;
     char *exchange;
     char *routingkey;
     int ssl;
