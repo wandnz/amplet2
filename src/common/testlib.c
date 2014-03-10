@@ -251,16 +251,26 @@ char *address_to_name(struct addrinfo *address) {
  * byteswap.
  */
 int send_server_port(SSL *ssl, uint16_t port) {
+    int result = 0;
+
     assert(ssl);
     assert(ssl_ctx);
+
+    Log(LOG_DEBUG, "Sending server port %d", port);
 
     port = htons(port);
 
     if ( SSL_write(ssl, &port, sizeof(port)) != sizeof(port) ) {
-        return -1;
+        result = -1;
     }
 
-    return 0;
+    /* Looks like we have to close this here rather than after the test
+     * completes, cause start_remote_server() closes it immediately after
+     * getting the port number. Doing it later would probably require shipping
+     * the SSL object around and/or relying on the test itself to tidy up.
+     */
+    ssl_shutdown(ssl);
+    return result;
 }
 
 

@@ -170,7 +170,7 @@ static void process_control_message(int fd, test_t *test) {
     test->server_callback(0, NULL, ssl);
 
     X509_free(client_cert);
-    ssl_shutdown(ssl);
+    //ssl_shutdown(ssl); /* send_server_port now does this, is that sensible? */
     close(fd);
     exit(0);
 }
