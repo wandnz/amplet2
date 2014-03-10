@@ -412,13 +412,14 @@ static int runSchedule(struct addrinfo *serv_addr, struct opt_t *options) {
     int test_socket = -1;
     struct packet_t packet;
     uint64_t start_time_ns;
-    struct opt_t srv_opts = {0};
+    struct opt_t srv_opts;
     uint16_t actual_test_port = 0;
 
     /* Loop through the schedule */
     struct test_request_t *cur;
 
     memset(&packet, 0, sizeof(packet));
+    memset(&srv_opts, 0, sizeof(srv_opts));
 
     /* Connect to the server control socket */
     control_socket = connectToServer(serv_addr, &srv_opts, options->cport);
@@ -616,7 +617,7 @@ int run_throughput_client(int argc, char *argv[], int count,
         struct addrinfo **dests) {
     struct opt_t options;
     int opt;
-    int i;
+    //int i;
     char modifiable[] = DEFAULT_TEST_SCHEDULE;
     int option_index = 0;
     int remote;

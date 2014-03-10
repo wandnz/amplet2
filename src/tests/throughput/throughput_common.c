@@ -11,15 +11,6 @@
 #include "config.h"
 
 
-/* Declare our static functions */
-/*
-static void htobePacket(struct packet_t *p);
-static void betohPacket(struct packet_t *p);
-static int setVerifySockopt(int sock_fd, int *newValue, int proto,
-        int opt, const char *optname);
-*/
-
-
 /* TODO update long options for all */
 struct option long_options[] =
     {
@@ -195,8 +186,6 @@ static void betohPacket(struct packet_t *p) {
             Log(LOG_WARNING, "Bad packet type found cannot decode!!!");
     }
 }
-
-
 
 
 
@@ -731,7 +720,7 @@ int incomingTest(int sock_fd, struct test_result_t *result) {
  */
 uint64_t timeNanoseconds(void){
     /* TODO see if clock_gettime() can be used for a truly high resolution */
-    struct timeval t = {0};
+    struct timeval t = {0, 0};
     gettimeofday(&t, NULL);
     return (uint64_t) t.tv_sec * (uint64_t) 1000000000 +
         (uint64_t) t.tv_usec * (uint64_t) 1000;

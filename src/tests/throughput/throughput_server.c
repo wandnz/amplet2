@@ -21,7 +21,7 @@
  */
 static int startListening(int port, struct opt_t *sockopts) {
     int sock = -1;
-    struct addrinfo hints = {0};
+    struct addrinfo hints;
     struct addrinfo *addrs, *current;
     char portstr[10];
 
@@ -123,7 +123,7 @@ static int serveTest(int control_socket) {
     struct test_result_t result;
     int bytes_read;
     struct report_web10g_t *web10g = NULL;
-    struct opt_t sockopts = {0};
+    struct opt_t sockopts;
     int t_listen;
     int test_socket;
     struct sockaddr_storage client_addr;
@@ -132,6 +132,7 @@ static int serveTest(int control_socket) {
 
     memset(&packet, 0, sizeof(packet));
     memset(&result, 0, sizeof(result));
+    memset(&sockopts, 0, sizeof(sockopts));
 
     /* Read the hello and check we are compatable */
     bytes_read = readPacket(control_socket, &packet, NULL);
@@ -288,7 +289,10 @@ static int serveTest(int control_socket) {
     return 0;
 
 errorCleanup:
-    /* This should kick off the client - we assume they are waiting for us somewhere */
+    /*
+     * This should kick off the client - we assume they are waiting for us
+     * somewhere
+     */
     if ( test_socket != -1 ) {
         close(test_socket);
     }
@@ -313,8 +317,8 @@ void run_throughput_server(int argc, char *argv[], SSL *ssl) {
     int port; /* Port to start server on */
     int listen_socket; /* Our listening socket */
     int control_sock; /* Our clients control socket connection */
-    int opt; /* Used by getopt() */
-    struct opt_t sockopts = {0};
+    int opt;
+    struct opt_t sockopts;
     struct sockaddr_storage client_addr;
     socklen_t client_addrlen;
 
@@ -332,6 +336,7 @@ void run_throughput_server(int argc, char *argv[], SSL *ssl) {
 */
 
     /* set some sensible defaults */
+    memset(&sockopts, 0, sizeof(sockopts));
     port = DEFAULT_CONTROL_PORT;
 
     /* TODO server should take long options too */
@@ -347,9 +352,7 @@ void run_throughput_server(int argc, char *argv[], SSL *ssl) {
 
     /* listen for a connection from a client */
     sockopts.reuse_addr = 1;
-    listen_socket = startListening(port, &sockopts);
-
-    if ( listen_socket == -1 ) {
+    if ( (listen_socket = startListening(port, &sockopts)) < 0 ) {
         Log(LOG_ERR, "Failed to open listening socket terminating");
         return;
     }
@@ -369,27 +372,24 @@ void run_throughput_server(int argc, char *argv[], SSL *ssl) {
         }
     }
 
-
     client_addrlen = sizeof(client_addr);
     do {
-        control_sock = accept(listen_socket,
-                      (struct sockaddr*) &client_addr, &client_addrlen);
+        control_sock = accept(listen_socket, (struct sockaddr*) &client_addr,
+                &client_addrlen);
     } while ( control_sock == -1 && errno == EINTR );
 
     /* Close the listening socket */
     close(listen_socket);
-    listen_socket = -1;
 
     if ( control_sock == -1 ) {
-        Log(LOG_WARNING, "Failed to connect() upon our listening socket: %s",
-                strerror(errno));
-    } else {
-        Log(LOG_DEBUG, "Successfully got a client connection I Should do something");
-        serveTest(control_sock);
+        Log(LOG_WARNING, "Failed to accept connection: %s", strerror(errno));
+        return;
     }
 
+    Log(LOG_DEBUG, "Got a client connection");
+
+    serveTest(control_sock);
     close(control_sock);
-    control_sock = -1;
 
     return;
 }
