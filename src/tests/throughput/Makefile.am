@@ -3,11 +3,11 @@ EXTRA_DIST=*.h
 testdir=$(libdir)/$(PACKAGE)/tests
 
 bin_PROGRAMS=throughput
-throughput_SOURCES=throughput_server.c throughput_common.c throughput_client.c web10g.c ../testmain.c
+throughput_SOURCES=throughput.c throughput_server.c throughput_common.c throughput_client.c web10g.c ../testmain.c
 throughput_LDADD=-L../../common/ -lamp
 
 test_LTLIBRARIES=throughput.la
-throughput_la_SOURCES=throughput_server.c throughput_common.c throughput_client.c web10g.c
+throughput_la_SOURCES=throughput.c throughput_server.c throughput_common.c throughput_client.c web10g.c
 throughput_la_CFLAGS=-rdynamic
 throughput_la_LDFLAGS=-module -avoid-version -L../../common/ -lamp
 
