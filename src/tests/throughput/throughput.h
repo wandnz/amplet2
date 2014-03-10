@@ -25,6 +25,7 @@
 #include <sys/time.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
+#include <getopt.h>
 
 #include "tests.h"
 #include "testlib.h"
@@ -70,8 +71,13 @@ enum tput_type{
     TPUT_NEW_CONNECTION,
 };
 int run_throughput(int argc, char *argv[], int count, struct addrinfo **dests);
-void print_icmp(void *data, uint32_t len);
 test_t *register_test(void);
+void run_throughput_server(int argc, char *argv[], SSL *ssl);
+int run_throughput_client(int argc, char *argv[], int count,
+        struct addrinfo **dests);
+void print_throughput(void *data, uint32_t len);
+void usage(char *prog);
+
 
 
 #define REPORT_RESULT_VERSION 1
@@ -381,8 +387,6 @@ int writePacket(int sock_fd, struct packet_t *packet);
 int readPacket(int test_socket, struct packet_t *packet,
                     char **additional);
 
-void randomMemset(char *data, unsigned int size);
-void printSchedule(struct test_request_t *schedule);
 uint64_t timeNanoseconds(void);
 void doSocketSetup(struct opt_t *options, int sock_fd);
 

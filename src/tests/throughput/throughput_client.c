@@ -9,76 +9,30 @@
 #include "throughput.h"
 
 
-#if 0
-#undef LOG_DEBUG
-#define LOG_DEBUG LOG_WARNING
-#endif
-
-int run_throughput(int argc, char *argv[], int count, struct addrinfo **dests);
-void print_skeleton(void *data, uint32_t len);
-test_t *register_test(void);
 
 /**
- * Prints usage information
+ * Debug print of the schedule
  */
-static void usage(char *prog) {
-                                                                                             /*        | 80char mark*/
-    fprintf(stderr, "AMP Throughput Client version %d\n", AMP_THROUGHPUT_TEST_VERSION);
-    fprintf(stderr, "Usage: %s [options] [-s testseq] -- addr1 [addr2 ...] \n", prog);
-    fprintf(stderr, "NOTE: The test schedule (-s) should be the last argument before -- \n");
-    fprintf(stderr, "Options:\n");
-    fprintf(stderr, " -r --randomise           Randomise data in every packet sent\n");
-    fprintf(stderr, " -p --port <port>         The control port number to use (default=%d)\n", DEFAULT_CONTROL_PORT);
-    fprintf(stderr, " -P --test-port <port>    The test port number to use (default=%d)\n", DEFAULT_TEST_PORT);
-    fprintf(stderr, " -S --write-size <bytes>  Length of buffer to write (default=%d)\n",(int) DEFAULT_WRITE_SIZE );
-    fprintf(stderr, " -o --sndbuf <bytes>      Maximum size of the send (output) buffer\n");
-    fprintf(stderr, " -i --rcvbuf <bytes>      Maximum size of the receive (input) buffer\n");
-    fprintf(stderr, " -n --nodelay             Disable Nagle's Algorithm (set TCP_NODELAY)\n");
-    fprintf(stderr, " -m --tcp-mss <bytes>     Set the Maximum TCP Segment Size\n");
-    fprintf(stderr, " -s --schedule <seq>      A valid test schedule such as \"t10000,n,T10000\"\n");
-    fprintf(stderr, " -w --disable-web10g      Don't record Web10G results\n");
-    fprintf(stderr, " -h -? --help             Print this help\n");
-    fprintf(stderr, "Socket options such as rcvbuf, sndbuf, tcp-mss and nodelay will be set on both\n");
-    fprintf(stderr, "the client and server. Web10G can be used to check these are set correctly.\n\n");
-    fprintf(stderr, "Schedule format:\n");
-    fprintf(stderr, "A schedule is a sequence of tests. Each test starts with single character\n");
-    fprintf(stderr, "representing it's type. Tests are separated by a single comma ','.\n");
-    fprintf(stderr, "Valid types are listed below:\n");
-    fprintf(stderr, " s<num_bytes> Run a server -> client test\n");
-    fprintf(stderr, " S<num_bytes> Run a client -> server test\n");
-    fprintf(stderr, " t<ms>          Run a server -> client test for the time given in milliseconds\n");
-    fprintf(stderr, " T<ms>          Run a client -> server test for the time given in milliseconds\n");
-    fprintf(stderr, " n              Make a new test connection\n");
-    fprintf(stderr, " p<ms>          Time to pause for the time given in milliseconds\n");
-    fprintf(stderr, "Example -s \"t1000,T1000\" - Run two tests each for 1 second first S2C then C2S\n");
-    fprintf(stderr, "Example -s \"s10000,n,S10000\" - Run two tests S2C then C2S each sending");
-    fprintf(stderr, "       10,000 bytes with the connection reset in between\n");
-    exit(0);
+static void printSchedule(struct test_request_t *schedule) {
+   struct test_request_t *cur;
+   Log(LOG_DEBUG, "Printing out schedule");
+   for ( cur = schedule; cur != NULL ; cur = cur->next ) {
+       switch ( cur->type ) {
+           case TPUT_NULL: Log(LOG_DEBUG, "Found a TPUT_NULL"); break;
+           case TPUT_PAUSE: Log(LOG_DEBUG, "Found a TPUT_PAUSE"); break;
+           case TPUT_NEW_CONNECTION:
+                            Log(LOG_DEBUG, "Found a TPUT_NEW_CONNECTION");
+                            break;
+           case TPUT_2_CLIENT: Log(LOG_DEBUG, "Found a TPUT_2_CLIENT"); break;
+           case TPUT_2_SERVER: Log(LOG_DEBUG, "Found a TPUT_2_SERVER"); break;
+           default : Log(LOG_DEBUG, "Found a bad type"); break;
+       }
+       Log(LOG_DEBUG, "bytes:%d duration:%d writesize:%d randomise:%d",
+               cur->bytes, cur->duration, cur->write_size, cur->randomise);
+   }
+   Log(LOG_DEBUG, "Finshed schedule");
 }
 
-
-
-static struct option long_options[] =
-    {
-        {"randomise", no_argument, 0, 'r'},
-        {"port", required_argument, 0, 'p'},
-        {"test-port", required_argument, 0, 'P'},
-        {"write-size", required_argument, 0, 'S'},
-        {"rcvbuf", required_argument, 0, 'i'},
-        {"sndbuf", required_argument, 0, 'o'},
-        {"nodelay", no_argument, 0, 'n'},
-        {"tcp-mss", required_argument, 0, 'm'},
-        {"sequence", required_argument, 0, 's'},
-        {"disable-web10g", no_argument, 0, 'w'},
-        {"help", no_argument, 0, 'h'},
-/*      {"c2s-time", required_argument, 0, 'T'},
-        {"c2s-packet", required_argument, 0, 'Y'},
-        {"s2c-time", required_argument, 0, 't'},
-        {"s2c-packet", required_argument, 0, 'y'},
-        {"pause", required_argument, 0, 'p'},
-        {"new", required_argument, 0, 'N'},*/
-        {NULL,0,0,0}
-    };
 
 
 
@@ -243,7 +197,9 @@ static int connectToServer(struct addrinfo *serv_addr, struct opt_t *options,
          * It should be safe to use the IPv4 version here since IPv6 should be
          * in the same place the sizes match
          */
-        if ( ((struct sockaddr_in *)serv_addr->ai_addr)->sin_port == 0 ) {
+        /* XXX this is wrong, is giving me 8869 */
+        //if ( ((struct sockaddr_in *)serv_addr->ai_addr)->sin_port == 0 ) {
+        if ( port > 0 ) {
            ((struct sockaddr_in *)serv_addr->ai_addr)->sin_port = htons(port);
         }
 
@@ -656,12 +612,17 @@ errorCleanup :
 /**
  * The main function of the throughput client test.
  */
-int run_throughput(int argc, char *argv[], int count, struct addrinfo **dests) {
+int run_throughput_client(int argc, char *argv[], int count,
+        struct addrinfo **dests) {
     struct opt_t options;
     int opt;
     int i;
     char modifiable[] = DEFAULT_TEST_SCHEDULE;
     int option_index = 0;
+    int remote;
+    extern struct option long_options[];
+
+    Log(LOG_DEBUG, "Running throughput test as client");
 
     Log(LOG_DEBUG, "Starting throughput test - got given %d addresses", count);
     Log(LOG_INFO, "Our Structure sizes Pkt:%d RptHdr:%d RptRes:%d Rpt10G:%d",
@@ -685,19 +646,19 @@ int run_throughput(int argc, char *argv[], int count, struct addrinfo **dests) {
     options.textual_schedule = NULL;
     options.reuse_addr = 0;
 
-    while ( (opt = getopt_long(argc, argv, "?hp:P:rs:o:i:nm:wS:",
+    while ( (opt = getopt_long(argc, argv, "?hp:P:rz:o:i:Nm:wS:",
                     long_options, &option_index)) != -1 ) {
 
         switch ( opt ) {
             case 'p': options.cport = atoi(optarg); break;
             case 'P': options.tport = atoi(optarg); break;
             case 'r': options.randomise = 1; break;
-            case 'S': options.write_size = atoi(optarg); break;
-            case 's': parseSchedule(&options, optarg); break;
+            case 'z': options.write_size = atoi(optarg); break;
+            case 'S': parseSchedule(&options, optarg); break;
             case 'o': options.sock_sndbuf = atoi(optarg); break;
             case 'i': options.sock_rcvbuf = atoi(optarg); break;
-            case 'n': options.sock_disable_nagle = 1; break;
-            case 'm': options.sock_mss = atoi(optarg); break;
+            case 'N': options.sock_disable_nagle = 1; break;
+            case 'M': options.sock_mss = atoi(optarg); break;
             case 'w': options.disable_web10g = 1; break;
             case 'h':
             case '?':
@@ -722,10 +683,23 @@ int run_throughput(int argc, char *argv[], int count, struct addrinfo **dests) {
     /* Print out our schedule */
     printSchedule(options.schedule);
 
+    /* XXX only do this if targetting amplet2, not standalone */
+    if ( (remote = start_remote_server(AMP_TEST_THROUGHPUT, dests[0])) == 0 ) {
+        Log(LOG_WARNING, "Failed to start remote server, aborting test");
+        return -1;
+    }
+
+    Log(LOG_DEBUG, "Got port %d from remote server", remote);
+    /* XXX only do this if targetting amplet2, not standalone */
+    options.cport = remote; //XXX
+    runSchedule(dests[0], &options);
+
     /* Loop through all the addresses we are asked to test */
+#if 0
     for ( i = 0; i < count; i++ ) {
         runSchedule(dests[i], &options);
     }
+#endif
 
     freeSchedule(&options);
     if ( options.textual_schedule != NULL ) {
@@ -774,7 +748,7 @@ static void printSpeed(uint64_t time_ns, uint64_t bytes){
  * Print back our data blob that we made report_results.
  * Remember this is all in big endian byte order
  */
-static void print_throughput(void *data, uint32_t len) {
+void print_throughput(void *data, uint32_t len) {
     char name[128];
     struct report_header_t *rh = data;
     uint32_t count = 1;
@@ -841,33 +815,4 @@ static void print_throughput(void *data, uint32_t len) {
         }
         count++;
     }
-}
-
-
-
-/*
- * Register a test to be part of AMP.
- */
-test_t *register_test() {
-    test_t *new_test = (test_t *)malloc(sizeof(test_t));
-
-    /* the test id is defined by the enum in test.h */
-    new_test->id = AMP_TEST_THROUGHPUT;
-
-    /* name is used to schedule the test and report results */
-    new_test->name = strdup("throughput");
-
-    /* how many targets a single instance of this test can have  - Only 1 */
-    new_test->max_targets = 0;
-
-    /* maximum duration this test should take before being killed */
-    new_test->max_duration = 120;
-
-    /* function to call to setup arguments and run the test */
-    new_test->run_callback = run_throughput;
-
-    /* function to call to pretty print the results of the test */
-    new_test->print_callback = print_throughput;
-
-    return new_test;
 }

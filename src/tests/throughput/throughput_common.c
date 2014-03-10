@@ -5,20 +5,198 @@
  * @author Richard Sanger
  * Based upon the old AMP throughput test
  */
+#include <getopt.h>
 
 #include "throughput.h"
-
-#if 0
-#undef LOG_DEBUG
-#define LOG_DEBUG LOG_WARNING
-#endif
+#include "config.h"
 
 
 /* Declare our static functions */
+/*
 static void htobePacket(struct packet_t *p);
 static void betohPacket(struct packet_t *p);
 static int setVerifySockopt(int sock_fd, int *newValue, int proto,
         int opt, const char *optname);
+*/
+
+
+/* TODO update long options for all */
+struct option long_options[] =
+    {
+        {"randomise", no_argument, 0, 'r'},
+        {"port", required_argument, 0, 'p'},
+        {"test-port", required_argument, 0, 'P'},
+        {"write-size", required_argument, 0, 'S'},
+        {"rcvbuf", required_argument, 0, 'i'},
+        {"sndbuf", required_argument, 0, 'o'},
+        {"nodelay", no_argument, 0, 'N'},
+        {"mss", required_argument, 0, 'M'},
+        {"sequence", required_argument, 0, 's'},
+        {"disable-web10g", no_argument, 0, 'w'},
+        {"help", no_argument, 0, 'h'},
+/*      {"c2s-time", required_argument, 0, 'T'},
+        {"c2s-packet", required_argument, 0, 'Y'},
+        {"s2c-time", required_argument, 0, 't'},
+        {"s2c-packet", required_argument, 0, 'y'},
+        {"pause", required_argument, 0, 'p'},
+        {"new", required_argument, 0, 'N'},*/
+        {NULL,0,0,0}
+    };
+
+
+
+
+void usage(char *prog) {
+    fprintf(stderr, "Usage: %s [-s] [options]\n", prog);
+    fprintf(stderr, "\n");
+
+    fprintf(stderr, "Server/Client options:\n");
+    fprintf(stderr, "  -p, --port       <port>  port number to listen on/connect to (default %d)\n", DEFAULT_CONTROL_PORT);
+    fprintf(stderr, "\n");
+
+
+    fprintf(stderr, "Server specific options:\n");
+    fprintf(stderr, "  -s, --server             run in server mode\n");
+    fprintf(stderr, "\n");
+
+
+    fprintf(stderr, "Client specific options:\n");
+    fprintf(stderr, "  -r, --randomise          randomise data in every packet sent\n");
+    fprintf(stderr, "  -P, --test-port  <port>  port number to test on (default %d)\n", DEFAULT_TEST_PORT);
+    fprintf(stderr, "  -z, --write-size <bytes> length of buffer to write (default %d)\n",(int) DEFAULT_WRITE_SIZE );
+    fprintf(stderr, "  -o, --sndbuf     <bytes> maximum size of the send (output) buffer\n");
+    fprintf(stderr, "  -i, --rcvbuf     <bytes> maximum size of the receive (input) buffer\n");
+    /* XXX make common options rather than client only? client sends opts to
+     * server and sets them there too?
+     */
+    fprintf(stderr, "  -N, --nodelay            disable Nagle's Algorithm (set TCP_NODELAY)\n");
+    fprintf(stderr, "  -M, --mss        <bytes> set TCP maximum segment size\n");
+    fprintf(stderr, "  -S, --schedule   <seq>   test schedule (see below)\n");
+    fprintf(stderr, "  -w, --disable-web10g     don't record Web10G results\n");
+    fprintf(stderr, "\n");
+
+
+    fprintf(stderr, "Miscellaneous:\n");
+    fprintf(stderr, "  -h, --help               print this help\n");
+    fprintf(stderr, "  -v, --version            print version information\n");
+    fprintf(stderr, "\n");
+
+
+    fprintf(stderr, "Socket options such as rcvbuf, sndbuf, mss and nodelay "
+            "will be set on both\n");
+    fprintf(stderr, "the client and server. Web10G can be used to check these "
+            "are set correctly.\n");
+    fprintf(stderr, "\n");
+
+
+    fprintf(stderr, "NOTE: The test schedule (-s) should be the last argument before -- \n");
+
+    /* TODO make schedules like iperf? just do one way for a period */
+    fprintf(stderr, "Schedule format:\n");
+    fprintf(stderr, "A schedule is a sequence of tests. Each test starts with single character\n");
+    fprintf(stderr, "representing it's type. Tests are separated by a single comma ','.\n");
+    fprintf(stderr, "Valid types are listed below:\n");
+    fprintf(stderr, " s<num_bytes> Run a server -> client test\n");
+    fprintf(stderr, " S<num_bytes> Run a client -> server test\n");
+    fprintf(stderr, " t<ms>          Run a server -> client test for the time given in milliseconds\n");
+    fprintf(stderr, " T<ms>          Run a client -> server test for the time given in milliseconds\n");
+    fprintf(stderr, " n              Make a new test connection\n");
+    fprintf(stderr, " p<ms>          Time to pause for the time given in milliseconds\n");
+    fprintf(stderr, "Example -S \"t1000,T1000\" - Run two tests each for 1 second first S2C then C2S\n");
+    fprintf(stderr, "Example -S \"s10000,n,S10000\" - Run two tests S2C then C2S each sending");
+    fprintf(stderr, "       10,000 bytes with the connection reset in between\n");
+}
+
+
+
+/**
+ * Converts a valid packet format from host to big endian ready for
+ * the network
+ *
+ * @param p
+ *          A pointer to the packet to convert
+ */
+static void htobePacket(struct packet_t *p) {
+    switch ( p->header.type ) {
+        case TPUT_PKT_DATA:
+            p->types.data.more = htobe32(p->types.data.more);
+            break;
+        case TPUT_PKT_SEND:
+            p->types.send.bytes = htobe64(p->types.send.bytes);
+            p->types.send.write_size = htobe32(p->types.send.write_size);
+            p->types.send.duration_ms = htobe64(p->types.send.duration_ms);
+            break;
+        case TPUT_PKT_RESULT:
+            p->types.result.packets = htobe32(p->types.result.packets);
+            p->types.result.write_size = htobe32(p->types.result.write_size);
+            p->types.result.bytes = htobe64(p->types.result.bytes);
+            p->types.result.duration_ns = htobe64(p->types.result.duration_ns);
+            break;
+        case TPUT_PKT_HELLO:
+            p->types.hello.version = htobe32(p->types.hello.version);
+            p->types.hello.mss = htobe32(p->types.hello.mss);
+            p->types.hello.sock_rcvbuf = htobe32(p->types.hello.sock_rcvbuf);
+            p->types.hello.sock_sndbuf = htobe32(p->types.hello.sock_sndbuf);
+            p->types.hello.tport = htobe16(p->types.hello.tport);
+            break;
+        case TPUT_PKT_READY:
+            p->types.ready.tport = htobe16(p->types.ready.tport);
+            break;
+        case TPUT_PKT_CLOSE:
+        case TPUT_PKT_RENEW_CONNECTION:
+            break;
+        default:
+            Log(LOG_WARNING, "Bad packet type found cannot decode!!!");
+    }
+    p->header.type = htobe32(p->header.type);
+    p->header.size = htobe32(p->header.size);
+}
+
+
+
+/**
+ * Converts a valid packet from the network to host endianness
+ *
+ * @param p
+ *          A pointer to the packet to convert
+ */
+static void betohPacket(struct packet_t *p) {
+    p->header.type = be32toh(p->header.type);
+    p->header.size = be32toh(p->header.size);
+    switch ( p->header.type ) {
+        case TPUT_PKT_DATA:
+            p->types.data.more = be32toh(p->types.data.more);
+            break;
+        case TPUT_PKT_SEND:
+            p->types.send.bytes = be64toh(p->types.send.bytes);
+            p->types.send.write_size = be32toh(p->types.send.write_size);
+            p->types.send.duration_ms = be64toh(p->types.send.duration_ms);
+            break;
+        case TPUT_PKT_RESULT:
+            p->types.result.packets = be32toh(p->types.result.packets);
+            p->types.result.write_size = be32toh(p->types.result.write_size);
+            p->types.result.bytes = be64toh(p->types.result.bytes);
+            p->types.result.duration_ns = be64toh(p->types.result.duration_ns);
+            break;
+        case TPUT_PKT_HELLO:
+            p->types.hello.version = be32toh(p->types.hello.version);
+            p->types.hello.mss = be32toh(p->types.hello.mss);
+            p->types.hello.sock_rcvbuf = be32toh(p->types.hello.sock_rcvbuf);
+            p->types.hello.sock_sndbuf = be32toh(p->types.hello.sock_sndbuf);
+            p->types.hello.tport = be16toh(p->types.hello.tport);
+            break;
+        case TPUT_PKT_READY:
+            p->types.ready.tport = be16toh(p->types.ready.tport);
+            break;
+        case TPUT_PKT_CLOSE:
+        case TPUT_PKT_RENEW_CONNECTION:
+            break;
+        default:
+            Log(LOG_WARNING, "Bad packet type found cannot decode!!!");
+    }
+}
+
+
 
 
 
@@ -30,7 +208,7 @@ static int setVerifySockopt(int sock_fd, int *newValue, int proto,
  * @param size
  *          The number of bytes (chars) to fill
  */
-void randomMemset(char *data, unsigned int size){
+static void randomMemset(char *data, unsigned int size){
     unsigned int upto;
     upto = 0;
     while ( size - upto > sizeof(int) ) {
@@ -262,9 +440,10 @@ int writePacket(int sock_fd, struct packet_t *packet){
     int total_written = 0;
     int total_size = packet->header.size + sizeof(struct packet_t);
 
+/*
     Log(LOG_DEBUG, "Sending packet of type %d with size %d",
             packet->header.type, total_size);
-
+*/
     /* Convert to big endian */
     htobePacket(packet);
 
@@ -296,9 +475,10 @@ int writePacket(int sock_fd, struct packet_t *packet){
         return -1;
     }
 
+/*
     Log(LOG_DEBUG, "successfully sent %d of %d bytes", total_written,
             total_size);
-
+*/
     return total_written;
 }
 
@@ -331,8 +511,10 @@ int readPacket(int test_socket, struct packet_t *packet, char **additional) {
 
     /* Read in the packet_t first, so we can get the packet size */
     do {
+        /*
         Log(LOG_DEBUG, "DOING READ %" PRIu32 " %d", bytes_read,
                 sizeof(struct packet_t));
+        */
         result = read(test_socket, ((uint8_t *) packet) + bytes_read,
                 sizeof(struct packet_t) - bytes_read);
 
@@ -419,7 +601,7 @@ int sendPackets(int sock_fd, struct test_request_t *test_opts,
     int more; /* Still got more to send ? */
     uint64_t run_time_ms;
     struct packet_t *packet_out; /* the packet header and data */
-    uint32_t bytes_sent = 0;
+    int32_t bytes_sent = 0;
 
     /* Make sure the test is valid */
     if ( test_opts->bytes == 0 && test_opts->duration == 0 ) {
@@ -539,95 +721,6 @@ int incomingTest(int sock_fd, struct test_result_t *result) {
     }
     /* Failed to read packet */
     return -1;
-}
-
-
-
-/**
- * Converts a valid packet format from host to big endian ready for
- * the network
- *
- * @param p
- *          A pointer to the packet to convert
- */
-static void htobePacket(struct packet_t *p) {
-    switch ( p->header.type ) {
-        case TPUT_PKT_DATA:
-            p->types.data.more = htobe32(p->types.data.more);
-            break;
-        case TPUT_PKT_SEND:
-            p->types.send.bytes = htobe64(p->types.send.bytes);
-            p->types.send.write_size = htobe32(p->types.send.write_size);
-            p->types.send.duration_ms = htobe64(p->types.send.duration_ms);
-            break;
-        case TPUT_PKT_RESULT:
-            p->types.result.packets = htobe32(p->types.result.packets);
-            p->types.result.write_size = htobe32(p->types.result.write_size);
-            p->types.result.bytes = htobe64(p->types.result.bytes);
-            p->types.result.duration_ns = htobe64(p->types.result.duration_ns);
-            break;
-        case TPUT_PKT_HELLO:
-            p->types.hello.version = htobe32(p->types.hello.version);
-            p->types.hello.mss = htobe32(p->types.hello.mss);
-            p->types.hello.sock_rcvbuf = htobe32(p->types.hello.sock_rcvbuf);
-            p->types.hello.sock_sndbuf = htobe32(p->types.hello.sock_sndbuf);
-            p->types.hello.tport = htobe16(p->types.hello.tport);
-            break;
-        case TPUT_PKT_READY:
-            p->types.ready.tport = htobe16(p->types.ready.tport);
-            break;
-        case TPUT_PKT_CLOSE:
-        case TPUT_PKT_RENEW_CONNECTION:
-            break;
-        default:
-            Log(LOG_WARNING, "Bad packet type found cannot decode!!!");
-    }
-    p->header.type = htobe32(p->header.type);
-    p->header.size = htobe32(p->header.size);
-}
-
-
-
-/**
- * Converts a valid packet from the network to host endianness
- *
- * @param p
- *          A pointer to the packet to convert
- */
-static void betohPacket(struct packet_t *p) {
-    p->header.type = be32toh(p->header.type);
-    p->header.size = be32toh(p->header.size);
-    switch ( p->header.type ) {
-        case TPUT_PKT_DATA:
-            p->types.data.more = be32toh(p->types.data.more);
-            break;
-        case TPUT_PKT_SEND:
-            p->types.send.bytes = be64toh(p->types.send.bytes);
-            p->types.send.write_size = be32toh(p->types.send.write_size);
-            p->types.send.duration_ms = be64toh(p->types.send.duration_ms);
-            break;
-        case TPUT_PKT_RESULT:
-            p->types.result.packets = be32toh(p->types.result.packets);
-            p->types.result.write_size = be32toh(p->types.result.write_size);
-            p->types.result.bytes = be64toh(p->types.result.bytes);
-            p->types.result.duration_ns = be64toh(p->types.result.duration_ns);
-            break;
-        case TPUT_PKT_HELLO:
-            p->types.hello.version = be32toh(p->types.hello.version);
-            p->types.hello.mss = be32toh(p->types.hello.mss);
-            p->types.hello.sock_rcvbuf = be32toh(p->types.hello.sock_rcvbuf);
-            p->types.hello.sock_sndbuf = be32toh(p->types.hello.sock_sndbuf);
-            p->types.hello.tport = be16toh(p->types.hello.tport);
-            break;
-        case TPUT_PKT_READY:
-            p->types.ready.tport = be16toh(p->types.ready.tport);
-            break;
-        case TPUT_PKT_CLOSE:
-        case TPUT_PKT_RENEW_CONNECTION:
-            break;
-        default:
-            Log(LOG_WARNING, "Bad packet type found cannot decode!!!");
-    }
 }
 
 
@@ -978,26 +1071,79 @@ int readHelloPacket(const struct packet_t *p, struct opt_t *sockopts,
 
 
 
-/**
- * Debug print of the schedule
- */
-void printSchedule(struct test_request_t *schedule) {
-   struct test_request_t *cur;
-   Log(LOG_DEBUG, "Printing out schedule");
-   for ( cur = schedule; cur != NULL ; cur = cur->next ) {
-       switch ( cur->type ) {
-           case TPUT_NULL: Log(LOG_DEBUG, "Found a TPUT_NULL"); break;
-           case TPUT_PAUSE: Log(LOG_DEBUG, "Found a TPUT_PAUSE"); break;
-           case TPUT_NEW_CONNECTION:
-                            Log(LOG_DEBUG, "Found a TPUT_NEW_CONNECTION");
-                            break;
-           case TPUT_2_CLIENT: Log(LOG_DEBUG, "Found a TPUT_2_CLIENT"); break;
-           case TPUT_2_SERVER: Log(LOG_DEBUG, "Found a TPUT_2_SERVER"); break;
-           default : Log(LOG_DEBUG, "Found a bad type"); break;
-       }
-       Log(LOG_DEBUG, "bytes:%d duration:%d writesize:%d randomise:%d",
-               cur->bytes, cur->duration, cur->write_size, cur->randomise);
-   }
-   Log(LOG_DEBUG, "Finshed schedule");
+static void version(char *prog) {
+    fprintf(stderr, "%s, amplet version %s, protocol version %d\n", prog,
+            PACKAGE_STRING, AMP_THROUGHPUT_TEST_VERSION);
 }
 
+
+
+/*
+ * Combined entry point for throughput tests that will run the appropriate
+ * part of the test - server or client.
+ */
+int run_throughput(int argc, char *argv[], int count, struct addrinfo **dests) {
+    int opt;
+    int option_index = 0;
+    int server_flag_index = 0;
+
+    Log(LOG_DEBUG, "Starting throughput test");
+
+    /* XXX this option string needs to be up to date with server and client? */
+    while ( (opt = getopt_long(argc, argv, "?hp:P:rsz:o:i:Nm:wS:",
+                    long_options, &option_index)) != -1 ) {
+        switch ( opt ) {
+            case 's': server_flag_index = optind - 1; break;
+            case 'v': version(argv[0]); exit(0);
+            case '?':
+            case 'h': usage(argv[0]); exit(0);
+            default: break;
+        };
+    }
+
+    /* reset optind so the next function can parse its own arguments */
+    optind = 1;
+
+    if ( server_flag_index ) {
+        /* remove the -s option before calling the server function */
+        memmove(argv + server_flag_index, argv + server_flag_index + 1,
+                (argc - server_flag_index - 1) * sizeof(char *));
+        run_throughput_server(argc-1, argv, NULL);
+    } else {
+        run_throughput_client(argc, argv, count, dests);
+    }
+
+    return 0;
+}
+
+
+
+/*
+ * Register a test to be part of AMP.
+ */
+test_t *register_test() {
+    test_t *new_test = (test_t *)malloc(sizeof(test_t));
+
+    /* the test id is defined by the enum in test.h */
+    new_test->id = AMP_TEST_THROUGHPUT;
+
+    /* name is used to schedule the test and report results */
+    new_test->name = strdup("throughput");
+
+    /* how many targets a single instance of this test can have  - Only 1 */
+    new_test->max_targets = 1; // XXX was 0
+
+    /* maximum duration this test should take before being killed */
+    new_test->max_duration = 120;
+
+    /* function to call to setup arguments and run the test */
+    new_test->run_callback = run_throughput;
+
+    /* function to call to pretty print the results of the test */
+    new_test->print_callback = print_throughput;
+
+    new_test->server_callback = run_throughput_server;
+    //new_test->server_callback = NULL;
+
+    return new_test;
+}

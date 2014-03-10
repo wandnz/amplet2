@@ -10,43 +10,6 @@
 #include "throughput.h"
 
 
-#if 0
-#undef LOG_DEBUG
-#define LOG_DEBUG LOG_WARNING
-#endif
-
-int run_throughput(int argc, char *argv[], int count, struct addrinfo **dests);
-test_t *register_test(void);
-void print_throughput(void *data, uint32_t len);
-
-
-
-/**
- * Prints usage information
- */
-static void usage(char *prog) {
-    fprintf(stderr, "Usage: ./throughput-server [-p]\n");
-    fprintf(stderr, "\n");
-    fprintf(stderr, "Options:\n");
-    fprintf(stderr, " -p --port     The port number to listen on (default:%d)\n", DEFAULT_CONTROL_PORT);
-    fprintf(stderr, " -h -? --help  Print this help\n");
-    exit(0);
-}
-
-static struct option long_options[] =
-    {
-        {"port", required_argument, 0, 'p'},
-        {"help", no_argument, 0, 'h'},
-/*      {"c2s-time", required_argument, 0, 'T'},
-        {"c2s-packet", required_argument, 0, 'Y'},
-        {"s2c-time", required_argument, 0, 't'},
-        {"s2c-packet", required_argument, 0, 'y'},
-        {"pause", required_argument, 0, 'p'},
-        {"new", required_argument, 0, 'N'},*/
-        {NULL,0,0,0}
-    };
-
-
 
 /**
  * Start listening on the given port for incoming tests
@@ -54,74 +17,72 @@ static struct option long_options[] =
  * @param port
  *              The port to listen for incoming connections
  *
- * @return the bound listen_socket or return -1 if this fails
+ * @return the bound socket or return -1 if this fails
  */
 static int startListening(int port, struct opt_t *sockopts) {
-    int listen_socket = -1;
+    int sock = -1;
     struct addrinfo hints = {0};
     struct addrinfo *addrs, *current;
-    char port_num[10] = "";
-    int result;
+    char portstr[10];
 
     /* Get all interfaces and in order attempt to bind to them */
-    hints.ai_family = AF_INET6;    /* Allow IPv6 note AI_V4MAPPED allows IPv4 I think ?? */
-    hints.ai_socktype = SOCK_STREAM; /* TCP socket */
-    hints.ai_flags = AI_PASSIVE | AI_V4MAPPED | AI_ALL;    /* For wildcard IP address */
-    hints.ai_protocol = 0;          /* Any protocol */
-    hints.ai_canonname = NULL;
-    hints.ai_addr = NULL;
-    hints.ai_next = NULL;
+    memset(&hints, 0, sizeof(hints));
+
+    /* Allow IPv6 note AI_V4MAPPED allows IPv4 I think ?? */
+    hints.ai_family = AF_INET6;
+    hints.ai_socktype = SOCK_STREAM;
+    /* For wildcard IP address */
+    hints.ai_flags = AI_PASSIVE | AI_V4MAPPED | AI_ALL;
+
     /* Have to make our port number a string for getaddrinfo() :( */
-    snprintf(port_num, sizeof(port_num), "%d", port);
+    snprintf(portstr, sizeof(portstr), "%d", port);
 
     /* The hint should give us a IPv6 and IPv4 binding if possible */
-    result = getaddrinfo(NULL, port_num, &hints, &addrs);
-    if ( result != 0 ) {
+    if ( getaddrinfo(NULL, portstr, &hints, &addrs) < 0 ) {
         Log(LOG_ERR, "getaddrinfo failed: %s", strerror(errno));
     }
 
     for ( current = addrs; current != NULL ; current = current->ai_next ) {
 
         /* Open a socket that we can listen on */
-        listen_socket = socket(current->ai_family,
-                            current->ai_socktype, current->ai_protocol);
-        if ( listen_socket == -1 ) {
-             Log(LOG_WARNING, "startListening failed to create a socket(): %s",
-                     strerror(errno));
-             continue;
+        if ( (sock = socket(current->ai_family, current->ai_socktype,
+                        current->ai_protocol)) < 0 ) {
+            Log(LOG_WARNING, "startListening failed to create a socket(): %s",
+                    strerror(errno));
+            continue;
         }
         /* Set socket options */
-        doSocketSetup(sockopts, listen_socket);
+        doSocketSetup(sockopts, sock);
 
-        if ( bind(listen_socket, current->ai_addr, current->ai_addrlen) == 0) {
+        if ( bind(sock, current->ai_addr, current->ai_addrlen) == 0) {
             break; /* successfully bound*/
         }
 
         /* State of socket is unknown after a failed bind() */
-        close(listen_socket);
-        listen_socket = -1;
+        close(sock);
+        sock = -1;
     }
 
     freeaddrinfo(addrs);
 
-    if ( listen_socket == -1 ) {
+    if ( sock == -1 ) {
         Log(LOG_ERR, "startListening failed to bind the listening socket");
         goto errorCleanup;
     }
 
     /* Start listening for at most 1 connection, we don't want a huge queue */
-    if (listen(listen_socket, 1) == -1) {
+    if (listen(sock, 1) == -1) {
         Log(LOG_ERR, "startListening failed to listen on our bound socket: %s",
                 strerror(errno));
         goto errorCleanup;
     }
 
-    Log(LOG_DEBUG, "Successfully listening on port %s", port_num);
-    return listen_socket;
+    Log(LOG_DEBUG, "Successfully listening on port %s", portstr);
+    return sock;
 
     errorCleanup:
-    if ( listen_socket != -1 ) {
-        close(listen_socket);
+    if ( sock != -1 ) {
+        close(sock);
     }
     return -1;
 }
@@ -348,7 +309,7 @@ errorCleanup:
 /**
  * The main function of the throughput server.
  */
-int run_throughput(int argc, char *argv[], int count, struct addrinfo **dests) {
+void run_throughput_server(int argc, char *argv[], SSL *ssl) {
     int port; /* Port to start server on */
     int listen_socket; /* Our listening socket */
     int control_sock; /* Our clients control socket connection */
@@ -359,22 +320,27 @@ int run_throughput(int argc, char *argv[], int count, struct addrinfo **dests) {
 
     /* Possibly could use dests to limit interfaces to listen on */
 
-    Log(LOG_DEBUG, "Starting throughput server got given %d addresses", count);
-    Log(LOG_INFO, "Our Structure sizes Pkt:%d RptHdr:%d RptRes:%d Rpt10G:%d",
+    Log(LOG_DEBUG, "Running throughput test as server");
+
+/*
+    Log(LOG_DEBUG, "Our Structure sizes Pkt:%d RptHdr:%d RptRes:%d Rpt10G:%d",
             sizeof(struct packet_t),
             sizeof(struct report_header_t),
             sizeof(struct report_result_t),
             sizeof(struct report_web10g_t)
        );
+*/
 
     /* set some sensible defaults */
     port = DEFAULT_CONTROL_PORT;
 
+    /* TODO server should take long options too */
     while ( (opt = getopt(argc, argv, "?hp:")) != -1 ) {
         switch ( opt ) {
             case 'p': port = atoi(optarg); break;
             case 'h':
             case '?':
+            /* XXX do we need this extra usage statement here? */
             default: usage(argv[0]); exit(0);
         };
     }
@@ -385,8 +351,24 @@ int run_throughput(int argc, char *argv[], int count, struct addrinfo **dests) {
 
     if ( listen_socket == -1 ) {
         Log(LOG_ERR, "Failed to open listening socket terminating");
-        return -1;
+        return;
     }
+
+    /*
+     * If SSL is not null, it means we have been started by the amplet client
+     * and need to tell the other end what port it should connect to. If it
+     * is NULL then we assume it is being run manually and the user knows
+     * what port they want to use.
+     */
+    if ( ssl ) {
+        if ( send_server_port(ssl, port) < 0 ) {
+            Log(LOG_DEBUG, "Failed to send server port for throughput test\n");
+            return;
+        } else {
+            Log(LOG_DEBUG, "Sent server port %d for throughput test OK", port);
+        }
+    }
+
 
     client_addrlen = sizeof(client_addr);
     do {
@@ -409,42 +391,5 @@ int run_throughput(int argc, char *argv[], int count, struct addrinfo **dests) {
     close(control_sock);
     control_sock = -1;
 
-    return 0;
-}
-
-
-
-/*
- * DOES NOTHING, Client reports results
- */
-void print_throughput(void *data, uint32_t len) {
-}
-
-
-
-/*
- * Register a test to be part of AMP.
- */
-test_t *register_test() {
-    test_t *new_test = (test_t *)malloc(sizeof(test_t));
-
-    /* the test id is defined by the enum in test.h */
-    new_test->id = AMP_TEST_THROUGHPUT;
-
-    /* name is used to schedule the test and report results */
-    new_test->name = strdup("throughput");
-
-    /* how many targets a single instance of this test can have  - Only 1 */
-    new_test->max_targets = 1;
-
-    /* maximum duration this test should take before being killed */
-    new_test->max_duration = 120;
-
-    /* function to call to setup arguments and run the test */
-    new_test->run_callback = run_throughput;
-
-    /* function to call to pretty print the results of the test */
-    new_test->print_callback = print_throughput;
-
-    return new_test;
+    return;
 }
