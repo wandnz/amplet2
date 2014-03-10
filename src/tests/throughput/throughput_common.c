@@ -204,7 +204,7 @@ void doSocketSetup(struct opt_t *options, int sock_fd){
                                 options->sock_mss, newValue);
             /* TODO SHOULD set max mss to what we really used for reporting?? */
         }
-        Log(LOG_INFO, "setsockopt set TCP_MAXSEG to :%d", newValue);
+        Log(LOG_DEBUG, "setsockopt set TCP_MAXSEG to :%d", newValue);
 #else
         Log(LOG_WARNING, "Requested to set sock_mss, but this build"
                 " doesn't have TCP_MAXSEG defined");
@@ -222,7 +222,7 @@ void doSocketSetup(struct opt_t *options, int sock_fd){
                     " however getsockopt still says its enabled");
         }
 
-        Log(LOG_INFO, "setsockopt set TCP_NODELAY to :%d", newValue);
+        Log(LOG_DEBUG, "setsockopt set TCP_NODELAY to :%d", newValue);
 
 #else
         Log(LOG_WARNING, "Requested to disable nagle, but this build"
@@ -242,7 +242,7 @@ void doSocketSetup(struct opt_t *options, int sock_fd){
                     " :%" PRId32 " but got :%d",
                     options->sock_rcvbuf, newValue);
         }
-        Log(LOG_INFO, "setsockopt set SO_RCVBUF to :%d", newValue);
+        Log(LOG_DEBUG, "setsockopt set SO_RCVBUF to :%d", newValue);
 
 #ifdef SO_RCVBUFFORCE
         /* Like SO_RCVBUF but if user has CAP_ADMIN privilage ignores
@@ -279,7 +279,7 @@ void doSocketSetup(struct opt_t *options, int sock_fd){
                     options->sock_sndbuf, newValue);
         }
 
-        Log(LOG_INFO, "setsockopt set SO_SNDBUF to :%d", newValue);
+        Log(LOG_DEBUG, "setsockopt set SO_SNDBUF to :%d", newValue);
 #ifdef SO_SNDBUFFORCE
         /* Like SO_RCVBUF but if user has CAP_ADMIN privilage ignores
          * /proc/max size */
@@ -313,7 +313,7 @@ void doSocketSetup(struct opt_t *options, int sock_fd){
             Log(LOG_WARNING, "setsockopt succeeded in setting SO_REUSEADDR"
                     " however getsockopt still says its enabled");
         }
-        Log(LOG_INFO, "setsockopt set SO_REUSEADDR to :%d", newValue);
+        Log(LOG_DEBUG, "setsockopt set SO_REUSEADDR to :%d", newValue);
 #else
         Log(LOG_WARNING, "Requested to reuse address, but this build"
                 " doesn't have SO_REUSEADDR defined");
