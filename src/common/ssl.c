@@ -95,7 +95,7 @@ int matches_common_name(const char *hostname, const X509 *cert) {
 SSL_CTX* initialise_ssl(void) {
     SSL_CTX *ssl_ctx = NULL;
 
-    Log(LOG_INFO, "Initialising SSL");
+    Log(LOG_DEBUG, "Initialising SSL");
 
     if ( vars.amqp_ssl.cacert == NULL || vars.amqp_ssl.cert == NULL ||
             vars.amqp_ssl.key == NULL ) {
