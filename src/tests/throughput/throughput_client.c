@@ -622,7 +622,9 @@ int run_throughput_client(int argc, char *argv[], int count,
     int option_index = 0;
     int remote;
     extern struct option long_options[];
-    char *client = NULL;
+    char *client;
+    struct addrinfo *sourcev4, *sourcev6;
+    char *device;
 
     Log(LOG_DEBUG, "Running throughput test as client");
 
@@ -650,10 +652,19 @@ int run_throughput_client(int argc, char *argv[], int count,
     options.textual_schedule = NULL;
     options.reuse_addr = 0;
 
-    while ( (opt = getopt_long(argc, argv, "?hp:P:rz:o:i:Nm:wS:c:",
+    client = NULL;
+    sourcev4 = NULL;
+    sourcev6 = NULL;
+    device = NULL;
+
+    while ( (opt = getopt_long(argc, argv, "?hp:P:rz:o:i:Nm:wS:c:4:6:I:",
                     long_options, &option_index)) != -1 ) {
 
         switch ( opt ) {
+            case '4': sourcev4 = get_numeric_address(optarg); break;
+            case '6': sourcev6 = get_numeric_address(optarg); break;
+            case 'I': device = optarg; break;
+            /* case 'B': for iperf compatability? */
             case 'c': client = optarg; break;
             case 'p': options.cport = atoi(optarg); break;
             case 'P': options.tport = atoi(optarg); break;

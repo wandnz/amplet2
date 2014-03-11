@@ -321,6 +321,8 @@ void run_throughput_server(int argc, char *argv[], SSL *ssl) {
     struct opt_t sockopts;
     struct sockaddr_storage client_addr;
     socklen_t client_addrlen;
+    struct addrinfo *sourcev4, *sourcev6;
+    char *device;
 
     /* Possibly could use dests to limit interfaces to listen on */
 
@@ -338,10 +340,17 @@ void run_throughput_server(int argc, char *argv[], SSL *ssl) {
     /* set some sensible defaults */
     memset(&sockopts, 0, sizeof(sockopts));
     port = DEFAULT_CONTROL_PORT;
+    sourcev4 = NULL;
+    sourcev6 = NULL;
+    device = NULL;
 
     /* TODO server should take long options too */
-    while ( (opt = getopt(argc, argv, "?hp:")) != -1 ) {
+    while ( (opt = getopt(argc, argv, "?hp:4:6:I:")) != -1 ) {
         switch ( opt ) {
+            case '4': sourcev4 = get_numeric_address(optarg); break;
+            case '6': sourcev6 = get_numeric_address(optarg); break;
+            case 'I': device = optarg; break;
+            /* case 'B': for iperf compatability? */
             case 'p': port = atoi(optarg); break;
             case 'h':
             case '?':
