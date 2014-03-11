@@ -770,8 +770,11 @@ int run_throughput_client(int argc, char *argv[], int count,
     }
 #endif
 
-    freeaddrinfo(dests[0]);
-    free(dests);
+    if ( client != NULL ) {
+        freeaddrinfo(dests[0]);
+        free(dests);
+    }
+
     freeSchedule(&options);
     if ( options.textual_schedule != NULL ) {
         free(options.textual_schedule);
