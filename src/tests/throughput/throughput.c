@@ -18,6 +18,7 @@ struct option long_options[] =
         {"help", no_argument, 0, 'h'},
         {"server", no_argument, 0, 's'},
         {"client", required_argument, 0, 'c'},
+        {"time", required_argument, 0, 't'},
 /*      {"c2s-time", required_argument, 0, 'T'},
         {"c2s-packet", required_argument, 0, 'Y'},
         {"s2c-time", required_argument, 0, 't'},
@@ -56,6 +57,7 @@ void usage(char *prog) {
     fprintf(stderr, "  -N, --nodelay            disable Nagle's Algorithm (set TCP_NODELAY)\n");
     fprintf(stderr, "  -M, --mss        <bytes> set TCP maximum segment size\n");
     fprintf(stderr, "  -S, --schedule   <seq>   test schedule (see below)\n");
+    fprintf(stderr, "  -t, --time       <sec>   time in seconds to transmit (default 10s)\n");
     fprintf(stderr, "  -w, --disable-web10g     don't record Web10G results\n");
     fprintf(stderr, "\n");
 
@@ -115,7 +117,7 @@ int run_throughput(int argc, char *argv[], int count, struct addrinfo **dests) {
     Log(LOG_DEBUG, "Starting throughput test");
 
     /* XXX this option string needs to be up to date with server and client? */
-    while ( (opt = getopt_long(argc, argv, "?hvp:P:rsz:o:i:Nm:wS:c:4:6:I:",
+    while ( (opt = getopt_long(argc, argv, "?hvp:P:rsz:o:i:Nm:wS:c:4:6:I:t:",
                     long_options, &option_index)) != -1 ) {
         switch ( opt ) {
             case 's': server_flag_index = optind - 1; break;

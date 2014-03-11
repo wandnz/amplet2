@@ -656,7 +656,7 @@ int run_throughput_client(int argc, char *argv[], int count,
     sourcev6 = NULL;
     device = NULL;
 
-    while ( (opt = getopt_long(argc, argv, "?hp:P:rz:o:i:Nm:wS:c:4:6:I:",
+    while ( (opt = getopt_long(argc, argv, "?hp:P:rz:o:i:Nm:wS:c:4:6:I:t:",
                     long_options, &option_index)) != -1 ) {
 
         switch ( opt ) {
@@ -675,6 +675,14 @@ int run_throughput_client(int argc, char *argv[], int count,
             case 'N': options.sock_disable_nagle = 1; break;
             case 'M': options.sock_mss = atoi(optarg); break;
             case 'w': options.disable_web10g = 1; break;
+            case 't': {
+                          /* take a time in seconds for iperf compatability */
+                          int duration = atoi(optarg);
+                          char sched[128];
+                          snprintf(sched, sizeof(sched), "T%d", duration*1000);
+                          parseSchedule(&options, sched);
+                          break;
+                      }
             case 'h':
             case '?':
             default: usage(argv[0]); exit(0);
