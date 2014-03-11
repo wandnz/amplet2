@@ -2,7 +2,7 @@
 .\" First parameter, NAME, should be all caps
 .\" Second parameter, SECTION, should be 1-8, maybe w/ subsection
 .\" other parameters are allowed: see man(7), man(1)
-.TH MEASURED 8 "April 26, 2013"
+.TH AMPLET2 8 "Mar 11, 2014" "amplet2-client" "The Active Measurement Project"
 .\" Please adjust this date whenever revising the manpage.
 .\"
 .\" Some roff macros, for reference:
@@ -18,39 +18,81 @@
 .SH NAME
 amplet2 \- AMP measurement daemon
 .SH SYNOPSIS
-.B amplet2
-.RI [ options ] " files" ...
-.br
-.B bar
-.RI [ options ] " files" ...
+\fBamplet2\fR [\fB-dhrvx\fR] [\fB-c \fIconfig\fB\fR] [\fB-I \fIiface\fB\fR] [\fB-4 \fIaddress\fB\fR] [\fB-6 \fIaddress\fB\fR]
 .SH DESCRIPTION
-This manual page documents briefly the
-.B amplet2
-command.
-.PP
 .\" TeX users may be more comfortable with the \fB<whatever>\fP and
 .\" \fI<whatever>\fP escape sequences to invode bold face and italics,
 .\" respectively.
 \fBamplet2\fP is the process responsible for scheduling the tests to other
-machines in the AMP mesh, or to nominated ad-hoc targets.
+machines in the AMP mesh, or to nominated ad-hoc targets. It can also run
+servers for tests that require cooperation from an end host to perform, such
+as throughput tests.
 .SH OPTIONS
-These programs follow the usual GNU command line syntax, with long
-options starting with two dashes (`-').
-A summary of options is included below.
-For a complete description, see the Info files.
 .TP
-.B \-h, \-\-help
+\fB-c, --config \fIconfig\fB\fR
+Read configuration information from the file \fIconfig\fR. The default
+configuration file is /etc/amplet2/client.conf.
+.TP
+\fB-d, --daemonise\fR
+Detach and daemonise the process.
+.TP
+\fB-h, --help\fR
 Show summary of options.
 .TP
-.B \-v, \-\-version
+\fB-I, --interface \fIiface\fB\fR
+Specifies the interface (device) that tests should use when sending packets.
+By default the interface will be selected according to the routing table.
+.TP
+\fB-r, --noremote\fR
+Do not attempt to update test schedules from a remote server.
+.TP
+\fB-v, --version\fR
 Show version of program.
+.TP
+\fB-x, --debug\fR
+Enable extra debugging output.
+.TP
+\fB-4, --sourcev4 \fIa.b.c.d\fB\fR
+Specifies the source IPv4 address that tests should use when sending packets to
+IPv4 targets. This address must belong to one of the interfaces.
+By default the IPv4 address of the outgoing interface will be used.
+.TP
+\fB-6, --sourcev6 \fIa:b:c:d:e:f:g:h\fB\fR
+Specifies the source IPv6 address that tests should use when sending packets to
+IPv6 targets. This address must belong to one of the interfaces.
+By default the IPv6 address of the outgoing interface will be used.
+
+.SH FILES AND DIRECTORIES
+.\" TODO Give these relative to ${prefix} etc?
+.TP
+.I /etc/amplet2/client.conf
+Default client configuration file.
+.TP
+.I /etc/amplet2/nametable
+Default client nametable file.
+.TP
+.I /etc/amplet2/keys/
+Default location for client SSL keys/certificates.
+.TP
+.I /etc/amplet2/schedule.d/
+Default location for test schedule files.
+.\".TP
+.\".I /lib/amplet2/tests/
+.\"Default location for test object files.
+
 .SH SEE ALSO
-.BR bar (1),
-.BR baz (1).
-.br
-The programs are documented fully by
-.IR "The Rise and Fall of a Fooish Bar" ,
-available via the Info system.
+.BR amp-icmp (8),
+.BR amp-traceroute (8),
+.BR amp-dns (8),
+.BR amp-throughput (8),
+.BR amp-http (8).
+.\" TODO describe nametable, schedule, configuration files
+
+.SH SECURITY
+While \fBamplet2\fR can be run unprivileged, many of the tests that it performs
+require higher level access. \fBamplet2\fR will need root privileges to run any
+test that uses raw sockets (icmp, traceroute).
+
 .SH AUTHOR
 amplet2 was written by Brendon Jones <brendonj@waikato.ac.nz>.
 .PP
