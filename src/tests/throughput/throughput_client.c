@@ -30,7 +30,7 @@ static void printSchedule(struct test_request_t *schedule) {
        Log(LOG_DEBUG, "bytes:%d duration:%d writesize:%d randomise:%d",
                cur->bytes, cur->duration, cur->write_size, cur->randomise);
    }
-   Log(LOG_DEBUG, "Finshed schedule");
+   Log(LOG_DEBUG, "Finished schedule");
 }
 
 
@@ -456,14 +456,14 @@ static int runSchedule(struct addrinfo *serv_addr, struct opt_t *options) {
                 continue;
 
             case TPUT_PAUSE:
-                Log(LOG_INFO, "Pausing for %" PRIu32 "milliseconds",
+                Log(LOG_DEBUG, "Pausing for %" PRIu32 "milliseconds",
                         cur->duration);
                 sleep((int)(cur->duration / 1000));
                 usleep((cur->duration % 1000) * 1000);
                 continue;
 
             case TPUT_NEW_CONNECTION:
-                Log(LOG_INFO, "Asking the Server to renew the connection");
+                Log(LOG_DEBUG, "Asking the Server to renew the connection");
                 if ( sendResetPacket(control_socket) < 0 ) {
                     Log(LOG_ERR, "Failed to send reset packet");
                     goto errorCleanup;
@@ -493,7 +493,7 @@ static int runSchedule(struct addrinfo *serv_addr, struct opt_t *options) {
                 continue;
 
             case TPUT_2_CLIENT:
-                Log(LOG_INFO, "Starting Server to Client Throughput test");
+                Log(LOG_DEBUG, "Starting Server to Client Throughput test");
                 /* Request a test from the server */
                 if ( sendRequestTestPacket(control_socket, cur) < 0 ) {
                     goto errorCleanup;
@@ -526,7 +526,7 @@ static int runSchedule(struct addrinfo *serv_addr, struct opt_t *options) {
                 continue;
 
             case TPUT_2_SERVER:
-                Log(LOG_INFO, "Starting Client to Server Throughput test");
+                Log(LOG_DEBUG, "Starting Client to Server Throughput test");
                 cur->c_result = malloc(sizeof(struct test_result_t));
                 cur->s_result = malloc(sizeof(struct test_result_t));
                 memset(cur->c_result, 0, sizeof(struct test_result_t));
@@ -587,7 +587,7 @@ static int runSchedule(struct addrinfo *serv_addr, struct opt_t *options) {
      */
     report_results(control_socket, options, start_time_ns , timeNanoseconds());
 
-    Log(LOG_INFO, "Closing test");
+    Log(LOG_DEBUG, "Closing test");
     if( sendClosePacket(control_socket) < 0)
          Log(LOG_WARNING, "Failed to send close message");
 
@@ -629,7 +629,7 @@ int run_throughput_client(int argc, char *argv[], int count,
 
 /*
     Log(LOG_DEBUG, "Starting throughput test - got given %d addresses", count);
-    Log(LOG_INFO, "Our Structure sizes Pkt:%d RptHdr:%d RptRes:%d Rpt10G:%d",
+    Log(LOG_DEBUG, "Our Structure sizes Pkt:%d RptHdr:%d RptRes:%d Rpt10G:%d",
             sizeof(struct packet_t),
             sizeof(struct report_header_t),
             sizeof(struct report_result_t),

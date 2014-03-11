@@ -667,7 +667,7 @@ int readDataPacket(const struct packet_t *packet, const int write_size,
 
     /* The first data packet is the indicator the test has started */
     if ( res->packets == 0 ) {
-        Log(LOG_INFO, "Received first packet from incoming test");
+        Log(LOG_DEBUG, "Received first packet from incoming test");
         res->start_ns = timeNanoseconds();
         res->write_size = write_size;
     }
@@ -871,7 +871,7 @@ int sendRequestTestPacket(int sock, const struct test_request_t *req) {
     p.types.send.write_size = req->write_size;
     p.types.send.bytes = req->bytes;
 
-    Log(LOG_INFO, "Sending a TPUT_PKT_SEND request - "
+    Log(LOG_DEBUG, "Sending a TPUT_PKT_SEND request - "
             "bytes: %d duration: %d write_size: %d",
             p.types.send.bytes, p.types.send.duration_ms,
             p.types.send.write_size);

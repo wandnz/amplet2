@@ -203,7 +203,7 @@ static int serveTest(int control_socket) {
                     req.write_size = packet.types.send.write_size;
                     req.bytes = packet.types.send.bytes;
                     req.randomise = sockopts.randomise;
-                    Log(LOG_INFO, "Got send request, dur:%d bytes:%d writes:%d",
+                    Log(LOG_DEBUG, "Got send request, dur:%d bytes:%d writes:%d",
                             req.duration, req.bytes, req.write_size);
 
                     /* Send the actual packets */
@@ -240,7 +240,7 @@ static int serveTest(int control_socket) {
                 }
                 continue;
             case TPUT_PKT_RENEW_CONNECTION:
-                Log(LOG_INFO, "Client asked to renew the connection");
+                Log(LOG_DEBUG, "Client asked to renew the connection");
 
                 /* Ready the listening socket again */
                 sockopts.reuse_addr = 1;
@@ -271,7 +271,7 @@ static int serveTest(int control_socket) {
                 t_listen = -1;
                 continue;
             case TPUT_PKT_CLOSE:
-                Log(LOG_INFO, "Client closing test");
+                Log(LOG_DEBUG, "Client closing test");
                 break;
             default:
                 Log(LOG_WARNING,
