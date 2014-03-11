@@ -78,19 +78,6 @@ int main(int argc, char *argv[]) {
     /* load information about the test, including the callback functions */
     test_info = get_test_info();
 
-    /* Initialise SSL if the test requires a remote server */
-    if ( test_info->server_callback != NULL ) {
-        /* these need values for standalone tests to work with remote servers */
-        vars.amqp_ssl.cacert = AMQP_CACERT_FILE;
-        vars.amqp_ssl.cert = AMQP_CERT_FILE;
-        vars.amqp_ssl.key = AMQP_KEY_FILE;
-        vars.control_port = "8869"; /* XXX */
-        if ( (ssl_ctx = initialise_ssl()) == NULL ) {
-            Log(LOG_ALERT, "Failed to initialise SSL, aborting");
-            return -1;
-        }
-    }
-
     /*
      * FIXME is this the best way to get this looking like it does when
      * run through measured? Just filling in the one value that we know we
@@ -175,6 +162,25 @@ int main(int argc, char *argv[]) {
 	    dests[count] = rp;
 	    count++;
 	}
+    }
+
+    /*
+     * Initialise SSL if the test requires a remote server *and* the remote
+     * server has been specified as a destination. If it isn't specified then
+     * it is probably given as part of the test specific arguments and isn't
+     * expecting to talk to an amplet2/measured control port (so don't
+     * initialise SSL).
+     */
+    if ( test_info->server_callback != NULL && count > 0 ) {
+        /* these need values for standalone tests to work with remote servers */
+        vars.amqp_ssl.cacert = AMQP_CACERT_FILE;
+        vars.amqp_ssl.cert = AMQP_CERT_FILE;
+        vars.amqp_ssl.key = AMQP_KEY_FILE;
+        vars.control_port = "8869"; /* XXX */
+        if ( (ssl_ctx = initialise_ssl()) == NULL ) {
+            Log(LOG_ALERT, "Failed to initialise SSL, aborting");
+            return -1;
+        }
     }
 
     /* remove the -x option if present so that the test doesn't see it */
