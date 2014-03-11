@@ -75,22 +75,19 @@ void usage(char *prog) {
     fprintf(stderr, "\n");
 
 
-    fprintf(stderr, "NOTE: The test schedule (-s) should be the last argument before -- \n");
-
     /* TODO make schedules like iperf? just do one way for a period */
-    fprintf(stderr, "Schedule format:\n");
     fprintf(stderr, "A schedule is a sequence of tests. Each test starts with single character\n");
-    fprintf(stderr, "representing it's type. Tests are separated by a single comma ','.\n");
-    fprintf(stderr, "Valid types are listed below:\n");
-    fprintf(stderr, " s<num_bytes> Run a server -> client test\n");
-    fprintf(stderr, " S<num_bytes> Run a client -> server test\n");
-    fprintf(stderr, " t<ms>          Run a server -> client test for the time given in milliseconds\n");
-    fprintf(stderr, " T<ms>          Run a client -> server test for the time given in milliseconds\n");
-    fprintf(stderr, " n              Make a new test connection\n");
-    fprintf(stderr, " p<ms>          Time to pause for the time given in milliseconds\n");
-    fprintf(stderr, "Example -S \"t1000,T1000\" - Run two tests each for 1 second first S2C then C2S\n");
-    fprintf(stderr, "Example -S \"s10000,n,S10000\" - Run two tests S2C then C2S each sending");
-    fprintf(stderr, "       10,000 bytes with the connection reset in between\n");
+    fprintf(stderr, "representing its type. Tests are separated by a single comma ','.\n");
+    fprintf(stderr, "Valid types are:\n");
+    fprintf(stderr, "  s<num_bytes> run a server -> client test, sending a fixed number of bytes\n");
+    fprintf(stderr, "  S<num_bytes> run a client -> server test, sending a fixed number of bytes\n");
+    fprintf(stderr, "  t<ms>        run a server -> client test, for the time given in milliseconds\n");
+    fprintf(stderr, "  T<ms>        run a client -> server test, for the time given in milliseconds\n");
+    fprintf(stderr, "  n            make a new test connection (close and reopen it)\n");
+    fprintf(stderr, "  p<ms>        pause for the time given in milliseconds\n");
+    fprintf(stderr, " e.g. -S \"t1000,T1000\"      Run two tests each for 1 second first S2C then C2S\n");
+    fprintf(stderr, " e.g. -S \"s10000,n,S10000\"  Run two tests S2C then C2S each sending 10,000");
+    fprintf(stderr, "                                  bytes with the connection reset in between\n");
 }
 
 
