@@ -60,7 +60,7 @@
 #define DEFAULT_TEST_PORT 8816 /* Run test across a seperate port */
 #define DEFAULT_WRITE_SIZE  (128 * 1024) // 128-kbyte like iperf uses
 #define DEFAULT_TPUT_PAUSE  10000
-#define DEFAULT_TEST_SCHEDULE "t10000,n,T10000" /* A useful default test - 10sec in each direction */
+#define DEFAULT_TEST_SCHEDULE "T10000" /* iperf default: 10s client to server */
 
 
 enum tput_type{
