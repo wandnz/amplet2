@@ -16,6 +16,8 @@ struct option long_options[] =
         {"sequence", required_argument, 0, 's'},
         {"disable-web10g", no_argument, 0, 'w'},
         {"help", no_argument, 0, 'h'},
+        {"server", no_argument, 0, 's'},
+        {"client", required_argument, 0, 'c'},
 /*      {"c2s-time", required_argument, 0, 'T'},
         {"c2s-packet", required_argument, 0, 'Y'},
         {"s2c-time", required_argument, 0, 't'},
@@ -45,6 +47,7 @@ void usage(char *prog) {
 
 
     fprintf(stderr, "Client specific options:\n");
+    fprintf(stderr, "  -c, --client     <host>  run in client mode, connecting to <host>\n");
     fprintf(stderr, "  -r, --randomise          randomise data in every packet sent\n");
     fprintf(stderr, "  -P, --test-port  <port>  port number to test on (default %d)\n", DEFAULT_TEST_PORT);
     fprintf(stderr, "  -z, --write-size <bytes> length of buffer to write (default %d)\n",(int) DEFAULT_WRITE_SIZE );
@@ -112,7 +115,7 @@ int run_throughput(int argc, char *argv[], int count, struct addrinfo **dests) {
     Log(LOG_DEBUG, "Starting throughput test");
 
     /* XXX this option string needs to be up to date with server and client? */
-    while ( (opt = getopt_long(argc, argv, "?hp:P:rsz:o:i:Nm:wS:",
+    while ( (opt = getopt_long(argc, argv, "?hvp:P:rsz:o:i:Nm:wS:c:",
                     long_options, &option_index)) != -1 ) {
         switch ( opt ) {
             case 's': server_flag_index = optind - 1; break;

@@ -622,9 +622,11 @@ int run_throughput_client(int argc, char *argv[], int count,
     int option_index = 0;
     int remote;
     extern struct option long_options[];
+    char *client = NULL;
 
     Log(LOG_DEBUG, "Running throughput test as client");
 
+/*
     Log(LOG_DEBUG, "Starting throughput test - got given %d addresses", count);
     Log(LOG_INFO, "Our Structure sizes Pkt:%d RptHdr:%d RptRes:%d Rpt10G:%d",
             sizeof(struct packet_t),
@@ -632,6 +634,7 @@ int run_throughput_client(int argc, char *argv[], int count,
             sizeof(struct report_result_t),
             sizeof(struct report_web10g_t)
        );
+*/
 
     /* set some sensible defaults */
     options.write_size = DEFAULT_WRITE_SIZE;
@@ -647,10 +650,11 @@ int run_throughput_client(int argc, char *argv[], int count,
     options.textual_schedule = NULL;
     options.reuse_addr = 0;
 
-    while ( (opt = getopt_long(argc, argv, "?hp:P:rz:o:i:Nm:wS:",
+    while ( (opt = getopt_long(argc, argv, "?hp:P:rz:o:i:Nm:wS:c:",
                     long_options, &option_index)) != -1 ) {
 
         switch ( opt ) {
+            case 'c': client = optarg; break;
             case 'p': options.cport = atoi(optarg); break;
             case 'P': options.tport = atoi(optarg); break;
             case 'r': options.randomise = 1; break;
@@ -665,6 +669,46 @@ int run_throughput_client(int argc, char *argv[], int count,
             case '?':
             default: usage(argv[0]); exit(0);
         };
+    }
+
+    /*
+     * Don't do anything if the test provides a target through the dests
+     * parameter as well as using -c. They expect the server to behave slightly
+     * differently, so we can't tell which the user wants.
+     */
+    if ( dests && client ) {
+        Log(LOG_WARNING, "Option -c not valid when target address already set");
+        return -1;
+    }
+
+    /* if the -c option is set then get the address into the dests parameter */
+    if ( client ) {
+        int res;
+        struct addrinfo hints;
+
+        memset(&hints, 0, sizeof(hints));
+        hints.ai_family = AF_UNSPEC; // XXX depends on if source is given?
+        hints.ai_socktype = SOCK_STREAM;
+        hints.ai_protocol = IPPROTO_TCP;
+
+        dests = (struct addrinfo **)malloc(sizeof(struct addrinfo *));
+        if ( (res = getaddrinfo(client, NULL, &hints, &dests[0])) < 0 ) {
+            Log(LOG_WARNING, "Failed to resolve '%s': %s", client,
+                    gai_strerror(res));
+            return -1;
+        }
+
+        /* just take the first address we find */
+        count = 1;
+    }
+
+    /*
+     * Make sure we got a destination, either through the dests parameter
+     * or the -c command line argument
+     */
+    if ( count < 1 || dests == NULL || dests[0] == NULL ) {
+        Log(LOG_WARNING, "No destination specified for throughput test");
+        return -1;
     }
 
     /* make sure write size is sensible */
@@ -684,15 +728,20 @@ int run_throughput_client(int argc, char *argv[], int count,
     /* Print out our schedule */
     printSchedule(options.schedule);
 
-    /* XXX only do this if targetting amplet2, not standalone */
-    if ( (remote = start_remote_server(AMP_TEST_THROUGHPUT, dests[0])) == 0 ) {
-        Log(LOG_WARNING, "Failed to start remote server, aborting test");
-        return -1;
-    }
+    /*
+     * Only start the remote server if we expect it to be running as part
+     * of amplet2/measured, otherwise it should be already running standalone.
+     */
+    if ( client == NULL ) {
+        if ( (remote = start_remote_server(AMP_TEST_THROUGHPUT,
+                        dests[0])) == 0 ) {
+            Log(LOG_WARNING, "Failed to start remote server, aborting test");
+            return -1;
+        }
 
-    Log(LOG_DEBUG, "Got port %d from remote server", remote);
-    /* XXX only do this if targetting amplet2, not standalone */
-    options.cport = remote; //XXX
+        Log(LOG_DEBUG, "Got port %d from remote server", remote);
+        options.cport = remote;
+    }
     runSchedule(dests[0], &options);
 
     /* Loop through all the addresses we are asked to test */
