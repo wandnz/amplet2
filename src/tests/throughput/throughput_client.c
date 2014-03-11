@@ -408,7 +408,7 @@ static void report_results(int sock_fd, struct opt_t *options,
  * @return 0 if successful, otherwise -1 on failure
  */
 static int runSchedule(struct addrinfo *serv_addr, struct opt_t *options) {
-    int control_socket = -1;
+    int control_socket;
     int test_socket = -1;
     struct packet_t packet;
     uint64_t start_time_ns;
@@ -620,7 +620,6 @@ int run_throughput_client(int argc, char *argv[], int count,
     //int i;
     char modifiable[] = DEFAULT_TEST_SCHEDULE;
     int option_index = 0;
-    int remote;
     extern struct option long_options[];
     char *client;
     struct addrinfo *sourcev4, *sourcev6;
@@ -689,7 +688,7 @@ int run_throughput_client(int argc, char *argv[], int count,
      */
     if ( dests && client ) {
         Log(LOG_WARNING, "Option -c not valid when target address already set");
-        return -1;
+        exit(1);
     }
 
     /* if the -c option is set then get the address into the dests parameter */
@@ -706,7 +705,7 @@ int run_throughput_client(int argc, char *argv[], int count,
         if ( (res = getaddrinfo(client, NULL, &hints, &dests[0])) < 0 ) {
             Log(LOG_WARNING, "Failed to resolve '%s': %s", client,
                     gai_strerror(res));
-            return -1;
+            exit(1);
         }
 
         /* just take the first address we find */
@@ -719,7 +718,7 @@ int run_throughput_client(int argc, char *argv[], int count,
      */
     if ( count < 1 || dests == NULL || dests[0] == NULL ) {
         Log(LOG_WARNING, "No destination specified for throughput test");
-        return -1;
+        exit(1);
     }
 
     /* make sure write size is sensible */
@@ -727,7 +726,7 @@ int run_throughput_client(int argc, char *argv[], int count,
             options.write_size > MAX_MALLOC ) {
         Log(LOG_ERR, "Write size invalid, should be %d < x < %d, got %d",
                 sizeof(struct packet_t), MAX_MALLOC, options.write_size);
-        return 1;
+        exit(1);
     }
 
     /* If there is no test schedule set it to use the default */
@@ -744,14 +743,15 @@ int run_throughput_client(int argc, char *argv[], int count,
      * of amplet2/measured, otherwise it should be already running standalone.
      */
     if ( client == NULL ) {
-        if ( (remote = start_remote_server(AMP_TEST_THROUGHPUT,
+        int remote_port;
+        if ( (remote_port = start_remote_server(AMP_TEST_THROUGHPUT,
                         dests[0])) == 0 ) {
             Log(LOG_WARNING, "Failed to start remote server, aborting test");
-            return -1;
+            exit(1);
         }
 
-        Log(LOG_DEBUG, "Got port %d from remote server", remote);
-        options.cport = remote;
+        Log(LOG_DEBUG, "Got port %d from remote server", remote_port);
+        options.cport = remote_port;
     }
     runSchedule(dests[0], &options);
 
@@ -762,6 +762,8 @@ int run_throughput_client(int argc, char *argv[], int count,
     }
 #endif
 
+    freeaddrinfo(dests[0]);
+    free(dests);
     freeSchedule(&options);
     if ( options.textual_schedule != NULL ) {
         free(options.textual_schedule);

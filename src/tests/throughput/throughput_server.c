@@ -124,8 +124,8 @@ static int serveTest(int control_socket) {
     int bytes_read;
     struct report_web10g_t *web10g = NULL;
     struct opt_t sockopts;
-    int t_listen;
-    int test_socket;
+    int t_listen = -1;
+    int test_socket = -1;
     struct sockaddr_storage client_addr;
     socklen_t client_addrlen = sizeof(client_addr);
     uint32_t version = 0;
