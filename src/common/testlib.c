@@ -264,12 +264,6 @@ int send_server_port(SSL *ssl, uint16_t port) {
         result = -1;
     }
 
-    /* Looks like we have to close this here rather than after the test
-     * completes, cause start_remote_server() closes it immediately after
-     * getting the port number. Doing it later would probably require shipping
-     * the SSL object around and/or relying on the test itself to tidy up.
-     */
-    ssl_shutdown(ssl);
     return result;
 }
 
@@ -397,9 +391,11 @@ uint16_t start_remote_server(test_type_t type, struct addrinfo *dest) {
     while ( bytes < sizeof(server_port) ) {
         /* read the message straight into the port variable, 2 bytes long */
         res = SSL_read(ssl, ((char*)&server_port) + bytes, sizeof(server_port));
-        if ( res > 0 ) {
-            bytes += res;
+
+        if ( res <= 0 ) {
+            break;
         }
+        bytes += res;
     }
 
     /* Response didn't make sense, zero the port so the client knows */

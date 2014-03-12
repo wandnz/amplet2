@@ -244,10 +244,17 @@ void ssl_shutdown(SSL *ssl) {
 
     Log(LOG_DEBUG, "Shutting down SSL connection");
 
+#if 0
     /* call shutdown twice to make sure bi-directional shutdown is complete */
     if ( SSL_shutdown(ssl) == 0 ) {
         SSL_shutdown(ssl);
     }
+#endif
+    /*
+     * We can't rely on the other end to play nice and shutdown when we want
+     * to, so only call shutdown once and ignore whatever the other end thinks.
+     */
+    SSL_shutdown(ssl);
 
     Log(LOG_DEBUG, "Finished shutting down SSL connection");
 

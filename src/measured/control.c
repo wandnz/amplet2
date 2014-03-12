@@ -153,9 +153,11 @@ static void process_control_message(int fd, test_t *test) {
 
     /* Validate that the client hostname matches the common name in the cert */
     if ( matches_common_name(hostname, client_cert) != 0 ) {
+        Log(LOG_DEBUG, "Closing control connection to unverified client");
         X509_free(client_cert);
         ssl_shutdown(ssl);
         close(fd);
+        Log(LOG_DEBUG, "Terminating control process, pid: %d", getpid());
         exit(0);
     }
 
@@ -170,7 +172,7 @@ static void process_control_message(int fd, test_t *test) {
     test->server_callback(0, NULL, ssl);
 
     X509_free(client_cert);
-    //ssl_shutdown(ssl); /* send_server_port now does this, is that sensible? */
+    ssl_shutdown(ssl);
     close(fd);
     exit(0);
 }
