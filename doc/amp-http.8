@@ -1,0 +1,92 @@
+.\"                                      Hey, EMACS: -*- nroff -*-
+.\" First parameter, NAME, should be all caps
+.\" Second parameter, SECTION, should be 1-8, maybe w/ subsection
+.\" other parameters are allowed: see man(7), man(1)
+.TH AMP-HTTP 8 "Mar 11, 2014" "amplet2-client" "The Active Measurement Project"
+.\" Please adjust this date whenever revising the manpage.
+.\"
+.\" Some roff macros, for reference:
+.\" .nh        disable hyphenation
+.\" .hy        enable hyphenation
+.\" .ad l      left justify
+.\" .ad b      justify to both left and right margins
+.\" .nf        disable filling
+.\" .fi        enable filling
+.\" .br        insert line break
+.\" .sp <n>    insert n+1 empty lines
+.\" for manpage-specific macros, see man(7)
+.SH NAME
+amp-http \- AMP standalone HTTP fetch test
+.SH SYNOPSIS
+\fBamp-http\fR \fB[-chkpv]\fR [\fB-m \fImax_con\fB\fR] [\fB-r \fImax_pipeline\fB\fR] [\fB-s \fImax_con_per_server\fB\fR] [\fB-x \fImax_persistent_con\fB\fR] [\fB-z \fIpipe_size\fB\fR] \fB-u \fIurl\fB\fR
+.SH DESCRIPTION
+.\" TeX users may be more comfortable with the \fB<whatever>\fP and
+.\" \fI<whatever>\fP escape sequences to invode bold face and italics,
+.\" respectively.
+\fBamp-http\fP is the standalone version of the \fBamplet2\fP(8)
+HTTP fetch test. Given a URL to a webpage it will fetch the page and most of
+the other content required to properly display it - CSS, images, javascript,
+etc. It will however not parse javascript, so won't fetch objects from URLs
+that are constructed programatically.
+
+.SH OPTIONS
+.TP
+\fB-c, --cached\fR
+Allow cached content.
+.TP
+\fB-h, --help\fR
+Show summary of options.
+.TP
+\fB-k, --no-keep-alive\fR
+Disable keep-alives. The default is enabled.
+.TP
+\fB-m, --max-con \fIcount\fB\fR
+Set the maximum number of connections to \fIcount\fR. The default is 24.
+.TP
+\fB-p, --pipeline\fR
+Enable pipelining. The default is disabled.
+.TP
+\fB-r, --max-pipelined-requests \fIcount\fB\fR
+Set the maximum number of pipelined requests to \fIcount\fR. The default is 4.
+.TP
+\fB-s, --max-con-per-server \fIcount\fB\fR
+Set the maximum number of connections per server to \fIcount\fR. The default is 8.
+.TP
+\fB-v, --version\fR
+Show version of program.
+.TP
+\fB-x, --max-persistent-con-per-server \fIcount\fB\fR
+Set the maximum number of persistent connections per server to \fIcount\fR. The default is 2.
+.TP
+\fB-z, --pipe-size \fIcount\fB\fR
+Set the threshold of pipelined requests in a pipe before a new pipeline is created. The default is 2.
+.\".TP
+.\"\fB-I, --interface \fIiface\fB\fR
+.\"Specifies the interface (device) that tests should use when sending packets.
+.\"By default the interface will be selected according to the routing table.
+.\".TP
+.\"\fB-x, --debug\fR
+.\"Enable extra debugging output.
+.\".TP
+.\"\fB-4, --sourcev4 \fIa.b.c.d\fB\fR
+.\"Specifies the source IPv4 address that tests should use when sending packets to
+.\"IPv4 targets. This address must belong to one of the interfaces.
+.\"By default the IPv4 address of the outgoing interface will be used.
+.\".TP
+.\"\fB-6, --sourcev6 \fIa:b:c:d:e:f:g:h\fB\fR
+.\"Specifies the source IPv6 address that tests should use when sending packets to
+.\"IPv6 targets. This address must belong to one of the interfaces.
+.\"By default the IPv6 address of the outgoing interface will be used.
+
+.SH SEE ALSO
+.BR amplet2 (8),
+.BR amp-icmp (8),
+.BR amp-trace (8),
+.BR amp-dns (8),
+.BR amp-throughput (8).
+
+.SH AUTHOR
+amp-http was written by Brendon Jones <brendonj@waikato.ac.nz>.
+.PP
+This manual page was written by Brendon Jones <brendonj@waikato.ac.nz>,
+for the Debian project (and may be used by others).

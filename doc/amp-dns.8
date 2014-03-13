@@ -1,0 +1,96 @@
+.\"                                      Hey, EMACS: -*- nroff -*-
+.\" First parameter, NAME, should be all caps
+.\" Second parameter, SECTION, should be 1-8, maybe w/ subsection
+.\" other parameters are allowed: see man(7), man(1)
+.TH AMP-DNS 8 "Mar 11, 2014" "amplet2-client" "The Active Measurement Project"
+.\" Please adjust this date whenever revising the manpage.
+.\"
+.\" Some roff macros, for reference:
+.\" .nh        disable hyphenation
+.\" .hy        enable hyphenation
+.\" .ad l      left justify
+.\" .ad b      justify to both left and right margins
+.\" .nf        disable filling
+.\" .fi        enable filling
+.\" .br        insert line break
+.\" .sp <n>    insert n+1 empty lines
+.\" for manpage-specific macros, see man(7)
+.SH NAME
+amp-dns \- AMP standalone DNS lookup test
+.SH SYNOPSIS
+\fBamp-dns\fR [\fB-hnrsx\fR] [\fB-p \fImilliseconds\fB\fR] [\fB-t \fItype\fB\fR] [\fB-c \fIclass\fB\fR] [\fB-z \fIsize\fB\fR] [\fB-I \fIiface\fB\fR] [\fB-4 \fIaddress\fB\fR] [\fB-6 \fIaddress\fB\fR] \fB-q \fIquery\fB\fR -- \fIdestination1\fR [\fIdestination2\fR \fI...\fR]
+.SH DESCRIPTION
+.\" TeX users may be more comfortable with the \fB<whatever>\fP and
+.\" \fI<whatever>\fP escape sequences to invode bold face and italics,
+.\" respectively.
+\fBamp-dns\fP is the standalone version of the \fBamplet2\fP(8)
+DNS lookup test. It is very similar in function to \fBdig\fR(1),
+except that it can
+test to multiple destinations simultaneously. All destinations listed on the
+command line will be tested to. Any destinations that are hostnames will be
+resolved, and every address that they resolve to will be tested.
+.SH OPTIONS
+.TP
+\fB-c, --class \fIclass\fB\fR
+Specifies the class of record that should be queried. Accepts the decimal
+value of any valid class, or IN for Internet. The default is IN.
+.TP
+\fB-h, --help\fR
+Show summary of options.
+.TP
+\fB-I, --interface \fIiface\fB\fR
+Specifies the interface (device) that tests should use when sending packets.
+By default the interface will be selected according to the routing table.
+.TP
+\fB-n, --nsid\fR
+Include an EDNS name server ID request when sending the query. Off by default.
+.TP
+\fB-p, --perturbate \fImilliseconds\fB\fR
+Delay the test by a random number of milliseconds, up to a maximum of \fImilliseconds\fR. The default is to not perturbate tests (no delay).
+.TP
+\fB-q, --query \fIquery\fB\fR
+The query name to ask the server about.
+.TP
+\fB-r, --recurse\fR
+Enable recursion for this query. Off by default.
+.TP
+\fB-s, --dnssec\fR
+Request that DNSSEC records be sent. Off by default.
+.TP
+\fB-t, --type \fItype\fB\fR
+Specifies the type of record that should be queried. Accepts the decimal
+value of any valid type, or one of A, NS, AAAA, PTR, MX, SOA, ANY.
+The default is A.
+.TP
+\fB-v, --version\fR
+Show version of program.
+.TP
+\fB-x, --debug\fR
+Enable extra debugging output.
+.TP
+\fB-z, --payload \fIsize\fB\fR
+Specifies the UDP payload buffer size for DNSSEC or NSID messages. The default
+is 4096.
+.TP
+\fB-4, --sourcev4 \fIa.b.c.d\fB\fR
+Specifies the source IPv4 address that tests should use when sending packets to
+IPv4 targets. This address must belong to one of the interfaces.
+By default the IPv4 address of the outgoing interface will be used.
+.TP
+\fB-6, --sourcev6 \fIa:b:c:d:e:f:g:h\fB\fR
+Specifies the source IPv6 address that tests should use when sending packets to
+IPv6 targets. This address must belong to one of the interfaces.
+By default the IPv6 address of the outgoing interface will be used.
+
+.SH SEE ALSO
+.BR amplet2 (8),
+.BR amp-icmp (8),
+.BR amp-trace (8),
+.BR amp-throughput (8),
+.BR amp-http (8).
+
+.SH AUTHOR
+amp-dns was written by Brendon Jones <brendonj@waikato.ac.nz>.
+.PP
+This manual page was written by Brendon Jones <brendonj@waikato.ac.nz>,
+for the Debian project (and may be used by others).
