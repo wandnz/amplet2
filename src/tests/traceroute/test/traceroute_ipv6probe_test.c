@@ -58,6 +58,14 @@ int main(void) {
         MAXLEN,
     };
 
+    /* make sure we have some storage for our fake address */
+    memset(&addr, 0, sizeof(addr));
+    addr.ai_addr = (struct sockaddr *)malloc(sizeof(struct sockaddr_in6));
+    addr.ai_family = AF_INET6;
+    addr.ai_addrlen = sizeof(struct sockaddr_in6);
+    addr.ai_canonname = NULL;
+    addr.ai_next = NULL;
+
     /* lets try every combination of values, there aren't that many */
     for ( id = 0; id < ID_COUNT; id++ ) {
         for ( ttl = 0; ttl < TTL_COUNT; ttl++ ) {
@@ -78,6 +86,8 @@ int main(void) {
             }
         }
     }
+
+    free(addr.ai_addr);
 
     return 0;
 }

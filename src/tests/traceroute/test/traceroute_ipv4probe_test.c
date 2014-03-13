@@ -108,5 +108,7 @@ int main(void) {
         }
     }
 
+    free(addr.ai_addr);
+
     return 0;
 }
