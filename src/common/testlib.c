@@ -260,7 +260,7 @@ int send_server_port(SSL *ssl, uint16_t port) {
 
     port = htons(port);
 
-    if ( SSL_write(ssl, &port, sizeof(port)) != sizeof(port) ) {
+    if ( SSL_write(ssl, &port, sizeof(port)) != sizeof(port) <= 0 ) {
         result = -1;
     }
 
