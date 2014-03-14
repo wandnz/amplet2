@@ -289,7 +289,7 @@ static void report_results(int sock_fd, struct opt_t *options,
     struct test_request_t *cur;
 
     /* Build our header up */
-    rh->version = REPORT_RESULT_VERSION;
+    rh->version = AMP_THROUGHPUT_TEST_VERSION;
     rh->count = 0; /* Add as we go */
     rh->start_ns = start_time_ns;
     rh->end_ns = end_time_ns;

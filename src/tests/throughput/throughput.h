@@ -50,7 +50,7 @@
 #endif
 
 /* use the current date with 2 digit count appended as version: YYYYMMDDXX */
-#define AMP_THROUGHPUT_TEST_VERSION 2013060401
+#define AMP_THROUGHPUT_TEST_VERSION 2014031300
 
 /* The default test time in seconds */
 #define DEFAULT_TESTTIME  20
@@ -80,7 +80,6 @@ void usage(char *prog);
 
 
 
-#define REPORT_RESULT_VERSION 1
 
 #define MAX_MALLOC 20e6
 
