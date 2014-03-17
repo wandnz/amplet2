@@ -158,7 +158,7 @@ int main(int argc, char *argv[]) {
 	    /* use the given name rather than the canonical name */
 	    rp->ai_canonname = strdup(argv[i]);
 	    /* make room for a new destination and fill it */
-	    dests = realloc(dests, (count + 1) * sizeof(struct addrinfo));
+	    dests = realloc(dests, (count + 1) * sizeof(struct addrinfo*));
 	    dests[count] = rp;
 	    count++;
 	}
