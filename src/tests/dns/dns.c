@@ -1002,3 +1002,15 @@ test_t *register_test() {
 
     return new_test;
 }
+
+
+
+#if UNIT_TEST
+char *amp_test_dns_encode(char *query) {
+    return encode(query);
+}
+
+char *amp_test_dns_decode(char *result, char *data, char *start) {
+    return decode(result, data, start);
+}
+#endif
