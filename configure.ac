@@ -200,7 +200,7 @@ if test x"$want_http_test" = xtrue; then
 fi
 
 # Set default CFLAGS including the AMP_CONFIG_DIR and AMP_TEST_DIR
-AC_SUBST([AM_CFLAGS], ["-rdynamic -g -Wall -W -DAMP_CONFIG_DIR=\\\"\$(sysconfdir)/\$(PACKAGE)\\\" -DAMP_TEST_DIRECTORY=\\\"\$(libdir)/\$(PACKAGE)/tests\\\""])
+AC_SUBST([AM_CFLAGS], ["-rdynamic -g -Wall -W -DAMP_CONFIG_DIR=\\\"\$(sysconfdir)/\$(PACKAGE)\\\" -DAMP_TEST_DIRECTORY=\\\"\$(libdir)/\$(PACKAGE)/tests\\\" -DAMP_LOG_DIR=\\\"\$(localstatedir)/log/\\\""])
 
 
 AC_CONFIG_FILES([Makefile

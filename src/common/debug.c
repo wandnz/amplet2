@@ -94,8 +94,9 @@ void Log(int priority, const char *fmt, ...)
     } else {
 	/* printing to a log file under our own control */
         /* TODO figure out the name of the current process for log message */
+        /* TODO make sure this log directory actually exists */
 	FILE *out;
-	if ( (out = fopen("/var/log/amp/amp-combined.log", "a")) == NULL ) {
+	if ( (out = fopen(AMP_LOG_DIR "/amplet2.log", "a")) == NULL ) {
 	    /* TODO something smart to report error in logging */
 	    return;
 	}
