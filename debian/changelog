@@ -1,3 +1,18 @@
+amplet2 (0.2.0-1) unstable; urgency=low
+
+  * New upstream release.
+  * Removed fixed size buffers from most test report messages.
+  * Try to better avoid parsing javascript in the HTTP test.
+  * Fix nametable to work with more than one name.
+  * Added fetching schedules via HTTP/HTTPS.
+  * Added a control socket to start local test servers via HTTPS.
+  * Added ability to set source address/interface to ICMP/traceroute/DNS tests.
+  * Added throughput test.
+  * Added basic unit tests for some behaviour.
+  * More documentation.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Tue, 18 Mar 2014 15:57:03 +1300
+
 amplet2 (0.1.13-1) unstable; urgency=low
 
   * New upstream release.
