@@ -163,7 +163,7 @@ AM_CONDITIONAL(WANT_DNS_TEST,
 
 AC_ARG_ENABLE(throughput,
     AC_HELP_STRING([--enable-throughput],
-	[Enable the throughput test (default: no)]),
+	[Enable the throughput test (default: yes)]),
     [case "${enableval}" in
     true) ;&
     yes) want_throughput_test=true ;;
@@ -171,7 +171,7 @@ AC_ARG_ENABLE(throughput,
     no)	 want_throughput_test=false ;;
     *) AC_MSG_ERROR(bad value ${enableval} for --enable-throughput) ;;
     esac],
-    [want_throughput_test=false])
+    [want_throughput_test=true])
 # using AM_CONDITIONAL propagates this value through to all Makefile.am files
 AM_CONDITIONAL(WANT_THROUGHPUT_TEST,
 	[test x"$want_throughput_test" = xtrue])
