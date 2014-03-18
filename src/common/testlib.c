@@ -260,7 +260,12 @@ int send_server_port(SSL *ssl, uint16_t port) {
 
     port = htons(port);
 
-    if ( SSL_write(ssl, &port, sizeof(port)) != sizeof(port) <= 0 ) {
+    /*
+     * man SSL_write:
+     * SSL_write() will only return with success, when the complete contents
+     * of buf of length num has been written.
+     */
+    if ( SSL_write(ssl, &port, sizeof(port)) <= 0 ) {
         result = -1;
     }
 
