@@ -10,6 +10,9 @@
 /* maximum size in bytes of a DNS name - 255 bytes */
 #define MAX_DNS_NAME_LEN MAX_STRING_FIELD
 
+/* Apparently BIND has a limit of 256 characters per line in /etc/resolv.conf */
+#define MAX_RESOLV_CONF_LINE 256
+
 /* timeout in usec to wait before declaring the response lost, currently 20s */
 #define LOSS_TIMEOUT 20000000
 

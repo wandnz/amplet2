@@ -754,6 +754,7 @@ int run_dns(int argc, char *argv[], int count, struct addrinfo **dests) {
     uint16_t ident;
     struct addrinfo *sourcev4, *sourcev6;
     char *device;
+    int local_resolv;
 
     Log(LOG_DEBUG, "Starting DNS test");
 
@@ -769,6 +770,7 @@ int run_dns(int argc, char *argv[], int count, struct addrinfo **dests) {
     sourcev4 = NULL;
     sourcev6 = NULL;
     device = NULL;
+    local_resolv = 0;
 
     while ( (opt = getopt(argc, argv, "hI:q:t:c:z:rsn4:6:")) != -1 ) {
 	switch ( opt ) {
@@ -793,6 +795,48 @@ int run_dns(int argc, char *argv[], int count, struct addrinfo **dests) {
     assert(options.query_type > 0);
     assert(options.query_class > 0);
     assert(options.udp_payload_size > 512);
+
+    /* if no destinations have been set then try to use /etc/resolv.conf */
+    if ( count == 0 && dests == NULL ) {
+        FILE *resolv;
+        char line[MAX_RESOLV_CONF_LINE];
+        char nameserver[MAX_DNS_NAME_LEN];
+        struct addrinfo *addr;
+
+        Log(LOG_DEBUG, "No destinations set, checking /etc/resolve.conf");
+
+        /* There is a define _PATH_RESCONF in resolv.h should we use it? */
+        if ( (resolv = fopen("/etc/resolv.conf", "r")) == NULL ) {
+            Log(LOG_WARNING, "Failed to open /etc/resolv.conf for reading: %s",
+                    strerror(errno));
+            return -1;
+        }
+
+        /*
+         * Read each line of /etc/resolv.conf and extract just the nameserver
+         * lines as our destinations to query.
+         */
+        while ( fgets(line, MAX_RESOLV_CONF_LINE, resolv) != NULL ) {
+            if ( sscanf(line, "nameserver %s\n", (char*)&nameserver) == 1 ) {
+                Log(LOG_DEBUG, "Got nameserver: %s", nameserver);
+
+                if ( (addr = get_numeric_address(nameserver)) == NULL ) {
+                    continue;
+                }
+
+                /* need a name to report the results under, use the address */
+                addr->ai_canonname = strdup(nameserver);
+
+                /* just put the first resolved address in the dest list */
+                dests = realloc(dests, (count + 1) * sizeof(struct addrinfo*));
+                dests[count] = addr;
+                count++;
+            }
+        }
+        /* mark it so we know that we have to free dests ourselves later */
+        local_resolv = 1;
+        fclose(resolv);
+    }
 
     /* delay the start by a random amount of perturbate is set */
     if ( options.perturbate ) {
@@ -867,6 +911,15 @@ int run_dns(int argc, char *argv[], int count, struct addrinfo **dests) {
 
     free(options.query_string);
     free(info);
+
+    /* free any addresses we've had to make ourselves */
+    if ( local_resolv && dests ) {
+        while ( count > 0 ) {
+            freeaddrinfo(dests[count-1]);
+            count--;
+        }
+        free(dests);
+    }
 
     return 0;
 }
