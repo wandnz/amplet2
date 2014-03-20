@@ -41,7 +41,9 @@ char *address_to_name(struct addrinfo *address);
 uint16_t start_remote_server(test_type_t type, struct addrinfo *dest);
 int send_server_port(SSL *ssl, uint16_t port);
 struct addrinfo *get_numeric_address(char *interface);
+int bind_socket_to_device(int sock, char *device);
 int bind_sockets_to_device(struct socket_t *sockets, char *device);
+int bind_socket_to_address(int sock, struct addrinfo *address);
 int bind_sockets_to_address(struct socket_t *sockets,
         struct addrinfo *sourcev4, struct addrinfo *sourcev6);
 

@@ -451,14 +451,15 @@ struct addrinfo *get_numeric_address(char *address) {
 /*
  * Bind a socket to a particular network device.
  */
-static int bind_socket_to_device(int sock, char *device) {
+int bind_socket_to_device(int sock, char *device) {
     assert(device);
 
     Log(LOG_DEBUG, "Trying to bind socket to device '%s'", device);
 
     if ( setsockopt(sock, SOL_SOCKET, SO_BINDTODEVICE, device,
                 strlen(device)+1) < 0 ) {
-        Log(LOG_WARNING, "Failed to bind to device %s", device);
+        Log(LOG_WARNING, "Failed to bind to device %s: %s", device,
+                strerror(errno));
         return -1;
     }
 
@@ -470,7 +471,7 @@ static int bind_socket_to_device(int sock, char *device) {
 /*
  * Bind a socket to a particular address.
  */
-static int bind_socket_to_address(int sock, struct addrinfo *address) {
+int bind_socket_to_address(int sock, struct addrinfo *address) {
     char addrstr[INET6_ADDRSTRLEN];
 
     assert(address);
