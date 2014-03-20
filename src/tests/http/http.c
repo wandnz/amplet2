@@ -263,6 +263,62 @@ static void split_url(char *url, char *server, char *path) {
 
 
 /*
+ * Custom open socket callback function to bind source interface and addresses.
+ * Libcurl provides the CURLOPT_INTERFACE option, but that will only take a
+ * single interface/address. If both a source IPv4 and IPv6 address has been
+ * set then we need to make sure to use the appropriate source address.
+ *
+ * We do this here by checking the family of the resolved address, and binding
+ * the socket to our source address of the same family, if specified.
+ */
+static curl_socket_t open_socket(__attribute__((unused))void *clientp,
+        curlsocktype purpose, struct curl_sockaddr *address) {
+
+    int sock;
+
+    if ( purpose != CURLSOCKTYPE_IPCXN ) {
+        return CURL_SOCKET_BAD;
+    }
+
+    sock = socket(address->family, address->socktype, address->protocol);
+
+    /*
+     * Bind to the device. We could use libcurl for this by setting
+     * CURLOPT_INTERFACE, but for now we will use the same code that all
+     * the other tests use.
+     */
+    if ( options.device ) {
+        if ( bind_socket_to_device(sock, options.device) < 0 ) {
+            return CURL_SOCKET_BAD;
+        }
+    }
+
+    /*
+     * Bind any source addresses that have been set. If at least one address
+     * has been set then the name resolution will be limited to that address
+     * family, which should prevent us trying to connect to an IPv6 address
+     * using an IPv4 as the source.
+     */
+    if ( options.sourcev4 || options.sourcev6 ) {
+        struct addrinfo *addr;
+
+        switch ( address->family ) {
+            case AF_INET: addr = get_numeric_address(options.sourcev4); break;
+            case AF_INET6: addr = get_numeric_address(options.sourcev6); break;
+            default: return CURL_SOCKET_BAD;
+        };
+
+        if ( bind_socket_to_address(sock, addr) < 0 ) {
+            return CURL_SOCKET_BAD;
+        }
+    }
+
+    return sock;
+}
+
+
+
+/*
  *
  */
 static struct curl_slist *config_request_headers(char *url, int caching) {
@@ -584,20 +640,15 @@ CURL *pipeline_next_object(struct server_stats_t *server) {
     curl_easy_setopt(object->handle, CURLOPT_LOW_SPEED_LIMIT, 1);
     curl_easy_setopt(object->handle, CURLOPT_LOW_SPEED_TIME, 30);
 
-#if 0
     /*
-     * XXX if we bind to multiple addresses, only the last one is used (even
-     * if they are different address families). This means if we want to test
-     * to a v4 address but end up bound to a v6 address, it doesn't work.
+     * If an interface or address is specified then we need a custom socket
+     * creation function to deal with it. Could pass in the options struct,
+     * but it is currently global anyway.
      */
-    if ( options.device ) {
-        curl_easy_setopt(object->handle, CURLOPT_INTERFACE, options.device);
-    }
-    if ( options.sourcev4 ) {
-        curl_easy_setopt(object->handle, CURLOPT_INTERFACE, options.sourcev4);
-    }
-    if ( options.sourcev6 ) {
-        curl_easy_setopt(object->handle, CURLOPT_INTERFACE, options.sourcev6);
+    if ( options.device || options.sourcev4 || options.sourcev4 ) {
+        //curl_easy_setopt(object->handle, CURLOPT_OPENSOCKETDATA, &options);
+        curl_easy_setopt(object->handle, CURLOPT_OPENSOCKETFUNCTION,
+                open_socket);
     }
 
     /* if we have bound to a particular address family, use it exclusively */
@@ -605,8 +656,10 @@ CURL *pipeline_next_object(struct server_stats_t *server) {
         curl_easy_setopt(object->handle, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V4);
     } else if ( options.sourcev6 && !options.sourcev4 ) {
         curl_easy_setopt(object->handle, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V6);
+    } else {
+        curl_easy_setopt(object->handle, CURLOPT_IPRESOLVE,
+                CURL_IPRESOLVE_WHATEVER);
     }
-#endif
 
     //if ( strcmp(options.url, object->url) == 0 ) {
     if ( strcmp(options.host, object->server_name) == 0 &&
@@ -1074,11 +1127,9 @@ int run_http(int argc, char *argv[], __attribute__((unused))int count,
 
     while ( (opt = getopt(argc, argv, "u:km:s:x:pr:cz:hI:4:6:")) != -1 ) {
 	switch ( opt ) {
-            case 'I': /*options.device = optarg; break;*/
-            case '4': /*options.sourcev4 = optarg; break;*/
-            case '6': /*options.sourcev6 = optarg; break;*/
-                Log(LOG_DEBUG, "Temporarily ignoring source iface/addresses");
-                break;
+            case 'I': options.device = optarg; break;
+            case '4': options.sourcev4 = optarg; break;
+            case '6': options.sourcev6 = optarg; break;
 	    //case 'u': strncpy(options.url, optarg, MAX_URL_LEN); break;
 	    case 'u': split_url(optarg, options.host, options.path);
                       strncpy(options.url, optarg, MAX_URL_LEN); break;
