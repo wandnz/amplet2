@@ -296,6 +296,9 @@ struct opt_t {
     int32_t sock_sndbuf;
     char *textual_schedule;
     struct test_request_t *schedule; /* The test sequence */
+    char *device;
+    struct addrinfo *sourcev4;
+    struct addrinfo *sourcev6;
 };
 
 /* All of our packet types */

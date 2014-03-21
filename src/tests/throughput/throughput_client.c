@@ -193,6 +193,35 @@ static int connectToServer(struct addrinfo *serv_addr, struct opt_t *options,
         doSocketSetup(options, sock);
 
         /*
+         * Set options that are at the AMP test level rather than specific
+         * to the throughput test. We need to know what address family we
+         * are connecting to, which doSocketSetup doesn't know.
+         */
+        if ( options->device ) {
+            if ( bind_socket_to_device(sock, options->device) < 0 ) {
+                return -1;
+            }
+        }
+
+        if ( options->sourcev4 || options->sourcev6 ) {
+            struct addrinfo *addr;
+
+            switch ( serv_addr->ai_family ) {
+                case AF_INET: addr = options->sourcev4; break;
+                case AF_INET6: addr = options->sourcev6; break;
+                default: return -1;
+            };
+
+            /*
+             * Only bind if we have a specific source with the same address
+             * family as the destination, otherwise leave it default.
+             */
+            if ( addr && bind_socket_to_address(sock, addr) < 0 ) {
+                return -1;
+            }
+        }
+
+        /*
          * If addrinfo has a valid port use that otherwise put in our default.
          * It should be safe to use the IPv4 version here since IPv6 should be
          * in the same place the sizes match
@@ -420,6 +449,9 @@ static int runSchedule(struct addrinfo *serv_addr, struct opt_t *options) {
 
     memset(&packet, 0, sizeof(packet));
     memset(&srv_opts, 0, sizeof(srv_opts));
+    srv_opts.device = options->device;
+    srv_opts.sourcev4 = options->sourcev4;
+    srv_opts.sourcev6 = options->sourcev6;
 
     /* Connect to the server control socket */
     control_socket = connectToServer(serv_addr, &srv_opts, options->cport);
@@ -617,25 +649,12 @@ int run_throughput_client(int argc, char *argv[], int count,
         struct addrinfo **dests) {
     struct opt_t options;
     int opt;
-    //int i;
     char modifiable[] = DEFAULT_TEST_SCHEDULE;
     int option_index = 0;
     extern struct option long_options[];
     char *client;
-    struct addrinfo *sourcev4, *sourcev6;
-    char *device;
 
     Log(LOG_DEBUG, "Running throughput test as client");
-
-/*
-    Log(LOG_DEBUG, "Starting throughput test - got given %d addresses", count);
-    Log(LOG_DEBUG, "Our Structure sizes Pkt:%d RptHdr:%d RptRes:%d Rpt10G:%d",
-            sizeof(struct packet_t),
-            sizeof(struct report_header_t),
-            sizeof(struct report_result_t),
-            sizeof(struct report_web10g_t)
-       );
-*/
 
     /* set some sensible defaults */
     options.write_size = DEFAULT_WRITE_SIZE;
@@ -651,18 +670,18 @@ int run_throughput_client(int argc, char *argv[], int count,
     options.textual_schedule = NULL;
     options.reuse_addr = 0;
 
+    options.sourcev4 = NULL;
+    options.sourcev6 = NULL;
+    options.device = NULL;
     client = NULL;
-    sourcev4 = NULL;
-    sourcev6 = NULL;
-    device = NULL;
 
     while ( (opt = getopt_long(argc, argv, "?hp:P:rz:o:i:Nm:wS:c:4:6:I:t:",
                     long_options, &option_index)) != -1 ) {
 
         switch ( opt ) {
-            case '4': sourcev4 = get_numeric_address(optarg); break;
-            case '6': sourcev6 = get_numeric_address(optarg); break;
-            case 'I': device = optarg; break;
+            case '4': options.sourcev4 = get_numeric_address(optarg); break;
+            case '6': options.sourcev6 = get_numeric_address(optarg); break;
+            case 'I': options.device = optarg; break;
             /* case 'B': for iperf compatability? */
             case 'c': client = optarg; break;
             case 'p': options.cport = atoi(optarg); break;
@@ -762,13 +781,6 @@ int run_throughput_client(int argc, char *argv[], int count,
         options.cport = remote_port;
     }
     runSchedule(dests[0], &options);
-
-    /* Loop through all the addresses we are asked to test */
-#if 0
-    for ( i = 0; i < count; i++ ) {
-        runSchedule(dests[i], &options);
-    }
-#endif
 
     if ( client != NULL ) {
         freeaddrinfo(dests[0]);

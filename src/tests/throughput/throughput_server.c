@@ -6,6 +6,7 @@
  */
 
 #include <getopt.h>
+#include <assert.h>
 
 #include "throughput.h"
 
@@ -19,72 +20,90 @@
  *
  * @return the bound socket or return -1 if this fails
  */
-static int startListening(int port, struct opt_t *sockopts) {
-    int sock = -1;
-    struct addrinfo hints;
-    struct addrinfo *addrs, *current;
-    char portstr[10];
+static int startListening(struct socket_t *sockets, int port,
+        struct opt_t *sockopts) {
 
-    /* Get all interfaces and in order attempt to bind to them */
-    memset(&hints, 0, sizeof(hints));
+    assert(sockets);
+    assert(sockopts);
 
-    /* Allow IPv6 note AI_V4MAPPED allows IPv4 I think ?? */
-    hints.ai_family = AF_INET6;
-    hints.ai_socktype = SOCK_STREAM;
-    /* For wildcard IP address */
-    hints.ai_flags = AI_PASSIVE | AI_V4MAPPED | AI_ALL;
+    sockets->socket = -1;
+    sockets->socket6 =  -1;
 
-    /* Have to make our port number a string for getaddrinfo() :( */
-    snprintf(portstr, sizeof(portstr), "%d", port);
-
-    /* The hint should give us a IPv6 and IPv4 binding if possible */
-    if ( getaddrinfo(NULL, portstr, &hints, &addrs) < 0 ) {
-        Log(LOG_ERR, "getaddrinfo failed: %s", strerror(errno));
+    /* open an ipv4 and an ipv6 socket so we can configure them individually */
+    if ( sockopts->sourcev4 &&
+            (sockets->socket=socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0 ) {
+        Log(LOG_WARNING, "Failed to open socket for IPv4: %s", strerror(errno));
     }
 
-    for ( current = addrs; current != NULL ; current = current->ai_next ) {
-
-        /* Open a socket that we can listen on */
-        if ( (sock = socket(current->ai_family, current->ai_socktype,
-                        current->ai_protocol)) < 0 ) {
-            Log(LOG_WARNING, "startListening failed to create a socket(): %s",
-                    strerror(errno));
-            continue;
-        }
-        /* Set socket options */
-        doSocketSetup(sockopts, sock);
-
-        if ( bind(sock, current->ai_addr, current->ai_addrlen) == 0) {
-            break; /* successfully bound*/
-        }
-
-        /* State of socket is unknown after a failed bind() */
-        close(sock);
-        sock = -1;
+    if ( sockopts->sourcev6 &&
+            (sockets->socket6=socket(AF_INET6,SOCK_STREAM,IPPROTO_TCP)) < 0 ) {
+        Log(LOG_WARNING, "Failed to open socket for IPv4: %s", strerror(errno));
     }
 
-    freeaddrinfo(addrs);
+    /* make sure that at least one of them was opened ok */
+    if ( sockets->socket < 0 && sockets->socket6 < 0 ) {
+        return -1;
+    }
 
-    if ( sock == -1 ) {
-        Log(LOG_ERR, "startListening failed to bind the listening socket");
-        goto errorCleanup;
+    /* set all the socket options that have been asked for */
+    if ( sockets->socket > 0 ) {
+        doSocketSetup(sockopts, sockets->socket);
+        ((struct sockaddr_in*)
+         (sockopts->sourcev4->ai_addr))->sin_port = ntohs(port);
+    }
+
+    if ( sockets->socket6 > 0 ) {
+        int one = 1;
+        doSocketSetup(sockopts, sockets->socket6);
+        /*
+         * If we dont set IPV6_V6ONLY this socket will try to do IPv4 as well
+         * and it will fail.
+         */
+        setsockopt(sockets->socket6, IPPROTO_IPV6, IPV6_V6ONLY, &one,
+                sizeof(one));
+        ((struct sockaddr_in6*)
+         (sockopts->sourcev6->ai_addr))->sin6_port = ntohs(port);
+    }
+
+    /* bind them to interfaces and addresses as required */
+    if ( sockopts->device &&
+            bind_sockets_to_device(sockets, sockopts->device) < 0 ) {
+        Log(LOG_ERR, "Unable to bind sockets to device, aborting test");
+        return -1;
+    }
+
+    if ( bind_sockets_to_address(sockets, sockopts->sourcev4,
+                sockopts->sourcev6) < 0 ) {
+        Log(LOG_ERR,"Unable to bind socket to address, aborting test");
+        return -1;
     }
 
     /* Start listening for at most 1 connection, we don't want a huge queue */
-    if (listen(sock, 1) == -1) {
-        Log(LOG_ERR, "startListening failed to listen on our bound socket: %s",
-                strerror(errno));
-        goto errorCleanup;
+    if ( sockets->socket > 0 ) {
+        if ( listen(sockets->socket, 1) < 0 ) {
+            Log(LOG_WARNING, "Failed to listen on IPv4 socket: %s",
+                    strerror(errno));
+            close(sockets->socket);
+            sockets->socket = -1;
+        }
     }
 
-    Log(LOG_DEBUG, "Successfully listening on port %s", portstr);
-    return sock;
-
-    errorCleanup:
-    if ( sock != -1 ) {
-        close(sock);
+    if ( sockets->socket6 > 0 ) {
+        if ( listen(sockets->socket6, 1) < 0 ) {
+            Log(LOG_WARNING, "Failed to listen on IPv6 socket: %s",
+                    strerror(errno));
+            close(sockets->socket6);
+            sockets->socket6 = -1;
+        }
     }
-    return -1;
+
+    /* make sure that at least one of them is listening ok */
+    if ( sockets->socket < 0 && sockets->socket6 < 0 ) {
+        return -1;
+    }
+
+    Log(LOG_DEBUG, "Successfully listening on port %d", port);
+    return 0;
 }
 
 
@@ -100,12 +119,42 @@ static uint16_t getSocketPort(int sock_fd) {
     struct sockaddr_storage ss;
     socklen_t len = sizeof(ss);
 
+    assert(sock_fd > 0);
+
     getsockname(sock_fd, (struct sockaddr*)&ss,  &len);
     if ( ((struct sockaddr *)&ss)->sa_family == AF_INET ) {
         return ntohs((((struct sockaddr_in*)&ss)->sin_port));
     } else {
         return ntohs((((struct sockaddr_in6*)&ss)->sin6_port));
     }
+}
+
+
+
+/*
+ * Return the local address that the socket is using.
+ */
+static struct addrinfo *getSocketAddress(int sock_fd) {
+    struct addrinfo *addr;
+
+    assert(sock_fd > 0);
+
+    /* make our own struct addrinfo */
+    addr = (struct addrinfo *)malloc(sizeof(struct addrinfo));
+    addr->ai_addr = (struct sockaddr *)malloc(sizeof(struct sockaddr_storage));
+    addr->ai_addrlen = sizeof(struct sockaddr_storage);
+
+    /* ask to fill in the ai_addr portion for our socket */
+    getsockname(sock_fd, addr->ai_addr, &addr->ai_addrlen);
+
+    /* we already know most of the rest, so fill that in too */
+    addr->ai_family = ((struct sockaddr*)addr->ai_addr)->sa_family;
+    addr->ai_socktype = SOCK_STREAM;
+    addr->ai_protocol = IPPROTO_TCP;
+    addr->ai_canonname = NULL;
+    addr->ai_next = NULL;
+
+    return addr;
 }
 
 
@@ -118,41 +167,54 @@ static uint16_t getSocketPort(int sock_fd) {
  *
  * @return 0 if successful, -1 upon error.
  */
-static int serveTest(int control_socket) {
+static int serveTest(int control_socket, struct opt_t *sockopts) {
     struct packet_t packet;
     struct test_result_t result;
     int bytes_read;
     struct report_web10g_t *web10g = NULL;
-    struct opt_t sockopts;
-    int t_listen = -1;
+    int t_listen;
     int test_socket = -1;
     struct sockaddr_storage client_addr;
     socklen_t client_addrlen = sizeof(client_addr);
     uint32_t version = 0;
+    struct socket_t sockets;
 
     memset(&packet, 0, sizeof(packet));
     memset(&result, 0, sizeof(result));
-    memset(&sockopts, 0, sizeof(sockopts));
 
     /* Read the hello and check we are compatable */
     bytes_read = readPacket(control_socket, &packet, NULL);
 
-    if ( readHelloPacket(&packet, &sockopts, &version) != 0 ) {
+    if ( readHelloPacket(&packet, sockopts, &version) != 0 ) {
         goto errorCleanup;
     }
     if ( version != AMP_THROUGHPUT_TEST_VERSION ) {
-        Log(LOG_ERR, "Incompatable Client connecting they are version %"PRIu32" but I'm version %d",
+        Log(LOG_ERR, "Wrong client version: got %d, expected %d",
                 version, AMP_THROUGHPUT_TEST_VERSION);
         goto errorCleanup;
     }
 
     /* No errors so far, make our new testsocket with the given test options */
-    sockopts.reuse_addr = 1;
-    t_listen = startListening(sockopts.tport, &sockopts);
-    if ( t_listen == -1 ) {
-        Log(LOG_ERR, "Failed to open listening socket terminating");
+    if ( startListening(&sockets, sockopts->tport, sockopts) < 0 ) {
+        Log(LOG_WARNING, "Failed to start listening for test traffic");
         goto errorCleanup;
     }
+
+    assert(sockets.socket > 0 || sockets.socket6 > 0);
+
+    /*
+     * Only a single socket should be listening now, and it should be on the
+     * same address that the original control connection arrived on.
+     */
+    if ( sockets.socket > 0 ) {
+        Log(LOG_DEBUG, "Serving test over IPv4");
+        t_listen = sockets.socket;
+    } else {
+        Log(LOG_DEBUG, "Serving test over IPv6");
+        t_listen = sockets.socket6;
+    }
+
+    /* send a packet over the control connection containing the test port */
     sendReadyPacket(control_socket, getSocketPort(t_listen));
 
     do {
@@ -180,7 +242,7 @@ static int serveTest(int control_socket) {
                     goto errorCleanup;
                 }
 
-                if ( !sockopts.disable_web10g ) {
+                if ( !sockopts->disable_web10g ) {
                     web10g = getWeb10GSnap(test_socket);
                 }
 
@@ -202,7 +264,7 @@ static int serveTest(int control_socket) {
                     req.duration = packet.types.send.duration_ms;
                     req.write_size = packet.types.send.write_size;
                     req.bytes = packet.types.send.bytes;
-                    req.randomise = sockopts.randomise;
+                    req.randomise = sockopts->randomise;
                     Log(LOG_DEBUG, "Got send request, dur:%d bytes:%d writes:%d",
                             req.duration, req.bytes, req.write_size);
 
@@ -220,7 +282,7 @@ static int serveTest(int control_socket) {
 
                         case 0:
                         /* Success or our fake success from case 1: */
-                        if ( !sockopts.disable_web10g ) {
+                        if ( !sockopts->disable_web10g ) {
                             web10g = getWeb10GSnap(test_socket);
                         }
                         /* Unlike old test, send result for either direction */
@@ -243,11 +305,14 @@ static int serveTest(int control_socket) {
                 Log(LOG_DEBUG, "Client asked to renew the connection");
 
                 /* Ready the listening socket again */
-                sockopts.reuse_addr = 1;
-                t_listen = startListening(sockopts.tport, &sockopts);
-                if ( t_listen == -1 ) {
+                if ( startListening(&sockets, sockopts->tport, sockopts) < 0 ) {
                     Log(LOG_ERR, "Failed to open listening socket terminating");
                     goto errorCleanup;
+                }
+                if ( sockets.socket > 0 ) {
+                    t_listen = sockets.socket;
+                } else {
+                    t_listen = sockets.socket6;
                 }
 
                 /* Finish this side of the TCP connection */
@@ -315,41 +380,32 @@ errorCleanup:
  */
 void run_throughput_server(int argc, char *argv[], SSL *ssl) {
     int port; /* Port to start server on */
-    int listen_socket; /* Our listening socket */
+    struct socket_t listen_sockets;
     int control_sock; /* Our clients control socket connection */
     int opt;
     struct opt_t sockopts;
     struct sockaddr_storage client_addr;
     socklen_t client_addrlen;
-    struct addrinfo *sourcev4, *sourcev6;
-    char *device;
+    char *sourcev4, *sourcev6;
+    int family;
+    int maxwait;
 
     /* Possibly could use dests to limit interfaces to listen on */
 
     Log(LOG_DEBUG, "Running throughput test as server");
 
-/*
-    Log(LOG_DEBUG, "Our Structure sizes Pkt:%d RptHdr:%d RptRes:%d Rpt10G:%d",
-            sizeof(struct packet_t),
-            sizeof(struct report_header_t),
-            sizeof(struct report_result_t),
-            sizeof(struct report_web10g_t)
-       );
-*/
-
     /* set some sensible defaults */
     memset(&sockopts, 0, sizeof(sockopts));
+    sourcev4 = "0.0.0.0";
+    sourcev6 = "::";
     port = DEFAULT_CONTROL_PORT;
-    sourcev4 = NULL;
-    sourcev6 = NULL;
-    device = NULL;
 
     /* TODO server should take long options too */
     while ( (opt = getopt(argc, argv, "?hp:4:6:I:")) != -1 ) {
         switch ( opt ) {
-            case '4': sourcev4 = get_numeric_address(optarg); break;
-            case '6': sourcev6 = get_numeric_address(optarg); break;
-            case 'I': device = optarg; break;
+            case '4': sourcev4 = optarg; break;
+            case '6': sourcev6 = optarg; break;
+            case 'I': sockopts.device = optarg; break;
             /* case 'B': for iperf compatability? */
             case 'p': port = atoi(optarg); break;
             case 'h':
@@ -359,9 +415,12 @@ void run_throughput_server(int argc, char *argv[], SSL *ssl) {
         };
     }
 
+    sockopts.sourcev4 = get_numeric_address(sourcev4);
+    sockopts.sourcev6 = get_numeric_address(sourcev6);
+
     /* listen for a connection from a client */
     sockopts.reuse_addr = 1;
-    if ( (listen_socket = startListening(port, &sockopts)) < 0 ) {
+    if ( startListening(&listen_sockets, port, &sockopts) < 0 ) {
         Log(LOG_ERR, "Failed to open listening socket terminating");
         return;
     }
@@ -381,24 +440,70 @@ void run_throughput_server(int argc, char *argv[], SSL *ssl) {
         }
     }
 
+    /* select on our listening sockets until someone connects */
+    maxwait = 60000000; /* XXX 60s, how long should this be? */
+    if ( (family = wait_for_data(&listen_sockets, &maxwait)) <= 0 ) {
+        Log(LOG_DEBUG, "Timeout out waiting for connection");
+        return;
+    }
+
     client_addrlen = sizeof(client_addr);
-    do {
-        control_sock = accept(listen_socket, (struct sockaddr*) &client_addr,
-                &client_addrlen);
-    } while ( control_sock == -1 && errno == EINTR );
+    switch ( family ) {
+        case AF_INET: control_sock = accept(listen_sockets.socket,
+                              (struct sockaddr*)&client_addr, &client_addrlen);
+                      Log(LOG_DEBUG, "Got control connection on IPv4");
+                      /* clear out the v6 address, it isn't needed any more */
+                      freeaddrinfo(sockopts.sourcev6);
+                      sockopts.sourcev6 = NULL;
+                      /* set v4 address to where we received the connection */
+                      freeaddrinfo(sockopts.sourcev4);
+                      sockopts.sourcev4 = getSocketAddress(control_sock);
+                      break;
 
-    /* Close the listening socket */
-    close(listen_socket);
+        case AF_INET6: control_sock = accept(listen_sockets.socket6,
+                              (struct sockaddr*)&client_addr, &client_addrlen);
+                      Log(LOG_DEBUG, "Got control connection on IPv6");
+                      /* clear out the v4 address, it isn't needed any more */
+                      freeaddrinfo(sockopts.sourcev4);
+                      sockopts.sourcev4 = NULL;
+                      /* set v6 address to where we received the connection */
+                      freeaddrinfo(sockopts.sourcev6);
+                      sockopts.sourcev6 = getSocketAddress(control_sock);
+                      break;
 
-    if ( control_sock == -1 ) {
+        default: return;
+    };
+
+    /* someone has connected, so close up all the listening sockets */
+    if ( listen_sockets.socket > 0 ) {
+        close(listen_sockets.socket);
+    }
+
+    if ( listen_sockets.socket6 > 0 ) {
+        close(listen_sockets.socket6);
+    }
+
+    if ( control_sock < 0 ) {
         Log(LOG_WARNING, "Failed to accept connection: %s", strerror(errno));
         return;
     }
 
     Log(LOG_DEBUG, "Got a client connection");
 
-    serveTest(control_sock);
+    /* this will serve the test only on the address we got connected to on */
+    serveTest(control_sock, &sockopts);
     close(control_sock);
+
+    /* we made the addrinfo structs ourselves, so have to free them manually */
+    if ( sockopts.sourcev4 ) {
+        free(sockopts.sourcev4->ai_addr);
+        free(sockopts.sourcev4);
+    }
+
+    if ( sockopts.sourcev6 ) {
+        free(sockopts.sourcev6->ai_addr);
+        free(sockopts.sourcev6);
+    }
 
     return;
 }
