@@ -497,7 +497,7 @@ int bind_socket_to_address(int sock, struct addrinfo *address) {
  * sockets isn't set then it will be ignored.
  */
 int bind_sockets_to_device(struct socket_t *sockets, char *device) {
-    Log(LOG_DEBUG, "Binding ICMP test to interface %s", device);
+    Log(LOG_DEBUG, "Binding test to interface %s", device);
     assert(sockets);
     assert(sockets->socket >= 0 || sockets->socket6 >= 0);
     assert(device);
@@ -536,7 +536,7 @@ int bind_sockets_to_address(struct socket_t *sockets,
             (sockets->socket6 >= 0 && sourcev6) );
 
     if ( sourcev4 && sockets->socket >= 0 ) {
-        Log(LOG_DEBUG, "Binding ICMP test to source IPv4 address %s",
+        Log(LOG_DEBUG, "Binding test to source IPv4 address %s",
                 amp_inet_ntop(sourcev4, addrstr));
 
         if ( bind_socket_to_address(sockets->socket, sourcev4) < 0 ) {
@@ -547,7 +547,7 @@ int bind_sockets_to_address(struct socket_t *sockets,
     }
 
     if ( sourcev6 && sockets->socket6 >= 0 ) {
-        Log(LOG_DEBUG, "Binding ICMP test to source IPv6 address %s",
+        Log(LOG_DEBUG, "Binding test to source IPv6 address %s",
                 amp_inet_ntop(sourcev6, addrstr));
 
         if ( bind_socket_to_address(sockets->socket6, sourcev6) < 0 ) {
