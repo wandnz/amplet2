@@ -12,6 +12,7 @@
 #include <string.h>
 
 //TODO rename files and headers better?
+#include "config.h"
 #include "testlib.h"
 #include "http.h"
 #include "servers.h"
@@ -29,6 +30,25 @@ struct server_stats_t *server_list = NULL;
 int total_pipelines;
 int total_requests;
 struct opt_t options;
+
+
+
+static struct option long_options[] = {
+    {"cached", no_argument, 0, 'c'},
+    {"help", no_argument, 0, 'h'},
+    {"interface", required_argument, 0, 'I'},
+    {"no-keep-alive", no_argument, 0, 'k'},
+    {"max-con", required_argument, 0, 'm'},
+    {"pipeline", no_argument, 0, 'p'},
+    {"max-persistent-con-per-server", required_argument, 0, 'o'},
+    {"max-pipelined-requests", required_argument, 0, 'r'},
+    {"max-con-per-server", required_argument, 0, 's'},
+    {"version", no_argument, 0, 'v'},
+    {"pipe-size", required_argument, 0, 'z'},
+    {"ipv4", required_argument, 0, '4'},
+    {"ipv6", required_argument, 0, '6'},
+    {NULL, 0, 0, 0}
+};
 
 
 
@@ -1097,6 +1117,16 @@ static void usage(char *prog) {
 
 
 /*
+ *
+ */
+static void version(char *prog) {
+    fprintf(stderr, "%s, amplet version %s, protocol version %d\n", prog,
+            PACKAGE_STRING, AMP_HTTP_TEST_VERSION);
+}
+
+
+
+/*
  * Reimplementation of the HTTP2 test from AMP
  *
  * TODO get useful errors into the log strings
@@ -1127,7 +1157,8 @@ int run_http(int argc, char *argv[], __attribute__((unused))int count,
     options.sourcev4 = NULL;
     options.sourcev6 = NULL;
 
-    while ( (opt = getopt(argc, argv, "u:km:s:x:pr:cz:hI:4:6:")) != -1 ) {
+    while ( (opt = getopt_long(argc, argv, "u:km:s:o:pr:cz:hvI:4:6:",
+                    long_options, NULL)) != -1 ) {
 	switch ( opt ) {
             case 'I': options.device = optarg; break;
             case '4': options.sourcev4 = optarg; break;
@@ -1138,7 +1169,7 @@ int run_http(int argc, char *argv[], __attribute__((unused))int count,
 	    case 'k': options.keep_alive = 1; break;
 	    case 'm': options.max_connections = atoi(optarg); break;
 	    case 's': options.max_connections_per_server = atoi(optarg); break;
-	    case 'x': options.max_persistent_connections_per_server =
+	    case 'o': options.max_persistent_connections_per_server =
                       atoi(optarg); break;
             case 'p':
 #if LIBCURL_VERSION_NUM >= 0x071000
@@ -1153,6 +1184,7 @@ int run_http(int argc, char *argv[], __attribute__((unused))int count,
             case 'r': options.pipelining_maxrequests = atoi(optarg); break;
             case 'c': options.caching = 1; break;
             case 'z': options.pipe_size_before_skip = atoi(optarg); break;
+            case 'v': version(argv[0]); exit(0);
 	    case 'h':
 	    default: usage(argv[0]); exit(0);
 	};
