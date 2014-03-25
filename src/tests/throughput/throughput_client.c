@@ -695,8 +695,10 @@ int run_throughput_client(int argc, char *argv[], int count,
                     long_options, &option_index)) != -1 ) {
 
         switch ( opt ) {
-            case '4': options.sourcev4 = get_numeric_address(optarg); break;
-            case '6': options.sourcev6 = get_numeric_address(optarg); break;
+            case '4': options.sourcev4 = get_numeric_address(optarg, NULL);
+                      break;
+            case '6': options.sourcev6 = get_numeric_address(optarg, NULL);
+                      break;
             case 'I': options.device = optarg; break;
             /* case 'B': for iperf compatability? */
             case 'c': client = optarg; break;

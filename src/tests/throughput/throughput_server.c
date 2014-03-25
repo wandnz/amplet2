@@ -415,8 +415,9 @@ void run_throughput_server(int argc, char *argv[], SSL *ssl) {
         };
     }
 
-    sockopts.sourcev4 = get_numeric_address(sourcev4);
-    sockopts.sourcev6 = get_numeric_address(sourcev6);
+    /* TODO use the port number here rather than doing it in startListening() */
+    sockopts.sourcev4 = get_numeric_address(sourcev4, NULL);
+    sockopts.sourcev6 = get_numeric_address(sourcev6, NULL);
 
     /* listen for a connection from a client */
     sockopts.reuse_addr = 1;
