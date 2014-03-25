@@ -975,7 +975,7 @@ static int fetch(char *url) {
                 /* check how long we should be waiting for before timing out */
 #if HAVE_CURL_MULTI_TIMEOUT
                 //TODO: check other timeouts, currently using first, regardless
-                if ( curl_multi_timeout(serverList->multi[0], &wait) ) {
+                if ( curl_multi_timeout(server_list->multi[0], &wait) ) {
                     Log(LOG_ERR, "error calling curl_multi_timeout!\n");
                     exit(-1);
                 }
