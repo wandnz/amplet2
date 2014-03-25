@@ -25,7 +25,9 @@ struct amp_global_t {
     int fetch_freq;
     int control_enabled;
     char *control_port;
-    char *control_address;
+    char *control_interface;
+    char *control_ipv4;
+    char *control_ipv6;
     amp_ssl_opt_t amqp_ssl;
     amp_ssl_opt_t fetch_ssl;
 };

@@ -24,78 +24,112 @@
 
 
 /*
- * Create the control socket and start it listening for connections.
+ * Create the control socket and start it listening for connections. We
+ * use separate sockets for IPv4 and IPv6 so that we can have each of them
+ * listening on specific, different addresses.
  */
-int initialise_control_socket(char *address, char *port) {
-    int sock;
-    struct addrinfo hints, *addr, *p;
-    int res;
+int initialise_control_socket(struct socket_t *sockets, char *iface,
+        char *ipv4, char* ipv6, char *port) {
+
+    struct addrinfo *addr4, *addr6;
     int one = 1;
     char addrstr[INET6_ADDRSTRLEN];
-    void *addrptr = NULL;
 
     Log(LOG_DEBUG, "Creating control socket");
 
-    memset(&hints, 0, sizeof(hints));
-    hints.ai_socktype = SOCK_STREAM;
-    hints.ai_protocol = IPPROTO_TCP;
-    if ( address == NULL ) {
-        hints.ai_family = AF_INET6;
-        hints.ai_flags = AI_PASSIVE;
-        Log(LOG_DEBUG, "Creating control socket on wildcard:%s", port);
-    } else {
-        hints.ai_family = AF_UNSPEC;
-        hints.ai_flags = AI_NUMERICHOST;
-        Log(LOG_DEBUG, "Creating control socket on %s:%s", address, port);
-    }
+    assert(sockets);
+    sockets->socket = -1;
+    sockets->socket6 = -1;
 
-    if ( (res = getaddrinfo(address, port, &hints, &addr)) < 0 ) {
-        Log(LOG_WARNING, "Failed getaddrinfo(): %s\n", gai_strerror(res));
-        return -1;
-    }
+    addr4 = get_numeric_address(ipv4, port);
+    addr6 = get_numeric_address(ipv6, port);
 
-    /* try all the results from getaddrinfo to find something we can bind to */
-    for ( p = addr; p != NULL; p = p->ai_next ) {
-        if ( (sock = socket(p->ai_family,p->ai_socktype,p->ai_protocol)) < 0 ) {
-            continue;
-        }
-
-        if ( setsockopt(sock,SOL_SOCKET,SO_REUSEADDR,&one,sizeof(int)) < 0 ) {
-            close(sock);
-            continue;
-        }
-
-        if ( bind(sock, p->ai_addr, p->ai_addrlen) < 0 ) {
-            close(sock);
-            continue;
-        }
-
-        break;
-    }
-
-    if ( p == NULL ) {
-        Log(LOG_WARNING, "Failed to bind control socket, skipping");
-        return -1;
-    }
-
-    if ( listen(sock, 16) < 0 ) {
-        Log(LOG_WARNING, "Failed to listen on control socket: %s",
+    if ( (sockets->socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0 ) {
+        Log(LOG_WARNING, "Failed to open IPv4 control socket: %s",
                 strerror(errno));
+    }
+    if ( (sockets->socket6 = socket(AF_INET6, SOCK_STREAM, IPPROTO_TCP)) < 0 ) {
+        Log(LOG_WARNING, "Failed to open IPv6 control socket: %s",
+                strerror(errno));
+    }
+
+    /* make sure that at least one of them was opened ok */
+    if ( sockets->socket < 0 && sockets->socket6 < 0 ) {
         return -1;
     }
 
-    switch ( p->ai_family ) {
-        case AF_INET: addrptr = &((struct sockaddr_in*)p->ai_addr)->sin_addr;
-                      break;
-        case AF_INET6: addrptr = &((struct sockaddr_in6*)p->ai_addr)->sin6_addr;
-                       break;
-    };
+    /* set socket options */
+    if ( sockets->socket > 0 ) {
+        if ( setsockopt(sockets->socket, SOL_SOCKET, SO_REUSEADDR, &one,
+                    sizeof(int)) < 0 ) {
+            close(sockets->socket);
+            sockets->socket = -1;
+        }
+    }
 
-    inet_ntop(p->ai_family, addrptr, addrstr, INET6_ADDRSTRLEN);
-    Log(LOG_INFO, "Control socket listening on %s:%s", addrstr, port);
+    if ( sockets->socket6 > 0 ) {
+        /* IPV6_V6ONLY prevents it trying to listen on IPv4 as well */
+        if ( setsockopt(sockets->socket6, IPPROTO_IPV6, IPV6_V6ONLY, &one,
+                    sizeof(one)) < 0 ) {
+            close(sockets->socket6);
+            sockets->socket6 = -1;
+        } else {
+            if ( setsockopt(sockets->socket6, SOL_SOCKET, SO_REUSEADDR, &one,
+                        sizeof(int)) < 0 ) {
+                close(sockets->socket6);
+                sockets->socket6 = -1;
+            }
+        }
+    }
 
-    freeaddrinfo(addr);
-    return sock;
+    /* bind them to interfaces and addresses if required */
+    if ( iface && bind_sockets_to_device(sockets, iface) < 0 ) {
+        Log(LOG_ERR, "Unable to bind sockets to device, aborting test");
+        return -1;
+    }
+
+    if ( bind_sockets_to_address(sockets, addr4, addr6) < 0 ) {
+        Log(LOG_ERR,"Unable to bind socket to address, aborting test");
+        return -1;
+    }
+
+    /* Start listening for control connections on the active sockets */
+    if ( sockets->socket > 0 ) {
+        if ( listen(sockets->socket, 16) < 0 ) {
+            Log(LOG_WARNING, "Failed to listen on IPv4 control socket: %s",
+                    strerror(errno));
+            close(sockets->socket);
+            sockets->socket = -1;
+        }
+    }
+
+    if ( sockets->socket6 > 0 ) {
+        if ( listen(sockets->socket6, 16) < 0 ) {
+            Log(LOG_WARNING, "Failed to listen on IPv6 control socket: %s",
+                    strerror(errno));
+            close(sockets->socket6);
+            sockets->socket6 = -1;
+        }
+    }
+
+    /* make sure that at least one of them is listening ok */
+    if ( sockets->socket < 0 && sockets->socket6 < 0 ) {
+        return -1;
+    }
+
+    if ( sockets->socket > 0 ) {
+        Log(LOG_INFO, "Control socket listening on %s:%s",
+                amp_inet_ntop(addr4, addrstr), port);
+    }
+
+    if ( sockets->socket6 > 0 ) {
+        Log(LOG_INFO, "Control socket listening on %s:%s",
+                amp_inet_ntop(addr6, addrstr), port);
+    }
+
+    freeaddrinfo(addr4);
+    freeaddrinfo(addr6);
+    return 0;
 }
 
 

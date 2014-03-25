@@ -33,6 +33,7 @@
 #include "global.h"
 #include "control.h"
 #include "ssl.h"
+#include "testlib.h"
 
 wand_event_handler_t *ev_hdl;
 
@@ -171,7 +172,9 @@ static int parse_config(char *filename, struct amp_global_t *vars) {
     cfg_opt_t opt_control[] = {
         CFG_BOOL("enabled", cfg_false, CFGF_NONE),
         CFG_STR("port", CONTROL_PORT, CFGF_NONE),
-        CFG_STR("address", NULL, CFGF_NONE),
+        CFG_STR("interface", NULL, CFGF_NONE),
+        CFG_STR("ipv4", "0.0.0.0", CFGF_NONE),
+        CFG_STR("ipv6", "::", CFGF_NONE),
         CFG_END()
     };
 
@@ -285,9 +288,11 @@ static int parse_config(char *filename, struct amp_global_t *vars) {
         cfg_sub = cfg_getnsec(cfg, "control", i);
         vars->control_enabled = cfg_getbool(cfg_sub, "enabled");
         vars->control_port = strdup(cfg_getstr(cfg_sub, "port"));
-        if ( cfg_getstr(cfg_sub, "address") != NULL ) {
-            vars->control_address = strdup(cfg_getstr(cfg_sub, "address"));
+        if ( cfg_getstr(cfg_sub, "interface") != NULL ) {
+            vars->control_interface = strdup(cfg_getstr(cfg_sub, "interface"));
         }
+        vars->control_ipv4 = strdup(cfg_getstr(cfg_sub, "ipv4"));
+        vars->control_ipv6 = strdup(cfg_getstr(cfg_sub, "ipv6"));
     }
 
     cfg_free(cfg);
@@ -304,7 +309,8 @@ int main(int argc, char *argv[]) {
     struct wand_signal_t sigchld_ev;
     struct wand_signal_t sighup_ev;
     struct wand_signal_t sigusr1_ev;
-    struct wand_fdcb_t control_ev;
+    struct wand_fdcb_t control_ipv4_ev;
+    struct wand_fdcb_t control_ipv6_ev;
     struct wand_timer_t fetch_ev;
     char *config_file = NULL;
     int fetch_remote = 1;
@@ -459,14 +465,28 @@ int main(int argc, char *argv[]) {
 
     /* create the control socket and add an event listener for it */
     if ( vars.control_enabled && ssl_ctx != NULL ) {
-        int fd = initialise_control_socket(vars.control_address,
-                vars.control_port);
-        if ( fd > 0 ) {
-            control_ev.fd = fd;
-            control_ev.flags = EV_READ;
-            control_ev.data = ev_hdl;
-            control_ev.callback = control_establish_callback;
-            wand_add_event(ev_hdl, &control_ev);
+        struct socket_t sockets;
+        if ( initialise_control_socket(&sockets, vars.control_interface,
+                    vars.control_ipv4, vars.control_ipv6,
+                    vars.control_port) < 0 ) {
+            Log(LOG_WARNING, "Failed to start control server");
+        } else {
+            /* if we have an ipv4 socket then set up the event listener */
+            if ( sockets.socket > 0 ) {
+                control_ipv4_ev.fd = sockets.socket;
+                control_ipv4_ev.flags = EV_READ;
+                control_ipv4_ev.data = ev_hdl;
+                control_ipv4_ev.callback = control_establish_callback;
+                wand_add_event(ev_hdl, &control_ipv4_ev);
+            }
+            /* if we have an ipv6 socket then set up the event listener */
+            if ( sockets.socket6 > 0 ) {
+                control_ipv6_ev.fd = sockets.socket6;
+                control_ipv6_ev.flags = EV_READ;
+                control_ipv6_ev.data = ev_hdl;
+                control_ipv6_ev.callback = control_establish_callback;
+                wand_add_event(ev_hdl, &control_ipv6_ev);
+            }
         }
     }
 
