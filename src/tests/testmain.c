@@ -98,7 +98,7 @@ int main(int argc, char *argv[]) {
      * to the end of the list). All test arguments will be preserved, and the
      * destinations listed after the -- marker can be removed easily.
      */
-    while ( (opt = getopt(argc, argv, "-x")) != -1 ) {
+    while ( (opt = getopt(argc, argv, "-xI:4:6:")) != -1 ) {
 	/* generally do nothing, just use up arguments until the -- marker */
         switch ( opt ) {
             /* -x is the only option we care about for now - enable debug */
@@ -106,6 +106,10 @@ int main(int argc, char *argv[]) {
                       log_level_override = 1;
                       log_flag_index = optind - 1;
                       break;
+            /* set these in global vars array so start_remote_server works */
+            case 'I': vars.interface = optarg; break;
+            case '4': vars.sourcev4 = optarg; break;
+            case '6': vars.sourcev6 = optarg; break;
             default: /* do nothing */ break;
         };
     }
