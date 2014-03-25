@@ -34,7 +34,6 @@ static struct option long_options[] = {
     {"random", no_argument, 0, 'r'},
     {"size", required_argument, 0, 's'},
     {"version", no_argument, 0, 'v'},
-    {"debug", no_argument, 0, 'x'},
     {"ipv4", required_argument, 0, '4'},
     {"ipv6", required_argument, 0, '6'},
     {NULL, 0, 0, 0}
