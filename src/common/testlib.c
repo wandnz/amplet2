@@ -316,6 +316,37 @@ uint16_t start_remote_server(test_type_t type, struct addrinfo *dest) {
         return 0;
     }
 
+    if ( vars.interface ) {
+        if ( bind_socket_to_device(sock, vars.interface) < 0 ) {
+            return 0;
+        }
+    }
+
+    if ( vars.sourcev4 || vars.sourcev6 ) {
+        struct addrinfo *addr;
+
+        switch ( dest->ai_family ) {
+            case AF_INET: addr = get_numeric_address(vars.sourcev4, NULL);
+                          break;
+            case AF_INET6: addr = get_numeric_address(vars.sourcev6, NULL);
+                           break;
+            default: return 0;
+        };
+
+        /*
+         * Only bind if we have a specific source with the same address
+         * family as the destination, otherwise leave it default.
+         */
+        if ( addr ) {
+            int res;
+            res = bind_socket_to_address(sock, addr);
+            freeaddrinfo(addr);
+            if ( res < 0 ) {
+                return 0;
+            }
+        }
+    }
+
     /* Try a few times to connect, but give up after failing too many times */
     attempts = 0;
     do {
