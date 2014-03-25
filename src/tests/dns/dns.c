@@ -15,10 +15,29 @@
 #include <string.h>
 #include <arpa/inet.h>
 
+#include "config.h"
 #include "tests.h"
 #include "debug.h"
 #include "testlib.h"
 #include "dns.h"
+
+
+static struct option long_options[] = {
+    {"class", required_argument, 0, 'c'},
+    {"help", no_argument, 0, 'h'},
+    {"interface", required_argument, 0, 'I'},
+    {"nsid", no_argument, 0, 'n'},
+    {"perturbate", required_argument, 0, 'p'},
+    {"query", required_argument, 0, 'q'},
+    {"recurse", no_argument, 0, 'r'},
+    {"dnssec", no_argument, 0, 's'},
+    {"type", required_argument, 0, 't'},
+    {"version", no_argument, 0, 'v'},
+    {"payload", required_argument, 0, 'z'},
+    {"ipv4", required_argument, 0, '4'},
+    {"ipv6", required_argument, 0, '6'},
+    {NULL, 0, 0, 0}
+};
 
 
 
@@ -736,6 +755,16 @@ static void usage(char *prog) {
 
 
 /*
+ *
+ */
+static void version(char *prog) {
+    fprintf(stderr, "%s, amplet version %s, protocol version %d\n", prog,
+            PACKAGE_STRING, AMP_DNS_TEST_VERSION);
+}
+
+
+
+/*
  * Reimplementation of the DNS2 test from AMP
  *
  * TODO check that all the random macros used for values are actually needed
@@ -772,7 +801,8 @@ int run_dns(int argc, char *argv[], int count, struct addrinfo **dests) {
     device = NULL;
     local_resolv = 0;
 
-    while ( (opt = getopt(argc, argv, "hI:q:t:c:z:rsn4:6:")) != -1 ) {
+    while ( (opt = getopt_long(argc, argv, "hvI:q:t:c:z:rsn4:6:",
+                    long_options, NULL)) != -1 ) {
 	switch ( opt ) {
             case '4': sourcev4 = get_numeric_address(optarg, NULL); break;
             case '6': sourcev6 = get_numeric_address(optarg, NULL); break;
@@ -785,6 +815,7 @@ int run_dns(int argc, char *argv[], int count, struct addrinfo **dests) {
 	    case 'r': options.recurse = 1; break;
 	    case 's': options.dnssec = 1; break;
 	    case 'n': options.nsid = 1; break;
+            case 'v': version(argv[0]); exit(0);
 	    case 'h':
 	    default: usage(argv[0]); exit(0);
 	};
