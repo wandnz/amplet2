@@ -17,6 +17,7 @@
 #include <string.h>
 
 //TODO rename files and headers better?
+#include "config.h"
 #include "testlib.h"
 #include "icmp.h"
 
@@ -25,6 +26,19 @@
  * TODO collect more information than what the original icmp test did.
  * Things like rtt could be interesting to track.
  */
+
+static struct option long_options[] = {
+    {"help", no_argument, 0, 'h'},
+    {"interface", required_argument, 0, 'I'},
+    {"perturbate", required_argument, 0, 'p'},
+    {"random", no_argument, 0, 'r'},
+    {"size", required_argument, 0, 's'},
+    {"version", no_argument, 0, 'v'},
+    {"debug", no_argument, 0, 'x'},
+    {"ipv4", required_argument, 0, '4'},
+    {"ipv6", required_argument, 0, '6'},
+    {NULL, 0, 0, 0}
+};
 
 
 /*
@@ -460,12 +474,23 @@ static void usage(char *prog) {
     fprintf(stderr, "Usage: %s [-r] [-p perturbate] [-s packetsize]\n", prog);
     fprintf(stderr, "\n");
     fprintf(stderr, "Options:\n");
-    fprintf(stderr, "  -I <iface>\tSource interface name\n");
-    fprintf(stderr, "  -4 <address>\tSource IPv4 address\n");
-    fprintf(stderr, "  -6 <address>\tSource IPv6 address\n");
-    fprintf(stderr, "  -r\t\tUse a random packet size for each test\n");
-    fprintf(stderr, "  -p <ms>\tMaximum number of milliseconds to delay test\n");
-    fprintf(stderr, "  -s <bytes>\tFixed packet size to use for each test\n");
+    fprintf(stderr, "  -r, --random               Use a random packet size for each test\n");
+    fprintf(stderr, "  -p, --perturbate <ms>      Maximum number of milliseconds to delay test\n");
+    fprintf(stderr, "  -s, --size       <bytes>   Fixed packet size to use for each test\n");
+    fprintf(stderr, "  -I, --interface  <iface>   Source interface name\n");
+    fprintf(stderr, "  -4, --ipv4       <address> Source IPv4 address\n");
+    fprintf(stderr, "  -6, --ipv6       <address> Source IPv6 address\n");
+    fprintf(stderr, "  -x, --debug                Enable debug output\n");
+}
+
+
+
+/*
+ *
+ */
+static void version(char *prog) {
+    fprintf(stderr, "%s, amplet version %s, protocol version %d\n", prog,
+            PACKAGE_STRING, AMP_ICMP_TEST_VERSION);
 }
 
 
@@ -499,7 +524,8 @@ int run_icmp(int argc, char *argv[], int count, struct addrinfo **dests) {
     sourcev6 = NULL;
     device = NULL;
 
-    while ( (opt = getopt(argc, argv, "hI:p:rs:S:4:6:")) != -1 ) {
+    while ( (opt = getopt_long(argc, argv, "hvI:p:rs:S:4:6:",
+                    long_options, NULL)) != -1 ) {
 	switch ( opt ) {
             case '4': sourcev4 = get_numeric_address(optarg, NULL); break;
             case '6': sourcev6 = get_numeric_address(optarg, NULL); break;
@@ -507,6 +533,7 @@ int run_icmp(int argc, char *argv[], int count, struct addrinfo **dests) {
 	    case 'p': options.perturbate = atoi(optarg); break;
 	    case 'r': options.random = 1; break;
 	    case 's': options.packet_size = atoi(optarg); break;
+            case 'v': version(argv[0]); exit(0);
 	    case 'h':
 	    default: usage(argv[0]); exit(0);
 	};
