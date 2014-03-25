@@ -18,8 +18,23 @@
 #include <string.h>
 
 //TODO rename files and headers better?
+#include "config.h"
 #include "testlib.h"
 #include "traceroute.h"
+
+
+
+static struct option long_options[] = {
+    {"help", no_argument, 0, 'h'},
+    {"interface", required_argument, 0, 'I'},
+    {"perturbate", required_argument, 0, 'p'},
+    {"random", no_argument, 0, 'r'},
+    {"size", required_argument, 0, 's'},
+    {"version", no_argument, 0, 'v'},
+    {"ipv4", required_argument, 0, '4'},
+    {"ipv6", required_argument, 0, '6'},
+    {NULL, 0, 0, 0}
+};
 
 
 /*
@@ -775,6 +790,16 @@ static void usage(char *prog) {
 
 
 /*
+ *
+ */
+static void version(char *prog) {
+    fprintf(stderr, "%s, amplet version %s, protocol version %d\n", prog,
+            PACKAGE_STRING, AMP_TRACEROUTE_TEST_VERSION);
+}
+
+
+
+/*
  * Reimplementation of the traceroute test from AMP
  *
  * TODO get useful errors into the log strings
@@ -808,7 +833,8 @@ int run_traceroute(int argc, char *argv[], int count, struct addrinfo **dests) {
     sourcev6 = NULL;
     device = NULL;
 
-    while ( (opt = getopt(argc, argv, "hI:p:rs:S:4:6:")) != -1 ) {
+    while ( (opt = getopt_long(argc, argv, "hvI:p:rs:S:4:6:",
+                    long_options, NULL)) != -1 ) {
 	switch ( opt ) {
             case '4': sourcev4 = get_numeric_address(optarg, NULL); break;
             case '6': sourcev6 = get_numeric_address(optarg, NULL); break;
@@ -816,6 +842,7 @@ int run_traceroute(int argc, char *argv[], int count, struct addrinfo **dests) {
 	    case 'p': options.perturbate = atoi(optarg); break;
 	    case 'r': options.random = 1; break;
 	    case 's': options.packet_size = atoi(optarg); break;
+            case 'v': version(argv[0]); exit(0);
 	    case 'h':
 	    default: usage(argv[0]); exit(0);
 	};
