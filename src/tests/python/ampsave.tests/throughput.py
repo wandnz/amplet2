@@ -10,6 +10,15 @@ class VersionMismatch(Exception):
         return "%d != %d" % (self.got, self.expected)
 
 
+# TODO move to another file
+def get_printable_address(family, addr):
+    if family == socket.AF_INET:
+        return socket.inet_ntop(family, addr[:4])
+    elif family == socket.AF_INET6:
+        return socket.inet_ntop(family, addr)
+    raise ValueError
+
+
 # Needs to keep up with the version in src/tests/throughput/throughput.h
 AMP_THROUGHPUT_TEST_VERSION = 2014031300
 
@@ -22,7 +31,7 @@ def get_data(data):
     report_web10g_t structures describing all the web10g data if available.
     these are described in src/tests/throughput/throughput.h
     """
-    header_len = struct.calcsize("!IIQQ16s16sII")
+    header_len = struct.calcsize("!IIQQ16s16sIBBH")
     result_len = struct.calcsize("!QQIIBBBBI")
     web10g_len = struct.calcsize("!480s")
 
@@ -33,7 +42,7 @@ def get_data(data):
     offset = struct.calcsize("!I")
 
     # read the rest of the header that records test options
-    count,start,end,client,server,sched_len,pad = struct.unpack_from("!IQQ16s16sII", data, offset)
+    count,start,end,client,server,sched_len,family = struct.unpack_from("!IQQ16s16sIB", data, offset)
     offset = header_len
 
     # read the variable length schedule from the end of the header
@@ -46,10 +55,8 @@ def get_data(data):
         "count": count,
         "start": start,
         "end": end,
-        # XXX these are currently V6 encoded, even if v4, should probably
-        # report them as the native address family
-        "client": socket.inet_ntop(socket.AF_INET6, client.rstrip("\0")),
-        "server": socket.inet_ntop(socket.AF_INET6, server.rstrip("\0")),
+        "client": get_printable_address(family, client),
+        "server": get_printable_address(family, server),
         "schedule": schedule.rstrip("\0"),
         "results": []
     }

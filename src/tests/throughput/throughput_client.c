@@ -255,28 +255,26 @@ static int connectToServer(struct addrinfo *serv_addr, struct opt_t *options,
 
 
 
-/**
- * Sets a given 16 bytes (i.e. a IPv6 address) to the value of sockaddrin
- * IPv4 is converted to a IPv4 mapped IPv6 address.
- *
- * @param ss
- *          Either a sockaddr_in or sockaddr_in6
- * @param addr
- *          The resulting IPv6 address
+/*
+ * Extract just the address portion from a sockaddr_storage and save it in
+ * a character array.
  */
 static void getSockaddrAddr(struct sockaddr_storage *ss, char addr[16]) {
+    memset(addr, 0, sizeof(addr));
 
-    if ( ss->ss_family == AF_INET ) {
-        struct sockaddr_in *s = (struct sockaddr_in *)ss;
-        memset(addr,0, 10);
-        memset(&addr[10], 0xFF, 2);
-        /* Convert from IPv4 mapped address to a ipv6 */
-        memcpy(&addr[12], &s->sin_addr.s_addr, 4);
-    } else { /* AF_INT6 */
-        struct sockaddr_in6 *s = (struct sockaddr_in6 *)ss;
-        memcpy(addr, &s->sin6_addr.s6_addr, 16);
-    }
-
+    switch ( ss->ss_family ) {
+        case AF_INET:
+                memcpy(addr, &((struct sockaddr_in*)ss)->sin_addr,
+                        sizeof(struct in_addr));
+                break;
+        case AF_INET6:
+                memcpy(addr, &((struct sockaddr_in6*)ss)->sin6_addr,
+                        sizeof(struct in6_addr));
+                break;
+        default:
+                Log(LOG_WARNING, "Unknown address family %d", ss->ss_family);
+                break;
+    };
 }
 
 
@@ -328,11 +326,14 @@ static void report_results(int sock_fd, struct opt_t *options,
     if ( sock_fd != -1 ) {
         len = sizeof(ss);
         getpeername(sock_fd, (struct sockaddr*)&ss, &len);
+        rh->family = ss.ss_family;
         getSockaddrAddr(&ss, rh->server_addr);
         len = sizeof(ss);
         getsockname(sock_fd, (struct sockaddr*)&ss, &len);
         getSockaddrAddr(&ss, rh->client_addr);
     } else {
+        /* Does family matter here? Can we tell where we tried to go? */
+        rh->family = AF_INET;
         memset(rh->server_addr, 0, 16);
         memset(rh->client_addr, 0, 16);
     }
@@ -670,6 +671,7 @@ int run_throughput_client(int argc, char *argv[], int count,
     options.textual_schedule = NULL;
     options.reuse_addr = 0;
 
+    /* TODO free these when done? */
     options.sourcev4 = NULL;
     options.sourcev6 = NULL;
     options.device = NULL;
@@ -840,10 +842,10 @@ void print_throughput(void *data, uint32_t len) {
     uint32_t count = 1;
     char *place;
 
-    inet_ntop(AF_INET6, &rh->server_addr, name, sizeof(name));
+    inet_ntop(rh->family, &rh->server_addr, name, sizeof(name));
     printf("\n- Got the results test(s) to server address %s \n", name);
 
-    inet_ntop(AF_INET6, &rh->client_addr, name, sizeof(name));
+    inet_ntop(rh->family, &rh->client_addr, name, sizeof(name));
     printf("- We connected on the interface %s\n", name);
     printf("- Found %d headers\n", be32toh(rh->count));
 

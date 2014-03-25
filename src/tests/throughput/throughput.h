@@ -97,9 +97,11 @@ struct report_header_t {
     uint64_t start_ns; /* Time when TCP connection was established */
     uint64_t end_ns; /* Time TCP connection is closed for this address */
     char client_addr[16]; /* Do we need to record our own address ?*/
-    char server_addr[16]; /* Using IPv4 mapped IPv6 addresses for IPv4 */
+    char server_addr[16];
     uint32_t test_seq_len; /* A textual representation of the test sequence */
-    uint32_t __PADDING1;
+    uint8_t family;
+    uint8_t __PADDING1;
+    uint16_t __PADDING2;
 };
 
 /**
