@@ -5,6 +5,7 @@
  * Based upon the old AMP throughput test
  */
 #include <getopt.h>
+#include <assert.h>
 
 #include "throughput.h"
 
@@ -305,15 +306,21 @@ static void getSockaddrAddr(struct sockaddr_storage *ss, char addr[16]) {
  * + report_header_t's+
  * +~~~~~~~~~~~~~~~~~ +
  */
-static void report_results(int sock_fd, struct opt_t *options,
-                    uint64_t start_time_ns, uint64_t end_time_ns) {
+static void report_results(struct addrinfo *dest, int sock_fd,
+        struct opt_t *options, uint64_t start_time_ns, uint64_t end_time_ns) {
     struct report_header_t *rh;
-    size_t r_size = sizeof(struct report_header_t) +
-        strlen(options->textual_schedule) + 1;
-    rh = malloc(r_size);
+    size_t r_size;
     socklen_t len;
     struct sockaddr_storage ss;
     struct test_request_t *cur;
+    char *ampname = address_to_name(dest);
+
+    assert(ampname);
+    assert(strlen(ampname) < MAX_STRING_FIELD);
+
+    r_size = sizeof(struct report_header_t) +
+        strlen(options->textual_schedule) + 1 + strlen(ampname) + 1;
+    rh = malloc(r_size);
 
     /* Build our header up */
     rh->version = AMP_THROUGHPUT_TEST_VERSION;
@@ -321,6 +328,7 @@ static void report_results(int sock_fd, struct opt_t *options,
     rh->start_ns = start_time_ns;
     rh->end_ns = end_time_ns;
     rh->test_seq_len = strlen(options->textual_schedule) + 1;
+    rh->namelen = strlen(ampname) + 1;
 
     /* Fill in the addresses of the connection */
     if ( sock_fd != -1 ) {
@@ -340,7 +348,11 @@ static void report_results(int sock_fd, struct opt_t *options,
 
     /* Put the Schedule in after the header, its size is variable */
     memcpy(((char *) rh) + sizeof(struct report_header_t),
-        options->textual_schedule, rh->test_seq_len);
+            options->textual_schedule, rh->test_seq_len);
+
+    /* put the ampname after the schedule, it is also variable length */
+    strncpy(((char *) rh) + sizeof(struct report_header_t) + rh->test_seq_len,
+            ampname, rh->namelen);
 
     /* Loop through the schedule and push the results on to the end */
     for ( cur = options->schedule; cur != NULL ; cur = cur->next ) {
@@ -367,7 +379,7 @@ static void report_results(int sock_fd, struct opt_t *options,
 
                 /* Get the result from the receiving side */
                 struct test_result_t *result = cur->type == TPUT_2_CLIENT ?
-                            cur->c_result : cur->s_result;
+                    cur->c_result : cur->s_result;
 
                 res->type = cur->type;
                 res->packets = htobe32(result->packets);
@@ -583,8 +595,8 @@ static int runSchedule(struct addrinfo *serv_addr, struct opt_t *options) {
                     }
                     if ( !readPacket(control_socket, &packet,
                                 (char **) &cur->s_web10g) ) {
-                         Log(LOG_ERR,"Failed to get results");
-                         goto errorCleanup;
+                        Log(LOG_ERR,"Failed to get results");
+                        goto errorCleanup;
                     }
 
                     if ( readResultPacket(&packet, cur->s_result) != 0 ) {
@@ -593,10 +605,10 @@ static int runSchedule(struct addrinfo *serv_addr, struct opt_t *options) {
 
                     Log(LOG_DEBUG, "Got results from server %" PRIu32
                             " %" PRIu32 " %" PRIu64 " %" PRIu64,
-                                    packet.types.result.packets,
-                                    packet.types.result.write_size,
-                                    packet.types.result.duration_ns,
-                                    packet.types.result.bytes);
+                            packet.types.result.packets,
+                            packet.types.result.write_size,
+                            packet.types.result.duration_ns,
+                            packet.types.result.bytes);
                 } else {
                     Log(LOG_ERR, "Failed to sent packets to the server");
                     goto errorCleanup;
@@ -618,7 +630,8 @@ static int runSchedule(struct addrinfo *serv_addr, struct opt_t *options) {
      *
      * We will report this set of results then we can finish
      */
-    report_results(control_socket, options, start_time_ns , timeNanoseconds());
+    report_results(serv_addr, control_socket, options, start_time_ns,
+            timeNanoseconds());
 
     Log(LOG_DEBUG, "Closing test");
     if( sendClosePacket(control_socket) < 0)
@@ -630,7 +643,8 @@ static int runSchedule(struct addrinfo *serv_addr, struct opt_t *options) {
     return 0;
 errorCleanup :
     /* See if we can report something anyway */
-    report_results(control_socket, options, start_time_ns , timeNanoseconds());
+    report_results(serv_addr, control_socket, options, start_time_ns,
+            timeNanoseconds());
 
     if ( control_socket != -1 ) {
         close(control_socket);
@@ -739,6 +753,9 @@ int run_throughput_client(int argc, char *argv[], int count,
 
         /* just take the first address we find */
         count = 1;
+
+        /* set the canonical name to be the address so we can print it later */
+        dests[0]->ai_canonname = strdup(client);
     }
 
     /*
@@ -835,26 +852,35 @@ static void printSpeed(uint64_t time_ns, uint64_t bytes){
 /**
  * Print back our data blob that we made report_results.
  * Remember this is all in big endian byte order
+ *
+ * TODO make this output a lot nicer
  */
 void print_throughput(void *data, uint32_t len) {
-    char name[128];
+    char address[128];
     struct report_header_t *rh = data;
     uint32_t count = 1;
     char *place;
+    char *ampname, *schedule;
 
-    inet_ntop(rh->family, &rh->server_addr, name, sizeof(name));
-    printf("\n- Got the results test(s) to server address %s \n", name);
-
-    inet_ntop(rh->family, &rh->client_addr, name, sizeof(name));
-    printf("- We connected on the interface %s\n", name);
-    printf("- Found %d headers\n", be32toh(rh->count));
+    assert(data != NULL);
+    assert(be32toh(rh->version) == AMP_THROUGHPUT_TEST_VERSION);
 
     /* Read the report header results */
-    place = (char *) (rh+1);
-    printf("- Test schedule was %s\n\n", place);
-    place += be32toh(rh->test_seq_len);
+    schedule = (char *) (rh+1);
 
-    /* Now read back the acutal results */
+    /* Get the ampname out */
+    ampname = (char *) schedule + be32toh(rh->test_seq_len);
+    place = ampname + rh->namelen;
+
+    inet_ntop(rh->family, &rh->server_addr, address, sizeof(address));
+    printf("\n- Got the results test(s) to server %s (%s)\n", ampname, address);
+
+    inet_ntop(rh->family, &rh->client_addr, address, sizeof(address));
+    printf("- Our source interface %s\n", address);
+    printf("- Found %d headers\n", be32toh(rh->count));
+    printf("- Test schedule was %s\n\n", schedule);
+
+    /* Now read back the actual results */
     while ( count <= be32toh(rh->count) ) {
         struct report_result_t *rr;
         rr = (struct report_result_t *) place;

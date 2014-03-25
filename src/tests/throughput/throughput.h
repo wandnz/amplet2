@@ -100,8 +100,8 @@ struct report_header_t {
     char server_addr[16];
     uint32_t test_seq_len; /* A textual representation of the test sequence */
     uint8_t family;
-    uint8_t __PADDING1;
-    uint16_t __PADDING2;
+    uint8_t namelen;
+    uint16_t __PADDING1;
 };
 
 /**

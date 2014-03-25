@@ -42,7 +42,7 @@ def get_data(data):
     offset = struct.calcsize("!I")
 
     # read the rest of the header that records test options
-    count,start,end,client,server,sched_len,family = struct.unpack_from("!IQQ16s16sIB", data, offset)
+    count,start,end,client,server,sched_len,family,namelen = struct.unpack_from("!IQQ16s16sIBB", data, offset)
     offset = header_len
 
     # read the variable length schedule from the end of the header
@@ -51,12 +51,19 @@ def get_data(data):
     offset += sched_len
     assert(sched_len == len(schedule))
 
+    assert(namelen > 0 and namelen < 255)
+    (name,) = struct.unpack_from("!%ds" % namelen, data, offset)
+    offset += namelen
+    assert(namelen == len(name))
+
+
     results = {
+        "target": name.rstrip("\0"),
         "count": count,
         "start": start,
         "end": end,
-        "client": get_printable_address(family, client),
-        "server": get_printable_address(family, server),
+        "local_address": get_printable_address(family, client),
+        "address": get_printable_address(family, server),
         "schedule": schedule.rstrip("\0"),
         "results": []
     }
