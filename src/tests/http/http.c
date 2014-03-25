@@ -303,8 +303,10 @@ static curl_socket_t open_socket(__attribute__((unused))void *clientp,
         struct addrinfo *addr;
 
         switch ( address->family ) {
-            case AF_INET: addr = get_numeric_address(options.sourcev4); break;
-            case AF_INET6: addr = get_numeric_address(options.sourcev6); break;
+            case AF_INET: addr = get_numeric_address(options.sourcev4, NULL);
+                          break;
+            case AF_INET6: addr = get_numeric_address(options.sourcev6, NULL);
+                           break;
             default: return CURL_SOCKET_BAD;
         };
 

@@ -501,8 +501,8 @@ int run_icmp(int argc, char *argv[], int count, struct addrinfo **dests) {
 
     while ( (opt = getopt(argc, argv, "hI:p:rs:S:4:6:")) != -1 ) {
 	switch ( opt ) {
-            case '4': sourcev4 = get_numeric_address(optarg); break;
-            case '6': sourcev6 = get_numeric_address(optarg); break;
+            case '4': sourcev4 = get_numeric_address(optarg, NULL); break;
+            case '6': sourcev6 = get_numeric_address(optarg, NULL); break;
             case 'I': device = optarg; break;
 	    case 'p': options.perturbate = atoi(optarg); break;
 	    case 'r': options.random = 1; break;

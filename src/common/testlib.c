@@ -426,7 +426,7 @@ uint16_t start_remote_server(test_type_t type, struct addrinfo *dest) {
 /*
  *
  */
-struct addrinfo *get_numeric_address(char *address) {
+struct addrinfo *get_numeric_address(char *address, char *port) {
     struct addrinfo hints, *result;
 
     assert(address);
@@ -439,7 +439,7 @@ struct addrinfo *get_numeric_address(char *address) {
     /* XXX do we need to set socktype or protocol? */
 
     /* check if the given string is one of our addresses */
-    if ( getaddrinfo(address, NULL, &hints, &result) == 0 ) {
+    if ( getaddrinfo(address, port, &hints, &result) == 0 ) {
         return result;
     }
 
@@ -497,7 +497,7 @@ int bind_socket_to_address(int sock, struct addrinfo *address) {
  * sockets isn't set then it will be ignored.
  */
 int bind_sockets_to_device(struct socket_t *sockets, char *device) {
-    Log(LOG_DEBUG, "Binding test to interface %s", device);
+    Log(LOG_DEBUG, "Binding socket to interface %s", device);
     assert(sockets);
     assert(sockets->socket >= 0 || sockets->socket6 >= 0);
     assert(device);
@@ -536,7 +536,7 @@ int bind_sockets_to_address(struct socket_t *sockets,
             (sockets->socket6 >= 0 && sourcev6) );
 
     if ( sourcev4 && sockets->socket >= 0 ) {
-        Log(LOG_DEBUG, "Binding test to source IPv4 address %s",
+        Log(LOG_DEBUG, "Binding socket to source IPv4 address %s",
                 amp_inet_ntop(sourcev4, addrstr));
 
         if ( bind_socket_to_address(sockets->socket, sourcev4) < 0 ) {
@@ -547,7 +547,7 @@ int bind_sockets_to_address(struct socket_t *sockets,
     }
 
     if ( sourcev6 && sockets->socket6 >= 0 ) {
-        Log(LOG_DEBUG, "Binding test to source IPv6 address %s",
+        Log(LOG_DEBUG, "Binding socket to source IPv6 address %s",
                 amp_inet_ntop(sourcev6, addrstr));
 
         if ( bind_socket_to_address(sockets->socket6, sourcev6) < 0 ) {

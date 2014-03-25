@@ -774,8 +774,8 @@ int run_dns(int argc, char *argv[], int count, struct addrinfo **dests) {
 
     while ( (opt = getopt(argc, argv, "hI:q:t:c:z:rsn4:6:")) != -1 ) {
 	switch ( opt ) {
-            case '4': sourcev4 = get_numeric_address(optarg); break;
-            case '6': sourcev6 = get_numeric_address(optarg); break;
+            case '4': sourcev4 = get_numeric_address(optarg, NULL); break;
+            case '6': sourcev6 = get_numeric_address(optarg, NULL); break;
             case 'I': device = optarg; break;
 	    case 'q': options.query_string = strdup(optarg); break;
 	    case 't': options.query_type = get_query_type(optarg); break;
@@ -820,7 +820,7 @@ int run_dns(int argc, char *argv[], int count, struct addrinfo **dests) {
             if ( sscanf(line, "nameserver %s\n", (char*)&nameserver) == 1 ) {
                 Log(LOG_DEBUG, "Got nameserver: %s", nameserver);
 
-                if ( (addr = get_numeric_address(nameserver)) == NULL ) {
+                if ( (addr = get_numeric_address(nameserver, NULL)) == NULL ) {
                     continue;
                 }
 
