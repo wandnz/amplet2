@@ -37,6 +37,20 @@
 
 wand_event_handler_t *ev_hdl;
 
+static struct option long_options[] = {
+    {"daemonise", no_argument, 0, 'd'},
+    {"daemonize", no_argument, 0, 'd'},
+    {"help", no_argument, 0, 'h'},
+    {"version", no_argument, 0, 'v'},
+    {"debug", no_argument, 0, 'x'},
+    {"config", required_argument, 0, 'c'},
+    {"noremote", required_argument, 0, 'r'},
+    {"interface", required_argument, 0, 'I'},
+    {"ipv4", required_argument, 0, '4'},
+    {"ipv6", required_argument, 0, '6'},
+    {0, 0, 0, 0}
+};
+
 
 
 /*
@@ -44,18 +58,18 @@ wand_event_handler_t *ev_hdl;
  */
 static void usage(void) {
 
-    fprintf(stderr, "Usage: amplet2 [-dvx] [-c <config>] [-I <iface>]\n"
+    fprintf(stderr, "Usage: amplet2 [-dvxr] [-c <config>] [-I <iface>]\n"
             "               [-4 <address>] [-6 <address>]\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "Options:\n");
-    fprintf(stderr, "  -d, --daemonise   Detach and run in background\n");
-    fprintf(stderr, "  -v, --version     Print version information and exit\n");
-    fprintf(stderr, "  -x, --debug       Enable extra debug output\n");
-    fprintf(stderr, "  -c <config>       Specify config file\n");
-    fprintf(stderr, "  -r, --noremote    Don't fetch remote schedules\n");
-    fprintf(stderr, "  -I <iface>        Override source interface name\n");
-    fprintf(stderr, "  -4 <address>      Override source IPv4 address\n");
-    fprintf(stderr, "  -6 <address>      Override source IPv6 address\n");
+    fprintf(stderr, "  -d, --daemonise           Detach and run in background\n");
+    fprintf(stderr, "  -v, --version             Print version information and exit\n");
+    fprintf(stderr, "  -x, --debug               Enable extra debug output\n");
+    fprintf(stderr, "  -c, --config    <config>  Specify config file\n");
+    fprintf(stderr, "  -r, --noremote            Don't fetch remote schedules\n");
+    fprintf(stderr, "  -I, --interface <iface>   Override source interface name\n");
+    fprintf(stderr, "  -4, --ipv4      <address> Override source IPv4 address\n");
+    fprintf(stderr, "  -6, --ipv6      <address> Override source IPv6 address\n");
 }
 
 
@@ -182,8 +196,8 @@ static int parse_config(char *filename, struct amp_global_t *vars) {
 	CFG_STR("ampname", NULL, CFGF_NONE),
 	CFG_STR("testdir", AMP_TEST_DIRECTORY, CFGF_NONE),
 	CFG_STR("interface", NULL, CFGF_NONE),
-	CFG_STR("sourcev4", NULL, CFGF_NONE),
-	CFG_STR("sourcev6", NULL, CFGF_NONE),
+	CFG_STR("ipv4", NULL, CFGF_NONE),
+	CFG_STR("ipv6", NULL, CFGF_NONE),
         CFG_INT_CB("loglevel", LOG_INFO, CFGF_NONE, &callback_verify_loglevel),
 	CFG_SEC("collector", opt_collector, CFGF_NONE),
         CFG_SEC("remotesched", opt_remotesched, CFGF_NONE),
@@ -235,8 +249,8 @@ static int parse_config(char *filename, struct amp_global_t *vars) {
     }
 
     /* should we be testing using a particular source ipv4 address */
-    if ( vars->sourcev4 == NULL && cfg_getstr(cfg, "sourcev4") != NULL ) {
-        vars->sourcev4 = strdup(cfg_getstr(cfg, "sourcev4"));
+    if ( vars->sourcev4 == NULL && cfg_getstr(cfg, "ipv4") != NULL ) {
+        vars->sourcev4 = strdup(cfg_getstr(cfg, "ipv6"));
     }
 
     /* should we be testing using a particular source ipv6 address */
@@ -317,19 +331,6 @@ int main(int argc, char *argv[]) {
     int backgrounded = 0;
 
     while ( 1 ) {
-	static struct option long_options[] = {
-	    {"daemonise", no_argument, 0, 'd'},
-	    {"daemonize", no_argument, 0, 'd'},
-	    {"help", no_argument, 0, 'h'},
-	    {"version", no_argument, 0, 'v'},
-	    {"debug", no_argument, 0, 'x'},
-	    {"config", required_argument, 0, 'c'},
-	    {"noremote", required_argument, 0, 'r'},
-	    {"interface", required_argument, 0, 'I'},
-	    {"sourcev4", required_argument, 0, '4'},
-	    {"sourcev6", required_argument, 0, '6'},
-	    {0, 0, 0, 0}
-	};
 
 	int opt_ind = 0;
 	int c = getopt_long(argc, argv, "dhvxc:rI:4:6:",
