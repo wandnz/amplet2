@@ -57,6 +57,7 @@ def get_data(data):
     assert(namelen == len(name))
 
 
+    # TODO confirm what happens if the test fails to connect
     results = {
         "target": name.rstrip("\0"),
         "count": count,
