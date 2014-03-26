@@ -250,12 +250,12 @@ static int parse_config(char *filename, struct amp_global_t *vars) {
 
     /* should we be testing using a particular source ipv4 address */
     if ( vars->sourcev4 == NULL && cfg_getstr(cfg, "ipv4") != NULL ) {
-        vars->sourcev4 = strdup(cfg_getstr(cfg, "ipv6"));
+        vars->sourcev4 = strdup(cfg_getstr(cfg, "ipv4"));
     }
 
     /* should we be testing using a particular source ipv6 address */
-    if ( vars->sourcev6 == NULL && cfg_getstr(cfg, "sourcev6") != NULL ) {
-        vars->sourcev6 = strdup(cfg_getstr(cfg, "sourcev6"));
+    if ( vars->sourcev6 == NULL && cfg_getstr(cfg, "ipv6") != NULL ) {
+        vars->sourcev6 = strdup(cfg_getstr(cfg, "ipv6"));
     }
 
     /* parse the config for the collector we should report data to */
