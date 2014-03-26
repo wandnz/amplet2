@@ -19,6 +19,10 @@ struct option long_options[] =
         {"server", no_argument, 0, 's'},
         {"client", required_argument, 0, 'c'},
         {"time", required_argument, 0, 't'},
+        {"version", no_argument, 0, 'v'},
+        {"interface", required_argument, 0, 'I'},
+        {"ipv4", required_argument, 0, '4'},
+        {"ipv6", required_argument, 0, '6'},
 /*      {"c2s-time", required_argument, 0, 'T'},
         {"c2s-packet", required_argument, 0, 'Y'},
         {"s2c-time", required_argument, 0, 't'},
@@ -39,6 +43,9 @@ void usage(char *prog) {
 
     fprintf(stderr, "Server/Client options:\n");
     fprintf(stderr, "  -p, --port       <port>  port number to listen on/connect to (default %d)\n", DEFAULT_CONTROL_PORT);
+    fprintf(stderr, "  -I, --interface  <iface> source interface name\n");
+    fprintf(stderr, "  -4, --ipv4       <addr>  source IPv4 address\n");
+    fprintf(stderr, "  -6, --ipv6       <addr>  source IPv6 address\n");
     fprintf(stderr, "\n");
 
 

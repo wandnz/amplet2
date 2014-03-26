@@ -389,6 +389,7 @@ void run_throughput_server(int argc, char *argv[], SSL *ssl) {
     char *sourcev4, *sourcev6;
     int family;
     int maxwait;
+    extern struct option long_options[];
 
     /* Possibly could use dests to limit interfaces to listen on */
 
@@ -401,7 +402,8 @@ void run_throughput_server(int argc, char *argv[], SSL *ssl) {
     port = DEFAULT_CONTROL_PORT;
 
     /* TODO server should take long options too */
-    while ( (opt = getopt(argc, argv, "?hp:4:6:I:")) != -1 ) {
+    while ( (opt = getopt_long(argc, argv, "?hp:4:6:I:",
+                    long_options, NULL)) != -1 ) {
         switch ( opt ) {
             case '4': sourcev4 = optarg; break;
             case '6': sourcev6 = optarg; break;
