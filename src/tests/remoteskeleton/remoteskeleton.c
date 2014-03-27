@@ -113,8 +113,11 @@ void print_remoteskeleton(void *data, uint32_t len) {
 }
 
 
-void server_remoteskeleton(int argc, char *argv[], SSL *ssl) {
+void server_remoteskeleton(__attribute__((unused))int argc,
+        __attribute__((unused))char *argv[], SSL *ssl) {
+
     printf("SKELETON SERVER\n");
+
     if ( send_server_port(ssl, 6699) < 0 ) {
         printf("failed to send server port\n");
     } else {

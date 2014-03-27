@@ -68,7 +68,8 @@ int matches_common_name(const char *hostname, const X509 *cert) {
     common_name_str = (char *) ASN1_STRING_data(common_name_asn1);
 
     /* Make sure there isn't an embedded NUL character in the CN */
-    if (ASN1_STRING_length(common_name_asn1) != strlen(common_name_str)) {
+    if ((size_t)ASN1_STRING_length(common_name_asn1) !=
+            strlen(common_name_str)) {
         Log(LOG_WARNING, "Malformed Common Name in cert");
         return -3;
     }
