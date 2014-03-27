@@ -46,13 +46,13 @@ static int startListening(struct socket_t *sockets, int port,
     }
 
     /* set all the socket options that have been asked for */
-    if ( sockets->socket > 0 ) {
+    if ( sockets->socket >= 0 ) {
         doSocketSetup(sockopts, sockets->socket);
         ((struct sockaddr_in*)
          (sockopts->sourcev4->ai_addr))->sin_port = ntohs(port);
     }
 
-    if ( sockets->socket6 > 0 ) {
+    if ( sockets->socket6 >= 0 ) {
         int one = 1;
         doSocketSetup(sockopts, sockets->socket6);
         /*
@@ -74,12 +74,28 @@ static int startListening(struct socket_t *sockets, int port,
 
     if ( bind_sockets_to_address(sockets, sockopts->sourcev4,
                 sockopts->sourcev6) < 0 ) {
+        /* XXX can we trust errno to always be set correctly at this point? */
+        int error = errno;
+
+        /* close any sockets that might have been open and bound ok */
+        if ( sockets->socket >= 0 ) {
+            close(sockets->socket);
+        }
+        if ( sockets->socket6 >= 0 ) {
+            close(sockets->socket6);
+        }
+
+        /* if we got an EADDRINUSE we report it so a new port can be tried */
+        if ( error == EADDRINUSE ) {
+            return EADDRINUSE;
+        }
+
         Log(LOG_ERR,"Unable to bind socket to address, aborting test");
         return -1;
     }
 
     /* Start listening for at most 1 connection, we don't want a huge queue */
-    if ( sockets->socket > 0 ) {
+    if ( sockets->socket >= 0 ) {
         if ( listen(sockets->socket, 1) < 0 ) {
             Log(LOG_WARNING, "Failed to listen on IPv4 socket: %s",
                     strerror(errno));
@@ -88,7 +104,7 @@ static int startListening(struct socket_t *sockets, int port,
         }
     }
 
-    if ( sockets->socket6 > 0 ) {
+    if ( sockets->socket6 >= 0 ) {
         if ( listen(sockets->socket6, 1) < 0 ) {
             Log(LOG_WARNING, "Failed to listen on IPv6 socket: %s",
                     strerror(errno));
@@ -97,7 +113,7 @@ static int startListening(struct socket_t *sockets, int port,
         }
     }
 
-    /* make sure that at least one of them is listening ok */
+    /* if the ports are free, make sure at least one was opened ok */
     if ( sockets->socket < 0 && sockets->socket6 < 0 ) {
         return -1;
     }
@@ -178,6 +194,8 @@ static int serveTest(int control_socket, struct opt_t *sockopts) {
     socklen_t client_addrlen = sizeof(client_addr);
     uint32_t version = 0;
     struct socket_t sockets;
+    uint16_t portmax;
+    int res;
 
     memset(&packet, 0, sizeof(packet));
     memset(&result, 0, sizeof(result));
@@ -194,8 +212,21 @@ static int serveTest(int control_socket, struct opt_t *sockopts) {
         goto errorCleanup;
     }
 
+    /* If test port has been manually set, only try that port. If it is
+     * still the default, try a few ports till we hopefully find a free one.
+     */
+    if ( sockopts->tport == DEFAULT_TEST_PORT ) {
+        portmax = MAX_TEST_PORT;
+    } else {
+        portmax = sockopts->tport;
+    }
+
     /* No errors so far, make our new testsocket with the given test options */
-    if ( startListening(&sockets, sockopts->tport, sockopts) < 0 ) {
+    do {
+        res = startListening(&sockets, sockopts->tport, sockopts);
+    } while ( res == EADDRINUSE && sockopts->tport++ < portmax );
+
+    if ( res != 0 ) {
         Log(LOG_WARNING, "Failed to start listening for test traffic");
         goto errorCleanup;
     }
@@ -305,10 +336,15 @@ static int serveTest(int control_socket, struct opt_t *sockopts) {
                 Log(LOG_DEBUG, "Client asked to renew the connection");
 
                 /* Ready the listening socket again */
-                if ( startListening(&sockets, sockopts->tport, sockopts) < 0 ) {
+                do {
+                    res = startListening(&sockets, sockopts->tport, sockopts);
+                } while ( res == EADDRINUSE && sockopts->tport < portmax );
+
+                if ( res != 0 ) {
                     Log(LOG_ERR, "Failed to open listening socket terminating");
                     goto errorCleanup;
                 }
+
                 if ( sockets.socket > 0 ) {
                     t_listen = sockets.socket;
                 } else {
@@ -390,6 +426,8 @@ void run_throughput_server(int argc, char *argv[], SSL *ssl) {
     int family;
     int maxwait;
     extern struct option long_options[];
+    uint16_t portmax;
+    int res;
 
     /* Possibly could use dests to limit interfaces to listen on */
 
@@ -400,6 +438,7 @@ void run_throughput_server(int argc, char *argv[], SSL *ssl) {
     sourcev4 = "0.0.0.0";
     sourcev6 = "::";
     port = DEFAULT_CONTROL_PORT;
+    portmax = MAX_CONTROL_PORT;
 
     /* TODO server should take long options too */
     while ( (opt = getopt_long(argc, argv, "?hp:4:6:I:",
@@ -409,7 +448,7 @@ void run_throughput_server(int argc, char *argv[], SSL *ssl) {
             case '6': sourcev6 = optarg; break;
             case 'I': sockopts.device = optarg; break;
             /* case 'B': for iperf compatability? */
-            case 'p': port = atoi(optarg); break;
+            case 'p': port = atoi(optarg); portmax = port; break;
             case 'h':
             case '?':
             /* XXX do we need this extra usage statement here? */
@@ -421,9 +460,13 @@ void run_throughput_server(int argc, char *argv[], SSL *ssl) {
     sockopts.sourcev4 = get_numeric_address(sourcev4, NULL);
     sockopts.sourcev6 = get_numeric_address(sourcev6, NULL);
 
-    /* listen for a connection from a client */
+    /* try to open a listen port for the control connection from a client */
     sockopts.reuse_addr = 1;
-    if ( startListening(&listen_sockets, port, &sockopts) < 0 ) {
+    do {
+        res = startListening(&listen_sockets, port, &sockopts);
+    } while ( res == EADDRINUSE && port++ < portmax );
+
+    if ( res != 0 ) {
         Log(LOG_ERR, "Failed to open listening socket terminating");
         return;
     }

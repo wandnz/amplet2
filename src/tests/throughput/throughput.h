@@ -57,7 +57,9 @@
 
 /* The default test port */
 #define DEFAULT_CONTROL_PORT  8815 /* Could use etc/services like old code */
-#define DEFAULT_TEST_PORT 8816 /* Run test across a seperate port */
+#define MAX_CONTROL_PORT  8825
+#define DEFAULT_TEST_PORT 8826 /* Run test across a separate port */
+#define MAX_TEST_PORT 8836
 #define DEFAULT_WRITE_SIZE  (128 * 1024) // 128-kbyte like iperf uses
 #define DEFAULT_TPUT_PAUSE  10000
 #define DEFAULT_TEST_SCHEDULE "T10000" /* iperf default: 10s client to server */
@@ -286,8 +288,8 @@ struct test_request_t {
  * Global test options that control packet size and timing.
  */
 struct opt_t {
-    uint32_t cport; /* The control port to connect to */
-    uint32_t tport; /* The test port to connect to or create */
+    uint16_t cport; /* The control port to connect to */
+    uint16_t tport; /* The test port to connect to or create */
     uint32_t write_size; /* The TCP write size to use */
     int32_t sock_mss; /* Set the TCP Maximun segment size */
     uint8_t sock_disable_nagle; /* 0 enable nagale - 1 disable - overriden by /proc/net/tcp/nagle */
