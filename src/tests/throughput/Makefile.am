@@ -1,4 +1,5 @@
 EXTRA_DIST=*.h
+SUBDIRS= . test
 
 testdir=$(libdir)/$(PACKAGE)/tests
 
