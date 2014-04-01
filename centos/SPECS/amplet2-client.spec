@@ -1,16 +1,16 @@
 Name: amplet2
-Version: 0.1.7
-Release: 2%{?dist}
+Version: 0.2.1
+Release: 1%{?dist}
 Summary: AMP Network Performance Measurement Suite - Client Tools
 
 Group: Applications/Internet
 License: AMP
 URL: http://research.wand.net.nz/software/amp.php
-Source0: http://research.wand.net.nz/software/amp/amplet2-0.1.7.tar.gz	
+Source0: http://research.wand.net.nz/software/amp/amplet2-0.2.1.tar.gz
 Patch0: amplet2-client-init.patch
 BuildRoot:	%(mktemp -ud %{_tmppath}/%{name}-%{version}-%{release}-XXXXXX)
 
-BuildRequires: openssl-devel libconfuse-devel libwandevent-devel
+BuildRequires: openssl-devel libconfuse-devel libwandevent-devel libcurl-devel
 Requires: rabbitmq-server >= 3.1.5 librabbitmq-amp >= 0.4.0 libwandevent
 
 %description
@@ -46,9 +46,9 @@ make %{?_smp_mflags}
 rm -rf %{buildroot}
 make install DESTDIR=%{buildroot}
 install -D amplet2-client.init %{buildroot}%{_initrddir}/%{name}-client
-# XXX this is hax, should measured be in sbin or bin?
+# XXX this is hax, should amplet2 be in sbin or bin?
 mkdir %{buildroot}%{_sbindir}/
-mv %{buildroot}%{_bindir}/measured %{buildroot}%{_sbindir}/
+mv %{buildroot}%{_bindir}/amplet2 %{buildroot}%{_sbindir}/
 rm -rf %{buildroot}/usr/lib/python2.6/
 rm -rf %{buildroot}%{_libdir}/*a
 rm -rf %{buildroot}%{_libdir}/%{name}/tests/*a
@@ -61,24 +61,24 @@ rm -rf %{buildroot}
 %defattr(-,root,root,-)
 %doc
 %{_bindir}/*
-%{_sbindir}/measured
-%attr(4755, root, root) %{_sbindir}/measured
+%{_sbindir}/amplet2
+%attr(4755, root, root) %{_sbindir}/amplet2
 %{_libdir}/*so
 %{_libdir}/amplet2/tests/*so
 %{_sysconfdir}/%{name}/*
-%{_datadir}/%{name}/rsyslog/measured.conf
+%{_datadir}/%{name}/rsyslog/amplet2.conf
 %{_initrddir}/*
 
 %files lite
 %defattr(-,root,root,-)
 %doc
 %{_bindir}/*
-%{_sbindir}/measured
-%attr(4755, root, root) %{_sbindir}/measured
+%{_sbindir}/amplet2
+%attr(4755, root, root) %{_sbindir}/amplet2
 %{_libdir}/*so
 %{_libdir}/amplet2/tests/*so
 %{_sysconfdir}/%{name}/*
-%{_datadir}/%{name}/rsyslog/measured.conf
+%{_datadir}/%{name}/rsyslog/amplet2.conf
 %{_initrddir}/*
 
 
@@ -102,16 +102,16 @@ exit 0
 
 
 %post
-# Install the appropriate config as the main measured.conf
-if [ ! -f "/etc/amplet2/measured.conf" ]; then
-	ln -s /etc/amplet2/measured-local.conf /etc/amplet2/measured.conf
+# Install the appropriate config as the main client.conf
+if [ ! -f "/etc/amplet2/client.conf" ]; then
+	ln -s /etc/amplet2/client-local.conf /etc/amplet2/client.conf
 else
-	echo "/etc/amplet2/measured.conf already exists, skipping"
+	echo "/etc/amplet2/client.conf already exists, skipping"
 fi
 
 # update rsyslog
-if [ ! -f "/etc/rsyslog.d/measured.conf" ]; then
-	cp /usr/share/amplet2/rsyslog/measured.conf /etc/rsyslog.d/90-measured.conf
+if [ ! -f "/etc/rsyslog.d/90-amplet2.conf" ]; then
+	cp /usr/share/amplet2/rsyslog/amplet2.conf /etc/rsyslog.d/90-amplet2.conf
 	if [ -x "`which invoke-rc.d 2>/dev/null`" ]; then
 		invoke-rc.d rsyslog restart || exit $?
 	else
@@ -165,16 +165,16 @@ else
 fi
 
 %post lite
-# Install the appropriate config as the main measured.conf
-if [ ! -f "/etc/amplet2/measured.conf" ]; then
-	ln -s /etc/amplet2/measured-lite.conf /etc/amplet2/measured.conf
+# Install the appropriate config as the main client.conf
+if [ ! -f "/etc/amplet2/client.conf" ]; then
+	ln -s /etc/amplet2/client-lite.conf /etc/amplet2/client.conf
 else
-	echo "/etc/amplet2/measured.conf already exists, skipping"
+	echo "/etc/amplet2/client.conf already exists, skipping"
 fi
 
 # update rsyslog
-if [ ! -f "/etc/rsyslog.d/measured.conf" ]; then
-	cp /usr/share/amplet2/rsyslog/measured.conf /etc/rsyslog.d/90-measured.conf
+if [ ! -f "/etc/rsyslog.d/90-amplet2.conf" ]; then
+	cp /usr/share/amplet2/rsyslog/amplet2.conf /etc/rsyslog.d/90-amplet2.conf
 	if [ -x "`which invoke-rc.d 2>/dev/null`" ]; then
 		invoke-rc.d rsyslog restart || exit $?
 	else
@@ -224,6 +224,15 @@ fi
 
 
 %changelog
+* Mon Mar 31 2014 Brendon Jones <brendonj@waikato.ac.nz> 0.2.1-1
+- New upstream release
+- Renamed binaries, configs, etc to be more consistent
+- Added HTTP test
+- Added throughput test
+- Added control socket for starting test servers
+- All tests can now be bound to specific source interfaces/addresses
+- Added simple test schedule fetching via HTTP/HTTPS
+
 * Fri Sep 13 2013 Brendon Jones <brendonj@waikato.ac.nz> 0.1.7-2
 - Create keys directory during postinst
 
