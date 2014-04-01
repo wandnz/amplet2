@@ -156,7 +156,7 @@ def get_data(data):
 
     # deal with the old version, which isn't byte swapped
     if version == socket.htonl(2013032800):
-        return data_2013022000(data)
+        return data_2013032800(data)
 
     # deal with the current version, which is what we should be using
     if version == 2014020300:
