@@ -1,3 +1,14 @@
+amplet2 (0.2.1-1) unstable; urgency=low
+
+  * New upstream release.
+  * Added ability to set source address/interface to HTTP/throughput tests.
+  * Reported data for throughput test now includes target name.
+  * Throughput test will now try to find a free port to use rather than fail.
+  * Control socket can now be set to listen on a specific address/interface.
+  * Test saving functions now properly null undefined fields.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Mon, 31 Mar 2014 15:51:54 +1300
+
 amplet2 (0.2.0-1) unstable; urgency=low
 
   * New upstream release.
