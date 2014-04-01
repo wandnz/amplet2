@@ -114,7 +114,7 @@ def data_2014020300(data):
                     "ttl": ttl if rtt >= 0 else None,
                     "packet_size": packet_size,
                     "random": random,
-                    "loss": 1 if rtt is None else 0,
+                    "loss": 0 if rtt >= 0 else 1,
                 }
             )
         count -= 1
