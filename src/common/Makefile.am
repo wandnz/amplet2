@@ -1,4 +1,5 @@
 EXTRA_DIST=*.h
+SUBDIRS= . test
 
 # XXX should this be just a static library? doesn't really need to be a shared
 # object that gets installed into the system...

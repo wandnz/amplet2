@@ -209,6 +209,7 @@ AC_CONFIG_FILES([Makefile
                  src/measured/test/Makefile
                  src/measured/etc/Makefile
                  src/common/Makefile
+                 src/common/test/Makefile
                  src/tests/Makefile
                  src/tests/python/Makefile
                  src/tests/skeleton/Makefile
