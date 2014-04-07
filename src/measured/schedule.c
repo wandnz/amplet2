@@ -197,7 +197,7 @@ static time_t get_period_max_value(char repeat) {
  * that it fits within the limits of the schedule. This is used to convert
  * millisecond time values in the schedule for start, end, frequency.
  */
-static long get_time_value(char *value_string, char repeat) {
+static int64_t get_time_value(char *value_string, char repeat) {
     int value;
     int max_interval;
     char *endptr;
@@ -343,7 +343,12 @@ struct timeval get_next_schedule_time(wand_event_handler_t *ev_hdl,
 	    MS_FROM_TV(now) + diff > test_end ) {
 	/* next time is after the end time for test, advance to next start */
 	next.tv_sec = period_end - now.tv_sec;
-	next.tv_usec = 0;
+        if ( now.tv_usec > 0 ) {
+            next.tv_sec--;
+            next.tv_usec = 1000000 - now.tv_usec;
+        } else {
+            next.tv_usec = 0;
+        }
 	ADD_TV_PARTS(next, next, S_FROM_MS(start), US_FROM_MS(start));
     }
     Log(LOG_DEBUG, "next test run scheduled at: %d.%d\n", (int)next.tv_sec,
@@ -506,7 +511,7 @@ static void read_schedule_file(wand_event_handler_t *ev_hdl, char *filename) {
 
     while ( fgets(line, sizeof(line), in) != NULL ) {
 	char *target, *testname, *repeat, *params;
-	long start, end, frequency;
+	int64_t start, end, frequency;
 	struct timeval next;
         nametable_t *addresses;
 	test_type_t test_id;
@@ -865,3 +870,15 @@ int update_remote_schedule(char *url, char *cacert, char *cert, char *key) {
             "Failed to initialise curl, skipping fetch of remote schedule");
     return -1;
 }
+
+#if UNIT_TEST
+time_t amp_test_get_period_max_value(char repeat) {
+    return get_period_max_value(repeat);
+}
+int64_t amp_test_get_time_value(char *value_string, char repeat) {
+    return get_time_value(value_string, repeat);
+}
+time_t amp_test_get_period_start(char repeat) {
+    get_period_start(repeat);
+}
+#endif

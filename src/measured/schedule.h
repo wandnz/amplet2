@@ -125,4 +125,10 @@ struct timeval get_next_schedule_time(wand_event_handler_t *ev_hdl,
 	char repeat, uint64_t start, uint64_t end, uint64_t frequency);
 int update_remote_schedule(char *server, char *cacert, char *cert, char *key);
 void remote_schedule_callback(struct wand_timer_t *timer);
+#if UNIT_TEST
+time_t amp_test_get_period_max_value(char repeat);
+int64_t amp_test_get_time_value(char *value_string, char repeat);
+time_t amp_test_get_period_start(char repeat);
+#endif
+
 #endif
