@@ -1,5 +1,5 @@
-TESTS=send.test bind_address.test wait_for_data.test
-check_PROGRAMS=send.test bind_address.test wait_for_data.test
+TESTS=send.test bind_address.test wait_for_data.test get_packet.test
+check_PROGRAMS=send.test bind_address.test wait_for_data.test get_packet.test
 
 send_test_SOURCES=send_test.c ../testlib.c
 send_test_CFLAGS=-rdynamic -DUNIT_TEST
@@ -12,6 +12,10 @@ bind_address_test_LDFLAGS=-module -avoid-version -L../ -lamp
 wait_for_data_test_SOURCES=wait_for_data_test.c ../testlib.c
 wait_for_data_test_CFLAGS=-rdynamic -DUNIT_TEST
 wait_for_data_test_LDFLAGS=-module -avoid-version -L../ -lamp
+
+get_packet_test_SOURCES=get_packet_test.c ../testlib.c
+get_packet_test_CFLAGS=-rdynamic -DUNIT_TEST
+get_packet_test_LDFLAGS=-module -avoid-version -L../ -lamp
 
 
 AM_CFLAGS=-g -Wall -W -rdynamic
