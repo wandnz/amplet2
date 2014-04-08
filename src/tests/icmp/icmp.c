@@ -76,10 +76,12 @@ static uint16_t checksum(uint16_t *packet, int size) {
  * Check an icmp error to determine if it is in response to a packet we have
  * sent. If it is then the error needs to be recorded.
  */
-static void icmp_error(char *packet, uint16_t ident, struct info_t info[]) {
+static int icmp_error(char *packet, int bytes, uint16_t ident,
+        struct info_t info[]) {
     struct iphdr *ip, *embed_ip;
     struct icmphdr *icmp, *embed_icmp;
     uint16_t seq;
+    int required_bytes;
 
     ip = (struct iphdr *)packet;
 
@@ -93,10 +95,12 @@ static void icmp_error(char *packet, uint16_t ident, struct info_t info[]) {
      * possibility of having embedded data - at least enough space for
      * 2 ip headers (one of known length), 2 icmp headers.
      */
-    if ( ip->tot_len < (ip->ihl << 2) + sizeof(struct iphdr) +
-	    (sizeof(struct icmphdr) * 2) ) {
+    required_bytes = (ip->ihl << 2) + sizeof(struct iphdr) +
+        (sizeof(struct icmphdr) * 2);
+
+    if ( bytes < required_bytes || ip->tot_len < required_bytes ) {
 	Log(LOG_DEBUG, "ICMP reply too small for embedded packet data");
-	return;
+	return -1;
     }
 
     /* get the embedded ip header */
@@ -105,7 +109,7 @@ static void icmp_error(char *packet, uint16_t ident, struct info_t info[]) {
 
     /* obviously not a response to our test, return */
     if ( embed_ip->version != 4 || embed_ip->protocol != IPPROTO_ICMP ) {
-	return;
+	return -1;
     }
 
     /* get the embedded icmp header */
@@ -115,7 +119,7 @@ static void icmp_error(char *packet, uint16_t ident, struct info_t info[]) {
     if ( embed_icmp->type > NR_ICMP_TYPES ||
 	    embed_icmp->type != ICMP_ECHO || embed_icmp->code != 0 ||
 	    ntohs(embed_icmp->un.echo.id) != ident) {
-	return;
+	return -1;
     }
 
     seq = ntohs(embed_icmp->un.echo.sequence);
@@ -136,7 +140,7 @@ static void icmp_error(char *packet, uint16_t ident, struct info_t info[]) {
     /* TODO get ttl */
     /*info[seq].ttl = */
 
-    return;
+    return 0;
 }
 
 
@@ -145,12 +149,19 @@ static void icmp_error(char *packet, uint16_t ident, struct info_t info[]) {
  * Process an ICMPv4 packet to check if it is an ICMP ECHO REPLY in response to
  * a request we have sent. If so then record the time it took to get the reply.
  */
-static void process_ipv4_packet(char *packet, uint16_t ident,
+static int process_ipv4_packet(char *packet, uint32_t bytes, uint16_t ident,
 	struct timeval now, int count, struct info_t info[]) {
 
     struct iphdr *ip;
     struct icmphdr *icmp;
     uint16_t seq;
+
+    /* make sure that we read enough data to have a valid response */
+    if ( bytes < sizeof(struct iphdr) + sizeof(struct icmphdr) +
+            sizeof(uint16_t) ) {
+        Log(LOG_DEBUG, "Too few bytes read for any valid ICMP response");
+        return -1;
+    }
 
     /* any icmpv4 packets we get have full headers attached */
     ip = (struct iphdr *)packet;
@@ -158,35 +169,42 @@ static void process_ipv4_packet(char *packet, uint16_t ident,
     assert(ip->version == 4);
     assert(ip->ihl >= 5);
 
+    /* now make sure that we read enough data for this particular ip header */
+    if ( bytes < (ip->ihl << 2) + sizeof(struct icmphdr) + sizeof(uint16_t) ) {
+        Log(LOG_DEBUG, "Too few bytes read to contain ICMP header");
+        return -1;
+    }
+
     icmp = (struct icmphdr *)(packet + (ip->ihl << 2));
 
     /* if it isn't an echo reply it could still be an error for us */
     if ( icmp->type != ICMP_ECHOREPLY ) {
-	icmp_error(packet, ident, info);
-	return;
+	return icmp_error(packet, bytes, ident, info);
     }
 
     /* if it is an echo reply but the id doesn't match then it's not ours */
     if ( ntohs(icmp->un.echo.id ) != ident ) {
-	return;
+	return -1;
     }
 
     /* check the sequence number is less than the maximum number of requests */
     seq = ntohs(icmp->un.echo.sequence);
     if ( seq > count ) {
-	return;
+	return -1;
     }
 
     /* check that the magic value in the reply matches what we expected */
     //if ( *(uint16_t*)&packet[sizeof(struct iphdr)+sizeof(struct icmphdr)] !=
     if ( *(uint16_t*)(((char *)packet)+(ip->ihl<< 2)+sizeof(struct icmphdr)) !=
 	    info[seq].magic ) {
-	return;
+	return -1;
     }
 
     /* reply is good, record the round trip time */
     info[seq].reply = 1;
     info[seq].delay = DIFF_TV_US(now, info[seq].time_sent);
+
+    return 0;
 }
 
 
@@ -196,11 +214,15 @@ static void process_ipv4_packet(char *packet, uint16_t ident,
  * is the same behaviour as the original icmp test, but is it really what we
  * want? Should record errors for both protocols, or neither?
  */
-static void process_ipv6_packet(char *packet, uint16_t ident,
+static int process_ipv6_packet(char *packet, uint32_t bytes, uint16_t ident,
 	struct timeval now, int count, struct info_t info[]) {
 
     struct icmp6_hdr *icmp;
     uint16_t seq;
+
+    if ( bytes < sizeof(struct icmp6_hdr) ) {
+        return -1;
+    }
 
     /* any icmpv6 packets we get have the outer ipv6 header stripped */
     icmp = (struct icmp6_hdr *)packet;
@@ -210,18 +232,20 @@ static void process_ipv6_packet(char *packet, uint16_t ident,
     if ( icmp->icmp6_type != ICMP6_ECHO_REPLY ||
 	    ntohs(icmp->icmp6_id) != ident ||
 	    seq > count ) {
-	return;
+	return -1;
     }
 
     /* check that the magic value in the reply matches what we expected */
     if ( *(uint16_t*)(((char*)packet) + sizeof(struct icmp6_hdr)) !=
 	    info[seq].magic ) {
-	return;
+	return -1;
     }
 
     /* reply is good, record the round trip time */
     info[seq].reply = 1;
     info[seq].delay = DIFF_TV_US(now, info[seq].time_sent);
+
+    return 0;
 }
 
 
@@ -230,12 +254,14 @@ static void process_ipv6_packet(char *packet, uint16_t ident,
  *
  */
 static void harvest(struct socket_t *raw_sockets, uint16_t ident, int wait,
-	int count, struct info_t info[]) {
+	int outstanding, int count, struct info_t info[]) {
 
-    char packet[MIN_PACKET_LEN];
+    char packet[RESPONSE_BUFFER_LEN];
     struct timeval now;
     struct sockaddr_in6 addr;
     struct iphdr *ip;
+    int result;
+    ssize_t bytes;
 
     /*
      * Read packets until we hit the timeout, or we have all we expect.
@@ -243,8 +269,8 @@ static void harvest(struct socket_t *raw_sockets, uint16_t ident, int wait,
      * only big enough for the data from the packet that we require - the
      * excess bytes will be discarded.
      */
-    while ( get_packet(raw_sockets, packet, MIN_PACKET_LEN,
-                (struct sockaddr*)&addr, &wait) ) {
+    while ( (bytes = get_packet(raw_sockets, packet, RESPONSE_BUFFER_LEN,
+                (struct sockaddr*)&addr, &wait)) > 0 ) {
 	gettimeofday(&now, NULL);
 
 	/*
@@ -254,12 +280,27 @@ static void harvest(struct socket_t *raw_sockets, uint16_t ident, int wait,
 	 */
         ip = (struct iphdr*)packet;
         switch ( ip->version ) {
-	    case 4: process_ipv4_packet(packet, ident, now, count, info);
+	    case 4: result =
+                        process_ipv4_packet(packet, bytes, ident, now, count,
+                                info);
 		    break;
 	    default: /* unless we ask we don't have an ipv6 header here */
-		    process_ipv6_packet(packet, ident, now, count, info);
+		    result =
+                        process_ipv6_packet(packet, bytes, ident, now, count,
+                                info);
 		    break;
 	};
+
+        /*
+         * Decrement the number of outstanding results only if we know how
+         * many results we are still waiting on.
+         */
+        if ( outstanding > 0 && result == 0 ) {
+            outstanding--;
+            if ( outstanding == 0 ) {
+                return;
+            }
+        }
     }
 }
 
@@ -326,7 +367,7 @@ static void send_packet(struct socket_t *raw_sockets, int seq, uint16_t ident,
     while ( (delay = delay_send_packet(sock, packet, opt->packet_size-h_len,
 		    dest)) > 0 ) {
 	/* check for responses while we wait out the interpacket delay */
-	harvest(raw_sockets, ident, delay, count, info);
+	harvest(raw_sockets, ident, delay, -1, count, info);
     }
 
     if ( delay < 0 ) {
@@ -515,6 +556,7 @@ int run_icmp(int argc, char *argv[], int count, struct addrinfo **dests) {
     uint16_t ident;
     struct addrinfo *sourcev4, *sourcev6;
     char *device;
+    int outstanding;
 
     Log(LOG_DEBUG, "Starting ICMP test");
 
@@ -599,19 +641,19 @@ int run_icmp(int argc, char *argv[], int count, struct addrinfo **dests) {
     }
 
     /*
-     * harvest results - try with a short timeout to start with, so maybe we
-     * can avoid doing the long wait later
+     * Check if all expected responses have been received, we might have got
+     * them all during the interpacket wait or they may have failed to send.
      */
-    harvest(&raw_sockets, ident, LOSS_TIMEOUT / 100, count, info);
-
-    /* check if all expected responses have been received */
-    for ( dest = 0; dest < count && info[dest].reply; dest++ ) {
-	/* nothing */
+    outstanding = 0;
+    for ( dest = 0; dest < count; dest++ ) {
+        if ( !info[dest].reply ) {
+            outstanding++;
+        }
     }
 
-    /* if not, then call harvest again with the full timeout */
-    if ( dest < count ) {
-	harvest(&raw_sockets, ident, LOSS_TIMEOUT, count, info);
+    /* If there are any outstanding reponses then we need to wait for them. */
+    if ( outstanding > 0 ) {
+        harvest(&raw_sockets, ident, LOSS_TIMEOUT, outstanding, count, info);
     }
 
     if ( raw_sockets.socket > 0 ) {

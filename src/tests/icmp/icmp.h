@@ -19,6 +19,13 @@
 #define MIN_PACKET_LEN ( \
         sizeof(struct ip6_hdr) + sizeof(struct icmphdr) + sizeof(uint16_t))
 
+/*
+ * Initial ipv4 hlen + maximum ipv4 hlen + response icmp header + 8 bytes.
+ * We don't get the ipv6 header, so the ipv4 version is the bigger of the two.
+ */
+#define RESPONSE_BUFFER_LEN ( \
+        sizeof(struct iphdr) + 60 + sizeof(struct icmphdr) + 8)
+
 /* timeout in usec to wait before declaring the response lost, currently 20s */
 #define LOSS_TIMEOUT 20000000
 
