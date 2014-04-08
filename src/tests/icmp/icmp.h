@@ -11,11 +11,13 @@
 /* by default use an 84 byte packet, because that's what it has always been */
 #define DEFAULT_ICMP_ECHO_REQUEST_LEN 84
 
-/* targets can mix ipv4 and ipv6, so use ipv6 len to calc min packet size */
-#define IP_HEADER_LEN (sizeof(struct ip6_hdr))
-
-/* minimum size of the icmp portion is the header plus "magic" data */
-#define MIN_ICMP_ECHO_REQUEST_LEN (sizeof(struct icmphdr) + sizeof(uint16_t))
+/*
+ * We can mix ipv4 and ipv6 targets in our tests, so set the minimum packet
+ * size to be the ipv6 header length + icmp header length + our "magic" two
+ * bytes that are used to store test information.
+ */
+#define MIN_PACKET_LEN ( \
+        sizeof(struct ip6_hdr) + sizeof(struct icmphdr) + sizeof(uint16_t))
 
 /* timeout in usec to wait before declaring the response lost, currently 20s */
 #define LOSS_TIMEOUT 20000000

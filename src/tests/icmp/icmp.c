@@ -232,16 +232,19 @@ static void process_ipv6_packet(char *packet, uint16_t ident,
 static void harvest(struct socket_t *raw_sockets, uint16_t ident, int wait,
 	int count, struct info_t info[]) {
 
-    char packet[2048]; //XXX can we be sure of a max size for recv packets?
+    char packet[MIN_PACKET_LEN];
     struct timeval now;
     struct sockaddr_in6 addr;
     struct iphdr *ip;
 
-    /* read packets until we hit the timeout, or we have all we expect.
-     * Note that wait is reduced by get_packet()
+    /*
+     * Read packets until we hit the timeout, or we have all we expect.
+     * Note that wait is reduced by get_packet(), and that the buffer is
+     * only big enough for the data from the packet that we require - the
+     * excess bytes will be discarded.
      */
-    while ( get_packet(raw_sockets, packet, 1024, (struct sockaddr*)&addr,
-		&wait) ) {
+    while ( get_packet(raw_sockets, packet, MIN_PACKET_LEN,
+                (struct sockaddr*)&addr, &wait) ) {
 	gettimeofday(&now, NULL);
 
 	/*
@@ -540,19 +543,17 @@ int run_icmp(int argc, char *argv[], int count, struct addrinfo **dests) {
 
     /* pick a random packet size within allowable boundaries */
     if ( options.random ) {
-	options.packet_size = MIN_ICMP_ECHO_REQUEST_LEN + IP_HEADER_LEN +
-	    (int)((1500 - IP_HEADER_LEN - MIN_ICMP_ECHO_REQUEST_LEN)
-		    * (random()/(RAND_MAX+1.0)));
+	options.packet_size = MIN_PACKET_LEN +
+	    (int)((1500 - MIN_PACKET_LEN) * (random()/(RAND_MAX+1.0)));
 	Log(LOG_DEBUG, "Setting packetsize to random value: %d\n",
 		options.packet_size);
     }
 
     /* make sure that the packet size is big enough for our data */
-    if ( options.packet_size < MIN_ICMP_ECHO_REQUEST_LEN + IP_HEADER_LEN ) {
+    if ( options.packet_size < MIN_PACKET_LEN ) {
 	Log(LOG_WARNING, "Packet size %d below minimum size, raising to %d",
-		options.packet_size,
-		MIN_ICMP_ECHO_REQUEST_LEN + IP_HEADER_LEN);
-	options.packet_size = MIN_ICMP_ECHO_REQUEST_LEN + IP_HEADER_LEN;
+		options.packet_size, MIN_PACKET_LEN);
+	options.packet_size = MIN_PACKET_LEN;
     }
 
     /* delay the start by a random amount of perturbate is set */
