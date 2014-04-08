@@ -11,7 +11,7 @@ SUBDIRS=. etc test
 bin_PROGRAMS=amplet2
 amplet2_SOURCES=measured.c schedule.c watchdog.c test.c nametable.c control.c
 amplet2_CFLAGS=-I../tests/ -I../common/ -DAMP_CONFIG_DIR=\"$(sysconfdir)/$(PACKAGE)\" -DAMP_TEST_DIRECTORY=\"$(libdir)/$(PACKAGE)/tests\" -rdynamic
-amplet2_LDFLAGS=-L../tests/ -L../common/ -lamp -lcurl
+amplet2_LDFLAGS=-L../tests/ -L../common/ -lamp -lcurl -lwandevent -lconfuse
 
 sharedir=$(pkgdatadir)/rsyslog
 dist_share_DATA=rsyslog/*
