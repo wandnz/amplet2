@@ -13,6 +13,7 @@
 #include "ssl.h"
 #include "global.h" /* just for temporary ssl testing stuff */
 #include "messaging.h" /* just for temporary ssl testing stuff */
+#include "testlib.h" /* just for temporary nameserver testing stuff */
 
 
 
@@ -70,10 +71,11 @@ int main(int argc, char *argv[]) {
     struct addrinfo **dests;
     struct addrinfo hint;
     struct addrinfo *result, *rp;
-    int log_flag_index;
+    int log_flag_index, ns_flag_index;
     int count;
     int opt;
     int i;
+    char *nameserver = NULL;
 
     /* load information about the test, including the callback functions */
     test_info = get_test_info();
@@ -89,6 +91,7 @@ int main(int argc, char *argv[]) {
     opterr = 0;
 
     log_flag_index = 0;
+    ns_flag_index = 0;
 
     /*
      * deal with command line arguments - split them into actual arguments
@@ -98,7 +101,7 @@ int main(int argc, char *argv[]) {
      * to the end of the list). All test arguments will be preserved, and the
      * destinations listed after the -- marker can be removed easily.
      */
-    while ( (opt = getopt(argc, argv, "-xI:4:6:")) != -1 ) {
+    while ( (opt = getopt(argc, argv, "-xD:I:4:6:")) != -1 ) {
 	/* generally do nothing, just use up arguments until the -- marker */
         switch ( opt ) {
             /* -x is the only option we care about for now - enable debug */
@@ -110,8 +113,28 @@ int main(int argc, char *argv[]) {
             case 'I': vars.interface = optarg; break;
             case '4': vars.sourcev4 = optarg; break;
             case '6': vars.sourcev6 = optarg; break;
+            case 'D': nameserver = optarg; ns_flag_index = optind - 2; break;
             default: /* do nothing */ break;
         };
+    }
+
+    /* set the nameserver to our custom one if specified */
+    if ( nameserver ) {
+        /* TODO we could parse the string and get up to MAXNS servers */
+        update_nameservers(&nameserver, 1);
+    }
+
+    /* bind the local address/interface for nameserver sockets if specified */
+    if ( vars.interface || vars.sourcev4 || vars.sourcev6 ) {
+        /*
+         * need to make sure everything is initialised if we haven't already
+         * set it up with our own nameservers.
+         */
+        if ( !nameserver ) {
+            init_default_nameservers();
+        }
+        /* open our own sockets for name resolution before libc does */
+        open_nameserver_sockets();
     }
 
     dests = NULL;
@@ -192,6 +215,17 @@ int main(int argc, char *argv[]) {
         memmove(argv + log_flag_index, argv + log_flag_index + 1,
                 (argc - log_flag_index - 1) * sizeof(char *));
         optind--;
+        /* adjust the nameserver arguments along as well to fill the gap */
+        if ( ns_flag_index > log_flag_index ) {
+            ns_flag_index--;
+        }
+    }
+
+    /* remove the -D nameserver option too, so the test doesn't see it */
+    if ( nameserver && ns_flag_index > 0 ) {
+        memmove(argv + ns_flag_index, argv + ns_flag_index + 2,
+                (argc - ns_flag_index - 2) * sizeof(char *));
+        optind -= 2;
     }
 
     /* prematurely terminate argv so the test doesn't see the destinations */
