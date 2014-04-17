@@ -159,6 +159,7 @@ static int callback_verify_loglevel(cfg_t *cfg, cfg_opt_t *opt,
 static int parse_config(char *filename, struct amp_global_t *vars) {
     int ret;
     unsigned int i;
+    int override_nameservers;
     cfg_t *cfg, *cfg_sub;
 
     cfg_opt_t opt_collector[] = {
@@ -199,6 +200,7 @@ static int parse_config(char *filename, struct amp_global_t *vars) {
 	CFG_STR("ipv4", NULL, CFGF_NONE),
 	CFG_STR("ipv6", NULL, CFGF_NONE),
         CFG_INT_CB("loglevel", LOG_INFO, CFGF_NONE, &callback_verify_loglevel),
+        CFG_STR_LIST("nameservers", NULL, CFGF_NONE),
 	CFG_SEC("collector", opt_collector, CFGF_NONE),
         CFG_SEC("remotesched", opt_remotesched, CFGF_NONE),
         CFG_SEC("control", opt_control, CFGF_NONE),
@@ -243,6 +245,22 @@ static int parse_config(char *filename, struct amp_global_t *vars) {
         log_level = cfg_getint(cfg, "loglevel");
     }
 
+    /* should we override /etc/resolv.conf and use our own nameservers */
+    if ( cfg_size(cfg, "nameservers") > 0 ) {
+        /*
+         * We are limited to MAXNS (currently 3) nameservers, but we allow
+         * more to be listed and just ignore them after we get 3 valid ones.
+         */
+        char *nameservers[cfg_size(cfg, "nameservers")];
+        for ( i=0; i<cfg_size(cfg, "nameservers"); i++ ) {
+            nameservers[i] = cfg_getnstr(cfg, "nameservers", i);
+        }
+        override_nameservers =
+            update_nameservers(nameservers, cfg_size(cfg, "nameservers"));
+    } else {
+        override_nameservers = 0;
+    }
+
     /* should we be testing using a particular interface */
     if ( vars->interface == NULL && cfg_getstr(cfg, "interface") != NULL ) {
         vars->interface = strdup(cfg_getstr(cfg, "interface"));
@@ -256,6 +274,19 @@ static int parse_config(char *filename, struct amp_global_t *vars) {
     /* should we be testing using a particular source ipv6 address */
     if ( vars->sourcev6 == NULL && cfg_getstr(cfg, "ipv6") != NULL ) {
         vars->sourcev6 = strdup(cfg_getstr(cfg, "ipv6"));
+    }
+
+    /* bind the local address/interface for nameserver sockets if specified */
+    if ( vars->interface || vars->sourcev4 || vars->sourcev6 ) {
+        /*
+         * need to make sure everything is initialised if we haven't already
+         * set it up with our own nameservers.
+         */
+        if ( !override_nameservers ) {
+            init_default_nameservers();
+        }
+        /* open our own sockets for name resolution before libc does */
+        open_nameserver_sockets();
     }
 
     /* parse the config for the collector we should report data to */

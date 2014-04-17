@@ -936,7 +936,7 @@ int update_nameservers(char *servers[], int count) {
         _res.ipv6_unavail = 0;
     }
 
-    return 0;
+    return 1;
 }
 
 
