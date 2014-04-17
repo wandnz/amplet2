@@ -33,6 +33,7 @@
 #include "global.h"
 #include "control.h"
 #include "ssl.h"
+#include "ampresolv.h"
 #include "testlib.h"
 
 wand_event_handler_t *ev_hdl;

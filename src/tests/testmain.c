@@ -13,7 +13,7 @@
 #include "ssl.h"
 #include "global.h" /* just for temporary ssl testing stuff */
 #include "messaging.h" /* just for temporary ssl testing stuff */
-#include "testlib.h" /* just for temporary nameserver testing stuff */
+#include "ampresolv.h"
 
 
 

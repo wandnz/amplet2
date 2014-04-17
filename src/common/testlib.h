@@ -46,8 +46,5 @@ int bind_sockets_to_device(struct socket_t *sockets, char *device);
 int bind_socket_to_address(int sock, struct addrinfo *address);
 int bind_sockets_to_address(struct socket_t *sockets,
         struct addrinfo *sourcev4, struct addrinfo *sourcev6);
-int update_nameservers(char *servers[], int count);
-void open_nameserver_sockets(void);
-void init_default_nameservers(void);
 
 #endif
