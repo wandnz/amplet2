@@ -9,5 +9,4 @@ skeleton_la_SOURCES=skeleton.c
 skeleton_la_CFLAGS=-rdynamic
 skeleton_la_LDFLAGS=-module -avoid-version -L../../common/ -lamp
 
-AM_CFLAGS=-g -Wall -W -rdynamic
 INCLUDES=-I../ -I../../common/
