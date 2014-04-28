@@ -99,7 +99,8 @@ static int icmp_error(char *packet, int bytes, uint16_t ident,
         (sizeof(struct icmphdr) * 2);
 
     if ( bytes < required_bytes || ip->tot_len < required_bytes ) {
-	Log(LOG_DEBUG, "ICMP reply too small for embedded packet data");
+	Log(LOG_DEBUG, "ICMP reply too small for embedded packet data "
+                "(got %d, need %d", bytes, required_bytes);
 	return -1;
     }
 
@@ -109,6 +110,7 @@ static int icmp_error(char *packet, int bytes, uint16_t ident,
 
     /* obviously not a response to our test, return */
     if ( embed_ip->version != 4 || embed_ip->protocol != IPPROTO_ICMP ) {
+        Log(LOG_DEBUG, "Embedded packet isn't ICMPv4\n");
 	return -1;
     }
 
@@ -119,6 +121,7 @@ static int icmp_error(char *packet, int bytes, uint16_t ident,
     if ( embed_icmp->type > NR_ICMP_TYPES ||
 	    embed_icmp->type != ICMP_ECHO || embed_icmp->code != 0 ||
 	    ntohs(embed_icmp->un.echo.id) != ident) {
+        Log(LOG_DEBUG, "Embedded packet ICMP ECHO, or not our ECHO\n");
 	return -1;
     }
 
@@ -184,12 +187,15 @@ static int process_ipv4_packet(char *packet, uint32_t bytes, uint16_t ident,
 
     /* if it is an echo reply but the id doesn't match then it's not ours */
     if ( ntohs(icmp->un.echo.id ) != ident ) {
+        Log(LOG_DEBUG, "Bad ident (got %d, expected %d)",
+                ntohs(icmp->un.echo.id), ident);
 	return -1;
     }
 
     /* check the sequence number is less than the maximum number of requests */
     seq = ntohs(icmp->un.echo.sequence);
     if ( seq > count ) {
+        Log(LOG_DEBUG, "Bad sequence number\n");
 	return -1;
     }
 
@@ -197,6 +203,7 @@ static int process_ipv4_packet(char *packet, uint32_t bytes, uint16_t ident,
     //if ( *(uint16_t*)&packet[sizeof(struct iphdr)+sizeof(struct icmphdr)] !=
     if ( *(uint16_t*)(((char *)packet)+(ip->ihl<< 2)+sizeof(struct icmphdr)) !=
 	    info[seq].magic ) {
+        Log(LOG_DEBUG, "Bad magic value");
 	return -1;
     }
 
@@ -204,6 +211,7 @@ static int process_ipv4_packet(char *packet, uint32_t bytes, uint16_t ident,
     info[seq].reply = 1;
     info[seq].delay = DIFF_TV_US(now, info[seq].time_sent);
 
+    Log(LOG_DEBUG, "Good ICMP ECHOREPLY");
     return 0;
 }
 
@@ -762,5 +770,10 @@ test_t *register_test() {
 #if UNIT_TEST
 uint16_t amp_test_icmp_checksum(uint16_t *packet, int size) {
     return checksum(packet, size);
+}
+
+int amp_test_process_ipv4_packet(char *packet, uint32_t bytes, uint16_t ident,
+	struct timeval now, int count, struct info_t info[]) {
+    return process_ipv4_packet(packet, bytes, ident, now, count, info);
 }
 #endif

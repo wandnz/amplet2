@@ -30,13 +30,6 @@
 #define LOSS_TIMEOUT 20000000
 
 
-int run_icmp(int argc, char *argv[], int count, struct addrinfo **dests);
-int save_icmp(char *monitor, uint64_t timestamp, void *data, uint32_t len);
-void print_icmp(void *data, uint32_t len);
-test_t *register_test(void);
-#if UNIT_TEST
-uint16_t amp_test_icmp_checksum(uint16_t *packet, int size);
-#endif
 
 /*
  * User defined test options that control packet size and timing.
@@ -82,5 +75,18 @@ struct icmp_report_header_t {
     uint8_t random;
     uint8_t count;
 } __attribute__((__packed__));
+
+
+
+int run_icmp(int argc, char *argv[], int count, struct addrinfo **dests);
+int save_icmp(char *monitor, uint64_t timestamp, void *data, uint32_t len);
+void print_icmp(void *data, uint32_t len);
+test_t *register_test(void);
+#if UNIT_TEST
+uint16_t amp_test_icmp_checksum(uint16_t *packet, int size);
+int amp_test_process_ipv4_packet(char *packet, uint32_t bytes, uint16_t ident,
+        struct timeval now, int count, struct info_t info[]);
+#endif
+
 
 #endif
