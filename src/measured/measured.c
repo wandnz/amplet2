@@ -189,8 +189,8 @@ static int parse_config(char *filename, struct amp_global_t *vars) {
         CFG_BOOL("enabled", cfg_false, CFGF_NONE),
         CFG_STR("port", CONTROL_PORT, CFGF_NONE),
         CFG_STR("interface", NULL, CFGF_NONE),
-        CFG_STR("ipv4", "0.0.0.0", CFGF_NONE),
-        CFG_STR("ipv6", "::", CFGF_NONE),
+        CFG_STR("ipv4", NULL, CFGF_NONE),
+        CFG_STR("ipv6", NULL, CFGF_NONE),
         CFG_END()
     };
 
@@ -337,8 +337,35 @@ static int parse_config(char *filename, struct amp_global_t *vars) {
         if ( cfg_getstr(cfg_sub, "interface") != NULL ) {
             vars->control_interface = strdup(cfg_getstr(cfg_sub, "interface"));
         }
-        vars->control_ipv4 = strdup(cfg_getstr(cfg_sub, "ipv4"));
-        vars->control_ipv6 = strdup(cfg_getstr(cfg_sub, "ipv6"));
+
+        /*
+         * If the IPv4 address for the control interface is not set, then use
+         * the globally set IPv4 address (if that is set), otherwise listen on
+         * all addresses.
+         */
+        if ( cfg_getstr(cfg_sub, "ipv4") != NULL ) {
+            vars->control_ipv4 = strdup(cfg_getstr(cfg_sub, "ipv4"));
+        } else {
+            if ( vars->sourcev4 != NULL ) {
+                vars->control_ipv4 = vars->sourcev4; //XXX no need to copy?
+            } else {
+                vars->control_ipv4 = strdup("0.0.0.0");
+            }
+        }
+        /*
+         * If the IPv6 address for the control interface is not set, then use
+         * the globally set IPv6 address (if that is set), otherwise listen on
+         * all addresses.
+         */
+        if ( cfg_getstr(cfg_sub, "ipv6") != NULL ) {
+            vars->control_ipv6 = strdup(cfg_getstr(cfg_sub, "ipv6"));
+        } else {
+            if ( vars->sourcev6 != NULL ) {
+                vars->control_ipv6 = vars->sourcev6; //XXX no need to copy?
+            } else {
+                vars->control_ipv6 = strdup("::");
+            }
+        }
     }
 
     cfg_free(cfg);
