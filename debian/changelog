@@ -1,3 +1,13 @@
+amplet2 (0.2.2-1) unstable; urgency=low
+
+  * New upstream release.
+  * Now links binaries with fewer unnecessary libraries.
+  * Allows custom nameservers to be specified at runtime.
+  * Control socket will default to global interface configuration if no
+    specific configuration is given.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Tue, 29 Apr 2014 14:10:04 +1200
+
 amplet2 (0.2.1-1) unstable; urgency=low
 
   * New upstream release.
