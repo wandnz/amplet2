@@ -22,6 +22,8 @@ struct amp_global_t {
     int ssl;
     int fetch_remote;
     char *schedule_url;
+    char *schedule_dir;
+    char *nametable_dir;
     int fetch_freq;
     int control_enabled;
     char *control_port;

@@ -664,14 +664,14 @@ static void read_schedule_file(wand_event_handler_t *ev_hdl, char *filename) {
 /*
  *
  */
-void read_schedule_dir(wand_event_handler_t *ev_hdl, char *directory) {
+static void read_schedule_dir(wand_event_handler_t *ev_hdl, char *directory) {
     glob_t glob_buf;
     unsigned int i;
     char full_loc[MAX_PATH_LENGTH];
 
     assert(ev_hdl);
     assert(directory);
-    assert(strlen(directory) < MAX_PATH_LENGTH - 2);
+    assert(strlen(directory) < MAX_PATH_LENGTH - 8);
 
     /*
      * Using glob makes it easy to treat every non-dotfile in the schedule
@@ -679,7 +679,7 @@ void read_schedule_dir(wand_event_handler_t *ev_hdl, char *directory) {
      * the list of files further with a prefix/suffix.
      */
     strcpy(full_loc, directory);
-    strcat(full_loc, "/*");
+    strcat(full_loc, "/*.sched");
     glob(full_loc, 0, NULL, &glob_buf);
 
     Log(LOG_INFO, "Loading schedule from %s (found %zd candidates)",
@@ -718,8 +718,8 @@ void remote_schedule_callback(struct wand_timer_t *timer) {
                 strerror(errno));
         return;
     } else if ( pid == 0 ) {
-        if ( update_remote_schedule(data->schedule_url, data->cacert,
-                data->cert, data->key) > 0 ) {
+        if ( update_remote_schedule(data->schedule_dir, data->schedule_url,
+                    data->cacert, data->cert, data->key) > 0 ) {
             /* send SIGUSR1 to parent to reload schedule */
             Log(LOG_DEBUG, "Sending SIGUSR1 to parent to reload schedule");
             kill(getppid(), SIGUSR1);
@@ -750,7 +750,8 @@ void remote_schedule_callback(struct wand_timer_t *timer) {
  * TODO keep history of downloaded schedules? Previous 1 or 2?
  * TODO connection timeout should be short, to not delay startup?
  */
-int update_remote_schedule(char *url, char *cacert, char *cert, char *key) {
+int update_remote_schedule(char *dir, char *url, char *cacert, char *cert,
+        char *key) {
     CURL *curl;
 
     Log(LOG_INFO, "Fetching remote schedule file from %s", url);
@@ -767,11 +768,25 @@ int update_remote_schedule(char *url, char *cacert, char *cert, char *key) {
         double length;
         FILE *tmpfile;
         char errorbuf[CURL_ERROR_SIZE];
+        char tmp_sched_file[MAX_PATH_LENGTH];
+        char sched_file[MAX_PATH_LENGTH];
+
+        /*
+         * TODO Can we move towards asprintf stuff rather than fixed buffers?
+         * This sort of thing is icky and problematic.
+         */
+        snprintf(tmp_sched_file, MAX_PATH_LENGTH-1, "%s/%s", dir,
+                TMP_REMOTE_SCHEDULE_FILE);
+        tmp_sched_file[MAX_PATH_LENGTH-1] = '\0';
+
+        snprintf(sched_file, MAX_PATH_LENGTH-1, "%s/%s", dir,
+                REMOTE_SCHEDULE_FILE);
+        sched_file[MAX_PATH_LENGTH-1] = '\0';
 
         /* Open the temporary file we read the remote schedule into */
-        if ( (tmpfile = fopen(TMP_REMOTE_SCHEDULE_FILE, "w")) == NULL ) {
+        if ( (tmpfile = fopen(tmp_sched_file, "w")) == NULL ) {
             Log(LOG_WARNING, "Failed to open temporary schedule %s",
-                    TMP_REMOTE_SCHEDULE_FILE);
+                    tmp_sched_file);
             curl_easy_cleanup(curl);
             return -1;
         }
@@ -809,12 +824,11 @@ int update_remote_schedule(char *url, char *cacert, char *cert, char *key) {
          * modified. If it doesn't exist we fetch it, if it does exist then we
          * fetch it conditional on there being a newer version.
          */
-        stat_result = stat(REMOTE_SCHEDULE_FILE, &statbuf);
+        stat_result = stat(sched_file, &statbuf);
 
         if ( stat_result < 0 && errno != ENOENT) {
             /* don't fetch the file, something is wrong with the path */
-            Log(LOG_WARNING, "Failed to stat schedule file %s",
-                    REMOTE_SCHEDULE_FILE);
+            Log(LOG_WARNING, "Failed to stat schedule file %s", sched_file);
             fclose(tmpfile);
             curl_easy_cleanup(curl);
             return -1;
@@ -854,9 +868,9 @@ int update_remote_schedule(char *url, char *cacert, char *cert, char *key) {
         /* if a new file was fetched then move it into position */
         if ( code == 200 && cond_unmet == 0 && length > 0 ) {
             Log(LOG_INFO, "New schedule file fetched!");
-            if ( rename(TMP_REMOTE_SCHEDULE_FILE, REMOTE_SCHEDULE_FILE) < 0 ) {
+            if ( rename(tmp_sched_file, sched_file) < 0 ) {
                 Log(LOG_WARNING, "Error moving fetched schedule file %s to %s",
-                        TMP_REMOTE_SCHEDULE_FILE, REMOTE_SCHEDULE_FILE);
+                        tmp_sched_file, sched_file);
                 return -1;
             }
             return 1;
@@ -879,6 +893,6 @@ int64_t amp_test_get_time_value(char *value_string, char repeat) {
     return get_time_value(value_string, repeat);
 }
 time_t amp_test_get_period_start(char repeat) {
-    get_period_start(repeat);
+    return get_period_start(repeat);
 }
 #endif

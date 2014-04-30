@@ -12,6 +12,7 @@
 #include <unistd.h>
 #include <time.h>
 #include <errno.h>
+#include <glob.h>
 
 #include <libwandevent.h>
 #include "schedule.h"
@@ -150,16 +151,16 @@ nametable_t *name_to_address(char *name) {
 /*
  *
  */
-void read_nametable_file() {
+static void read_nametable_file(char *filename) {
     FILE *in;
     char line[MAX_NAMETABLE_LINE];
     struct addrinfo hint;
     struct addrinfo *addrinfo;
     int res;
 
-    Log(LOG_INFO, "Loading nametable from %s", NAMETABLE_FILE);
+    Log(LOG_INFO, "Loading nametable from %s", filename);
 
-    if ( (in = fopen(NAMETABLE_FILE, "r")) == NULL ) {
+    if ( (in = fopen(filename, "r")) == NULL ) {
 	Log(LOG_WARNING, "Skipping nametable file: %s\n", strerror(errno));
 	return;
     }
@@ -199,9 +200,45 @@ void read_nametable_file() {
     }
 
     fclose(in);
+}
+
+
+
+/*
+ *
+ */
+void read_nametable_dir(char *directory) {
+    glob_t glob_buf;
+    unsigned int i;
+    char full_loc[MAX_PATH_LENGTH];
+
+    assert(directory);
+    assert(strlen(directory) < MAX_PATH_LENGTH - 6);
+
+    /*
+     * Using glob makes it easy to treat every non-dotfile in the schedule
+     * directory as a schedule file. Also makes it easy if we want to restrict
+     * the list of files further with a prefix/suffix.
+     */
+    strcpy(full_loc, directory);
+    strcat(full_loc, "/*.name");
+    glob(full_loc, 0, NULL, &glob_buf);
+
+    Log(LOG_INFO, "Loading nametable from %s (found %zd candidates)",
+	    directory, glob_buf.gl_pathc);
+
+    for ( i = 0; i < glob_buf.gl_pathc; i++ ) {
+	read_nametable_file(glob_buf.gl_pathv[i]);
+    }
 
     dump_nametable();
+
+    globfree(&glob_buf);
+    return;
 }
+
+
+
 
 #if UNIT_TEST
 void nametable_test_insert_nametable_entry(char *name, struct addrinfo *info) {

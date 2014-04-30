@@ -8,6 +8,7 @@
  *  - set up and maintain control (and reporting?) sockets
  */
 
+
 #include <config.h>
 
 #include <stdlib.h>
@@ -35,6 +36,8 @@
 #include "ssl.h"
 #include "ampresolv.h"
 #include "testlib.h"
+
+#define AMP_CLIENT_CONFIG_DIR AMP_CONFIG_DIR "/clients"
 
 wand_event_handler_t *ev_hdl;
 
@@ -80,6 +83,9 @@ static void print_version(char *prog) {
     printf("%s (%s)\n", prog, PACKAGE_STRING);
     printf("Report bugs to <%s>\n", PACKAGE_BUGREPORT);
     printf(" config dir: %s\n", AMP_CONFIG_DIR);
+    printf(" client config dir: %s\n", AMP_CLIENT_CONFIG_DIR);
+    printf(" schedule config dir: %s\n", SCHEDULE_DIR);
+    printf(" nametable config dir: %s\n", NAMETABLE_DIR);
     printf(" default test dir: %s\n", AMP_TEST_DIRECTORY);
 }
 
@@ -107,6 +113,9 @@ static void reload(__attribute__((unused))struct wand_signal_t *signal) {
     /* cancel all scheduled tests (let running ones finish) */
     clear_test_schedule(signal->data);
 
+    /* empty the nametable */
+    clear_nametable();
+
     /* reload all test modules */
     unregister_tests();
     if ( register_tests(vars.testdir) == -1) {
@@ -114,8 +123,13 @@ static void reload(__attribute__((unused))struct wand_signal_t *signal) {
 	exit(1);
     }
 
-    /* re-read schedule file */
+    /* re-read nametable files */
+    read_nametable_dir(NAMETABLE_DIR);
+    read_nametable_dir(vars.nametable_dir);
+
+    /* re-read schedule files */
     read_schedule_dir(signal->data, SCHEDULE_DIR);
+    read_schedule_dir(signal->data, vars.schedule_dir);
 }
 
 
@@ -446,7 +460,7 @@ int main(int argc, char *argv[]) {
     Log(LOG_INFO, "amplet2 starting");
 
     if ( !config_file ) {
-	config_file = AMP_CONFIG_DIR "/client.conf";
+	config_file = AMP_CLIENT_CONFIG_DIR "/default.conf";
     }
 
     if ( parse_config(config_file, &vars) < 0 ) {
@@ -475,6 +489,19 @@ int main(int argc, char *argv[]) {
     ev_hdl = wand_create_event_handler();
     assert(ev_hdl);
 
+    /* construct our custom, per-client directories for configs */
+    if ( asprintf(&vars.schedule_dir, "%s/%s", SCHEDULE_DIR,
+                vars.ampname) < 0 ) {
+        Log(LOG_ALERT, "Failed to build custom schedule directory path");
+        return -1;
+    }
+
+    if ( asprintf(&vars.nametable_dir, "%s/%s", NAMETABLE_DIR,
+                vars.ampname) < 0 ) {
+        Log(LOG_ALERT, "Failed to build custom nametable directory path");
+        return -1;
+    }
+
     /* fetch remote schedule configuration if it is fresher than what we have */
     if ( fetch_remote && vars.fetch_remote ) {
         if ( vars.schedule_url == NULL ) {
@@ -485,12 +512,14 @@ int main(int argc, char *argv[]) {
             fetch_schedule_item_t *fetch_item;
 
             /* do a fetch now, while blocking the main process */
-            update_remote_schedule(vars.schedule_url, vars.fetch_ssl.cacert,
-                    vars.fetch_ssl.cert, vars.fetch_ssl.key);
+            update_remote_schedule(vars.schedule_dir, vars.schedule_url,
+                    vars.fetch_ssl.cacert, vars.fetch_ssl.cert,
+                    vars.fetch_ssl.key);
 
             /* save the arguments so we can use them again later */
             fetch_item = (fetch_schedule_item_t *)
                 malloc(sizeof(fetch_schedule_item_t));
+            fetch_item->schedule_dir = vars.schedule_dir;
             fetch_item->schedule_url = vars.schedule_url;
             fetch_item->cacert = vars.fetch_ssl.cacert;
             fetch_item->cert = vars.fetch_ssl.cert;
@@ -568,10 +597,12 @@ int main(int argc, char *argv[]) {
     wand_add_signal(&sigusr1_ev);
 
     /* read the nametable to get a list of all test targets */
-    read_nametable_file();
+    read_nametable_dir(NAMETABLE_DIR);
+    read_nametable_dir(vars.nametable_dir);
 
     /* read the schedule file to create the initial test schedule */
     read_schedule_dir(ev_hdl, SCHEDULE_DIR);
+    read_schedule_dir(ev_hdl, vars.schedule_dir);
 
     /* give up control to libwandevent */
     wand_event_run(ev_hdl);
@@ -586,6 +617,8 @@ int main(int argc, char *argv[]) {
         wand_del_signal(&sighup_ev);
     }
     wand_destroy_event_handler(ev_hdl);
+
+    free(vars.schedule_dir);
 
     ssl_cleanup();
 

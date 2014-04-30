@@ -15,9 +15,9 @@
 
 /* TODO move config file defines elsewhere, point at sensible places */
 //#define AMP_CONFIG_DIR "/tmp/brendonj"
-#define SCHEDULE_DIR AMP_CONFIG_DIR "/schedule.d"
-#define REMOTE_SCHEDULE_FILE SCHEDULE_DIR "/fetched.sched"
-#define TMP_REMOTE_SCHEDULE_FILE SCHEDULE_DIR "/.fetched.sched.tmp"
+#define SCHEDULE_DIR AMP_CONFIG_DIR "/schedules"
+#define REMOTE_SCHEDULE_FILE "/fetched.sched"
+#define TMP_REMOTE_SCHEDULE_FILE "/.fetched.sched.tmp"
 #define SCHEDULE_FETCH_FREQUENCY 3600
 #define SCHEDULE_FETCH_TIMEOUT 30
 //#define AMP_TEST_DIRECTORY AMP_CONFIG_DIR "/tests/"
@@ -89,6 +89,7 @@ typedef struct kill_schedule_item {
  * Data block for fetching remote schedule files.
  */
 typedef struct fetch_schedule_item {
+    char *schedule_dir;
     char *schedule_url;
     char *cacert;
     char *cert;
@@ -123,7 +124,8 @@ void read_schedule_dir(wand_event_handler_t *ev_hdl, char *directory);
 void setup_schedule_refresh(wand_event_handler_t *ev_hdl);
 struct timeval get_next_schedule_time(wand_event_handler_t *ev_hdl, 
 	char repeat, uint64_t start, uint64_t end, uint64_t frequency);
-int update_remote_schedule(char *server, char *cacert, char *cert, char *key);
+int update_remote_schedule(char *dir, char *server, char *cacert, char *cert,
+        char *key);
 void remote_schedule_callback(struct wand_timer_t *timer);
 #if UNIT_TEST
 time_t amp_test_get_period_max_value(char repeat);
