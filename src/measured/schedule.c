@@ -664,7 +664,7 @@ static void read_schedule_file(wand_event_handler_t *ev_hdl, char *filename) {
 /*
  *
  */
-static void read_schedule_dir(wand_event_handler_t *ev_hdl, char *directory) {
+void read_schedule_dir(wand_event_handler_t *ev_hdl, char *directory) {
     glob_t glob_buf;
     unsigned int i;
     char full_loc[MAX_PATH_LENGTH];
