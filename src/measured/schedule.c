@@ -540,7 +540,8 @@ static void read_schedule_file(wand_event_handler_t *ev_hdl, char *filename) {
 	if ( (frequency = get_time_value(strtok(NULL, SCHEDULE_DELIMITER),
 			repeat[0])) < 0 )
 	    continue;
-	params = strtok(NULL, SCHEDULE_DELIMITER);
+        /* params should be the remainder of the line, if present */
+	params = strtok(NULL, "\0");
 
 	/* check test is valid */
 	if ( (test_id = get_test_id(testname)) == AMP_TEST_INVALID ) {
