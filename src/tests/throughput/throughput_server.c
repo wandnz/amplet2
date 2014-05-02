@@ -97,23 +97,53 @@ static int startListening(struct socket_t *sockets, int port,
     /* Start listening for at most 1 connection, we don't want a huge queue */
     if ( sockets->socket >= 0 ) {
         if ( listen(sockets->socket, 1) < 0 ) {
-            Log(LOG_WARNING, "Failed to listen on IPv4 socket: %s",
+            int error = errno;
+            Log(LOG_DEBUG, "Failed to listen on IPv4 socket: %s",
                     strerror(errno));
+
+            /* close the failed ipv4 socket */
             close(sockets->socket);
             sockets->socket = -1;
+
+            /* we'll try again if the address was already in use */
+            if ( error == EADDRINUSE ) {
+                /* close the ipv6 socket as well if it was opened */
+                if ( sockets->socket6 >= 0 ) {
+                    close(sockets->socket6);
+                    sockets->socket6 = -1;
+                }
+                return EADDRINUSE;
+            }
         }
     }
 
     if ( sockets->socket6 >= 0 ) {
         if ( listen(sockets->socket6, 1) < 0 ) {
-            Log(LOG_WARNING, "Failed to listen on IPv6 socket: %s",
+            int error = errno;
+            Log(LOG_DEBUG, "Failed to listen on IPv6 socket: %s",
                     strerror(errno));
+
+            /* close the failed ipv6 socket */
             close(sockets->socket6);
             sockets->socket6 = -1;
+
+            /* we'll try again if the address was already in use */
+            if ( error == EADDRINUSE ) {
+                /* close the ipv4 socket as well if it was opened */
+                if ( sockets->socket >= 0 ) {
+                    close(sockets->socket);
+                    sockets->socket = -1;
+                }
+                return EADDRINUSE;
+            }
         }
     }
 
-    /* if the ports are free, make sure at least one was opened ok */
+    /*
+     * If the ports are free, make sure at least one was opened ok. For now,
+     * we'll assume that if both were meant to open but one didn't then it
+     * isn't anything we can fix by trying again.
+     */
     if ( sockets->socket < 0 && sockets->socket6 < 0 ) {
         return -1;
     }
@@ -452,9 +482,11 @@ void run_throughput_server(int argc, char *argv[], SSL *ssl) {
             case 'h':
             case '?':
             /* XXX do we need this extra usage statement here? */
-            default: usage(argv[0]); exit(0);
+            default: usage(argv[0]); return;
         };
     }
+
+    Log(LOG_DEBUG, "Throughput server port=%d, maxport=%d", port, portmax);
 
     /* TODO use the port number here rather than doing it in startListening() */
     sockopts.sourcev4 = get_numeric_address(sourcev4, NULL);
@@ -463,6 +495,7 @@ void run_throughput_server(int argc, char *argv[], SSL *ssl) {
     /* try to open a listen port for the control connection from a client */
     sockopts.reuse_addr = 1;
     do {
+        Log(LOG_DEBUG, "Throughput server trying to listen on port %d", port);
         res = startListening(&listen_sockets, port, &sockopts);
     } while ( res == EADDRINUSE && port++ < portmax );
 
