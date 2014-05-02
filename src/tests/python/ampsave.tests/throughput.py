@@ -25,7 +25,7 @@ def schedule_to_test_params(schedule):
     tcpreused = False
     for p in parts:
         if p == "n":
-            tcpreused = True
+            tcpreused = False
             continue
 
         duration = p[1:]
