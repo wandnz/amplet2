@@ -301,16 +301,17 @@ void control_establish_callback(struct wand_fdcb_t *handle,
     int fd;
     struct sockaddr_storage remote;
     socklen_t size = sizeof(remote);
-    struct wand_fdcb_t *control_ev = (struct wand_fdcb_t*)malloc(
-            sizeof(struct wand_fdcb_t));
+    struct wand_fdcb_t *control_ev;
 
     Log(LOG_DEBUG, "Got new control connection");
 
     if ( (fd = accept(handle->fd, (struct sockaddr *)&remote, &size)) < 0 ) {
         Log(LOG_WARNING, "Failed to accept connection on control socket: %s",
                 strerror(errno));
+        return;
     }
 
+    control_ev = (struct wand_fdcb_t*)malloc(sizeof(struct wand_fdcb_t));
     control_ev->fd = fd;
     control_ev->flags = EV_READ;
     control_ev->data = handle->data;
