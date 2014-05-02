@@ -18,6 +18,21 @@ def get_printable_address(family, addr):
         return socket.inet_ntop(family, addr)
     raise ValueError
 
+def schedule_to_test_params(schedule):
+    params = []
+
+    parts = schedule.split(",")
+    tcpreused = False
+    for p in parts:
+        if p == "n":
+            tcpreused = True
+            continue
+
+        duration = p[1:]
+        params.append({"duration":duration, "tcpreused":tcpreused})
+        tcpreused= True
+
+    return params
 
 # Needs to keep up with the version in src/tests/throughput/throughput.h
 AMP_THROUGHPUT_TEST_VERSION = 2014031300
@@ -69,17 +84,35 @@ def get_data(data):
         "results": []
     }
 
+    params = schedule_to_test_params(results["schedule"])
+    if len(params) != count:
+        print params, count, results
+    assert(len(params) == count)
     # extract every server in the data portion of the message
     while count > 0:
         duration,byte,packets,write,direction,webc,webs = struct.unpack_from("!QQIIBBB", data, offset)
         offset += result_len
 
+        # Convert direction enum values into more descriptive strings
+        if direction == 1:
+            dirstr = "out"
+        elif direction == 2:
+            dirstr = "in"
+        else:
+            # XXX Should we actually be getting these other values?
+            dirstr = "unknown"
+
+
+        # duration is the time specified by the user in the schedule
+        # runtime is the time it actually took the test to run
         result = {
-            "duration": duration,
+            "duration": params[0]["duration"],
+            "runtime": duration / 1000 / 1000,  # Report in msec
             "bytes": byte,
             "packets": packets,
             "write_size": write,
-            "direction": direction,
+            "direction": dirstr,
+            "tcpreused": params[0]["tcpreused"],
             "has_web10g_client": bool(webc),
             "has_web10g_server": bool(webs),
         }
@@ -93,5 +126,8 @@ def get_data(data):
         # Add this result set to the result list
         results["results"].append(result)
         count -= 1
+        params = params[1:]
 
     return results
+
+# vim: set sw=4 tabstop=4 softtabstop=4 expandtab :
