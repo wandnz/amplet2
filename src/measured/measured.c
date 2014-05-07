@@ -354,8 +354,15 @@ static int parse_config(char *filename, struct amp_global_t *vars) {
         cfg_sub = cfg_getnsec(cfg, "control", i);
         vars->control_enabled = cfg_getbool(cfg_sub, "enabled");
         vars->control_port = strdup(cfg_getstr(cfg_sub, "port"));
+
+        /*
+         * If the control interface is not set, then use the globally set
+         * interface (if that is set). Otherwise don't set the interface.
+         */
         if ( cfg_getstr(cfg_sub, "interface") != NULL ) {
             vars->control_interface = strdup(cfg_getstr(cfg_sub, "interface"));
+        } else if ( vars->interface != NULL ) {
+            vars->control_interface = vars->interface;
         }
 
         /*
