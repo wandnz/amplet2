@@ -12,6 +12,9 @@
 /* 5672 is default, 5671 for SSL */
 #define AMQP_PORT 5672
 
+/* vhost "/" is the default */
+#define AMQP_VHOST "/"
+
 /* 128KB, recommended default */
 #define AMQP_FRAME_MAX 131072
 
@@ -19,6 +22,10 @@
 #define AMQP_CACERT_FILE AMP_CONFIG_DIR "/keys/cacert.pem"
 #define AMQP_CERT_FILE AMP_CONFIG_DIR "/keys/cert.pem"
 #define AMQP_KEY_FILE AMP_CONFIG_DIR "/keys/key.pem"
+
+/* exchange and routing key used to report to the local broker */
+#define AMQP_LOCAL_EXCHANGE ""
+#define AMQP_LOCAL_ROUTING_KEY "report"
 
 
 amqp_connection_state_t conn;

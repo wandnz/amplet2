@@ -17,6 +17,8 @@ struct amp_global_t {
     char *interface;
     char *sourcev4;
     char *sourcev6;
+    int vialocal;
+    char *vhost;
     char *exchange;
     char *routingkey;
     int ssl;

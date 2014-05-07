@@ -23,14 +23,16 @@
  */
 int connect_to_broker() {
     amqp_socket_t *sock;
+    char *collector = vars.vialocal ? AMQP_SERVER : vars.collector;
+    int port = vars.vialocal ? AMQP_PORT : vars.port;
+    char *vhost = vars.vialocal ? vars.ampname : vars.vhost;
 
     /* this connection will be held open forever while measured runs */
-    Log(LOG_DEBUG, "Opening new connection to broker on %s:%d\n",
-	    vars.collector, vars.port);
+    Log(LOG_DEBUG, "Opening new connection to broker %s:%d\n", collector, port);
 
     conn = amqp_new_connection();
 
-    if ( vars.ssl ) {
+    if ( !vars.vialocal && vars.ssl ) {
 
         if ( (sock = amqp_ssl_socket_new(conn)) == NULL ) {
             Log(LOG_ERR, "Failed to create SSL socket\n");
@@ -48,14 +50,15 @@ int connect_to_broker() {
             return -1;
         }
 
-        if ( amqp_socket_open(sock, vars.collector, vars.port) != 0 ) {
-            Log(LOG_ERR, "Failed to open connection to %s:%d",
-                    vars.collector, vars.port);
+        if ( amqp_socket_open(sock, collector, port) != 0 ) {
+            Log(LOG_ERR, "Failed to open connection to %s:%d", collector, port);
             return -1;
         }
 
+        Log(LOG_DEBUG, "Logging in to vhost '%s' with EXTERNAL auth", vhost);
+
         /* login using EXTERNAL, no need to specify user name */
-        if ( (amqp_login(conn, "/", 0, AMQP_FRAME_MAX, 0,
+        if ( (amqp_login(conn, vhost, 0, AMQP_FRAME_MAX, 0,
                         AMQP_SASL_METHOD_EXTERNAL)
              ).reply_type != AMQP_RESPONSE_NORMAL ) {
             Log(LOG_ERR, "Failed to login to broker");
@@ -69,15 +72,17 @@ int connect_to_broker() {
             return -1;
         }
 
-        if ( amqp_socket_open(sock, vars.collector, vars.port) != 0 ) {
-            Log(LOG_ERR, "Failed to open connection to %s:%d",
-                    vars.collector, vars.port);
+        if ( amqp_socket_open(sock, collector, port) != 0 ) {
+            Log(LOG_ERR, "Failed to open connection to %s:%d", collector, port);
             return -1;
         }
 
+        Log(LOG_DEBUG, "Logging in to vhost '%s' as '%s' with PLAIN auth",
+                vhost, vars.ampname);
+
         /* login using PLAIN, must specify username and password */
         /* TODO make credentials configurable, or remove this entirely? */
-        if ( (amqp_login(conn, "/", 0, AMQP_FRAME_MAX,0,
+        if ( (amqp_login(conn, vhost, 0, AMQP_FRAME_MAX,0,
                         AMQP_SASL_METHOD_PLAIN, vars.ampname, vars.ampname)
              ).reply_type != AMQP_RESPONSE_NORMAL ) {
             Log(LOG_ERR, "Failed to login to broker");
@@ -116,6 +121,8 @@ int report_to_broker(test_type_t type, uint64_t timestamp, void *bytes,
     amqp_bytes_t data;
     amqp_table_t headers;
     amqp_table_entry_t table_entries[2];
+    char *exchange = vars.vialocal ? AMQP_LOCAL_EXCHANGE : vars.exchange;
+    char *routingkey = vars.vialocal ? AMQP_LOCAL_ROUTING_KEY : vars.routingkey;
 
     /* check the test id is valid */
     if ( type >= AMP_TEST_LAST || type <= AMP_TEST_INVALID ) {
@@ -197,11 +204,13 @@ int report_to_broker(test_type_t type, uint64_t timestamp, void *bytes,
     data.bytes = bytes;
 
     /* publish the message */
-    Log(LOG_DEBUG, "Publishing message\n");
+    Log(LOG_DEBUG, "Publishing message to exchange '%s', routingkey '%s'\n",
+            exchange, routingkey);
+
     if ( amqp_basic_publish(conn,
 	    getpid(),				    /* channel, our pid */
-	    amqp_cstring_bytes(vars.exchange),	    /* exchange name */
-	    amqp_cstring_bytes(vars.routingkey),    /* routing key */
+	    amqp_cstring_bytes(exchange),           /* exchange name */
+	    amqp_cstring_bytes(routingkey),         /* routing key */
 	    0,					    /* mandatory */
 	    0,					    /* immediate */
 	    &props,				    /* properties */

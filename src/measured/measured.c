@@ -36,6 +36,7 @@
 #include "ssl.h"
 #include "ampresolv.h"
 #include "testlib.h"
+#include "rabbitcfg.h"
 
 #define AMP_CLIENT_CONFIG_DIR AMP_CONFIG_DIR "/clients"
 
@@ -52,6 +53,7 @@ static struct option long_options[] = {
     {"interface", required_argument, 0, 'I'},
     {"ipv4", required_argument, 0, '4'},
     {"ipv6", required_argument, 0, '6'},
+    {"setup-rabbitmq", no_argument, 0, 'f'},
     {0, 0, 0, 0}
 };
 
@@ -178,8 +180,10 @@ static int parse_config(char *filename, struct amp_global_t *vars) {
     cfg_t *cfg, *cfg_sub;
 
     cfg_opt_t opt_collector[] = {
+        CFG_BOOL("vialocal", cfg_true, CFGF_NONE),
         CFG_STR("address", AMQP_SERVER, CFGF_NONE),
         CFG_INT("port", AMQP_PORT, CFGF_NONE),
+        CFG_STR("vhost", AMQP_VHOST, CFGF_NONE),
         CFG_STR("exchange", "amp_exchange", CFGF_NONE),
         CFG_STR("routingkey", "test", CFGF_NONE),
         CFG_BOOL("ssl", cfg_false, CFGF_NONE),
@@ -307,8 +311,10 @@ static int parse_config(char *filename, struct amp_global_t *vars) {
     /* parse the config for the collector we should report data to */
     for ( i=0; i<cfg_size(cfg, "collector"); i++ ) {
         cfg_sub = cfg_getnsec(cfg, "collector", i);
+        vars->vialocal = cfg_getbool(cfg_sub, "vialocal");
         vars->collector = strdup(cfg_getstr(cfg_sub, "address"));
         vars->port = cfg_getint(cfg_sub, "port");
+        vars->vhost = strdup(cfg_getstr(cfg_sub, "vhost"));
         vars->exchange = strdup(cfg_getstr(cfg_sub, "exchange"));
         vars->routingkey = strdup(cfg_getstr(cfg_sub, "routingkey"));
         vars->ssl = cfg_getbool(cfg_sub, "ssl");
@@ -402,11 +408,12 @@ int main(int argc, char *argv[]) {
     char *config_file = NULL;
     int fetch_remote = 1;
     int backgrounded = 0;
+    int configure_rabbit = 0;
 
     while ( 1 ) {
 
 	int opt_ind = 0;
-	int c = getopt_long(argc, argv, "dhvxc:rI:4:6:",
+	int c = getopt_long(argc, argv, "dfhvxc:rI:4:6:",
                 long_options, &opt_ind);
 	if ( c == -1 )
 	    break;
@@ -420,6 +427,14 @@ int main(int argc, char *argv[]) {
 		}
                 backgrounded = 1;
 		break;
+            case 'f':
+                /*
+                 * Configure rabbit user, create shovel and exit (needs to
+                 * happen after config parsing though, so we know what
+                 * configuration to perform
+                 */
+                configure_rabbit = 1;
+                break;
 	    case 'v':
 		/* print version and build info */
                 print_version(argv[0]);
@@ -465,6 +480,52 @@ int main(int argc, char *argv[]) {
 
     if ( parse_config(config_file, &vars) < 0 ) {
 	return -1;
+    }
+
+    /*
+     * Try to configure the local rabbitmq broker and then exit. Ideally this
+     * probably shouldn't be lumped in with the amplet client code, but it
+     * needs to have all the configuration parsing performed so it knows what
+     * to do.
+     */
+    if ( configure_rabbit ) {
+        Log(LOG_INFO, "Configuring rabbitmq for amplet2 client %s",
+                vars.ampname);
+
+        if ( vars.vialocal ) {
+            /*
+             * If we are using a local broker to give more resiliency then
+             * we should make our own user and vhost, give ourselves a private
+             * space to operate within.
+             */
+            if ( setup_rabbitmq_user(vars.ampname) < 0 ) {
+                Log(LOG_ALERT, "Failed to create user, aborting");
+                return -1;
+            }
+
+            /*
+             * The shovel is used to send data from our local queues to the
+             * remote collector via an SSL secured connection.
+             */
+             //XXX add echange and routing key
+            if ( setup_rabbitmq_shovel(vars.ampname, vars.collector,
+                        vars.port, vars.amqp_ssl.cacert, vars.amqp_ssl.cert,
+                        vars.amqp_ssl.key, vars.exchange, vars.routingkey)
+                    < 0 ) {
+                Log(LOG_ALERT, "Failed to create shovel, aborting");
+                return -1;
+            }
+            Log(LOG_INFO, "Done configuring rabbitmq");
+        } else {
+            /*
+             * If we aren't using a local broker then there is no configuration
+             * to perform - we are reporting directly to a remote broker that
+             * we can't really configure from here.
+             */
+            Log(LOG_WARNING, "vialocal = false, no local configuration");
+        }
+
+        exit(0);
     }
 
     /* reset optind so the tests can call getopt normally on it's arguments */
