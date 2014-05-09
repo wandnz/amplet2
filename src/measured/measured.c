@@ -21,6 +21,10 @@
 #include <confuse.h>
 #include <string.h>
 #include <limits.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <errno.h>
 
 #include <curl/curl.h>
 #include <libwandevent.h>
@@ -90,6 +94,71 @@ static void print_version(char *prog) {
     printf(" nametable config dir: %s\n", NAMETABLE_DIR);
     printf(" default test dir: %s\n", AMP_TEST_DIRECTORY);
 }
+
+
+
+/*
+ * Create a pidfile and put the pid of the current process into it. Lock it
+ * so that another instance of the program can easily tell that it is already
+ * running.
+ */
+static int create_pidfile(char *pidfile) {
+    int fd;
+    char buf[128];
+
+    assert(pidfile);
+
+    Log(LOG_DEBUG, "Creating pidfile '%s'", pidfile);
+
+    /*
+     * Open pid file (creating if needed) and set to close on exec. Don't
+     * truncate it or anything similar, as we don't want to touch it until
+     * after we have got a lock on it.
+     */
+    if ( (fd = open(pidfile, O_RDWR | O_CREAT | O_CLOEXEC,
+                    S_IRUSR | S_IWUSR)) < 0 ) {
+        Log(LOG_WARNING, "Failed to open pidfile '%s': %s", pidfile,
+                strerror(errno));
+        return -1;
+    }
+
+    /*
+     * Try to get a lock on the pidfile. If something else has it locked then
+     * that probably means we are already running.
+     */
+    if ( lockf(fd, F_TLOCK, 0) < 0 ) {
+        if ( errno == EACCES || errno == EAGAIN ) {
+            Log(LOG_WARNING, "pidfile '%s' locked, is it already running?",
+                    pidfile);
+        } else {
+            Log(LOG_WARNING, "Failed to lock pidfile '%s': %s", pidfile,
+                    strerror(errno));
+        }
+        close(fd);
+        return -1;
+    }
+
+    /* Empty the file, we are going to replace whatever was in it */
+    if ( ftruncate(fd, 0) < 0 ) {
+        Log(LOG_WARNING, "Failed to truncate pidfile '%s': %s", pidfile,
+                strerror(errno));
+        close(fd);
+        return -1;
+    }
+
+    snprintf(buf, sizeof(buf) - 1, "%d\n", getpid());
+    buf[sizeof(buf) - 1] = '\0';
+
+    if ( write(fd, buf, strlen(buf)) < 0 ) {
+        Log(LOG_WARNING, "Failed to write to pidfile '%s': %s", pidfile,
+                strerror(errno));
+        close(fd);
+        return -1;
+    }
+
+    return 0;
+}
+
 
 
 /*
@@ -413,6 +482,7 @@ int main(int argc, char *argv[]) {
     struct wand_fdcb_t control_ipv6_ev;
     struct wand_timer_t fetch_ev;
     char *config_file = NULL;
+    char *pidfile = NULL;
     int fetch_remote = 1;
     int backgrounded = 0;
     int configure_rabbit = 0;
@@ -420,7 +490,7 @@ int main(int argc, char *argv[]) {
     while ( 1 ) {
 
 	int opt_ind = 0;
-	int c = getopt_long(argc, argv, "dfhvxc:rI:4:6:",
+	int c = getopt_long(argc, argv, "dfhp:vxc:rI:4:6:",
                 long_options, &opt_ind);
 	if ( c == -1 )
 	    break;
@@ -456,6 +526,9 @@ int main(int argc, char *argv[]) {
 		/* specify a configuration file */
 		config_file = optarg;
 		break;
+            case 'p':
+                pidfile = optarg;
+                break;
             case 'r':
                 /* override config settings and don't fetch remote schedules */
                 fetch_remote = 0;
@@ -533,6 +606,15 @@ int main(int argc, char *argv[]) {
         }
 
         exit(0);
+    }
+
+    /*
+     * TODO do we always want to create the pidfile, or only when daemonised?
+     * or only when explicitly set?
+     */
+    if ( pidfile && create_pidfile(pidfile) < 0 ) {
+        Log(LOG_WARNING, "Failed to create pidfile %s, aborting", pidfile);
+        return -1;
     }
 
     /* reset optind so the tests can call getopt normally on it's arguments */
@@ -696,6 +778,14 @@ int main(int argc, char *argv[]) {
 
     /* clear out all the test modules that were registered */
     unregister_tests();
+
+    /* remove the pidfile if one was created */
+    if ( pidfile ) {
+        if ( unlink(pidfile) < 0 ) {
+            Log(LOG_WARNING, "Failed to remove pidfile '%s': %s", pidfile,
+                    strerror(errno));
+        }
+    }
 
     Log(LOG_INFO, "Shutting down");
 
