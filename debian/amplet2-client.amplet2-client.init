@@ -17,9 +17,11 @@ DESC=amplet2                    # Introduce a short description here
 PKG_NAME=amplet2-client
 DAEMON_NAME=amplet2             # Introduce the short server's name here
 DAEMON=/usr/sbin/$DAEMON_NAME   # Introduce the server's location here
-PIDFILE=/var/run/$NAME.pid      # TODO create a proper pidfile
+#PIDFILE=/var/run/$NAME.pid      # TODO create a proper pidfile
 SCRIPTNAME=/etc/init.d/$PKG_NAME
 START_DAEMON=1
+CONFDIR=/etc/amplet2/clients
+PIDDIR=/var/run/amplet2
 
 # Exit if the package is not installed
 [ -x $DAEMON ] || exit 0
@@ -40,21 +42,67 @@ START_DAEMON=1
 . /lib/lsb/init-functions
 
 #
+# Simple function to check if an item is contained within a space seperated list
+#
+contains()
+{
+    for item in $1; do
+        if [ $item = $2 ]; then
+            return 0
+        fi
+    done
+    return 1
+}
+
+#
 # Function that starts the daemon/service
 #
 do_start()
 {
-	# Return
-	#   0 if daemon has been started
-	#   1 if daemon was already running
-	#   2 if daemon could not be started
-	start-stop-daemon --start --quiet --exec $DAEMON --test > /dev/null \
-                || return 1
-	start-stop-daemon --start --quiet --exec $DAEMON -- $DAEMON_OPTS \
-                || return 2
-	# Add code here, if necessary, that waits for the process to be ready
-	# to handle requests from services started subsequently which depend
-	# on this one.  As a last resort, sleep for some time.
+    SUCCESS=0
+    FAILED=0
+
+    # Make sure that the pid dir exists
+    if [ ! -d $PIDDIR ]; then
+        mkdir -p $PIDDIR
+        #chown
+        #chgrp
+    fi
+
+    # For every config file, try to run an amplet client
+    for client in ${CONFDIR}/*.conf; do
+        NAME=${client#$CONFDIR/}
+        NAME=${NAME%.conf}
+        PIDFILE=${PIDDIR}/${NAME%.conf}.pid
+
+        # Start the client if no client is specified, or if it matches
+        if ([ $# -eq 0 ] || contains $@ $NAME); then
+            # TODO return appropriate thing if already running
+            # use start-stop-daemon --test?
+            start-stop-daemon --start --quiet --exec $DAEMON \
+                    --pidfile $PIDFILE -- $DAEMON_OPTS -c $client -p $PIDFILE
+
+            case "$?" in
+		0|1) SUCCESS=$((SUCCESS-1)); \
+                        [ "$VERBOSE" != no ] && log_success_msg $NAME ;;
+		2|3) FAILED=$((FAILED-1)); \
+                        [ "$VERBOSE" != no ] && log_failure_msg $NAME ;;
+	    esac
+        fi
+    done
+
+    # No failures, return success
+    if [ $FAILED -eq 0 ]; then
+        return 0
+    fi
+
+    # Some failures and some successes, return warning
+    if [ $FAILED -gt 0 && $SUCCESS -gt 0 ]; then
+        return 1
+    fi
+
+    # No successes, return failed
+    return 2
 }
 
 #
@@ -62,81 +110,144 @@ do_start()
 #
 do_stop()
 {
-	# Return
-	#   0 if daemon has been stopped
-	#   1 if daemon was already stopped
-	#   2 if daemon could not be stopped
-	#   other if a failure occurred
-	start-stop-daemon --stop --quiet --retry=TERM/30/KILL/5 \
-                --name $DAEMON_NAME
-	RETVAL="$?"
-	[ "$RETVAL" = 2 ] && return 2
-	# Wait for children to finish too if this is a daemon that forks
-	# and if the daemon is only ever run from this initscript.
-	# If the above conditions are not satisfied then add some other code
-	# that waits for the process to drop all resources that could be
-	# needed by services started subsequently.  A last resort is to
-	# sleep for some time.
-	start-stop-daemon --stop --quiet --oknodo \
-                --retry=0/30/KILL/5 --exec $DAEMON
-	[ "$?" = 2 ] && return 2
-	# Many daemons don't delete their pidfiles when they exit.
-	#rm -f $PIDFILE
-	return "$RETVAL"
+    SUCCESS=0
+    FAILED=0
+
+    for client in ${CONFDIR}/*.conf; do
+        NAME=${client#$CONFDIR/}
+        NAME=${NAME%.conf}
+        PIDFILE=${PIDDIR}/${NAME%.conf}.pid
+
+        # Stop the client if no client is specified, or if it matches
+        if ([ $# -eq 0 ] || contains $@ $NAME); then
+            start-stop-daemon --stop --quiet --retry=TERM/30/KILL/5 \
+                    --name $DAEMON_NAME --pidfile $PIDFILE
+	    start-stop-daemon --stop --quiet --oknodo  --retry=0/30/KILL/5 \
+                    --exec $DAEMON --pidfile $PIDFILE
+
+            case "$?" in
+                0|1) SUCCESS=$((SUCCESS-1)); \
+                    [ "$VERBOSE" != no ] && log_success_msg $NAME ;;
+                2|3) FAILED=$((FAILED-1)); \
+                    [ "$VERBOSE" != no ] && log_failure_msg $NAME ;;
+            esac
+        fi
+    done
+
+    # No failures, return success
+    if [ $FAILED -eq 0 ]; then
+        return 0
+    fi
+
+    # Some failures and some successes, return warning
+    if [ $FAILED -gt 0 && $SUCCESS -gt 0 ]; then
+        return 1
+    fi
+
+    # No successes, return failed
+    return 2
+}
+
+#
+#
+#
+do_status() {
+    RETVAL=0
+    for client in ${CONFDIR}/*.conf; do
+        NAME=${client#$CONFDIR/}
+        NAME=${NAME%.conf}
+        PIDFILE=${PIDDIR}/${NAME%.conf}.pid
+
+        # Query the client if no client is specified, or if it matches
+        if ([ $# -eq 0 ] || contains $@ $NAME); then
+            status_of_proc -p $PIDFILE "$DAEMON" "$NAME"
+            if [ $? -gt 0 ]; then
+                RETVAL=2
+            fi
+        fi
+    done
+    return $RETVAL
 }
 
 #
 # Function that sends a SIGHUP to the daemon/service
 #
 do_reload() {
-	#
-	# If the daemon can reload its configuration without
-	# restarting (for example, when it is sent a SIGHUP),
-	# then implement that here.
-	#
-	start-stop-daemon --stop --signal 1 --quiet --name $DAEMON_NAME
-	return 0
+    #
+    # If the daemon can reload its configuration without
+    # restarting (for example, when it is sent a SIGHUP),
+    # then implement that here.
+    #
+    for client in ${CONFDIR}/*.conf; do
+        NAME=${client#$CONFDIR/}
+        NAME=${NAME%.conf}
+        PIDFILE=${PIDDIR}/${NAME%.conf}.pid
+
+        # Reload the client if no client is specified, or if it matches
+        if ([ $# -eq 0 ] || contains $@ $NAME); then
+            start-stop-daemon --stop --signal 1 --quiet --pidfile $PIDFILE \
+                --name $DAEMON_NAME
+
+            case "$?" in
+                0|1) SUCCESS=$((SUCCESS-1)); \
+                        [ "$VERBOSE" != no ] && log_success_msg $NAME ;;
+                2) FAILED=$((FAILED-1)); \
+                        [ "$VERBOSE" != no ] && log_failure_msg $NAME ;;
+            esac
+        fi
+    done
+    return 0
 }
 
 case "$1" in
   start)
-    [ "$VERBOSE" != no ] && log_daemon_msg "Starting $DESC " "$DAEMON_NAME"
-    do_start
-    case "$?" in
-		0|1) [ "$VERBOSE" != no ] && log_end_msg 0 ;;
-		2) [ "$VERBOSE" != no ] && log_end_msg 1 ;;
-	esac
+    [ "$VERBOSE" != no ] && echo "Starting amplet2 clients:"
+    # anything on the command line after "start" is a client name
+    shift
+    do_start $@
+    #case "$?" in
+    #        0) [ "$VERBOSE" != no ] && \
+    #            log_success_msg "All amplet2 clients started ok" ;;
+    #        1) [ "$VERBOSE" != no ] && \
+    #            log_warning_msg "Some amplet2 clients failed to start" ;;
+    #        2) [ "$VERBOSE" != no ] && \
+    #            log_failure_msg "All amplet2 clients failed to start" ;;
+    #esac
   ;;
   stop)
 	[ "$VERBOSE" != no ] && log_daemon_msg "Stopping $DESC" "$DAEMON_NAME"
-	do_stop
-	case "$?" in
-		0|1) [ "$VERBOSE" != no ] && log_end_msg 0 ;;
-		2) [ "$VERBOSE" != no ] && log_end_msg 1 ;;
-	esac
+        # anything on the command line after "start" is a client name
+        shift
+	do_stop $@
+	#case "$?" in
+	#	0|1) [ "$VERBOSE" != no ] && log_end_msg 0 ;;
+	#	2) [ "$VERBOSE" != no ] && log_end_msg 1 ;;
+	#esac
 	;;
   status)
-       status_of_proc "$DAEMON" "$PKG_NAME" && exit 0 || exit $?
+        shift
+        echo "Current status of amplet2 clients:"
+        do_status $@ && exit 0 || exit $?
        ;;
   reload|force-reload)
 	#
 	# If do_reload() is not implemented then leave this commented out
 	# and leave 'force-reload' as an alias for 'restart'.
 	#
-	log_daemon_msg "Reloading $DESC" "$DAEMON_NAME"
-	do_reload
-	log_end_msg $?
+        shift
+        echo "Reloading amplet2 clients:"
+        do_reload $@
 	;;
   restart)
 	#
 	# If the "reload" option is implemented then remove the
 	# 'force-reload' alias
 	#
-	log_daemon_msg "Restarting $DESC" "$DAEMON_NAME"
-	do_stop
+	echo "Restarting amplet2 clients:"
+	do_stop $@
 	case "$?" in
 	  0|1)
-		do_start
+		do_start $@
 		case "$?" in
 			0) log_end_msg 0 ;;
 			1) log_end_msg 1 ;; # Old process is still running
@@ -150,7 +261,7 @@ case "$1" in
 	esac
 	;;
   *)
-	echo "Usage: $SCRIPTNAME {start|stop|status|restart|reload}" >&2
+	echo "Usage: $SCRIPTNAME {start|stop|status|restart|reload} [client...]" >&2
 	#echo "Usage: $SCRIPTNAME {start|stop|status|restart|force-reload}" >&2
 	exit 3
 	;;
