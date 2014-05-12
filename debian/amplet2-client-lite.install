@@ -1,8 +1,7 @@
 usr/bin/amplet2 usr/sbin
 usr/lib/*so
 usr/lib/amplet2/tests/*so
-etc/amplet2/shovel.config
-etc/amplet2/client-lite.conf
-etc/amplet2/nametable
-etc/amplet2/schedule.d/*
+etc/amplet2/clients/*
+etc/amplet2/nametables/*
+etc/amplet2/schedules/*
 usr/share/amplet2/rsyslog/*

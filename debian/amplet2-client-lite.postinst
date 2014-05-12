@@ -38,10 +38,10 @@ case "$1" in
         fi
 
         # Install the appropriate config as the main client.conf
-        if [ ! -f "/etc/${PACKAGE}/client.conf" ]; then
-            ln -s /etc/${PACKAGE}/client-lite.conf /etc/${PACKAGE}/client.conf
+        if [ ! -f "/etc/${PACKAGE}/clients/default.conf" ]; then
+            ln -s /etc/${PACKAGE}/clients/client-lite.example /etc/${PACKAGE}/clients/default.conf
         else
-            echo "/etc/${PACKAGE}/client.conf already exists, skipping"
+            echo "/etc/${PACKAGE}/clients/default.conf already exists, skipping"
         fi
     ;;
 

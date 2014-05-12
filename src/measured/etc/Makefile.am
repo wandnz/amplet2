@@ -1,2 +1,2 @@
 etcdir=$(sysconfdir)/$(PACKAGE)
-nobase_dist_etc_DATA=client-local.conf client-lite.conf nametable schedule.d/example.schedule
+nobase_dist_etc_DATA=clients/client-local.example clients/client-lite.example nametables/default schedules/example.schedule

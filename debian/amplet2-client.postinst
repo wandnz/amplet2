@@ -46,41 +46,28 @@ case "$1" in
             # Enable the shovel plugin for rabbitmq
             if [ -x "`which rabbitmq-plugins 2>/dev/null`" ]; then
                 rabbitmq-plugins enable rabbitmq_shovel || exit $?
-            else
-                echo "Can't enable shovel plugin, aborting"
-                exit 1
-            fi
-
-            # TODO for now we assume that rabbitmq-server is only present
-            # because of us, so we can use the main instance and default config
-            # file location
-            if [ ! -f "/etc/rabbitmq/rabbitmq.config" ]; then
-                ln -s /etc/${PACKAGE}/shovel.config /etc/rabbitmq/rabbitmq.config
+                # TODO don't restart rabbitmq if shovel was already enabled
                 if [ -x "`which invoke-rc.d 2>/dev/null`" ]; then
                     invoke-rc.d rabbitmq-server restart || exit $?
                 else
                     /etc/init.d/rabbitmq-server restart || exit $?
                 fi
             else
-                echo "/etc/rabbitmq/rabbitmq.config already exists."
-                echo "Please merge with /etc/${PACKAGE}/shovel.config and restart rabbitmq"
+                echo "Can't enable shovel plugin, aborting"
+                exit 1
             fi
 
-            # TODO create vhost just for AMP?
-            # create the local user with the same name that we will use for
-            # reporting upstream - in this case it's the FQDN
-            if [ -x "`which rabbitmqctl 2>/dev/null`" ]; then
-                echo "Skipping rabbit config temporarily"
-                #rabbitmqctl add_user $USER $USER
-                #rabbitmqctl set_permissions -p / $USER ".*" ".*" ".*"
-            fi
+            # Most of the configuration (vhost/user/shovel/etc) will be done
+            # by puppet. Basic steps are:
+            # 1. edit the configuration files
+            # 2. run `amplet2 -f` to configure rabbitmq based on the config
         fi
 
-        # Install the appropriate config as the main client.conf
-        if [ ! -f "/etc/${PACKAGE}/client.conf" ]; then
-            ln -s /etc/${PACKAGE}/client-local.conf /etc/${PACKAGE}/client.conf
+        # Install the appropriate config as the sample client default.conf
+        if [ ! -f "/etc/${PACKAGE}/clients/default.conf" ]; then
+            ln -s /etc/${PACKAGE}/clients/client-local.example /etc/${PACKAGE}/clients/default.conf
         else
-            echo "/etc/${PACKAGE}/client.conf already exists, skipping"
+            echo "/etc/${PACKAGE}/clients/default.conf already exists, skipping"
         fi
 
     ;;
