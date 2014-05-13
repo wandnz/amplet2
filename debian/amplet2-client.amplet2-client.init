@@ -86,9 +86,9 @@ do_start()
                     --pidfile $PIDFILE -- $DAEMON_OPTS -c $client -p $PIDFILE
 
             case "$?" in
-		0|1) SUCCESS=$((SUCCESS-1)); \
+		0|1) SUCCESS=$((SUCCESS+1)); \
                         [ "$VERBOSE" != no ] && log_success_msg $NAME ;;
-		2|3) FAILED=$((FAILED-1)); \
+		2|3) FAILED=$((FAILED+1)); \
                         [ "$VERBOSE" != no ] && log_failure_msg $NAME ;;
 	    esac
         fi
@@ -129,9 +129,9 @@ do_stop()
                     --exec $DAEMON --pidfile $PIDFILE
 
             case "$?" in
-                0|1) SUCCESS=$((SUCCESS-1)); \
+                0|1) SUCCESS=$((SUCCESS+1)); \
                     [ "$VERBOSE" != no ] && log_success_msg $NAME ;;
-                2|3) FAILED=$((FAILED-1)); \
+                2|3) FAILED=$((FAILED+1)); \
                     [ "$VERBOSE" != no ] && log_failure_msg $NAME ;;
             esac
         fi
@@ -192,9 +192,9 @@ do_reload() {
                 --name $DAEMON_NAME
 
             case "$?" in
-                0|1) SUCCESS=$((SUCCESS-1)); \
+                0|1) SUCCESS=$((SUCCESS+1)); \
                         [ "$VERBOSE" != no ] && log_success_msg $NAME ;;
-                2) FAILED=$((FAILED-1)); \
+                2) FAILED=$((FAILED+1)); \
                         [ "$VERBOSE" != no ] && log_failure_msg $NAME ;;
             esac
         fi
