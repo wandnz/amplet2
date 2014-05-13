@@ -243,6 +243,7 @@ case "$1" in
 	# If the "reload" option is implemented then remove the
 	# 'force-reload' alias
 	#
+        shift
 	echo "Restarting amplet2 clients:"
 	do_stop $@
 	case "$?" in
