@@ -11,13 +11,16 @@
 
 # Author: Brendon Jones <brendonj@waikato.ac.nz>
 
+# TODO tell the user off if they try to start/stop clients that don't exist
+# TODO print useful output for all commands that should, using client names
+
 # PATH should only include /usr/* if it runs after the mountnfs.sh script
 PATH=/sbin:/usr/sbin:/bin:/usr/bin
 DESC=amplet2                    # Introduce a short description here
 PKG_NAME=amplet2-client
 DAEMON_NAME=amplet2             # Introduce the short server's name here
 DAEMON=/usr/sbin/$DAEMON_NAME   # Introduce the server's location here
-#PIDFILE=/var/run/$NAME.pid      # TODO create a proper pidfile
+#PIDFILE=/var/run/$NAME.pid
 SCRIPTNAME=/etc/init.d/$PKG_NAME
 START_DAEMON=1
 CONFDIR=/etc/amplet2/clients
@@ -91,13 +94,13 @@ do_start()
         fi
     done
 
-    # No failures, return success
-    if [ $FAILED -eq 0 ]; then
+    # No failures and at least one success, return success
+    if ([ $FAILED -eq 0 ] && [ $SUCCESS -gt 0 ]); then
         return 0
     fi
 
     # Some failures and some successes, return warning
-    if [ $FAILED -gt 0 && $SUCCESS -gt 0 ]; then
+    if ([ $FAILED -gt 0 ] && [ $SUCCESS -gt 0 ]); then
         return 1
     fi
 
@@ -134,13 +137,13 @@ do_stop()
         fi
     done
 
-    # No failures, return success
-    if [ $FAILED -eq 0 ]; then
+    # No failures and at least one success, return success
+    if ([ $FAILED -eq 0 ] && [ $SUCCESS -gt 0 ]); then
         return 0
     fi
 
     # Some failures and some successes, return warning
-    if [ $FAILED -gt 0 && $SUCCESS -gt 0 ]; then
+    if ([ $FAILED -gt 0 ] && [ $SUCCESS -gt 0 ]); then
         return 1
     fi
 
