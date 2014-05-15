@@ -34,6 +34,8 @@ struct amp_global_t {
     char *control_ipv6;
     amp_ssl_opt_t amqp_ssl;
     amp_ssl_opt_t fetch_ssl;
+    char **nameservers;
+    uint8_t nscount;
 };
 
 struct amp_global_t vars;

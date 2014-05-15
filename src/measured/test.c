@@ -31,6 +31,7 @@ static void run_test(const test_schedule_item_t * const item) {
     resolve_dest_t *resolve;
     struct addrinfo **destinations = NULL;
     int total_resolve_count = 0;
+    int override_nameservers = 0;
 
     assert(item);
     assert(item->test_id < AMP_TEST_LAST);
@@ -74,6 +75,30 @@ static void run_test(const test_schedule_item_t * const item) {
 
     /* null terminate the list before we give it to the main test function */
     argv[argc] = NULL;
+
+    /*
+     * Make sure we are using any nameserver configuration that is set.
+     * XXX I think this has to happen all the time, even if there are no
+     * items to resolve, in case the test itself does any name resolution.
+     * TODO can we do name resolution asynchronously?
+     */
+    if ( vars.nameservers != NULL ) {
+        override_nameservers = update_nameservers(vars.nameservers,
+                vars.nscount);
+    }
+
+    if ( vars.interface || vars.sourcev4 || vars.sourcev6 ) {
+        /*
+         * need to make sure everything is initialised if we haven't already
+         * set it up with our own nameservers.
+         */
+        if ( !override_nameservers ) {
+            init_default_nameservers();
+        }
+        /* open our own sockets for name resolution before libc does */
+        open_nameserver_sockets();
+    }
+
 
     Log(LOG_DEBUG, "Running test: %s to %d/%d destinations:\n", test->name,
 	    item->dest_count, item->resolve_count);
