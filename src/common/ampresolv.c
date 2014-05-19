@@ -150,9 +150,43 @@ static void amp_resolve_callback(void *d, int err, struct ub_result *result) {
 void amp_resolve_add(struct ub_ctx *ctx, struct addrinfo **res, char *name,
         int family, int max) {
 
-    struct amp_resolve_data *data = calloc(1, sizeof(struct amp_resolve_data));
+    struct amp_resolve_data *data;
+    struct addrinfo *addr;
 
     Log(LOG_DEBUG, "Adding resolve request for %s", name);
+
+    assert(ctx);
+    assert(res);
+    assert(name);
+
+    /* check if this is a numeric address already and doesn't need resolving */
+    if ( addr = get_numeric_address(name, NULL) ) {
+        struct addrinfo *keeper = malloc(sizeof(struct addrinfo));
+        /*
+         * It is, copy the data into our own struct addrinfo that we have
+         * allocated and prepend it to the result list.
+         * TODO this double handling is terrible and needs to be fixed, but
+         * it's much easier if we can just manage all the memory rather than
+         * having getaddrinfo() allocated blocks mixed in with our own.
+         */
+        keeper->ai_flags = addr->ai_flags;
+        keeper->ai_family = addr->ai_family;
+        keeper->ai_socktype = addr->ai_socktype;
+        keeper->ai_protocol = addr->ai_protocol;
+        keeper->ai_addrlen = addr->ai_addrlen;
+        keeper->ai_addr = calloc(1, keeper->ai_addrlen);
+        memcpy(keeper->ai_addr, addr->ai_addr, keeper->ai_addrlen);
+        keeper->ai_canonname = strdup(name);
+        keeper->ai_next = *res;
+        *res = keeper;
+
+        /* free the getaddrinfo() allocated memory */
+        freeaddrinfo(addr);
+        return;
+    }
+
+    /* otherwise send it to the resolver to be looked up */
+    data = calloc(1, sizeof(struct amp_resolve_data));
 
     /* keep a reference to the list of addresses we are building up */
     data->addrlist = res;
