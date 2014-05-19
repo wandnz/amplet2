@@ -2,6 +2,7 @@
 #define _MEASURED_GLOBAL_H
 
 #include <stdint.h>
+#include <unbound.h>
 
 typedef struct amp_ssl_opt {
     char *cacert;
@@ -34,8 +35,7 @@ struct amp_global_t {
     char *control_ipv6;
     amp_ssl_opt_t amqp_ssl;
     amp_ssl_opt_t fetch_ssl;
-    char **nameservers;
-    uint8_t nscount;
+    struct ub_ctx *ctx;
 };
 
 struct amp_global_t vars;

@@ -69,8 +69,7 @@ static test_t *get_test_info(void) {
 int main(int argc, char *argv[]) {
     test_t *test_info;
     struct addrinfo **dests;
-    struct addrinfo hint;
-    struct addrinfo *result, *rp;
+    struct addrinfo *addrlist = NULL, *rp;
     int log_flag_index, ns_flag_index;
     int count;
     int opt;
@@ -121,74 +120,50 @@ int main(int argc, char *argv[]) {
     /* set the nameserver to our custom one if specified */
     if ( nameserver ) {
         /* TODO we could parse the string and get up to MAXNS servers */
-        update_nameservers(&nameserver, 1);
+        vars.ctx = amp_resolve_init(&nameserver, 1, vars.sourcev4,
+                vars.sourcev6);
+    } else {
+        vars.ctx = amp_resolve_init(NULL, 0, vars.sourcev4, vars.sourcev6);
     }
 
-    /* bind the local address/interface for nameserver sockets if specified */
-    if ( vars.interface || vars.sourcev4 || vars.sourcev6 ) {
-        /*
-         * need to make sure everything is initialised if we haven't already
-         * set it up with our own nameservers.
-         */
-        if ( !nameserver ) {
-            init_default_nameservers();
-        }
-        /* open our own sockets for name resolution before libc does */
-        open_nameserver_sockets();
+    if ( vars.ctx == NULL ) {
+        Log(LOG_ALERT, "Failed to configure resolver, aborting.");
+        return -1;
     }
 
     dests = NULL;
     count = 0;
 
-    /* accept pretty much anything and take whatever we get back */
-    memset(&hint, 0, sizeof(struct addrinfo));
-    hint.ai_flags = AI_ADDRCONFIG;
-    hint.ai_family = AF_UNSPEC;
-    hint.ai_socktype = SOCK_STREAM;
-    hint.ai_protocol = 0;
-    hint.ai_addrlen = 0;
-    hint.ai_addr = NULL;
-    hint.ai_canonname = NULL;
-    hint.ai_next = NULL;
-
     /* process all destinations */
     /* TODO prevent duplicate destinations? */
     for ( i=optind; i<argc; i++ ) {
 	/* check if adding the new destination would be allowed by the test */
-	if ( test_info->max_targets > 0 && count >= test_info->max_targets ) {
+	if ( test_info->max_targets > 0 &&
+                (i-optind) >= test_info->max_targets ) {
 	    /* ignore any extra destinations but continue with the test */
 	    printf("Exceeded max of %d destinations, skipping remainder\n",
 		    test_info->max_targets);
 	    break;
 	}
 
-        /*
-         * TODO resolve addresses in the same way measured does, with
-         * qualifiers for number of addresses and address families.
-         */
+        amp_resolve_add(vars.ctx, &addrlist, argv[i], AF_UNSPEC, -1);
+    }
 
-	if ( getaddrinfo(argv[i], NULL, &hint, &result) != 0 ) {
-	    perror("getaddrinfo");
-	    continue;
-	}
+    /* wait for all the responses to come in */
+    amp_resolve_wait(vars.ctx);
 
-	/*
-	 * If this is a new destination, link it to the last element so that
-	 * we can clean them all up with a single freeaddrinfo() call.
-	 */
-	if ( count > 0 && result != NULL ) {
-	    dests[count-1]->ai_next = result;
+    /* add all the results of to the list of destinations */
+    for ( rp=addrlist; rp != NULL; rp=rp->ai_next ) {
+	if ( test_info->max_targets > 0 && count >= test_info->max_targets ) {
+	    /* ignore any extra destinations but continue with the test */
+	    printf("Exceeded max of %d destinations, skipping remainder\n",
+		    test_info->max_targets);
+	    break;
 	}
-
-	/* add all the results of getaddrinfo() to the list of destinations */
-	for ( rp=result; rp != NULL; rp=rp->ai_next ) {
-	    /* use the given name rather than the canonical name */
-	    rp->ai_canonname = strdup(argv[i]);
-	    /* make room for a new destination and fill it */
-	    dests = realloc(dests, (count + 1) * sizeof(struct addrinfo*));
-	    dests[count] = rp;
-	    count++;
-	}
+        /* make room for a new destination and fill it */
+        dests = realloc(dests, (count + 1) * sizeof(struct addrinfo*));
+        dests[count] = rp;
+        count++;
     }
 
     /*
@@ -241,13 +216,14 @@ int main(int argc, char *argv[]) {
     /* pass arguments and destinations through to the main test run function */
     test_info->run_callback(argc, argv, count, dests);
 
+    amp_resolve_freeaddr(addrlist);
+
     /* tidy up after ourselves */
     if ( dests ) {
-        if ( *dests ) {
-            freeaddrinfo(*dests);
-        }
         free(dests);
     }
+
+    ub_ctx_delete(vars.ctx);
 
     if ( ssl_ctx != NULL ) {
         ssl_cleanup();

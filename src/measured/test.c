@@ -15,6 +15,7 @@
 #include "nametable.h"
 #include "modules.h"
 #include "global.h" /* hopefully temporary, just to get source iface/address */
+#include "ampresolv.h"
 
 
 
@@ -29,9 +30,9 @@ static void run_test(const test_schedule_item_t * const item) {
     uint32_t offset;
     test_t *test;
     resolve_dest_t *resolve;
+    struct addrinfo *addrlist = NULL;
     struct addrinfo **destinations = NULL;
     int total_resolve_count = 0;
-    int override_nameservers = 0;
 
     assert(item);
     assert(item->test_id < AMP_TEST_LAST);
@@ -76,30 +77,6 @@ static void run_test(const test_schedule_item_t * const item) {
     /* null terminate the list before we give it to the main test function */
     argv[argc] = NULL;
 
-    /*
-     * Make sure we are using any nameserver configuration that is set.
-     * XXX I think this has to happen all the time, even if there are no
-     * items to resolve, in case the test itself does any name resolution.
-     * TODO can we do name resolution asynchronously?
-     */
-    if ( vars.nameservers != NULL ) {
-        override_nameservers = update_nameservers(vars.nameservers,
-                vars.nscount);
-    }
-
-    if ( vars.interface || vars.sourcev4 || vars.sourcev6 ) {
-        /*
-         * need to make sure everything is initialised if we haven't already
-         * set it up with our own nameservers.
-         */
-        if ( !override_nameservers ) {
-            init_default_nameservers();
-        }
-        /* open our own sockets for name resolution before libc does */
-        open_nameserver_sockets();
-    }
-
-
     Log(LOG_DEBUG, "Running test: %s to %d/%d destinations:\n", test->name,
 	    item->dest_count, item->resolve_count);
 
@@ -114,57 +91,27 @@ static void run_test(const test_schedule_item_t * const item) {
 
     /* resolve any names that need to be done at test run time */
     if ( item->resolve != NULL ) {
-	struct addrinfo hint;
 	struct addrinfo *tmp;
 
 	Log(LOG_DEBUG, "test has destinations to resolve!\n");
 
-	memset(&hint, 0, sizeof(struct addrinfo));
-	hint.ai_flags = AI_ADDRCONFIG;	/* only fetch addresses we can use */
-	hint.ai_socktype = SOCK_STREAM; /* limit it to a single socket type */
-	hint.ai_protocol = 0;
-	hint.ai_addrlen = 0;
-	hint.ai_addr = NULL;
-	hint.ai_canonname = NULL;
-	hint.ai_next = NULL;
+        /* add all the names that we need to resolve */
+        for ( resolve=item->resolve; resolve != NULL; resolve=resolve->next ) {
+            amp_resolve_add(vars.ctx, &addrlist, resolve->name, resolve->family,
+                    resolve->count);
+        }
 
-	/* loop over all destinations that need to be resolved and add them */
-	for ( resolve=item->resolve; resolve != NULL; resolve=resolve->next ) {
-	    int addr_resolve_count = 0;
+        /* wait for them all to resolve or time out */
+        amp_resolve_wait(vars.ctx);
 
-            /*
-             * The schedule can determine which family we use for each name,
-             * defaults to AF_UNSPEC to resolve both v4 and v6 addresses.
-             */
-            hint.ai_family = resolve->family;
-
-	    /* accept pretty much everything we get back */
-	    if ( getaddrinfo(resolve->name, NULL, &hint, &resolve->addr)!= 0 ) {
-		perror("getaddrinfo");
-		continue;
-	    }
-
-	    /*
-	     * use the number listed in the schedule file as an upper bound on
-	     * how many of the addresses we should actually test to.
-	     */
-	    for ( tmp = resolve->addr; tmp != NULL; tmp = tmp->ai_next ) {
-		if ( resolve->count > 0 &&
-			addr_resolve_count >= resolve->count ) {
-		    break;
-		}
-
-		/* use the given name rather than the canonical name */
-		tmp->ai_canonname = strdup(resolve->name);
-
-		destinations = realloc(destinations,
-			(item->dest_count + total_resolve_count + 1) *
-			sizeof(struct addrinfo));
-		destinations[item->dest_count + total_resolve_count] = tmp;
-		total_resolve_count++;
-		addr_resolve_count++;
-	    }
-	}
+        /* create the destination list from all the resolved addresses */
+        for ( tmp = addrlist; tmp != NULL; tmp = tmp->ai_next ) {
+            destinations = realloc(destinations,
+                    (item->dest_count + total_resolve_count + 1) *
+                    sizeof(struct addrinfo));
+            destinations[item->dest_count + total_resolve_count] = tmp;
+            total_resolve_count++;
+        }
     }
 
     Log(LOG_DEBUG, "Final destination count = %d\n",
@@ -189,17 +136,15 @@ static void run_test(const test_schedule_item_t * const item) {
 		destinations);
 
 	/* free any destinations that we looked up just for this test */
-	for ( resolve=item->resolve; resolve != NULL; resolve=resolve->next ) {
-	    if ( resolve->addr != NULL ) {
-		freeaddrinfo(resolve->addr);
-		resolve->addr = NULL;
-	    }
-	}
+        amp_resolve_freeaddr(addrlist);
 
 	/* just free the temporary list of pointers, leave the actual data */
 	if ( destinations != NULL ) {
 	    free(destinations);
 	}
+
+        /* XXX we can free our copy without affecting others using it? */
+        ub_ctx_delete(vars.ctx);
     }
 
     /* done running the test, exit */

@@ -332,22 +332,6 @@ static int parse_config(char *filename, struct amp_global_t *vars) {
         log_level = cfg_getint(cfg, "loglevel");
     }
 
-    /* should we override /etc/resolv.conf and use our own nameservers */
-    if ( cfg_size(cfg, "nameservers") > 0 ) {
-        /*
-         * We are limited to MAXNS (currently 3) nameservers, but we allow
-         * more to be listed and just ignore them after we get 3 valid ones.
-         */
-        vars->nscount = cfg_size(cfg, "nameservers");
-        vars->nameservers = malloc(sizeof(char *) * vars->nscount);
-        for ( i = 0; i < vars->nscount; i++ ) {
-            vars->nameservers[i] = strdup(cfg_getnstr(cfg, "nameservers", i));
-        }
-    } else {
-        vars->nameservers = NULL;
-        vars->nscount = 0;
-    }
-
     /* should we be testing using a particular interface */
     if ( vars->interface == NULL && cfg_getstr(cfg, "interface") != NULL ) {
         vars->interface = strdup(cfg_getstr(cfg, "interface"));
@@ -361,6 +345,28 @@ static int parse_config(char *filename, struct amp_global_t *vars) {
     /* should we be testing using a particular source ipv6 address */
     if ( vars->sourcev6 == NULL && cfg_getstr(cfg, "ipv6") != NULL ) {
         vars->sourcev6 = strdup(cfg_getstr(cfg, "ipv6"));
+    }
+
+    /* should we override /etc/resolv.conf and use our own nameservers */
+    /* XXX rework the logic of this portion to repeat less code */
+    if ( cfg_size(cfg, "nameservers") > 0 ) {
+        int nscount = cfg_size(cfg, "nameservers");
+        char *nameservers[nscount];
+        for ( i=0; i<nscount; i++ ) {
+            nameservers[i] = cfg_getnstr(cfg, "nameservers", i);
+        }
+        Log(LOG_DEBUG, "Initialising nameserver context with %d servers",
+                nscount);
+        vars->ctx = amp_resolve_init(nameservers, nscount, vars->sourcev4,
+                vars->sourcev6);
+    } else {
+        Log(LOG_DEBUG, "Initialising nameserver context with default servers");
+        vars->ctx = amp_resolve_init(NULL, 0, vars->sourcev4, vars->sourcev6);
+    }
+
+    if ( vars->ctx == NULL ) {
+        Log(LOG_ALERT, "Failed to configure resolver, aborting.");
+        return -1;
     }
 
     /* parse the config for the collector we should report data to */

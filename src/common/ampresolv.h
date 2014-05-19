@@ -1,21 +1,20 @@
 #ifndef _COMMON_AMPRESOLV_H
 #define _COMMON_AMPRESOLV_H
 
-/*
- * These are taken from eglibc-2.13/resolv/res_send.c to work with the
- * modified functions also taken from there.
- */
-#define EXT(res) ((res)->_u._ext)
+#include <unbound.h>
 
-#ifndef __ASSUME_SOCK_CLOEXEC
-static int __have_o_nonblock;
-#else
-# define __have_o_nonblock 0
-#endif
+struct amp_resolve_data {
+    int max;
+    int outstanding;
+    struct addrinfo **addrlist;
+};
 
+struct ub_ctx *amp_resolve_init(char *servers[], int nscount, char *sourcev4,
+        char *sourcev6);
+void amp_resolve_add(struct ub_ctx *ctx, struct addrinfo **res, char *name,
+        int family, int max);
+void amp_resolve_wait(struct ub_ctx *ctx);
+void amp_resolve_freeaddr(struct addrinfo *addrlist);
 
-int update_nameservers(char *servers[], int count);
-void open_nameserver_sockets(void);
-void init_default_nameservers(void);
 
 #endif
