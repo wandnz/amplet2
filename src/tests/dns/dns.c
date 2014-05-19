@@ -937,6 +937,14 @@ int run_dns(int argc, char *argv[], int count, struct addrinfo **dests) {
 	close(sockets.socket6);
     }
 
+    if ( sourcev4 ) {
+        freeaddrinfo(sourcev4);
+    }
+
+    if ( sourcev6 ) {
+        freeaddrinfo(sourcev6);
+    }
+
     /* send report */
     report_results(&start_time, count, info, &options);
 
