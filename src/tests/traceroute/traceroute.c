@@ -764,7 +764,8 @@ static void report_results(struct timeval *start_time, int count,
                 hop->rtt = htonl(info[i].hop[hopcount].delay);
             }
             inet_ntop(path->family, hop->address, addrstr, INET6_ADDRSTRLEN);
-            Log(LOG_DEBUG, " %d: %s %d\n", hopcount+1, addrstr, hop->rtt);
+            Log(LOG_DEBUG, " %d: %s %d\n", hopcount+1, addrstr,
+                    ntohl(hop->rtt));
         }
     }
 
