@@ -1,3 +1,26 @@
+amplet2 (0.2.5-1) unstable; urgency=low
+
+  * New upstream release.
+  * Name resolution now uses libunbound and happens in separate threads.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Thu,  22 May 2014 17:21:21 +1200
+
+amplet2 (0.2.4-1) unstable; urgency=low
+
+  * New upstream release.
+  * Set custom nameservers per test process rather than on the parent.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Wed,  14 May 2014 17:20:28 +1200
+
+amplet2 (0.2.3-1) unstable; urgency=low
+
+  * New upstream release.
+  * Fix test parameters where parameters included a delimiting comma.
+  * Allow multiple client configuration in configuration directory.
+  * Use vhosts with rabbitmq to isolate our data.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Fri,  9 May 2014 17:49:23 +1200
+
 amplet2 (0.2.2-1) unstable; urgency=low
 
   * New upstream release.
