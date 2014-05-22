@@ -120,10 +120,11 @@ int main(int argc, char *argv[]) {
     /* set the nameserver to our custom one if specified */
     if ( nameserver ) {
         /* TODO we could parse the string and get up to MAXNS servers */
-        vars.ctx = amp_resolve_init(&nameserver, 1, vars.sourcev4,
+        vars.ctx = amp_resolver_context_init(&nameserver, 1, vars.sourcev4,
                 vars.sourcev6);
     } else {
-        vars.ctx = amp_resolve_init(NULL, 0, vars.sourcev4, vars.sourcev6);
+        vars.ctx = amp_resolver_context_init(NULL, 0, vars.sourcev4,
+                vars.sourcev6);
     }
 
     if ( vars.ctx == NULL ) {

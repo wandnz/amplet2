@@ -92,17 +92,23 @@ static void run_test(const test_schedule_item_t * const item) {
     /* resolve any names that need to be done at test run time */
     if ( item->resolve != NULL ) {
 	struct addrinfo *tmp;
+        int resolver_fd;
 
 	Log(LOG_DEBUG, "test has destinations to resolve!\n");
 
-        /* add all the names that we need to resolve */
-        for ( resolve=item->resolve; resolve != NULL; resolve=resolve->next ) {
-            amp_resolve_add(vars.ctx, &addrlist, resolve->name, resolve->family,
-                    resolve->count);
+        /* connect to the local amp resolver/cache */
+        if ( (resolver_fd = amp_resolver_connect(vars.nssock)) < 0 ) {
+            Log(LOG_ALERT, "TODO tidy up nicely after failing resolving");
+            assert(0);
         }
 
-        /* wait for them all to resolve or time out */
-        amp_resolve_wait(vars.ctx);
+        /* add all the names that we need to resolve */
+        for ( resolve=item->resolve; resolve != NULL; resolve=resolve->next ) {
+            amp_resolve_add_new(resolver_fd, resolve);
+        }
+
+        /* get the list of all the addresses the names resolved to (blocking) */
+        addrlist = amp_resolve_get_list(resolver_fd);
 
         /* create the destination list from all the resolved addresses */
         for ( tmp = addrlist; tmp != NULL; tmp = tmp->ai_next ) {
@@ -142,9 +148,6 @@ static void run_test(const test_schedule_item_t * const item) {
 	if ( destinations != NULL ) {
 	    free(destinations);
 	}
-
-        /* XXX we can free our copy without affecting others using it? */
-        ub_ctx_delete(vars.ctx);
     }
 
     /* done running the test, exit */

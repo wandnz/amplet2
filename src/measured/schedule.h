@@ -6,6 +6,7 @@
 #include "tests.h" //TODO fix these names, test vs tests
 #include "test.h"
 #include "nametable.h"
+#include "ampresolv.h"
 
 
 /* maximum line length for a single schedule line */
@@ -42,20 +43,6 @@
 
 
 /*
- * XXX may need to rethink this, can it be reconciled with the name table 
- * entry? or are they too different?
- */
-struct resolve_dest {
-    char *name;			/* name to be resolved */
-    struct addrinfo *addr;	/* temp store for the result of getaddrinfo */
-    uint8_t count;		/* maximum count of resolved addresses to use */
-    int family;                 /* family of addresses to resolve */
-    struct resolve_dest *next;
-};
-typedef struct resolve_dest resolve_dest_t;
-
-
-/*
  * Data block for scheduled test events.
  */
 typedef struct test_schedule_item {
@@ -77,7 +64,7 @@ typedef struct test_schedule_item {
 
 /*
  * Data block for limiting test event duration
- */ 
+ */
 typedef struct kill_schedule_item {
     pid_t pid;			    /* pid of test process to kill */
     char *testname;                 /* name of the test to kill */

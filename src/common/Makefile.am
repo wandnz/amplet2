@@ -6,4 +6,4 @@ SUBDIRS= . test
 libampdir=$(libdir)
 libamp_LTLIBRARIES=libamp.la
 libamp_la_SOURCES=debug.c messaging.c modules.c testlib.c ssl.c ampresolv.c
-libamp_la_LDFLAGS=-module -avoid-version -lrabbitmq -lunbound
+libamp_la_LDFLAGS=-module -avoid-version -lrabbitmq -lunbound -lpthread

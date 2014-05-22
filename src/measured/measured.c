@@ -41,6 +41,7 @@
 #include "ampresolv.h"
 #include "testlib.h"
 #include "rabbitcfg.h"
+#include "nssock.h"
 
 #define AMP_CLIENT_CONFIG_DIR AMP_CONFIG_DIR "/clients"
 
@@ -355,13 +356,11 @@ static int parse_config(char *filename, struct amp_global_t *vars) {
         for ( i=0; i<nscount; i++ ) {
             nameservers[i] = cfg_getnstr(cfg, "nameservers", i);
         }
-        Log(LOG_DEBUG, "Initialising nameserver context with %d servers",
-                nscount);
-        vars->ctx = amp_resolve_init(nameservers, nscount, vars->sourcev4,
-                vars->sourcev6);
+        vars->ctx = amp_resolver_context_init(nameservers, nscount,
+                vars->sourcev4, vars->sourcev6);
     } else {
-        Log(LOG_DEBUG, "Initialising nameserver context with default servers");
-        vars->ctx = amp_resolve_init(NULL, 0, vars->sourcev4, vars->sourcev6);
+        vars->ctx = amp_resolver_context_init(NULL, 0, vars->sourcev4,
+                vars->sourcev6);
     }
 
     if ( vars->ctx == NULL ) {
@@ -472,6 +471,7 @@ int main(int argc, char *argv[]) {
     struct wand_signal_t sigusr1_ev;
     struct wand_fdcb_t control_ipv4_ev;
     struct wand_fdcb_t control_ipv6_ev;
+    struct wand_fdcb_t nssock_ev;
     struct wand_timer_t fetch_ev;
     char *config_file = NULL;
     char *pidfile = NULL;
@@ -644,6 +644,13 @@ int main(int argc, char *argv[]) {
         return -1;
     }
 
+    /* construct our custom, per-client nameserver socket */
+    if ( asprintf(&vars.nssock, "%s/%s.sock", AMP_RUN_DIR,
+                vars.ampname) < 0 ) {
+        Log(LOG_ALERT, "Failed to build local resolve socket path");
+        return -1;
+    }
+
     /* fetch remote schedule configuration if it is fresher than what we have */
     if ( fetch_remote && vars.fetch_remote ) {
         if ( vars.schedule_url == NULL ) {
@@ -693,6 +700,17 @@ int main(int argc, char *argv[]) {
     sigchld_ev.callback = child_reaper;
     sigchld_ev.data = ev_hdl;
     wand_add_signal(&sigchld_ev);
+
+    /* create the resolver/cache unix socket and add event listener for it */
+    if ( (nssock_ev.fd = initialise_resolver_socket(vars.nssock)) < 0 ) {
+        Log(LOG_ALERT, "Failed to initialise local resolver, aborting");
+        return -1;
+    }
+    nssock_ev.flags = EV_READ;
+    nssock_ev.data = vars.ctx;
+    nssock_ev.callback = resolver_socket_event_callback;
+    wand_add_event(ev_hdl, &nssock_ev);
+
 
     /* create the control socket and add an event listener for it */
     if ( vars.control_enabled && ssl_ctx != NULL ) {
@@ -761,6 +779,10 @@ int main(int argc, char *argv[]) {
     wand_destroy_event_handler(ev_hdl);
 
     free(vars.schedule_dir);
+    free(vars.nametable_dir);
+    free(vars.nssock);
+
+    amp_resolver_context_delete(vars.ctx);
 
     ssl_cleanup();
 
