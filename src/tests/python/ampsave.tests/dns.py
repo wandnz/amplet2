@@ -52,12 +52,12 @@ def data_2013022000(data):
                     "destination": name.rstrip("\0"),
                     "instance": instance.rstrip("\0"),
                     "address": addr,
-                    "rtt": rtt,
+                    "rtt": rtt if rtt >= 0 else None,
                     "query_len": qlen,
-                    "response_size": size,
-                    "total_answer": ans,
-                    "total_authority": aut,
-                    "total_additional": add,
+		    "response_size": size if rtt >= 0 else None,
+		    "total_answer": ans if rtt >= 0 else None,
+		    "total_authority": aut if rtt >= 0 else None,
+		    "total_additional": add if rtt >= 0 else None,
                     "flags": {
                         "rd": bool(flags & 0x0100),
                         "tc": bool(flags & 0x0200),
@@ -68,10 +68,10 @@ def data_2013022000(data):
                         "cd": bool(flags & 0x0010),
                         "ad": bool(flags & 0x0020),
                         "ra": bool(flags & 0x0080),
-                    },
-                    "ttl": ttl,
-                    }
-                )
+		    } if rtt >= 0 else {},
+		    "ttl": ttl if rtt >= 0 else None,
+                }
+            )
         offset += item_len
         count -= 1
 

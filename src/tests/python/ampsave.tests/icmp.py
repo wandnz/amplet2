@@ -42,21 +42,17 @@ def data_2013022000(data):
         else:
             raise ValueError
 
-        # Use a proper python None value to mark this rather than a -1
-        if rtt < 0:
-            rtt = None
-
         results.append(
                 {
                     "target": name.rstrip("\0"),
                     "address": addr,
-                    "rtt": rtt,
-                    "error_type": errtype,
-                    "error_code": errcode,
-                    "ttl": ttl,
+                    "rtt": rtt if rtt >= 0 else None,
+                    "error_type": errtype if(rtt >= 0 or errtype > 0) else None,
+                    "error_code": errcode if(rtt >= 0 or errcode > 0) else None,
+                    "ttl": ttl if rtt >= 0 else None,
                     "packet_size": packet_size,
                     "random": random,
-                    "loss": 1 if rtt is None else 0,
+                    "loss": 0 if rtt >= 0 else 1,
                 }
             )
         offset += item_len
