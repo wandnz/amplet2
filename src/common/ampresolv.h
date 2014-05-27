@@ -2,9 +2,13 @@
 #define _COMMON_AMPRESOLV_H
 
 #include <stdint.h>
+#include <pthread.h>
 #include <unbound.h>
 
 #define MAX_DNS_NAME_LEN 256
+
+/* max wait between checking if all DNS responses have come in: 10ms */
+#define MAX_DNS_POLL_USEC 10000
 
 #ifndef UNIX_PATH_MAX
 #define UNIX_PATH_MAX 108
@@ -12,8 +16,10 @@
 
 /* data block for callback function when name resolution is complete */
 struct amp_resolve_data {
+    pthread_mutex_t *lock;
     int max;                    /* maximum number of results to return */
-    int outstanding;            /* reference count - how many requests */
+    int qcount;                 /* how many requests for name, shared max */
+    int *remaining;             /* total requests for test, shared addrlist */
     struct addrinfo **addrlist; /* list to store the results in */
 };
 
@@ -46,9 +52,11 @@ typedef struct resolve_dest resolve_dest_t;
 
 struct ub_ctx *amp_resolver_context_init(char *servers[], int nscount,
         char *sourcev4, char *sourcev6);
-void amp_resolve_add(struct ub_ctx *ctx, struct addrinfo **res, char *name,
-        int family, int max);
-void amp_resolve_wait(struct ub_ctx *ctx);
+void amp_resolve_add(struct ub_ctx *ctx, struct addrinfo **res,
+        pthread_mutex_t *addrlist_lock, char *name, int family, int max,
+        int *remaining);
+void amp_resolve_wait(struct ub_ctx *ctx, pthread_mutex_t *lock,
+        int *remaining);
 void amp_resolve_freeaddr(struct addrinfo *addrlist);
 void amp_resolver_context_delete(struct ub_ctx *ctx);
 

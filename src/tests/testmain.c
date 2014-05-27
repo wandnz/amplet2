@@ -75,6 +75,8 @@ int main(int argc, char *argv[]) {
     int opt;
     int i;
     char *nameserver = NULL;
+    int remaining = 0;
+    pthread_mutex_t addrlist_lock;
 
     /* load information about the test, including the callback functions */
     test_info = get_test_info();
@@ -134,6 +136,7 @@ int main(int argc, char *argv[]) {
 
     dests = NULL;
     count = 0;
+    pthread_mutex_init(&addrlist_lock, NULL);
 
     /* process all destinations */
     /* TODO prevent duplicate destinations? */
@@ -147,11 +150,12 @@ int main(int argc, char *argv[]) {
 	    break;
 	}
 
-        amp_resolve_add(vars.ctx, &addrlist, argv[i], AF_UNSPEC, -1);
+        amp_resolve_add(vars.ctx, &addrlist, &addrlist_lock, argv[i],
+                AF_UNSPEC, -1, &remaining);
     }
 
     /* wait for all the responses to come in */
-    amp_resolve_wait(vars.ctx);
+    amp_resolve_wait(vars.ctx, &addrlist_lock, &remaining);
 
     /* add all the results of to the list of destinations */
     for ( rp=addrlist; rp != NULL; rp=rp->ai_next ) {

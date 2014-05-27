@@ -72,16 +72,27 @@ struct ub_ctx *amp_resolver_context_init(char *servers[], int nscount,
 /*
  * Deal with a DNS response being returned - take as many addresses as we are
  * allowed and convert them into addrinfo structs for the caller to use.
+ * Any thread could end up calling this for incoming data, but the addrlist
+ * is contained in the callback data so it doesn't matter, the addresses will
+ * end up on the right list.
  */
 static void amp_resolve_callback(void *d, int err, struct ub_result *result) {
     struct amp_resolve_data *data = (struct amp_resolve_data *)d;
     struct addrinfo *item;
+    int qcount;
     int i;
 
     Log(LOG_DEBUG, "Got a DNS response for %s (%x)", result->qname,
             result->qtype);
 
-    assert(data->outstanding > 0);
+    /* lock the data block, we are about to update the address list */
+    pthread_mutex_lock(data->lock);
+
+    assert(data->qcount > 0);
+    assert(*data->remaining > 0);
+
+    /* shared counter to track outstanding queries for this test */
+    (*data->remaining)--;
 
     if ( err != 0 || !result->havedata ) {
         if ( err != 0 ) {
@@ -90,12 +101,7 @@ static void amp_resolve_callback(void *d, int err, struct ub_result *result) {
             Log(LOG_DEBUG, "no results for query");
         }
 
-        data->outstanding--;
-        if ( data->outstanding <= 0 ) {
-            free(data);
-        }
-        ub_resolve_free(result);
-        return;
+        goto end;
     }
 
     /*
@@ -123,6 +129,7 @@ static void amp_resolve_callback(void *d, int err, struct ub_result *result) {
                                result->data[i], result->len[i]);
                        break;
             default: Log(LOG_WARNING, "Unknown query response type");
+                     pthread_mutex_unlock(data->lock);
                      assert(0);
                      break;
         };
@@ -141,8 +148,14 @@ static void amp_resolve_callback(void *d, int err, struct ub_result *result) {
         }
     }
 
-    data->outstanding--;
-    if ( data->outstanding <= 0 ) {
+end:
+    /* get outstanding queries for this name while we still have it locked */
+    qcount = --data->qcount;
+
+    pthread_mutex_unlock(data->lock);
+
+    /* no outstanding queries for this name, can free the data block */
+    if ( qcount <= 0 ) {
         free(data);
     }
 
@@ -155,17 +168,18 @@ static void amp_resolve_callback(void *d, int err, struct ub_result *result) {
  * Add a request to the queue, querying for IPv4 and IPV6 addresses as desired.
  * TODO rename this? mostly used internally but testmain.c uses it too
  */
-void amp_resolve_add(struct ub_ctx *ctx, struct addrinfo **res, char *name,
-        int family, int max) {
+void amp_resolve_add(struct ub_ctx *ctx, struct addrinfo **res,
+        pthread_mutex_t *addrlist_lock, char *name, int family, int max,
+        int *remaining) {
 
     struct amp_resolve_data *data;
     struct addrinfo *addr;
 
-    Log(LOG_DEBUG, "Adding resolve request for %s", name);
-
     assert(ctx);
     assert(res);
     assert(name);
+
+    Log(LOG_DEBUG, "Adding resolve request for %s", name);
 
     /* check if this is a numeric address already and doesn't need resolving */
     if ( (addr = get_numeric_address(name, NULL)) ) {
@@ -203,16 +217,27 @@ void amp_resolve_add(struct ub_ctx *ctx, struct addrinfo **res, char *name,
     /* keep a reference to the list of addresses we are building up */
     data->addrlist = res;
 
+    /* create a mutex to make sure we don't mess up our addrlist */
+    data->lock = addrlist_lock;
+
     /*
      * Track how many queries we have that are using this data block, if we
      * share it between multiple queries we have to know when it is no longer
-     * being used.
+     * being used. This lets us share the max value between queries with the
+     * same name and different address family.
      */
     if ( family == AF_UNSPEC ) {
-        data->outstanding = 2;
+        data->qcount = 2;
     } else {
-        data->outstanding = 1;
+        data->qcount = 1;
     }
+
+    /*
+     * Track how many queries are outstanding for this test process. When they
+     * are all complete, the test itself can begin.
+     */
+    data->remaining = remaining;
+    *data->remaining += data->qcount;
 
     /*
      * Track a maximum number of address to resolve, shared between both IPv4
@@ -242,12 +267,60 @@ void amp_resolve_add(struct ub_ctx *ctx, struct addrinfo **res, char *name,
 
 
 /*
- * Wait for all addresses to be resolved. This function probably isn't really
- * needed, but helps hide the implementation details I guess.
+ * Wait for all names used by this test to be resolved.
  */
-void amp_resolve_wait(struct ub_ctx *ctx) {
+void amp_resolve_wait(struct ub_ctx *ctx, pthread_mutex_t *lock,
+        int *remaining) {
+    int fd;
+    int ready;
+    fd_set readset;
+    struct timeval timeout;
+
+    assert(ctx);
+    assert(lock);
+    assert(remaining);
+
     Log(LOG_DEBUG, "Waiting for outstanding DNS requests");
-    ub_wait(ctx);
+
+    /* using the file descriptor directly lets us use select() for timeouts */
+    if ( (fd = ub_fd(ctx)) < 0 ) {
+        Log(LOG_WARNING, "Failed to get resolver file descriptor");
+        return;
+    }
+
+    do {
+	/* fd sets are undefined after an error, so set them every time */
+	FD_ZERO(&readset);
+        FD_SET(fd, &readset);
+
+        /*
+         * Reset the timeout, even if we had an error. Not worth the hassle
+         * of calculating how much time was left when error occurred.
+         */
+        timeout.tv_sec = 0;
+        timeout.tv_usec = MAX_DNS_POLL_USEC;
+
+        ready = select(fd+1, &readset, NULL, NULL, &timeout);
+
+        /* if the fd is available for reading, process the callbacks */
+        if ( ready > 0 ) {
+            ub_process(ctx);
+        }
+
+        /*
+         * Check if any of the threads have finished processing data for this
+         * particular test. We can stop waiting as soon as all of our names
+         * have been resolved.
+         */
+        pthread_mutex_lock(lock);
+        if ( *remaining <= 0 ) {
+            pthread_mutex_unlock(lock);
+            break;
+        }
+        pthread_mutex_unlock(lock);
+
+    } while ( ready >= 0 || (ready < 0 && errno == EINTR) );
+
 }
 
 
