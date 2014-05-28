@@ -126,18 +126,16 @@ static void free_test_schedule_item(test_schedule_item_t *item) {
     free(item->dests);
 
     /* free the list of names that need to be resolved at each test time */
-    if ( item->resolve != NULL ) {
-	resolve_dest_t *tmp;
-	for ( tmp=item->resolve; tmp != NULL; tmp=tmp->next ) {
-	    if ( tmp->name != NULL ) {
-		free(tmp->name);
-	    }
-	    /* this should be NULL, it is only populated in a forked test */
-	    if ( tmp->addr != NULL ) {
-		freeaddrinfo(tmp->addr);
-	    }
-	}
-	free(item->resolve);
+    while ( item->resolve != NULL ) {
+        resolve_dest_t *tmp = item->resolve;
+        item->resolve = item->resolve->next;
+
+        if ( tmp->name != NULL ) {
+            free(tmp->name);
+        }
+        /* this should be NULL, it is only populated in a forked test */
+        assert(tmp->addr == NULL);
+        free(tmp);
     }
 
     free(item);
