@@ -1,3 +1,10 @@
+amplet2 (0.2.6-1) unstable; urgency=low
+
+  * Minor bugfixes.
+  * Removed test timing code in ICMP test that was being included in packages.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Thu,  29 May 2014 16:55:20 +1200
+
 amplet2 (0.2.5-2) unstable; urgency=low
 
   * Require libunbound2 rather than libunbound.
