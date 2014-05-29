@@ -4,6 +4,8 @@
 #include <unbound.h>
 #include <libwandevent.h>
 
+#define MAX_RESOLVER_SOCKET_BACKLOG 16
+
 int initialise_resolver_socket(char *path);
 //struct ub_ctx *amp_resolver_context_init(char *servers[], int nscount,
 //        char *sourcev4, char *sourcev6);

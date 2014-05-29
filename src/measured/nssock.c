@@ -222,7 +222,7 @@ int initialise_resolver_socket(char *path) {
      * TODO what sort of backlog is appropriate here? How many tests are
      * starting at the same time?
      */
-    if ( listen(sock, 16) < 0 ) {
+    if ( listen(sock, MAX_RESOLVER_SOCKET_BACKLOG) < 0 ) {
         Log(LOG_WARNING,
                 "Failed to listen on local socket for name resolution: %s",
                 strerror(errno));
