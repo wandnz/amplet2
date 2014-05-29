@@ -218,7 +218,7 @@ static int serveTest(int control_socket, struct opt_t *sockopts) {
     struct test_result_t result;
     int bytes_read;
     struct report_web10g_t *web10g = NULL;
-    int t_listen;
+    int t_listen = -1;
     int test_socket = -1;
     struct sockaddr_storage client_addr;
     socklen_t client_addrlen = sizeof(client_addr);
