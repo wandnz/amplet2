@@ -73,6 +73,7 @@ static void usage(void) {
             "               [-4 <address>] [-6 <address>]\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "Options:\n");
+    fprintf(stderr, "  -f, --setup-rabbitmq      Configure rabbitmq based on AMP config and exit\n");
     fprintf(stderr, "  -d, --daemonise           Detach and run in background\n");
     fprintf(stderr, "  -v, --version             Print version information and exit\n");
     fprintf(stderr, "  -x, --debug               Enable extra debug output\n");
