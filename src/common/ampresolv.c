@@ -463,6 +463,7 @@ struct addrinfo *amp_resolve_get_list(int fd) {
         assert(tmp->ai_canonname);
 
         if ( recv(fd, &more, sizeof(more), 0) <= 0 ) {
+            free(tmp->ai_canonname);
             free(tmp);
             break;
         }
