@@ -1,3 +1,9 @@
+amplet2 (0.2.5-2) unstable; urgency=low
+
+  * Require libunbound2 rather than libunbound.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Wed,  28 May 2014 13:38:17 +1200
+
 amplet2 (0.2.5-1) unstable; urgency=low
 
   * New upstream release.
