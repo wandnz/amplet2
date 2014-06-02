@@ -116,17 +116,16 @@ do_stop()
     SUCCESS=0
     FAILED=0
 
-    for client in ${CONFDIR}/*.conf; do
-        NAME=${client#$CONFDIR/}
-        NAME=${NAME%.conf}
-        PIDFILE=${PIDDIR}/${NAME%.conf}.pid
+    for pidfile in ${PIDDIR}/*.pid; do
+        NAME=${pidfile#$PIDDIR/}
+        NAME=${NAME%.pid}
 
         # Stop the client if no client is specified, or if it matches
         if ([ $# -eq 0 ] || contains $@ $NAME); then
             start-stop-daemon --stop --quiet --retry=TERM/30/KILL/5 \
-                    --name $DAEMON_NAME --pidfile $PIDFILE
+                    --name $DAEMON_NAME --pidfile $pidfile
 	    start-stop-daemon --stop --quiet --oknodo  --retry=0/30/KILL/5 \
-                    --exec $DAEMON --pidfile $PIDFILE
+                    --exec $DAEMON --pidfile $pidfile
 
             case "$?" in
                 0|1) SUCCESS=$((SUCCESS+1)); \
