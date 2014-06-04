@@ -157,6 +157,95 @@ static void run_test(const test_schedule_item_t * const item) {
 
 
 /*
+ * The ELF binary layout means we should have all of the command line
+ * arguments and the environment all contiguous in the stack. We can take
+ * over all of that space and replace it with whatever program name or
+ * description that we want, and relocate the environment to a new location.
+ *
+ * This approach makes it not portable, but for now we will just make it work
+ * with linux. Other operating systems appear to be much smarter than linux
+ * anyway and have setproctitle(). We also won't bother saving the original
+ * argv array, we shouldn't need it again.
+ *
+ * See:
+ * postgresl-9.3.4/src/backend/utils/misc/ps_status.c
+ * util-linux-2.24/lib/setproctitle.c
+ *
+ * Note:
+ * Could maybe also use prctl(), but that only sets the name that top shows
+ * by default and is limited to 16 characters (probably won't fit an ampname).
+ */
+static void set_proc_name(char *testname) {
+    char *end;
+    int buflen;
+    int i;
+    char **argv;
+    int argc;
+    extern char **environ;
+
+    Log(LOG_DEBUG, "Setting name of process %d to %s %s", getpid(),
+            vars.ampname, testname);
+
+    /*
+     * We have as much space to use as there are contiguous arguments. Every
+     * argument should be contiguous, but I guess it's possible that they
+     * aren't?
+     */
+    argc = vars.argc;
+    argv = vars.argv;
+    end = argv[0] + strlen(argv[0]);
+    for ( i = 1; i < argc; i++ ) {
+        if ( end + 1 == argv[i] ) {
+            end = argv[i] + strlen(argv[i]);
+        } else {
+            /* not contiguous, stop looking */
+            break;
+        }
+    }
+
+    /*
+     * We can also take over any contiguous space used for environment
+     * strings if they directly follow the arguments, later making a new
+     * environment elsewhere.
+     */
+    if ( i == argc ) {
+        char **env;
+
+        for ( i = 0; environ[i] != NULL; i++ ) {
+            if ( end + 1 == environ[i] ) {
+                end = environ[i] + strlen(environ[i]);
+            } else {
+                /* not contiguous, but keep counting environment size */
+            }
+        }
+
+        /* if we found space we want to use, make a new environment */
+        env = (char **) malloc((i + 1) * sizeof(char *));
+        for ( i = 0; environ[i] != NULL; i++ ) {
+            env[i] = strdup(environ[i]);
+        }
+        /* null terminate the environment variable array */
+        env[i] = NULL;
+
+        /*
+         * If we wanted to be really good we could keep a reference to
+         * this so we can free it when the test ends, but it's going to
+         * get freed anyway.
+         */
+        environ = env;
+    }
+
+    /* we can use as much space as we have contiguous memory */
+    buflen = end - argv[0];
+
+    /* easiest to just zero the whole thing then replace with our name */
+    memset(argv[0], 0, buflen);
+    snprintf(argv[0], buflen-1, "amplet2: %s %s", vars.ampname, testname);
+}
+
+
+
+/*
  * Test function to investigate forking, rescheduling, setting maximum
  * execution timers etc.
  * TODO maybe just move the contents of this into run_scheduled_test()?
@@ -191,6 +280,9 @@ static void fork_test(wand_event_handler_t *ev_hdl,test_schedule_item_t *item) {
 	 */
 	//setrlimit(RLIMIT_CPU, &cpu_limits);
 	/* TODO prepare environment */
+
+        /* update process name so we can tell what is running */
+        set_proc_name(test->name);
 	run_test(item);
 	Log(LOG_WARNING, "%s test failed to run", test->name);//XXX required?
 	exit(1);

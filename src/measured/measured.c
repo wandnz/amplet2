@@ -601,6 +601,10 @@ int main(int argc, char *argv[]) {
         exit(0);
     }
 
+    /* save the pointer to argv so that we can overwrite the name later */
+    vars.argc = argc;
+    vars.argv = argv;
+
     /*
      * TODO do we always want to create the pidfile, or only when daemonised?
      * or only when explicitly set?
