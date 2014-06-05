@@ -119,12 +119,14 @@ static void amp_resolve_callback(void *d, int err, struct ub_result *result) {
             case 0x01: item->ai_family = AF_INET;
                        item->ai_addrlen = sizeof(struct sockaddr_in);
                        item->ai_addr = calloc(1, item->ai_addrlen);
+                       item->ai_addr->sa_family = AF_INET;
                        memcpy(&((struct sockaddr_in*)item->ai_addr)->sin_addr,
                                result->data[i], result->len[i]);
                        break;
             case 0x1c: item->ai_family = AF_INET6;
                        item->ai_addrlen = sizeof(struct sockaddr_in6);
                        item->ai_addr = calloc(1, item->ai_addrlen);
+                       item->ai_addr->sa_family = AF_INET6;
                        memcpy(&((struct sockaddr_in6*)item->ai_addr)->sin6_addr,
                                result->data[i], result->len[i]);
                        break;
