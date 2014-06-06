@@ -238,8 +238,10 @@ void amp_resolve_add(struct ub_ctx *ctx, struct addrinfo **res,
      * Track how many queries are outstanding for this test process. When they
      * are all complete, the test itself can begin.
      */
+    pthread_mutex_lock(data->lock);
     data->remaining = remaining;
     *data->remaining += data->qcount;
+    pthread_mutex_unlock(data->lock);
 
     /*
      * Track a maximum number of address to resolve, shared between both IPv4
