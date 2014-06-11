@@ -1,17 +1,17 @@
 Name: amplet2
-Version: 0.2.1
+Version: 0.3.1
 Release: 1%{?dist}
 Summary: AMP Network Performance Measurement Suite - Client Tools
 
 Group: Applications/Internet
 License: AMP
 URL: http://research.wand.net.nz/software/amp.php
-Source0: http://research.wand.net.nz/software/amp/amplet2-0.2.1.tar.gz
+Source0: http://research.wand.net.nz/software/amp/amplet2-0.3.1.tar.gz	
 Patch0: amplet2-client-init.patch
 BuildRoot:	%(mktemp -ud %{_tmppath}/%{name}-%{version}-%{release}-XXXXXX)
 
-BuildRequires: openssl-devel libconfuse-devel libwandevent-devel libcurl-devel
-Requires: rabbitmq-server >= 3.1.5 librabbitmq-amp >= 0.4.0 libwandevent
+BuildRequires: openssl-devel libconfuse-devel libwandevent-devel libcurl-devel unbound-devel
+Requires: rabbitmq-server >= 3.1.5 librabbitmq-amp >= 0.4.0 libwandevent unbound-libs
 
 %description
 This package contains the client tools for the AMP Measurement Suite.
@@ -102,13 +102,6 @@ exit 0
 
 
 %post
-# Install the appropriate config as the main client.conf
-if [ ! -f "/etc/amplet2/client.conf" ]; then
-	ln -s /etc/amplet2/client-local.conf /etc/amplet2/client.conf
-else
-	echo "/etc/amplet2/client.conf already exists, skipping"
-fi
-
 # update rsyslog
 if [ ! -f "/etc/rsyslog.d/90-amplet2.conf" ]; then
 	cp /usr/share/amplet2/rsyslog/amplet2.conf /etc/rsyslog.d/90-amplet2.conf
@@ -135,23 +128,6 @@ else
 	exit 1
 fi
 
-# TODO for now we assume that rabbitmq-server is only present
-# because of us, so we can use the main instance and default config
-# file location
-# update rabbit-server config
-if [ ! -f "/etc/rabbitmq/rabbitmq.config" ]; then
-	ln -s /etc/amplet2/shovel.config /etc/rabbitmq/rabbitmq.config
-	if [ -x "`which invoke-rc.d 2>/dev/null`" ]; then
-		invoke-rc.d rabbitmq-server restart || exit $?
-	else
-		/etc/init.d/rabbitmq-server restart || exit $?
-	fi
-else
-	echo "/etc/rabbitmq/rabbitmq.config already exists."
-	echo "Please merge with /etc/amplet2/shovel.config and restart rabbitmq"
-	exit 1
-fi
- 
 # update init scripts
 if [ -x /sbin/chkconfig ]; then
 	/sbin/chkconfig --add amplet2-client
@@ -165,13 +141,6 @@ else
 fi
 
 %post lite
-# Install the appropriate config as the main client.conf
-if [ ! -f "/etc/amplet2/client.conf" ]; then
-	ln -s /etc/amplet2/client-lite.conf /etc/amplet2/client.conf
-else
-	echo "/etc/amplet2/client.conf already exists, skipping"
-fi
-
 # update rsyslog
 if [ ! -f "/etc/rsyslog.d/90-amplet2.conf" ]; then
 	cp /usr/share/amplet2/rsyslog/amplet2.conf /etc/rsyslog.d/90-amplet2.conf
@@ -224,6 +193,11 @@ fi
 
 
 %changelog
+* Mon Jun 9 2014 Brendon Jones <brendonj@waikato.ac.nz> 0.3.1-1
+- New upstream release
+- Able to run multiple clients on a single machine
+- Local resolver that can cache DNS responses
+
 * Mon Mar 31 2014 Brendon Jones <brendonj@waikato.ac.nz> 0.2.1-1
 - New upstream release
 - Renamed binaries, configs, etc to be more consistent
