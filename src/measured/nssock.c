@@ -71,13 +71,13 @@ static void *amp_resolver_worker_thread(void *thread_data) {
 
     /* send back all the results of name resolution */
     for ( item = addrlist; item != NULL; item = item->ai_next) {
-        if ( send(data->fd, item, sizeof(*item), 0) < 0 ) {
+        if ( send(data->fd, item, sizeof(*item), MSG_NOSIGNAL) < 0 ) {
             Log(LOG_WARNING, "Failed to send resolved address info: %s",
                     strerror(errno));
             goto end;
         }
 
-        if ( send(data->fd, item->ai_addr, item->ai_addrlen, 0) < 0 ) {
+        if ( send(data->fd, item->ai_addr,item->ai_addrlen,MSG_NOSIGNAL) < 0 ) {
             Log(LOG_WARNING, "Failed to send resolved address: %s",
                     strerror(errno));
             goto end;
@@ -85,21 +85,21 @@ static void *amp_resolver_worker_thread(void *thread_data) {
 
         namelen = strlen(item->ai_canonname) + 1;
         assert(namelen > 1);
-        if ( send(data->fd, &namelen, sizeof(namelen), 0) < 0 ) {
+        if ( send(data->fd, &namelen, sizeof(namelen), MSG_NOSIGNAL) < 0 ) {
             Log(LOG_WARNING, "Failed to send resolved canonical name: %s",
                     strerror(errno));
             goto end;
         }
 
         assert(item->ai_canonname);
-        if ( send(data->fd, item->ai_canonname, namelen, 0) < 0 ) {
+        if ( send(data->fd, item->ai_canonname, namelen, MSG_NOSIGNAL) < 0 ) {
             Log(LOG_WARNING, "Failed to send resolved canonical name: %s",
                     strerror(errno));
             goto end;
         }
 
         more = (item->ai_next) ? 1 : 0;
-        if ( send(data->fd, &more, sizeof(uint8_t), 0) < 0 ) {
+        if ( send(data->fd, &more, sizeof(uint8_t), MSG_NOSIGNAL) < 0 ) {
             Log(LOG_WARNING, "Failed to send more flag: %s", strerror(errno));
             goto end;
         }
