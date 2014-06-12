@@ -623,13 +623,17 @@ int main(int argc, char *argv[]) {
 	return -1;
     }
 
-    /* set up curl while we are still the only measured process running */
-    curl_global_init(CURL_GLOBAL_ALL);
-
-    /* set up SSL certificates etc */
+    /*
+     * Set up SSL certificates etc. This has to go before curl_global_init()
+     * because if we fail then we clean up a whole lot of openssl stuff.
+     * TODO determine which bits we can clean up and which bits we can't.
+     */
     if ( (ssl_ctx = initialise_ssl()) == NULL ) {
         Log(LOG_WARNING, "Failed to initialise SSL, disabling control socket");
     }
+
+    /* set up curl while we are still the only measured process running */
+    curl_global_init(CURL_GLOBAL_ALL);
 
     /* set up event handlers */
     wand_event_init();
