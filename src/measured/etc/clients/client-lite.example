@@ -54,13 +54,15 @@ control {
 }
 
 # Schedule fetching allows the schedule file to be kept up to date with a
-# remote source, without the need to use systems like puppet etc. Using
-# https will require certs and keys to be set, as measured will send client
-# certs so that the server can verify our identity (as well as us verifying
-# the server).
+# remote source, without the need to use systems like puppet etc. If you use
+# https then the server will be verified (using the built in CA bundle, or
+# the specified cacert). If you specify client certs then they will be sent to
+# the server for possible verification too. Setting identify to true will send
+# the ampname of this client as a GET parameter.
 remotesched {
     fetch = false
 #    url = https://example.com/schedule
+#    identify = true
 #    frequency = 3600
 #    cacert = /etc/amplet2/keys/cacert.pem
 #    cert = /etc/amplet2/keys/cert.pem
