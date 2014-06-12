@@ -119,12 +119,14 @@ static void amp_resolve_callback(void *d, int err, struct ub_result *result) {
             case 0x01: item->ai_family = AF_INET;
                        item->ai_addrlen = sizeof(struct sockaddr_in);
                        item->ai_addr = calloc(1, item->ai_addrlen);
+                       item->ai_addr->sa_family = AF_INET;
                        memcpy(&((struct sockaddr_in*)item->ai_addr)->sin_addr,
                                result->data[i], result->len[i]);
                        break;
             case 0x1c: item->ai_family = AF_INET6;
                        item->ai_addrlen = sizeof(struct sockaddr_in6);
                        item->ai_addr = calloc(1, item->ai_addrlen);
+                       item->ai_addr->sa_family = AF_INET6;
                        memcpy(&((struct sockaddr_in6*)item->ai_addr)->sin6_addr,
                                result->data[i], result->len[i]);
                        break;
@@ -236,8 +238,10 @@ void amp_resolve_add(struct ub_ctx *ctx, struct addrinfo **res,
      * Track how many queries are outstanding for this test process. When they
      * are all complete, the test itself can begin.
      */
+    pthread_mutex_lock(data->lock);
     data->remaining = remaining;
     *data->remaining += data->qcount;
+    pthread_mutex_unlock(data->lock);
 
     /*
      * Track a maximum number of address to resolve, shared between both IPv4

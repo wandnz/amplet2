@@ -291,9 +291,9 @@ static char **parse_param_string(char *param_string) {
 struct timeval get_next_schedule_time(wand_event_handler_t *ev_hdl,
 	char repeat, uint64_t start, uint64_t end, uint64_t frequency) {
 
-    time_t period_start, period_end, test_end;
+    time_t period_start, period_end;
     struct timeval now, next = {0,0};
-    int64_t diff;
+    int64_t diff, test_end;
     int next_repeat;
 
     period_start = get_period_start(repeat);

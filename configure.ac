@@ -2,13 +2,16 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.67])
-AC_INIT([amplet2], [0.2.6], [amp@wand.net.nz])
+AC_INIT([amplet2], [0.3.2], [amp@wand.net.nz])
 #AC_CONFIG_SRCDIR([src/measured/measured.c])
 AM_INIT_AUTOMAKE
 AC_CONFIG_HEADERS([config.h])
 
+AC_CONFIG_MACRO_DIR([m4])
+
 # Checks for programs.
 AC_PROG_CC
+AM_PROG_CC_C_O
 AC_PROG_LIBTOOL
 
 # Checks for libraries.
