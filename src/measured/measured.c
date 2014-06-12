@@ -270,6 +270,7 @@ static int parse_config(char *filename, struct amp_global_t *vars) {
         CFG_STR("key", NULL, CFGF_NONE),
         CFG_STR("cert", NULL, CFGF_NONE),
         CFG_INT("frequency", SCHEDULE_FETCH_FREQUENCY, CFGF_NONE),
+        CFG_BOOL("identify", cfg_true, CFGF_NONE),
         CFG_END()
     };
 
@@ -391,7 +392,17 @@ static int parse_config(char *filename, struct amp_global_t *vars) {
         vars->fetch_remote = cfg_getbool(cfg_sub, "fetch");
 
         if ( cfg_getstr(cfg_sub, "url") != NULL ) {
-            vars->schedule_url = strdup(cfg_getstr(cfg_sub, "url"));
+            /* tack the ampname on the end if we need to identify ourselves */
+            if ( cfg_getbool(cfg_sub, "identify") ) {
+                if ( asprintf(&vars->schedule_url, "%s?%s",
+                            cfg_getstr(cfg_sub, "url"), vars->ampname) < 0 ) {
+                    Log(LOG_ALERT, "Failed to build schedule fetching url");
+                    return -1;
+                }
+            } else {
+                vars->schedule_url = strdup(cfg_getstr(cfg_sub, "url"));
+            }
+
             vars->fetch_freq = cfg_getint(cfg_sub, "frequency");
 
             if ( cfg_getstr(cfg_sub, "cacert") ) {
@@ -789,6 +800,9 @@ int main(int argc, char *argv[]) {
     }
     wand_destroy_event_handler(ev_hdl);
 
+    if ( vars.fetch_remote && vars.schedule_url ) {
+        free(vars.schedule_url);
+    }
     free(vars.schedule_dir);
     free(vars.nametable_dir);
     free(vars.nssock);
