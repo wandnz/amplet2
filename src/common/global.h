@@ -37,6 +37,8 @@ struct amp_global_t {
     amp_ssl_opt_t fetch_ssl;
     struct ub_ctx *ctx;
     char *nssock;
+    char **argv;
+    int argc;
 };
 
 struct amp_global_t vars;
