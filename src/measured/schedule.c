@@ -783,6 +783,7 @@ int update_remote_schedule(char *dir, char *url, char *cacert, char *cert,
         sched_file[MAX_PATH_LENGTH-1] = '\0';
 
         /* Open the temporary file we read the remote schedule into */
+        /* TODO make dir structure if required */
         if ( (tmpfile = fopen(tmp_sched_file, "w")) == NULL ) {
             Log(LOG_WARNING, "Failed to open temporary schedule %s",
                     tmp_sched_file);
@@ -797,25 +798,32 @@ int update_remote_schedule(char *dir, char *url, char *cacert, char *cert,
         /* get slightly more detailed error messages, useful with ssl */
         curl_easy_setopt(curl, CURLOPT_ERRORBUFFER, errorbuf);
 
-        /* use ssl if required (a good idea!) */
-        if ( cacert != NULL && cert != NULL && key != NULL ) {
-               Log(LOG_DEBUG, "CACERT=%s", cacert);
-               Log(LOG_DEBUG, "KEY=%s", key);
-               Log(LOG_DEBUG, "CERT=%s", cert);
+        /* use ssl if required (a good idea to at least validate the server) */
+        if ( strncasecmp(url, "https", strlen("https")) == 0 ) {
+            /*
+             * Set the CA cert that we validate the server against,
+             * otherwise use the default cacert bundle.
+             */
+            if ( cacert != NULL ) {
+                Log(LOG_DEBUG, "CACERT=%s", cacert);
+                curl_easy_setopt(curl, CURLOPT_CAINFO, cacert);
+            }
 
-                /* set the client cert and key that we present the server */
-               curl_easy_setopt(curl, CURLOPT_SSLCERTTYPE, "PEM");
-               curl_easy_setopt(curl, CURLOPT_SSLCERT, cert);
-               curl_easy_setopt(curl, CURLOPT_SSLKEYTYPE, "PEM");
-               curl_easy_setopt(curl, CURLOPT_SSLKEY, key);
+            /* set the client cert and key that we present the server */
+            if ( cert != NULL && key != NULL ) {
+                Log(LOG_DEBUG, "KEY=%s", key);
+                Log(LOG_DEBUG, "CERT=%s", cert);
 
-               /* set the CA cert that we validate the server against */
-               curl_easy_setopt(curl, CURLOPT_CAINFO, cacert);
+                curl_easy_setopt(curl, CURLOPT_SSLCERTTYPE, "PEM");
+                curl_easy_setopt(curl, CURLOPT_SSLCERT, cert);
+                curl_easy_setopt(curl, CURLOPT_SSLKEYTYPE, "PEM");
+                curl_easy_setopt(curl, CURLOPT_SSLKEY, key);
+            }
 
-               /* Try to verify the certificate */
-               curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 1);
-               /* Try to verify hostname/commonname */
-               curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 2);
+            /* Try to verify the server certificate */
+            curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 1);
+            /* Try to verify the server hostname/commonname */
+            curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 2);
         }
 
         /*
