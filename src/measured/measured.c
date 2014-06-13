@@ -394,7 +394,7 @@ static int parse_config(char *filename, struct amp_global_t *vars) {
         if ( cfg_getstr(cfg_sub, "url") != NULL ) {
             /* tack the ampname on the end if we need to identify ourselves */
             if ( cfg_getbool(cfg_sub, "identify") ) {
-                if ( asprintf(&vars->schedule_url, "%s?%s",
+                if ( asprintf(&vars->schedule_url, "%s?ampname=%s",
                             cfg_getstr(cfg_sub, "url"), vars->ampname) < 0 ) {
                     Log(LOG_ALERT, "Failed to build schedule fetching url");
                     return -1;
