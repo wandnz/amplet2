@@ -20,7 +20,6 @@ int main(void) {
     char out_packet[MAX_PACKET_LEN];
     char in_packet[MAX_PACKET_LEN];
     int maxwait, length, bytes, i;
-    struct sockaddr_storage saddr;
     int sent = -1;
 
     /*
@@ -66,8 +65,8 @@ int main(void) {
          * will just truncate the address returned by recvfrom(), something we
          * aren't looking at.
          */
-        bytes = get_packet(&amp_sockets, in_packet, MAX_PACKET_LEN,
-                (struct sockaddr*)&saddr, &maxwait);
+        bytes = get_packet(&amp_sockets, in_packet, MAX_PACKET_LEN, NULL,
+                &maxwait, NULL);
 
         assert(bytes == sent);
 

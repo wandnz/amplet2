@@ -318,8 +318,7 @@ static void harvest(struct socket_t *sockets, uint16_t ident, int wait,
     struct timeval now;
 
     while ( get_packet(sockets, packet, opt->udp_payload_size,
-		(struct sockaddr*)&addr, &wait) ) {
-	gettimeofday(&now, NULL);
+                (struct sockaddr *)&addr, &wait, &now) ) {
 	process_packet(packet, ident, &now, count, info);
     }
 }
@@ -882,6 +881,11 @@ int run_dns(int argc, char *argv[], int count, struct addrinfo **dests) {
 	Log(LOG_ERR, "Unable to open sockets, aborting test");
 	free(options.query_string);
 	exit(-1);
+    }
+
+    if ( set_default_socket_options(&sockets) < 0 ) {
+        Log(LOG_ERR, "Failed to set default socket options, aborting test");
+        exit(-1);
     }
 
     if ( device && bind_sockets_to_device(&sockets, device) < 0 ) {

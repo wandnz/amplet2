@@ -494,10 +494,9 @@ static void harvest(struct socket_t *icmp_sockets, uint16_t ident, int wait,
      * Read packets until we hit the timeout. Note that wait is reduced by
      * the call to get_packet()
      */
-    while ( get_packet(icmp_sockets, packet, 1024, (struct sockaddr *)&addr,
-                &wait) ) {
+    while ( get_packet(icmp_sockets, packet, 1024,
+                (struct sockaddr *)&addr, &wait, &now) ) {
 
-	gettimeofday(&now, NULL);
         ip = (struct iphdr*)packet;
         switch ( ip->version ) {
             case 4: process_ipv4_packet(packet, now, ident, count, info);
@@ -877,6 +876,11 @@ int run_traceroute(int argc, char *argv[], int count, struct addrinfo **dests) {
     if ( !open_sockets(&icmp_sockets, &ip_sockets) ) {
 	Log(LOG_ERR, "Unable to open sockets, aborting test");
 	exit(-1);
+    }
+
+    if ( set_default_socket_options(&icmp_sockets) < 0 ) {
+        Log(LOG_ERR, "Failed to set default socket options, aborting test");
+        exit(-1);
     }
 
     if ( device && bind_sockets_to_device(&ip_sockets, device) < 0 ) {
