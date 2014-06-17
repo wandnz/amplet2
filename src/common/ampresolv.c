@@ -46,12 +46,18 @@ struct ub_ctx *amp_resolver_context_init(char *servers[], int nscount,
         return NULL;
     }
 
-    /* set the nameservers that we should query, if they are specified */
-    for ( i = 0; i < nscount; i++ ) {
-        Log(LOG_DEBUG, "Adding %s as nameserver", servers[i]);
-        if ( ub_ctx_set_fwd(ctx, servers[i]) < 0 ) {
-            Log(LOG_WARNING, "error setting forward address to %s\n",
-                    servers[i]);
+    if ( nscount == 0 ) {
+        /* use the contents of /etc/resolv.conf */
+        Log(LOG_DEBUG, "Using default nameservers from /etc/resolv.conf");
+        ub_ctx_resolvconf(ctx, NULL);
+    } else {
+        /* set the nameservers that we should query, if they are specified */
+        for ( i = 0; i < nscount; i++ ) {
+            Log(LOG_DEBUG, "Adding %s as nameserver", servers[i]);
+            if ( ub_ctx_set_fwd(ctx, servers[i]) < 0 ) {
+                Log(LOG_WARNING, "error setting forward address to %s\n",
+                        servers[i]);
+            }
         }
     }
 
