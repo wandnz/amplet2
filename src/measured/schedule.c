@@ -513,6 +513,10 @@ static void read_schedule_file(wand_event_handler_t *ev_hdl, char *filename) {
 	struct timeval next;
         nametable_t *addresses;
 	test_type_t test_id;
+        char *count_str;
+        char *addr_str;
+        int family;
+        int count = 0;
 
 	lineno++;
 
@@ -563,60 +567,73 @@ static void read_schedule_file(wand_event_handler_t *ev_hdl, char *filename) {
 	test->resolve_count = 0;
 	test->dest_count = 0;
 
+        /*
+         * the schedule can determine how many addresses of what address
+         * families are resolved:
+         * www.foo.com	-- resolve all addresses
+         * www.foo.com:1	-- resolve a single address
+         * www.foo.com:n	-- resolve up to n addresses
+         * www.foo.com:v4   -- resolve all ipv4 addresses
+         * www.foo.com:v6   -- resolve all ipv6 addresses
+         * www.foo.com:n:v4 -- resolve up to n ipv4 addresses
+         * www.foo.com:n:v6 -- resolve up to n ipv6 addresses
+         */
+        addr_str = strtok(target, ":");
+        family = AF_UNSPEC;
+        if ( (count_str=strtok(NULL, ":")) != NULL ) {
+            do {
+                if (strncmp(count_str, "*", 1) == 0 ) {
+                    /*
+                     * Do nothing - backwards compatability with old
+                     * schedules that defaulted to a single address and
+                     * needed the * to resolve to all.
+                     */
+                } else if ( strncmp(count_str, "v4", 2) == 0 ) {
+                    family = AF_INET;
+                } else if ( strncmp(count_str, "v6", 2) == 0 ) {
+                    family = AF_INET6;
+                } else {
+                    count = atoi(count_str);
+                }
+            } while ( (count_str=strtok(NULL, ":")) != NULL );
+        }
+
 	/* check if the destination is in the nametable */
-        if ( (addresses = name_to_address(target)) != NULL ) {
+        if ( (addresses = name_to_address(addr_str)) != NULL ) {
             struct addrinfo *addr;
             int i = 0;
-            /* add all the addresses in the addrinfo chain to the test */
-            test->dests = (struct addrinfo **)malloc(
-                    sizeof(struct addrinfo*) * addresses->count);
+
+            /*
+             * Add all the addresses in the addrinfo chain that match the
+             * given family, up to the maximum count.
+             */
             for ( addr=addresses->addr; addr != NULL; addr=addr->ai_next ) {
-                test->dests[i] = addr;
-                i++;
+                if ( count > 0 && i >= count ) {
+                    break;
+                }
+
+                if ( family == AF_UNSPEC || family == addr->ai_family ) {
+                    test->dests = (struct addrinfo **)realloc(test->dests,
+                            sizeof(struct addrinfo*) * (i + 1));
+                    test->dests[i] = addr;
+                    i++;
+                }
             }
-            test->dest_count = addresses->count;
+            test->dest_count = i;
+
 	} else {
 	    /* if it isn't then it will be resolved at test time */
-	    char *count_str;
 
 	    Log(LOG_DEBUG, "Unknown destination '%s' for %s test on line %d,"
 		    " it will be resolved\n", target, testname, lineno);
 
 	    test->resolve = (resolve_dest_t*)malloc(sizeof(resolve_dest_t));
-	    test->resolve->name = strdup(strtok(target, ":"));
-            test->resolve->family = AF_UNSPEC;
+	    test->resolve->name = strdup(addr_str);
+            test->resolve->family = family;
 	    test->resolve->addr = NULL;
 	    test->resolve->next = NULL;
             test->resolve_count = 1;    /* one name to resolve */
-            test->resolve->count = 0;   /* resolve all address for name */
-	    /*
-	     * the schedule can determine how many addresses of what address
-             * families are resolved:
-	     * www.foo.com	-- resolve all addresses
-	     * www.foo.com:1	-- resolve a single address
-	     * www.foo.com:n	-- resolve up to n addresses
-             * www.foo.com:v4   -- resolve all ipv4 addresses
-             * www.foo.com:v6   -- resolve all ipv6 addresses
-             * www.foo.com:n:v4 -- resolve up to n ipv4 addresses
-             * www.foo.com:n:v6 -- resolve up to n ipv6 addresses
-	     */
-	    if ( (count_str=strtok(NULL, ":")) != NULL ) {
-                do {
-                    if (strncmp(count_str, "*", 1) == 0 ) {
-                        /*
-                         * Do nothing - backwards compatability with old
-                         * schedules that defaulted to a single address and
-                         * needed the * to resolve to all.
-                         */
-                    } else if ( strncmp(count_str, "v4", 2) == 0 ) {
-                        test->resolve->family = AF_INET;
-                    } else if ( strncmp(count_str, "v6", 2) == 0 ) {
-                        test->resolve->family = AF_INET6;
-                    } else {
-                        test->resolve->count = atoi(count_str);
-                    }
-                } while ( (count_str=strtok(NULL, ":")) != NULL );
-	    }
+            test->resolve->count = count;   /* resolve all address for name */
 	}
 
 	if ( params == NULL || strlen(params) < 1 ) {
