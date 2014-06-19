@@ -613,10 +613,10 @@ static void read_schedule_file(wand_event_handler_t *ev_hdl, char *filename) {
                 }
 
                 if ( family == AF_UNSPEC || family == addr->ai_family ) {
-                    i++;
                     test->dests = (struct addrinfo **)realloc(test->dests,
-                            sizeof(struct addrinfo*) * i);
+                            sizeof(struct addrinfo*) * (i + 1));
                     test->dests[i] = addr;
+                    i++;
                 }
             }
             test->dest_count = i;
