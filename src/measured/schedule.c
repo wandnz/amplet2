@@ -608,7 +608,7 @@ static void read_schedule_file(wand_event_handler_t *ev_hdl, char *filename) {
              * given family, up to the maximum count.
              */
             for ( addr=addresses->addr; addr != NULL; addr=addr->ai_next ) {
-                if ( i > 0 && i >= count ) {
+                if ( count > 0 && i >= count ) {
                     break;
                 }
 
