@@ -558,6 +558,14 @@ int main(int argc, char *argv[]) {
 	};
     }
 
+#if LOG_TO_SYSLOG
+    /*
+     * We are going to mess with argv later, which can mess with process
+     * identfication. Lets force it to always be named after the package.
+     */
+    openlog(PACKAGE, LOG_PID, LOG_USER);
+#endif
+
     Log(LOG_INFO, "amplet2 starting");
 
     if ( !config_file ) {
