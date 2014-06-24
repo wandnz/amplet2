@@ -8,6 +8,7 @@
 
 #include <libwandevent.h>
 
+#include "config.h"
 #include "schedule.h"
 #include "watchdog.h"
 #include "test.h"
@@ -183,8 +184,8 @@ static void set_proc_name(char *testname) {
     int argc;
     extern char **environ;
 
-    Log(LOG_DEBUG, "Setting name of process %d to %s %s", getpid(),
-            vars.ampname, testname);
+    Log(LOG_DEBUG, "Setting name of process %d to '%s: %s %s'", getpid(),
+            PACKAGE, vars.ampname, testname);
 
     /*
      * We have as much space to use as there are contiguous arguments. Every
@@ -247,8 +248,10 @@ static void set_proc_name(char *testname) {
     }
 
     /* put our new name at the front of argv[0] and null the rest of it */
-    snprintf(argv[0], buflen-1, "amplet2: %s %s", vars.ampname, testname);
+    snprintf(argv[0], buflen-1, "%s: %s %s", PACKAGE, vars.ampname, testname);
     memset(argv[0] + strlen(argv[0]) + 1, 0, buflen - strlen(argv[0]) - 1);
+
+    Log(LOG_DEBUG, "Set name of process %d to '%s'", getpid(), argv[0]);
 }
 
 
