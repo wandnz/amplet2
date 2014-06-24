@@ -240,6 +240,14 @@ static void set_proc_name(char *testname) {
 
     /* easiest to just zero the whole thing then replace with our name */
     memset(argv[0], 0, buflen);
+    /*
+     * Null the rest of the arguments so we don't get pointers to random
+     * parts of the new process name.
+     */
+    for ( i = 1; i < argc; i++ ) {
+        argv[i] = NULL;
+    }
+
     snprintf(argv[0], buflen-1, "amplet2: %s %s", vars.ampname, testname);
 }
 
