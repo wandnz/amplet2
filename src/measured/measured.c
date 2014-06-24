@@ -635,8 +635,12 @@ int main(int argc, char *argv[]) {
         return -1;
     }
 
-    /* reset optind so the tests can call getopt normally on it's arguments */
-    optind = 1;
+    /*
+     * Reset optind so the tests can call getopt normally on it's arguments.
+     * We reset it to 0 rather than 1 because we mess with argv when calling
+     * the tests and getopt needs to be completely reinitialised to work.
+     */
+    optind = 0;
 
     /* load all the test modules */
     if ( register_tests(vars.testdir) == -1) {
