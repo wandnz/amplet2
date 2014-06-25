@@ -62,14 +62,6 @@ case "$1" in
             # 1. edit the configuration files
             # 2. run `amplet2 -f` to configure rabbitmq based on the config
         fi
-
-        # Install the appropriate config as the sample client default.conf
-        if [ ! -f "/etc/${PACKAGE}/clients/default.conf" ]; then
-            ln -s /etc/${PACKAGE}/clients/client-local.example /etc/${PACKAGE}/clients/default.conf
-        else
-            echo "/etc/${PACKAGE}/clients/default.conf already exists, skipping"
-        fi
-
     ;;
 
     abort-upgrade|abort-remove|abort-deconfigure)

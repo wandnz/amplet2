@@ -36,13 +36,6 @@ case "$1" in
                 /etc/init.d/rsyslog restart || exit $?
             fi
         fi
-
-        # Install the appropriate config as the main client.conf
-        if [ ! -f "/etc/${PACKAGE}/clients/default.conf" ]; then
-            ln -s /etc/${PACKAGE}/clients/client-lite.example /etc/${PACKAGE}/clients/default.conf
-        else
-            echo "/etc/${PACKAGE}/clients/default.conf already exists, skipping"
-        fi
     ;;
 
     abort-upgrade|abort-remove|abort-deconfigure)
