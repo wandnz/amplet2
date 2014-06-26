@@ -1,0 +1,14 @@
+--- a/amplet2-client.default	1970-01-01 00:00:00.000000000 +0000
++++ b/amplet2-client.default	2014-06-25 03:43:56.000000000 +0000
+@@ -0,0 +1,11 @@
++# Defaults for amplet2 initscript
++# sourced by /etc/init.d/amplet2
++# installed at /etc/default/amplet2 by the maintainer scripts
++
++#
++# This is a POSIX shell fragment
++#
++
++# Additional options that are passed to the Daemon.
++DAEMON_OPTS="-d"
++START_DAEMON=0
