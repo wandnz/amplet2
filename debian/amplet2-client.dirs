@@ -6,4 +6,5 @@ etc/amplet2/schedules
 etc/amplet2/nametables
 usr/lib/amplet2/tests
 var/log/amplet2
+var/run/amplet2
 usr/share/amplet2/rsyslog/

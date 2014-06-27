@@ -72,6 +72,7 @@ rm -rf %{buildroot}
 %{_datadir}/%{name}/rsyslog/amplet2.conf
 %config %{_initrddir}/*
 %config %{_sysconfdir}/default/*
+%dir %{_localstatedir}/run/%{name}/
 
 %files lite
 %defattr(-,root,root,-)
@@ -85,6 +86,7 @@ rm -rf %{buildroot}
 %{_datadir}/%{name}/rsyslog/amplet2.conf
 %config %{_initrddir}/*
 %config %{_sysconfdir}/default/*
+%dir %{_localstatedir}/run/%{name}/
 
 
 %pre
