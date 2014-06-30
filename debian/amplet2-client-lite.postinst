@@ -28,7 +28,7 @@ case "$1" in
 
 
         # TODO install rsyslog config here? mark as conffile somewhere/how?
-        if [ ! -f "/etc/rsyslog.d/amplet2.conf" ]; then
+        if [ ! -f "/etc/rsyslog.d/90-amplet2.conf" ]; then
             cp /usr/share/${PACKAGE}/rsyslog/amplet2.conf /etc/rsyslog.d/90-amplet2.conf
             if [ -x "`which invoke-rc.d 2>/dev/null`" ]; then
                 invoke-rc.d rsyslog restart || exit $?
