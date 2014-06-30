@@ -52,7 +52,7 @@ int main(void) {
 
         /* loop until the packet is allowed to be sent or errors */
         while ( (delay = delay_send_packet(sockets[0], out_packet, length,
-                        &dest)) > 0 ) {
+                        &dest, NULL)) > 0 ) {
             assert(delay < MIN_INTER_PACKET_DELAY);
             usleep(delay);
         }

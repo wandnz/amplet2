@@ -219,7 +219,8 @@ int get_packet(struct socket_t *sockets, char *buf, int buflen,
  * but if it is too soon for the test to be sending again then return a delay
  * time to wait (in microseconds).
  */
-int delay_send_packet(int sock, char *packet, int size, struct addrinfo *dest) {
+int delay_send_packet(int sock, char *packet, int size, struct addrinfo *dest,
+        struct timeval *sent) {
 
     int bytes_sent;
     static struct timeval last = {0, 0};
@@ -240,6 +241,12 @@ int delay_send_packet(int sock, char *packet, int size, struct addrinfo *dest) {
 	delay = 0;
 	last.tv_sec = now.tv_sec;
 	last.tv_usec = now.tv_usec;
+
+        /* populate sent timestamp as well, if not null */
+        if ( sent ) {
+            sent->tv_sec = now.tv_sec;
+            sent->tv_usec = now.tv_usec;
+        }
     }
 
     /*

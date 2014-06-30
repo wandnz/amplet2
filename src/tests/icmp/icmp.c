@@ -370,7 +370,7 @@ static void send_packet(struct socket_t *raw_sockets, int seq, uint16_t ident,
 
     /* send packet with appropriate inter packet delay */
     while ( (delay = delay_send_packet(sock, packet, opt->packet_size-h_len,
-		    dest)) > 0 ) {
+		    dest, &(info[seq].time_sent))) > 0 ) {
 	/* check for responses while we wait out the interpacket delay */
 	harvest(raw_sockets, ident, delay, -1, count, info);
     }
@@ -382,9 +382,6 @@ static void send_packet(struct socket_t *raw_sockets, int seq, uint16_t ident,
          */
         info[seq].reply = 1;
         memset(&(info[seq].time_sent), 0, sizeof(struct timeval));
-    } else {
-        /* record the time the packet was sent */
-        gettimeofday(&(info[seq].time_sent), NULL);
     }
 }
 

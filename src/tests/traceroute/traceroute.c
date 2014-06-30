@@ -126,7 +126,8 @@ static void send_probe(struct socket_t *ip_sockets, int dest_id, int ttl,
     };
 
     /* send packet with appropriate inter packet delay */
-    while ( (delay = delay_send_packet(sock, packet, length, dest)) > 0 ) {
+    while ( (delay = delay_send_packet(sock, packet, length, dest,
+                    &(info[dest_id].hop[ttl - 1].time_sent))) > 0 ) {
         usleep(delay);
     }
 
@@ -147,9 +148,6 @@ static void send_probe(struct socket_t *ip_sockets, int dest_id, int ttl,
             for ( i = 0; i < info[dest_id].ttl; i++ ) {
                 info[dest_id].hop[i].addr = NULL;
             }
-
-        } else {
-            gettimeofday(&(info[dest_id].hop[ttl - 1].time_sent), NULL);
         }
     }
 }

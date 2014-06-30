@@ -463,7 +463,7 @@ static void send_packet(struct socket_t *sockets, uint16_t seq, uint16_t ident,
     qbuf = create_dns_query(seq + ident, &(info[seq].query_length), opt);
 
     while ( (delay = delay_send_packet(sock, qbuf, info[seq].query_length,
-                    &tmpdst)) > 0 ) {
+                    &tmpdst, &(info[seq].time_sent))) > 0 ) {
 	harvest(sockets, ident, delay, count, info, opt);
     }
 
@@ -474,9 +474,6 @@ static void send_packet(struct socket_t *sockets, uint16_t seq, uint16_t ident,
          */
         memset(&(info[seq].time_sent), 0, sizeof(struct timeval));
         info[seq].reply = 1;
-    } else {
-        /* record the time the packet was sent */
-        gettimeofday(&(info[seq].time_sent), NULL);
     }
 
     free(qbuf);
