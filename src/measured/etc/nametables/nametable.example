@@ -1,20 +1,26 @@
 # AMP nametable
 #
-# This file contains a list of mappings of name to IP address, similar in
-# approach to /etc/hosts. This allows the use of names to refer to test
-# targets without involving DNS lookups.
+# Any file in this directory that ends with '.name' is treated as a nametable
+# file, describing mappings of name to IP address, similar in approach to
+# /etc/hosts. This allows the use of names to refer to test targets without
+# involving DNS lookups. The mappings from all '.name' files in this
+# directory are combined together with those in the client specific
+# subdirectories (named after the client ampname) to create the complete
+# nametable for an instance of the amplet2 client.
 #
 # These mappings are read in when amplet first starts and also whenever
 # it receives a SIGHUP signal. Using the "reload" option to the init script
 # will send a SIGHUP to a running amplet.
 #
-# There should not be entries with duplicate names in this file - if there
-# are then only the first one listed will be used, later entries will be
-# ignored. Duplicate IP addresses are allowed.
+# Duplicate names and IP addresses are allowed. If a name has multiple
+# addresses associated with it then this will behave the same as if the name
+# was resolved using DNS and multiple addresses were returned.
 #
 # EXAMPLES:
 #
 # amp-foo 10.1.2.3
+# amp-foo 10.1.2.4
+# amp-foo 2001:dead:beef::4
 # local.test.site 192.168.0.1
 # amp-bar 192.168.0.1
 # ipv6-target 2001:dead:beef::1

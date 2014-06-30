@@ -16,3 +16,5 @@ amplet2_LDFLAGS=-L../tests/ -L../common/ -lamp -lcurl -lwandevent -lconfuse -lpt
 sharedir=$(pkgdatadir)/rsyslog
 dist_share_DATA=rsyslog/*
 
+install-data-local:
+	$(MKDIR_P) $(DESTDIR)$(localstatedir)/run/$(PACKAGE)

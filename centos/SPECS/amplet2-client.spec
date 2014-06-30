@@ -1,13 +1,14 @@
 Name: amplet2
-Version: 0.3.1
-Release: 1%{?dist}
+Version: 0.3.3
+Release: 8%{?dist}
 Summary: AMP Network Performance Measurement Suite - Client Tools
 
 Group: Applications/Internet
 License: AMP
 URL: http://research.wand.net.nz/software/amp.php
-Source0: http://research.wand.net.nz/software/amp/amplet2-0.3.1.tar.gz	
+Source0: http://research.wand.net.nz/software/amp/amplet2-0.3.3.tar.gz
 Patch0: amplet2-client-init.patch
+Patch1: amplet2-client-default.patch
 BuildRoot:	%(mktemp -ud %{_tmppath}/%{name}-%{version}-%{release}-XXXXXX)
 
 BuildRequires: openssl-devel libconfuse-devel libwandevent-devel libcurl-devel unbound-devel
@@ -33,6 +34,7 @@ AMP client tools without a local rabbitmq broker
 %prep
 %setup -q
 %patch0 -p1
+%patch1 -p1
 
 
 %build
@@ -46,6 +48,7 @@ make %{?_smp_mflags}
 rm -rf %{buildroot}
 make install DESTDIR=%{buildroot}
 install -D amplet2-client.init %{buildroot}%{_initrddir}/%{name}-client
+install -D amplet2-client.default %{buildroot}%{_sysconfdir}/default/%{name}-client
 # XXX this is hax, should amplet2 be in sbin or bin?
 mkdir %{buildroot}%{_sbindir}/
 mv %{buildroot}%{_bindir}/amplet2 %{buildroot}%{_sbindir}/
@@ -67,7 +70,9 @@ rm -rf %{buildroot}
 %{_libdir}/amplet2/tests/*so
 %{_sysconfdir}/%{name}/*
 %{_datadir}/%{name}/rsyslog/amplet2.conf
-%{_initrddir}/*
+%config %{_initrddir}/*
+%config %{_sysconfdir}/default/*
+%dir %{_localstatedir}/run/%{name}/
 
 %files lite
 %defattr(-,root,root,-)
@@ -79,7 +84,9 @@ rm -rf %{buildroot}
 %{_libdir}/amplet2/tests/*so
 %{_sysconfdir}/%{name}/*
 %{_datadir}/%{name}/rsyslog/amplet2.conf
-%{_initrddir}/*
+%config %{_initrddir}/*
+%config %{_sysconfdir}/default/*
+%dir %{_localstatedir}/run/%{name}/
 
 
 %pre
@@ -193,6 +200,14 @@ fi
 
 
 %changelog
+* Thu Jun 26 2014 Brendon Jones <brendonj@waikato.ac.nz> 0.3.3-8
+- Update initscipts to better deal with multiple amplet clients
+- Mark some files as config files to preserve some local modifications
+
+* Wed Jun 18 2014 Brendon Jones <brendonj@waikato.ac.nz> 0.3.3-1
+- Fix name resolution threads writing to dead test processes.
+- Use local resolvers from /etc/resolv.conf if none specified.
+
 * Mon Jun 9 2014 Brendon Jones <brendonj@waikato.ac.nz> 0.3.1-1
 - New upstream release
 - Able to run multiple clients on a single machine

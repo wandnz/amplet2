@@ -120,55 +120,6 @@ end:
 
 
 /*
- * Set up the unbound context that we will use to query (even if no nameservers
- * are specified, it will be able to cache results).
- */
-struct ub_ctx *amp_resolver_context_init(char *servers[], int nscount,
-        char *sourcev4, char *sourcev6) {
-
-    struct ub_ctx *ctx;
-    int i;
-
-    Log(LOG_DEBUG, "Initialising nameserver context with %d servers", nscount);
-
-    /* create the context */
-    if ( (ctx = ub_ctx_create()) == NULL ) {
-        Log(LOG_WARNING, "Could not create unbound context\n");
-        return NULL;
-    }
-
-    /* use threads for asynchronous resolving */
-    if ( ub_ctx_async(ctx, 1) < 0 ) {
-        Log(LOG_WARNING, "error enabling threading in resolver\n");
-        return NULL;
-    }
-
-    //XXX call ub_ctx_resolvconf if no nameservers set? or is that default?
-
-    /* set the nameservers that we should query, if they are specified */
-    for ( i = 0; i < nscount; i++ ) {
-        Log(LOG_DEBUG, "Adding %s as nameserver", servers[i]);
-        if ( ub_ctx_set_fwd(ctx, servers[i]) < 0 ) {
-            Log(LOG_WARNING, "error setting forward address to %s\n",
-                    servers[i]);
-        }
-    }
-
-    /* use only the given outgoing interfaces if they have been specified */
-    if ( sourcev4 ) {
-        ub_ctx_set_option(ctx, "outgoing-interface", sourcev4);
-    }
-
-    if ( sourcev6 ) {
-        ub_ctx_set_option(ctx, "outgoing-interface", sourcev6);
-    }
-
-    return ctx;
-}
-
-
-
-/*
  * Delete the unbound context.
  */
 void amp_resolver_context_delete(struct ub_ctx *ctx) {
