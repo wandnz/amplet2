@@ -707,6 +707,7 @@ int main(int argc, char *argv[]) {
             fetch_item->cacert = vars.fetch_ssl.cacert;
             fetch_item->cert = vars.fetch_ssl.cert;
             fetch_item->key = vars.fetch_ssl.key;
+            fetch_item->frequency = vars.fetch_freq;
 
             item = (schedule_item_t *)malloc(sizeof(schedule_item_t));
             item->type = EVENT_FETCH_SCHEDULE;

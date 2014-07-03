@@ -81,6 +81,7 @@ typedef struct fetch_schedule_item {
     char *cacert;
     char *cert;
     char *key;
+    int frequency;
 } fetch_schedule_item_t;
 
 /*

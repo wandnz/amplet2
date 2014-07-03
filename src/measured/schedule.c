@@ -748,7 +748,7 @@ void remote_schedule_callback(struct wand_timer_t *timer) {
             "Remote schedule fetch");
 
     /* reschedule checking for schedule updates */
-    timer->expire = wand_calc_expire(item->ev_hdl, SCHEDULE_FETCH_FREQUENCY, 0);
+    timer->expire = wand_calc_expire(item->ev_hdl, fetch->frequency, 0);
     timer->prev = NULL;
     timer->next = NULL;
     wand_add_timer(item->ev_hdl, timer);
