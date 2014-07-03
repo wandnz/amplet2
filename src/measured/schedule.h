@@ -110,11 +110,11 @@ typedef struct schedule_item {
 void clear_test_schedule(wand_event_handler_t *ev_hdl);
 void read_schedule_dir(wand_event_handler_t *ev_hdl, char *directory);
 void setup_schedule_refresh(wand_event_handler_t *ev_hdl);
-struct timeval get_next_schedule_time(wand_event_handler_t *ev_hdl, 
+struct timeval get_next_schedule_time(wand_event_handler_t *ev_hdl,
 	char repeat, uint64_t start, uint64_t end, uint64_t frequency);
 int update_remote_schedule(char *dir, char *server, char *cacert, char *cert,
         char *key);
-void remote_schedule_callback(struct wand_timer_t *timer);
+void remote_schedule_callback(wand_event_handler_t *ev_hdl, void *data);
 #if UNIT_TEST
 time_t amp_test_get_period_max_value(char repeat);
 int64_t amp_test_get_time_value(char *value_string, char repeat);

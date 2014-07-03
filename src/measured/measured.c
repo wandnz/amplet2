@@ -45,7 +45,6 @@
 
 #define AMP_CLIENT_CONFIG_DIR AMP_CONFIG_DIR "/clients"
 
-wand_event_handler_t *ev_hdl;
 
 static struct option long_options[] = {
     {"daemonise", no_argument, 0, 'd'},
@@ -167,7 +166,10 @@ static int create_pidfile(char *pidfile) {
  * Set the flag that will cause libwandevent to stop running the main event
  * loop and return control to us.
  */
-static void stop_running(__attribute__((unused))struct wand_signal_t *signal) {
+static void stop_running(wand_event_handler_t *ev_hdl,
+        __attribute__((unused))int signum,
+        __attribute__((unused))void *data) {
+
     Log(LOG_INFO, "Received SIGINT, exiting event loop");
     ev_hdl->running = false;
 }
@@ -179,12 +181,13 @@ static void stop_running(__attribute__((unused))struct wand_signal_t *signal) {
  * available test modules and then re-read the schedule file taking into
  * account the new list of available tests.
  */
-static void reload(__attribute__((unused))struct wand_signal_t *signal) {
-    Log(LOG_INFO, "Received signal %d, reloading all configuration",
-            signal->signum);
+static void reload(wand_event_handler_t *ev_hdl, int signum,
+        __attribute__((unused))void *data) {
+
+    Log(LOG_INFO, "Received signal %d, reloading all configuration", signum);
 
     /* cancel all scheduled tests (let running ones finish) */
-    clear_test_schedule(signal->data);
+    clear_test_schedule(ev_hdl);
 
     /* empty the nametable */
     clear_nametable();
@@ -201,8 +204,8 @@ static void reload(__attribute__((unused))struct wand_signal_t *signal) {
     read_nametable_dir(vars.nametable_dir);
 
     /* re-read schedule files */
-    read_schedule_dir(signal->data, SCHEDULE_DIR);
-    read_schedule_dir(signal->data, vars.schedule_dir);
+    read_schedule_dir(ev_hdl, SCHEDULE_DIR);
+    read_schedule_dir(ev_hdl, vars.schedule_dir);
 }
 
 
@@ -479,19 +482,13 @@ static int parse_config(char *filename, struct amp_global_t *vars) {
  *
  */
 int main(int argc, char *argv[]) {
-    struct wand_signal_t sigint_ev;
-    struct wand_signal_t sigchld_ev;
-    struct wand_signal_t sighup_ev;
-    struct wand_signal_t sigusr1_ev;
-    struct wand_fdcb_t control_ipv4_ev;
-    struct wand_fdcb_t control_ipv6_ev;
-    struct wand_fdcb_t nssock_ev;
-    struct wand_timer_t fetch_ev;
+    wand_event_handler_t *ev_hdl;
     char *config_file = NULL;
     char *pidfile = NULL;
     int fetch_remote = 1;
     int backgrounded = 0;
     int configure_rabbit = 0;
+    int nssock_fd;
 
     while ( 1 ) {
 
@@ -715,37 +712,24 @@ int main(int argc, char *argv[]) {
             item->data.fetch = fetch_item;
 
             /* create the timer event for fetching schedules */
-            fetch_ev.expire = wand_calc_expire(ev_hdl, vars.fetch_freq, 0);
-            fetch_ev.callback = remote_schedule_callback;
-            fetch_ev.data = item;
-            fetch_ev.prev = NULL;
-            fetch_ev.next = NULL;
-            wand_add_timer(ev_hdl, &fetch_ev);
+            wand_add_timer(ev_hdl, fetch_item->frequency, 0, item,
+                    remote_schedule_callback);
         }
     }
 
     /* set up a handler to deal with SIGINT so we can shutdown nicely */
-    sigint_ev.signum = SIGINT;
-    sigint_ev.callback = stop_running;
-    sigint_ev.data = NULL;
-    wand_add_signal(&sigint_ev);
+    wand_add_signal(SIGINT, NULL, stop_running);
 
     /* set up handler to deal with SIGCHLD so we can tidy up after tests */
-    sigchld_ev.signum = SIGCHLD;
-    sigchld_ev.callback = child_reaper;
-    sigchld_ev.data = ev_hdl;
-    wand_add_signal(&sigchld_ev);
+    wand_add_signal(SIGCHLD, NULL, child_reaper);
 
     /* create the resolver/cache unix socket and add event listener for it */
-    if ( (nssock_ev.fd = initialise_resolver_socket(vars.nssock)) < 0 ) {
+    if ( (nssock_fd = initialise_resolver_socket(vars.nssock)) < 0 ) {
         Log(LOG_ALERT, "Failed to initialise local resolver, aborting");
         return -1;
     }
-    nssock_ev.flags = EV_READ;
-    nssock_ev.data = vars.ctx;
-    nssock_ev.callback = resolver_socket_event_callback;
-    wand_add_event(ev_hdl, &nssock_ev);
-
+    wand_add_fd(ev_hdl, nssock_fd, EV_READ, vars.ctx,
+            resolver_socket_event_callback);
 
     /* create the control socket and add an event listener for it */
     if ( vars.control_enabled && ssl_ctx != NULL ) {
@@ -757,19 +741,13 @@ int main(int argc, char *argv[]) {
         } else {
             /* if we have an ipv4 socket then set up the event listener */
             if ( sockets.socket > 0 ) {
-                control_ipv4_ev.fd = sockets.socket;
-                control_ipv4_ev.flags = EV_READ;
-                control_ipv4_ev.data = ev_hdl;
-                control_ipv4_ev.callback = control_establish_callback;
-                wand_add_event(ev_hdl, &control_ipv4_ev);
+                wand_add_fd(ev_hdl, sockets.socket, EV_READ, NULL,
+                        control_establish_callback);
             }
             /* if we have an ipv6 socket then set up the event listener */
             if ( sockets.socket6 > 0 ) {
-                control_ipv6_ev.fd = sockets.socket6;
-                control_ipv6_ev.flags = EV_READ;
-                control_ipv6_ev.data = ev_hdl;
-                control_ipv6_ev.callback = control_establish_callback;
-                wand_add_event(ev_hdl, &control_ipv6_ev);
+                wand_add_fd(ev_hdl, sockets.socket6, EV_READ, NULL,
+                        control_establish_callback);
             }
         }
     }
@@ -779,17 +757,11 @@ int main(int argc, char *argv[]) {
      * without a TTY. With a TTY we want SIGHUP to terminate measured.
      */
     if ( backgrounded ) {
-        sighup_ev.signum = SIGHUP;
-        sighup_ev.callback = reload;
-        sighup_ev.data = ev_hdl;
-        wand_add_signal(&sighup_ev);
+        wand_add_signal(SIGHUP, NULL, reload);
     }
 
     /* SIGUSR1 should also reload tests/schedules, we use this internally */
-    sigusr1_ev.signum = SIGUSR1;
-    sigusr1_ev.callback = reload;
-    sigusr1_ev.data = ev_hdl;
-    wand_add_signal(&sigusr1_ev);
+    wand_add_signal(SIGUSR1, NULL, reload);
 
     /* read the nametable to get a list of all test targets */
     read_nametable_dir(NAMETABLE_DIR);
@@ -806,11 +778,8 @@ int main(int argc, char *argv[]) {
     /* TODO what to do about scheduled tasks such as watchdogs? */
     clear_test_schedule(ev_hdl);
     clear_nametable();
-    wand_del_signal(&sigint_ev);
-    wand_del_signal(&sigchld_ev);
-    if ( backgrounded ) {
-        wand_del_signal(&sighup_ev);
-    }
+
+    /* destroying event handler will also clear all signal handlers etc */
     wand_destroy_event_handler(ev_hdl);
 
     if ( vars.fetch_remote && vars.schedule_url ) {

@@ -166,7 +166,6 @@ void clear_test_schedule(wand_event_handler_t *ev_hdl) {
 		    free_test_schedule_item(item->data.test);
 		}
 		free(item);
-		free(tmp);
 	    }
 	}
     }
@@ -491,7 +490,6 @@ static int merge_scheduled_tests(struct wand_event_handler_t *ev_hdl,
 static void read_schedule_file(wand_event_handler_t *ev_hdl, char *filename) {
     FILE *in;
     char line[MAX_SCHEDULE_LINE];
-    struct wand_timer_t *timer = NULL;
     schedule_item_t *item = NULL;
     test_schedule_item_t *test = NULL;
     int lineno = 0;
@@ -663,14 +661,9 @@ static void read_schedule_file(wand_event_handler_t *ev_hdl, char *filename) {
 	item->data.test = test;
 
 	/* create the timer event for this test */
-	timer = (struct wand_timer_t *)malloc(sizeof(struct wand_timer_t));
-	timer->data = item;
 	next = get_next_schedule_time(ev_hdl, repeat[0], start, end, frequency);
-	timer->expire = wand_calc_expire(ev_hdl, next.tv_sec, next.tv_usec);
-	timer->callback = run_scheduled_test;
-	timer->prev = NULL;
-	timer->next = NULL;
-	wand_add_timer(ev_hdl, timer);
+        wand_add_timer(ev_hdl, next.tv_sec, next.tv_usec, item,
+                run_scheduled_test);
     }
     fclose(in);
 }
@@ -716,17 +709,17 @@ void read_schedule_dir(wand_event_handler_t *ev_hdl, char *directory) {
 /*
  *
  */
-void remote_schedule_callback(struct wand_timer_t *timer) {
+void remote_schedule_callback(wand_event_handler_t *ev_hdl, void *data) {
     schedule_item_t *item;
-    fetch_schedule_item_t *data;
+    fetch_schedule_item_t *fetch;
     pid_t pid;
 
     Log(LOG_DEBUG, "Timer fired for remote schedule checking");
 
-    item = (schedule_item_t *)timer->data;
+    item = (schedule_item_t *)data;
     assert(item->type == EVENT_FETCH_SCHEDULE);
 
-    data = (fetch_schedule_item_t *)item->data.fetch;
+    fetch = (fetch_schedule_item_t *)item->data.fetch;
 
     /* fork off a process to do the actual check */
     if ( (pid = fork()) < 0 ) {
@@ -734,8 +727,8 @@ void remote_schedule_callback(struct wand_timer_t *timer) {
                 strerror(errno));
         return;
     } else if ( pid == 0 ) {
-        if ( update_remote_schedule(data->schedule_dir, data->schedule_url,
-                    data->cacert, data->cert, data->key) > 0 ) {
+        if ( update_remote_schedule(fetch->schedule_dir, fetch->schedule_url,
+                    fetch->cacert, fetch->cert, fetch->key) > 0 ) {
             /* send SIGUSR1 to parent to reload schedule */
             Log(LOG_DEBUG, "Sending SIGUSR1 to parent to reload schedule");
             kill(getppid(), SIGUSR1);
@@ -748,10 +741,7 @@ void remote_schedule_callback(struct wand_timer_t *timer) {
             "Remote schedule fetch");
 
     /* reschedule checking for schedule updates */
-    timer->expire = wand_calc_expire(item->ev_hdl, fetch->frequency, 0);
-    timer->prev = NULL;
-    timer->next = NULL;
-    wand_add_timer(item->ev_hdl, timer);
+    wand_add_timer(ev_hdl, fetch->frequency, 0, data, remote_schedule_callback);
 }
 
 
