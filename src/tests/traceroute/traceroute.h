@@ -32,8 +32,8 @@
 /* TTL marker for probing full path length */
 #define TRACEROUTE_FULL_PATH_PROBE_TTL (-5)
 
-#define HOP_ADDR(index,ttl) (info[index].hop[ttl - 1].addr)
-#define HOP_REPLY(index,ttl) (info[index].hop[ttl - 1].reply)
+#define HOP_ADDR(ttl) (item->hop[ttl - 1].addr)
+#define HOP_REPLY(ttl) (item->hop[ttl - 1].reply)
 
 int run_traceroute(int argc, char *argv[], int count, struct addrinfo **dests);
 int save_traceroute(char *monitor, uint64_t timestamp, void *data, uint32_t len);
@@ -46,6 +46,8 @@ int amp_traceroute_build_ipv4_probe(void *packet, uint16_t packet_size, int id,
 int amp_traceroute_build_ipv6_probe(void *packet, uint16_t packet_size, int id,
         uint16_t ident, struct addrinfo *dest);
 #endif
+
+
 
 /*
  * Packet structure used in the body of IPv6 packets, it's easier to do it
@@ -111,5 +113,46 @@ struct traceroute_report_header_t {
     uint8_t random;
     uint8_t count;
 } __attribute__((__packed__));
+
+
+
+#define INITIAL_TTL 8
+typedef struct dest_info_t dest_info_t;
+struct dest_info_t {
+    struct timeval last_time_sent;
+    struct addrinfo *addr;
+    uint32_t id;
+    uint32_t probes;
+    int8_t ttl;
+    uint8_t path_length;
+    uint8_t done_forward;
+    uint8_t done_backward;
+    uint8_t retry;
+    uint8_t attempts;
+    uint8_t no_reply_count;
+    uint8_t err_type;
+    uint8_t err_code;
+    struct hop_info_t hop[MAX_HOPS_IN_PATH];
+    struct dest_info_t *next;
+};
+
+/* XXX need better names */
+struct probe_list_t {
+    struct socket_t *sockets;
+    struct dest_info_t *ready;
+    struct dest_info_t *ready_end;
+    struct dest_info_t *outstanding;
+    struct dest_info_t *outstanding_end;
+    struct dest_info_t *done;
+    struct wand_timer_t *timeout;
+    uint32_t count;
+    uint16_t ident;
+};
+
+
+
+
+
+
 
 #endif
