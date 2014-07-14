@@ -49,6 +49,13 @@ int amp_traceroute_build_ipv6_probe(void *packet, uint16_t packet_size, int id,
 
 
 
+typedef enum {
+    REPLY_UNKNOWN = 0,
+    REPLY_TIMED_OUT,
+    REPLY_OK
+} reply_t;
+
+
 /*
  * Packet structure used in the body of IPv6 packets, it's easier to do it
  * this way than to create and send an entire packet ourselves.
@@ -70,7 +77,7 @@ struct opt_t {
 struct hop_info_t {
     struct timeval time_sent;	/* when the probe was sent */
     uint32_t delay;		/* delay in receiving response, microseconds */
-    uint8_t reply;
+    reply_t reply;
     struct addrinfo *addr;
 };
 
@@ -123,6 +130,7 @@ struct dest_info_t {
     struct addrinfo *addr;
     uint32_t id;
     uint32_t probes;
+    int8_t first_response;
     int8_t ttl;
     uint8_t path_length;
     uint8_t done_forward;

@@ -150,11 +150,12 @@ static int send_probe(struct socket_t *ip_sockets, uint16_t ident,
 
     total_packets++;
     info->probes++;
-    //printf("send probe %d/%d attempt %d\n", info->id, info->ttl, info->attempts);
+    printf("send probe %d/%d attempt %d\n", info->id, info->ttl, info->attempts);
 
     if ( delay < 0 ) {
         int i;
         info->done_forward = 1;
+        info->done_backward = 1;
         info->ttl = 5;
         for ( i = 0; i < info->ttl; i++ ) {
             info->hop[i].addr = NULL;
@@ -260,7 +261,7 @@ static int get_index(int family, char *embedded,
 
 
 /*
- *
+ * XXX this now will never prevent a packet being sent?
  */
 static int inc_attempt_counter(struct dest_info_t *info) {
     /* Try again if we haven't done too many yet */
@@ -270,14 +271,19 @@ static int inc_attempt_counter(struct dest_info_t *info) {
 
     /* Too many attempts at this hop, mark is as no reply */
     info->hop[info->ttl - 1].addr = NULL;
-    info->no_reply_count++;
+    info->hop[info->ttl - 1].reply = REPLY_TIMED_OUT;
+    info->no_reply_count++;//XXX only do this on forward probes?
 
     /* Check if we haven't missed too many responses in the path */
     if ( info->path_length == 0 &&
             info->no_reply_count >= TRACEROUTE_NO_REPLY_LIMIT ) {
         /* Give up, too many missing replies */
         info->done_forward = 1;
-        return 0;
+        info->path_length = info->ttl;
+        info->ttl = info->first_response - 1;
+        info->attempts = 0;
+        info->no_reply_count = 0;
+        return 1;
     }
 
     /* Check if we haven't already tried too many hops */
@@ -285,12 +291,32 @@ static int inc_attempt_counter(struct dest_info_t *info) {
             (info->path_length > 0 && info->ttl > info->path_length) ) {
         /* Path is too long, stop here */
         info->done_forward = 1;
-        return 0;
+        info->path_length = info->ttl;
+        info->ttl = info->first_response - 1;
+        info->attempts = 0;
+        info->no_reply_count = 0;
+        return 1;
     }
 
     /* Try the next hop */
-    info->ttl++;
+    if ( info->attempts > TRACEROUTE_RETRY_LIMIT && !info->first_response ) {
+        info->ttl = info->ttl / 2;
+        info->no_reply_count = 0;
+    } else if ( !info->done_forward ) {
+        info->ttl++;
+        /*
+         * Skip any that we have already timed out on while looking for a
+         * first response packet.
+         */
+        while ( info->hop[info->ttl - 1].reply == REPLY_TIMED_OUT ) {
+            info->no_reply_count++;
+            info->ttl++;
+        }
+    } else {
+        info->ttl--;
+    }
     info->attempts = 0;
+
     return 1;
 }
 
@@ -498,6 +524,25 @@ static int get_icmp_type(int family, char *packet) {
 }
 
 
+
+static int get_embedded_ttl(int family, char *packet) {
+    char *embedded;
+
+    if ( (embedded = get_embedded_packet(family, packet)) == NULL ) {
+        return -1;
+    }
+
+    switch ( family ) {
+        case AF_INET:
+            return ((struct iphdr *)embedded)->ttl;
+        case AF_INET6:
+            return ((struct ip6_hdr*)embedded)->ip6_ctlun.ip6_un1.ip6_un1_hlim;
+        default:
+            return -1;
+    };
+}
+
+
 /*
  *
  */
@@ -534,6 +579,13 @@ static int process_packet(int family, struct sockaddr *addr, char *packet,
         return -1;
     }
 
+    /* we've hit the destination on the first go so need the real ttl */
+    if ( terminal_error(family, type) && item->ttl == INITIAL_TTL ) {
+        item->ttl = ttl = INITIAL_TTL - get_embedded_ttl(family, packet) + 1;
+        item->hop[ttl - 1].time_sent = item->hop[INITIAL_TTL - 1].time_sent;
+        printf("hit destination on first probe, actual ttl %d\n", item->ttl);
+    }
+
     /* record the delay between sending this probe and getting a response */
     if ( item->hop[ttl - 1].delay == 0 ) {
         item->hop[ttl - 1].delay =
@@ -558,10 +610,13 @@ static int process_packet(int family, struct sockaddr *addr, char *packet,
     }
 
     /* XXX no longer checking if port unreachables are from correct source */
-    //printf("accepted response\n");
+    printf("accepted response for hop %d\n", ttl);
+    if ( !item->first_response ) {
+        item->first_response = ttl;
+    }
 
     /* if expected error, update hop information */
-    HOP_REPLY(ttl) = 1;
+    HOP_REPLY(ttl) = REPLY_OK;
     HOP_ADDR(ttl) = (struct addrinfo *)malloc(sizeof(struct addrinfo));
     switch ( family ) {
         case AF_INET:
@@ -586,12 +641,32 @@ static int process_packet(int family, struct sockaddr *addr, char *packet,
     HOP_ADDR(ttl)->ai_canonname = NULL;
     HOP_ADDR(ttl)->ai_next = NULL;
 
-    /* end probing if this is a terminal error or the path is too long */
-    if ( terminal_error(family, type) || item->ttl >= MAX_HOPS_IN_PATH ) {
-        item->done_forward = 1;
+    /* XXX end probing if going backwards and reached a known point */
+    if ( item->done_forward && item->ttl == 1 ) {
+        item->done_backward = 1;
         item->next = probelist->done;
         probelist->done = item;
         return 0;
+    }
+
+    /*
+     * End forward probing and begin backwards probing if this is a terminal
+     * error or if the path is too long.
+     */
+    if ( terminal_error(family, type) || item->ttl >= MAX_HOPS_IN_PATH ) {
+        item->done_forward = 1;
+        item->path_length = item->ttl;
+        item->ttl = item->first_response - 1;
+        /*
+        if ( item->ttl > INITIAL_TTL ) {
+            item->ttl = INITIAL_TTL - 1;
+        } else {
+            item->ttl--;
+        }
+        */
+        item->attempts = 0;
+        item->no_reply_count = 0;
+        return append_ready_item(probelist, item);
     }
 
     /*
@@ -602,7 +677,11 @@ static int process_packet(int family, struct sockaddr *addr, char *packet,
      * leaving a gap that could have been avoided.
      */
     if ( item->hop[ttl - 1].delay < LOSS_TIMEOUT ) {
-        item->ttl++;
+        if ( !item->done_forward ) {
+            item->ttl++;
+        } else {
+            item->ttl--;
+        }
         item->attempts = 0;
         item->no_reply_count = 0;
         return append_ready_item(probelist, item);
@@ -748,7 +827,7 @@ static void report_results(struct timeval *start_time, int count,
 
         /* add in space for the path header and its hops */
         len += (sizeof(struct traceroute_report_path_t)) +
-            (item->ttl * sizeof(struct traceroute_report_hop_t)) +
+            (item->path_length * sizeof(struct traceroute_report_hop_t)) +
             (strlen(ampname) + 1);
         buffer = realloc(buffer, len);
 
@@ -757,7 +836,7 @@ static void report_results(struct timeval *start_time, int count,
         offset += sizeof(struct traceroute_report_path_t);
 
 	path->family = item->addr->ai_family;
-	path->length = item->ttl;
+	path->length = item->path_length;
         path->err_code = item->err_code;
         path->err_type = item->err_type;
         extract_address(&path->address, item->addr);
@@ -959,14 +1038,16 @@ static void probe_timeout_callback(wand_event_handler_t *ev_hdl, void *data) {
     /* resend this probe if it hasn't already failed too many times */
     if ( inc_attempt_counter(probelist->outstanding) ) {
     //if ( probelist->outstanding->attempts <= TRACEROUTE_RETRY_LIMIT ) {
-        //printf("attempts %d to destination %d, will retry\n",
-        //        probelist->outstanding->attempts,
-        //        probelist->outstanding->id);
+        printf("attempts %d to destination %d, will retry\n",
+                probelist->outstanding->attempts,
+                probelist->outstanding->id);
         item = probelist->outstanding;
         //item->attempts++;
         probelist->outstanding = probelist->outstanding->next;
         // append to probelist->ready
         item->next = NULL;
+
+
         /* TODO make appending function */
         if ( probelist->ready == NULL ) {
             probelist->ready = item;
@@ -980,16 +1061,40 @@ static void probe_timeout_callback(wand_event_handler_t *ev_hdl, void *data) {
             probelist->ready_end = item;
         }
     } else {
+        assert(0);
+        //XXX this whole block is pointless
         /* too many failed attempts, stop trying */
         item = probelist->outstanding;
-        //printf("too many failed attempts to destination %d\n", item->id);
-        probelist->outstanding = probelist->outstanding->next;
-        if ( probelist->outstanding == NULL ) {
-            probelist->outstanding_end = NULL;
+#if 0
+        if ( !item->seen_response ) {
+            /* haven't seen a response yet, halve the TTL and try again */
+            item->ttl = item->ttl / 2;
+            item->next = NULL;
+            /* TODO make appending function */
+            if ( probelist->ready == NULL ) {
+                probelist->ready = item;
+                probelist->ready_end = item;
+                /* XXX in 100usec, or just do it now? */
+                //printf("probe_timeout enabling send timer\n");
+                wand_add_timer(ev_hdl, 0, MIN_INTER_PACKET_DELAY, data,
+                        send_probe_callback);
+            } else {
+                probelist->ready_end->next = item;
+                probelist->ready_end = item;
+            }
+        } else {
+#endif
+            //printf("too many failed attempts to destination %d\n", item->id);
+            probelist->outstanding = probelist->outstanding->next;
+            if ( probelist->outstanding == NULL ) {
+                probelist->outstanding_end = NULL;
+            }
+            /* XXX mark as done and stuff */
+            item->next = probelist->done;
+            probelist->done = item;
+#if 0
         }
-        /* XXX mark as done and stuff */
-        item->next = probelist->done;
-        probelist->done = item;
+#endif
     }
 
     /* update timeout to be the next most outstanding packet */
@@ -1154,8 +1259,7 @@ int run_traceroute(int argc, char *argv[], int count, struct addrinfo **dests) {
         struct dest_info_t *item =
             (struct dest_info_t*)calloc(1, sizeof(struct dest_info_t));
         item->addr = dests[i];
-        //item->ttl = INITIAL_TTL;
-        item->ttl = 1;
+        item->ttl = INITIAL_TTL;
         item->id = i;
         item->next = NULL;
         append_ready_item(&probelist, item);
