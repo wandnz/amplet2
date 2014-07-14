@@ -261,7 +261,35 @@ static int get_index(int family, char *embedded,
 
 
 /*
- * XXX this now will never prevent a packet being sent?
+ * XXX this modifies item
+ */
+static int inc_probe_ttl(struct dest_info_t *item) {
+    if ( item->attempts > TRACEROUTE_RETRY_LIMIT && !item->first_response ) {
+        /* the very first probe has timed out without a response */
+        item->ttl = item->ttl / 2;
+        item->no_reply_count = 0;
+    } else if ( !item->done_forward ) {
+        /* timeout while probing forward, skip to the next unprobed ttl */
+        item->ttl++;
+        while ( item->hop[item->ttl - 1].reply == REPLY_TIMED_OUT ) {
+            item->no_reply_count++;
+            item->ttl++;
+        }
+    } else {
+        /* timeout while probing backwards, decrement ttl towards zero */
+        item->ttl--;
+    }
+
+    /* new ttl value, reset the attempt counter */
+    item->attempts = 0;
+
+    return item->ttl;
+}
+
+
+
+/*
+ *
  */
 static int inc_attempt_counter(struct dest_info_t *info) {
     /* Try again if we haven't done too many yet */
@@ -274,50 +302,19 @@ static int inc_attempt_counter(struct dest_info_t *info) {
     info->hop[info->ttl - 1].reply = REPLY_TIMED_OUT;
     info->no_reply_count++;//XXX only do this on forward probes?
 
-    /* Check if we haven't missed too many responses in the path */
-    if ( info->path_length == 0 &&
-            info->no_reply_count >= TRACEROUTE_NO_REPLY_LIMIT ) {
-        /* Give up, too many missing replies */
+    if ( !info->done_forward &&
+            (info->no_reply_count >= TRACEROUTE_NO_REPLY_LIMIT ||
+            info->ttl >= MAX_HOPS_IN_PATH) ) {
+        /* Give up, hit a limit going forward, try probing backwards now */
         info->done_forward = 1;
         info->path_length = info->ttl;
         info->ttl = info->first_response - 1;
         info->attempts = 0;
         info->no_reply_count = 0;
-        return 1;
+        return info->ttl;
     }
 
-    /* Check if we haven't already tried too many hops */
-    if ( info->ttl >= MAX_HOPS_IN_PATH ||
-            (info->path_length > 0 && info->ttl > info->path_length) ) {
-        /* Path is too long, stop here */
-        info->done_forward = 1;
-        info->path_length = info->ttl;
-        info->ttl = info->first_response - 1;
-        info->attempts = 0;
-        info->no_reply_count = 0;
-        return 1;
-    }
-
-    /* Try the next hop */
-    if ( info->attempts > TRACEROUTE_RETRY_LIMIT && !info->first_response ) {
-        info->ttl = info->ttl / 2;
-        info->no_reply_count = 0;
-    } else if ( !info->done_forward ) {
-        info->ttl++;
-        /*
-         * Skip any that we have already timed out on while looking for a
-         * first response packet.
-         */
-        while ( info->hop[info->ttl - 1].reply == REPLY_TIMED_OUT ) {
-            info->no_reply_count++;
-            info->ttl++;
-        }
-    } else {
-        info->ttl--;
-    }
-    info->attempts = 0;
-
-    return 1;
+    return inc_probe_ttl(info);
 }
 
 
@@ -581,7 +578,24 @@ static int process_packet(int family, struct sockaddr *addr, char *packet,
 
     /* we've hit the destination on the first go so need the real ttl */
     if ( terminal_error(family, type) && item->ttl == INITIAL_TTL ) {
-        item->ttl = ttl = INITIAL_TTL - get_embedded_ttl(family, packet) + 1;
+        if ( (ttl = get_embedded_ttl(family, packet)) < 0 ) {
+            item->done_forward = 1;
+            item->done_backward = 1;
+            item->next = probelist->done;
+            probelist->done = item;
+            return -1;
+        }
+
+        /* determine path length based on remaining TTL in embedded packet */
+        item->ttl = ttl = INITIAL_TTL - ttl;
+
+        /* TTL of 1 means 1 ipv4 hop away, TTL of 0 means 1 ipv6 hop away */
+        if ( item->ttl > 1 || item->ttl == 0 ) {
+            item->ttl++;
+            ttl++;
+        }
+
+        /* take the time the original probe to INITIAL_TTL was sent */
         item->hop[ttl - 1].time_sent = item->hop[INITIAL_TTL - 1].time_sent;
         printf("hit destination on first probe, actual ttl %d\n", item->ttl);
     }
@@ -603,6 +617,7 @@ static int process_packet(int family, struct sockaddr *addr, char *packet,
         }
 
         /* otherwise end probing here */
+        //XXX can we still probe backwards?
         item->done_forward = 1;
         item->next = probelist->done;
         probelist->done = item;
@@ -657,13 +672,12 @@ static int process_packet(int family, struct sockaddr *addr, char *packet,
         item->done_forward = 1;
         item->path_length = item->ttl;
         item->ttl = item->first_response - 1;
-        /*
-        if ( item->ttl > INITIAL_TTL ) {
-            item->ttl = INITIAL_TTL - 1;
-        } else {
-            item->ttl--;
+        if ( item->ttl == 0 ) {
+            item->done_backward = 1;
+            item->next = probelist->done;
+            probelist->done = item;
+            return 0;
         }
-        */
         item->attempts = 0;
         item->no_reply_count = 0;
         return append_ready_item(probelist, item);
@@ -677,13 +691,14 @@ static int process_packet(int family, struct sockaddr *addr, char *packet,
      * leaving a gap that could have been avoided.
      */
     if ( item->hop[ttl - 1].delay < LOSS_TIMEOUT ) {
-        if ( !item->done_forward ) {
-            item->ttl++;
-        } else {
-            item->ttl--;
-        }
-        item->attempts = 0;
         item->no_reply_count = 0;
+        item->attempts = 0;
+        if ( inc_probe_ttl(item) < 1 ) {
+            item->done_backward = 1;
+            item->next = probelist->done;
+            probelist->done = item;
+            return 0;
+        }
         return append_ready_item(probelist, item);
     }
 
@@ -1037,16 +1052,12 @@ static void probe_timeout_callback(wand_event_handler_t *ev_hdl, void *data) {
 
     /* resend this probe if it hasn't already failed too many times */
     if ( inc_attempt_counter(probelist->outstanding) ) {
-    //if ( probelist->outstanding->attempts <= TRACEROUTE_RETRY_LIMIT ) {
         printf("attempts %d to destination %d, will retry\n",
                 probelist->outstanding->attempts,
                 probelist->outstanding->id);
         item = probelist->outstanding;
-        //item->attempts++;
         probelist->outstanding = probelist->outstanding->next;
-        // append to probelist->ready
         item->next = NULL;
-
 
         /* TODO make appending function */
         if ( probelist->ready == NULL ) {
@@ -1061,40 +1072,15 @@ static void probe_timeout_callback(wand_event_handler_t *ev_hdl, void *data) {
             probelist->ready_end = item;
         }
     } else {
-        assert(0);
-        //XXX this whole block is pointless
-        /* too many failed attempts, stop trying */
+        /* no response at first hop, stop probing backwards */
         item = probelist->outstanding;
-#if 0
-        if ( !item->seen_response ) {
-            /* haven't seen a response yet, halve the TTL and try again */
-            item->ttl = item->ttl / 2;
-            item->next = NULL;
-            /* TODO make appending function */
-            if ( probelist->ready == NULL ) {
-                probelist->ready = item;
-                probelist->ready_end = item;
-                /* XXX in 100usec, or just do it now? */
-                //printf("probe_timeout enabling send timer\n");
-                wand_add_timer(ev_hdl, 0, MIN_INTER_PACKET_DELAY, data,
-                        send_probe_callback);
-            } else {
-                probelist->ready_end->next = item;
-                probelist->ready_end = item;
-            }
-        } else {
-#endif
-            //printf("too many failed attempts to destination %d\n", item->id);
-            probelist->outstanding = probelist->outstanding->next;
-            if ( probelist->outstanding == NULL ) {
-                probelist->outstanding_end = NULL;
-            }
-            /* XXX mark as done and stuff */
-            item->next = probelist->done;
-            probelist->done = item;
-#if 0
+        probelist->outstanding = probelist->outstanding->next;
+        if ( probelist->outstanding == NULL ) {
+            probelist->outstanding_end = NULL;
         }
-#endif
+        item->done_backward = 1;
+        item->next = probelist->done;
+        probelist->done = item;
     }
 
     /* update timeout to be the next most outstanding packet */
@@ -1305,12 +1291,12 @@ int run_traceroute(int argc, char *argv[], int count, struct addrinfo **dests) {
                         &((struct sockaddr_in6*)item->addr->ai_addr)->sin6_addr,
                         addrstr, INET6_ADDRSTRLEN);
             }
-            //printf("%d %s: %d\n", item->id, addrstr, item->probes);
+            printf("%d %s: %d\n", item->id, addrstr, item->probes);
         }
     }
 }
 
-//printf("SENT %d PACKETS\n", total_packets);
+printf("SENT %d PACKETS\n", total_packets);
 
     /* sockets aren't needed any longer */
     if ( icmp_sockets.socket > 0 ) {
