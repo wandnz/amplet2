@@ -321,7 +321,7 @@ static int inc_attempt_counter(struct dest_info_t *info) {
 
 /* find the item that triggered this probe in the outstanding list */
 static struct dest_info_t *find_outstanding_item(struct probe_list_t *probelist,
-        int index, int ttl) {
+        uint32_t index, int ttl) {
 
     struct dest_info_t *prev, *item;
 
@@ -919,7 +919,6 @@ static void version(char *prog) {
 static void send_probe_callback(wand_event_handler_t *ev_hdl, void *data) {
     struct probe_list_t *probelist = (struct probe_list_t*)data;
     struct dest_info_t *item;
-    long int delay;
 
     //printf("send_probe_callback\n");
 
@@ -977,7 +976,7 @@ static void send_probe_callback(wand_event_handler_t *ev_hdl, void *data) {
 
 
 static void recv_probe4_callback(wand_event_handler_t *ev_hdl,
-                                int fd, void *data, enum wand_eventtype_t ev) {
+        int fd, void *data, __attribute__((unused))enum wand_eventtype_t ev) {
     char packet[2048];
     struct timeval now;
     struct probe_list_t *probelist = (struct probe_list_t*)data;
@@ -1008,7 +1007,7 @@ static void recv_probe4_callback(wand_event_handler_t *ev_hdl,
 }
 
 static void recv_probe6_callback(wand_event_handler_t *ev_hdl,
-                                int fd, void *data, enum wand_eventtype_t ev) {
+        int fd, void *data, __attribute__((unused))enum wand_eventtype_t ev) {
     char packet[2048];
     struct timeval now;
     struct sockaddr_in6 addr;
@@ -1132,15 +1131,9 @@ static void probe_timeout_callback(wand_event_handler_t *ev_hdl, void *data) {
 int run_traceroute(int argc, char *argv[], int count, struct addrinfo **dests) {
     int opt;
     struct opt_t options;
-    struct timeval start_time, now;
+    struct timeval start_time;
     struct socket_t icmp_sockets, ip_sockets;
-    struct info_t *info;
     int i;
-    int hop;
-    int work;
-    int send;
-    int min_wait;
-    int delay;
     uint16_t ident;
     struct addrinfo *sourcev4, *sourcev6;
     char *device;
