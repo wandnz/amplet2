@@ -94,12 +94,12 @@ static int build_ipv6_probe(void *packet, uint16_t packet_size, int id,
 
 
 /*
- * Send a single probe packet towards a destination with the given TTL.
+ * Send the next probe packet towards a given destination.
  */
 static int send_probe(struct socket_t *ip_sockets, uint16_t ident,
-        struct dest_info_t *info) {
+        uint16_t packet_size, struct dest_info_t *info) {
 
-    char packet[60];//XXX
+    char packet[packet_size];
     long int delay;
     uint16_t id;
     int sock;
@@ -113,25 +113,21 @@ static int send_probe(struct socket_t *ip_sockets, uint16_t ident,
 
     switch ( info->addr->ai_family ) {
         case AF_INET: {
-            //printf("sending probe over ipv4\n");
             sock = ip_sockets->socket;
-            length = build_ipv4_probe(packet, 60/*opt->packet_size*/, id,
+            length = build_ipv4_probe(packet, packet_size, id,
                     info->ttl, ident, info->addr);
         } break;
 
         case AF_INET6: {
             int ttl = info->ttl;
-            //printf("sending probe over ipv6\n");
             sock = ip_sockets->socket6;
-            //if ( setsockopt(sock, SOL_IPV6, IPV6_UNICAST_HOPS, &info->ttl,
-            //        sizeof(info->ttl)) < 0 ) {
             if ( setsockopt(sock, SOL_IPV6, IPV6_UNICAST_HOPS, &ttl,
                     sizeof(ttl)) < 0 ) {
                 printf("failed to set ttl to %d\n", info->ttl);
                 printf("error setting IPV6_UNICAST_HOPS: %s\n",
                         strerror(errno));
             }
-            length = build_ipv6_probe(packet, 60/*opt->packet_size*/, id,
+            length = build_ipv6_probe(packet, packet_size, id,
                     ident, info->addr);
         } break;
 
@@ -140,7 +136,6 @@ static int send_probe(struct socket_t *ip_sockets, uint16_t ident,
                     info->addr->ai_family);
 	    return -1;
     };
-    //printf("sending probe with ttl %d\n", info->ttl);
 
     /* send packet with appropriate inter packet delay */
     while ( (delay = delay_send_packet(sock, packet, length, info->addr)) > 0 ){
@@ -153,26 +148,29 @@ static int send_probe(struct socket_t *ip_sockets, uint16_t ident,
     printf("send probe %d/%d attempt %d\n", info->id, info->ttl, info->attempts);
 
     if ( delay < 0 ) {
+        /*
+         * Mark this as done if the packet failed to send properly, we
+         * don't want to wait for a response that will never arrive. We
+         * also fill in 5 null hops in the path to make it appear the
+         * same as other failed traceroutes, but without having to send
+         * a heap of packets.
+         */
         int i;
         info->done_forward = 1;
         info->done_backward = 1;
-        info->ttl = 5;
-        for ( i = 0; i < info->ttl; i++ ) {
+        info->path_length = TRACEROUTE_NO_REPLY_LIMIT;
+        for ( i = 0; i < info->path_length; i++ ) {
             info->hop[i].addr = NULL;
         }
         return -1;
     } else {
         gettimeofday(&(info->hop[info->ttl - 1].time_sent), NULL);
-        /*
-        printf("probe %d to destination %d should expire at %d.%06d\n",
-                info->ttl, info->id,
-                info->hop[info->ttl - 1].time_sent.tv_sec + 5,
-                info->hop[info->ttl - 1].time_sent.tv_usec);
-        */
     }
 
     return 0;
 }
+
+
 
 /*
  * Extract the index value that has been encoded into the IP ID field.
@@ -238,8 +236,6 @@ static int get_index(int family, char *embedded,
         return -1;
     }
 
-    //printf("index %d vs count %d\n", index, probelist->count);
-
     if ( (index & 0x3FF) >= probelist->count ) {
         /*
          * According to the original traceroute test:
@@ -261,7 +257,13 @@ static int get_index(int family, char *embedded,
 
 
 /*
- * XXX this modifies item
+ * Update the item object with the next ttl that needs to be probed.
+ * - A path that has not yet received a valid response will halve the ttl
+ *   until something responds.
+ * - A path that has not yet got a response from the destination or timed out
+ *   and given up will increment the ttl by one
+ * - A path that has had a response from the destination or timed out and given
+ *   up will decrement the ttl by one.
  */
 static int inc_probe_ttl(struct dest_info_t *item) {
     if ( item->attempts > TRACEROUTE_RETRY_LIMIT && !item->first_response ) {
@@ -319,7 +321,11 @@ static int inc_attempt_counter(struct dest_info_t *info) {
 
 
 
-/* find the item that triggered this probe in the outstanding list */
+/*
+ * Find the item that triggered this probe in the outstanding list. It must
+ * match the index and ttl we expect, otherwise it's probably not actually a
+ * response to a probe we sent (or it is a duplicate response).
+ */
 static struct dest_info_t *find_outstanding_item(struct probe_list_t *probelist,
         uint32_t index, int ttl) {
 
@@ -349,6 +355,12 @@ static struct dest_info_t *find_outstanding_item(struct probe_list_t *probelist,
 }
 
 
+
+/*
+ * An unexpected error is one that is not normally useful when performing
+ * a traceroute, i.e. not a time exceeded or destination unreachable message.
+ * ICMP and ICMP6 use different codes for them, so we have to check separately.
+ */
 static int unexpected_error(int family, int type) {
 
     switch ( family ) {
@@ -372,6 +384,12 @@ static int unexpected_error(int family, int type) {
 
 
 
+/*
+ * A terminal error is one that indicates further probes should not be sent.
+ * At this stage it includes parameter problem, and destination unreachable.
+ * Destination unreachable indicates we shouldn't probe forward any further,
+ * but may continue with probing backwards towards the source.
+ */
 static int terminal_error(int family, int type) {
 
     switch ( family ) {
@@ -394,6 +412,10 @@ static int terminal_error(int family, int type) {
 }
 
 
+
+/*
+ * Append a probe destination to the end of the ready list.
+ */
 static int append_ready_item(struct probe_list_t *probelist,
         struct dest_info_t *item) {
 
@@ -413,6 +435,11 @@ static int append_ready_item(struct probe_list_t *probelist,
 }
 
 
+
+/*
+ * Get a pointer to the start of the embedded IPv4 packet, ensuring that it
+ * is large enough to contain the initial UDP probe.
+ */
 static char *get_embedded_ipv4_packet(char *packet) {
     struct iphdr *ip;
     struct iphdr *embedded_ip;
@@ -450,6 +477,10 @@ static char *get_embedded_ipv4_packet(char *packet) {
 }
 
 
+
+/*
+ * Get a pointer to the start of the embedded IPv6 packet.
+ */
 static char *get_embedded_ipv6_packet(char *packet) {
     struct icmp6_hdr *icmp6;
 
@@ -471,6 +502,10 @@ static char *get_embedded_ipv6_packet(char *packet) {
 
 
 
+/*
+ * Get a pointer to the start of the embedded packet that triggered the
+ * ICMP error response.
+ */
 static char *get_embedded_packet(int family, char *packet) {
     switch ( family ) {
         case AF_INET: return get_embedded_ipv4_packet(packet); break;
@@ -501,6 +536,7 @@ static int get_icmp_code(int family, char *packet) {
 }
 
 
+
 static int get_icmp_type(int family, char *packet) {
     switch ( family ) {
         case AF_INET: {
@@ -522,6 +558,10 @@ static int get_icmp_type(int family, char *packet) {
 
 
 
+/*
+ * Get the TTL/hopcount from the embedded packet that triggered the ICMP
+ * error response.
+ */
 static int get_embedded_ttl(int family, char *packet) {
     char *embedded;
 
@@ -540,6 +580,7 @@ static int get_embedded_ttl(int family, char *packet) {
 }
 
 
+
 /*
  *
  */
@@ -549,10 +590,6 @@ static int process_packet(int family, struct sockaddr *addr, char *packet,
     struct dest_info_t *item;
     int ttl, index, type, code;
     char *embedded;
-
-    /* XXX rule out stupid responses */
-
-    //printf("process_packet()\n");
 
     /* get the embedded packet if there is a valid one present */
     if ( (embedded = get_embedded_packet(family, packet)) == NULL ) {
@@ -568,8 +605,6 @@ static int process_packet(int family, struct sockaddr *addr, char *packet,
     index &= 0x3FF;
     type = get_icmp_type(family, packet);
     code = get_icmp_code(family, packet);
-
-    //printf("response %d/%d for destination %d/%d\n", type, code, index, ttl);
 
     /* Find the item this response refers to */
     if ( (item = find_outstanding_item(probelist, index, ttl)) == NULL ) {
@@ -690,7 +725,7 @@ static int process_packet(int family, struct sockaddr *addr, char *packet,
      * and latency rather than ignoring this response packet entirely and
      * leaving a gap that could have been avoided.
      */
-    if ( item->hop[ttl - 1].delay < LOSS_TIMEOUT ) {
+    if ( item->hop[ttl - 1].delay < LOSS_TIMEOUT_US ) {
         item->no_reply_count = 0;
         item->attempts = 0;
         if ( inc_probe_ttl(item) < 1 ) {
@@ -937,7 +972,8 @@ static void send_probe_callback(wand_event_handler_t *ev_hdl, void *data) {
     item->next = NULL;
 
     /* send probe to the destination at the appropriate TTL */
-    if ( send_probe(probelist->sockets, probelist->ident, item) < 0 ) {
+    if ( send_probe(probelist->sockets, probelist->ident,
+                probelist->packet_size, item) < 0 ) {
         printf("failed to send probe\n");
         item->next = probelist->done;
         probelist->done = item;
@@ -949,15 +985,12 @@ static void send_probe_callback(wand_event_handler_t *ev_hdl, void *data) {
         /* set a timeout if one hasn't already been set for an earlier probe */
         // XXX probelist->timeout == NULL?
         if ( probelist->outstanding == NULL ) {
-            //printf("adding first timeout for probe to destination %d\n",
-            //        item->id);
             probelist->outstanding = item;
             probelist->outstanding_end = item;
             probelist->timeout =
-                wand_add_timer(ev_hdl, 5/* XXX*/, 0, data,
+                wand_add_timer(ev_hdl, LOSS_TIMEOUT, 0, data,
                         probe_timeout_callback);
         } else {
-            //printf("not updating timeout for destination %d/%d, oldest probe still outstanding\n", item->id, item->ttl);
             probelist->outstanding_end->next = item;
             probelist->outstanding_end = item;
         }
@@ -965,11 +998,8 @@ static void send_probe_callback(wand_event_handler_t *ev_hdl, void *data) {
 
     /* schedule the next probe to be sent */
     if ( probelist->ready != NULL ) {
-        //printf("rescheduling next probe packet\n");
         wand_add_timer(ev_hdl, 0, MIN_INTER_PACKET_DELAY, data,
                 send_probe_callback);
-    } else {
-        //printf("no more packets, leaving send packet timer off\n");
     }
 }
 
@@ -1042,12 +1072,11 @@ static void recv_probe6_callback(wand_event_handler_t *ev_hdl,
 static void probe_timeout_callback(wand_event_handler_t *ev_hdl, void *data) {
     struct probe_list_t *probelist = (struct probe_list_t*)data;
     struct dest_info_t *item;
-    //printf("probe_timeout_callback\n");
 
     assert(probelist->outstanding);
     assert(probelist->outstanding_end);
 
-    probelist->timeout = NULL;//XXX move to top of function?
+    probelist->timeout = NULL;
 
     /* resend this probe if it hasn't already failed too many times */
     if ( inc_attempt_counter(probelist->outstanding) ) {
@@ -1063,7 +1092,6 @@ static void probe_timeout_callback(wand_event_handler_t *ev_hdl, void *data) {
             probelist->ready = item;
             probelist->ready_end = item;
             /* XXX in 100usec, or just do it now? or always have timer firing */
-            //printf("probe_timeout enabling send timer\n");
             wand_add_timer(ev_hdl, 0, MIN_INTER_PACKET_DELAY, data,
                     send_probe_callback);
         } else {
@@ -1088,25 +1116,18 @@ static void probe_timeout_callback(wand_event_handler_t *ev_hdl, void *data) {
         item = probelist->outstanding;
 
         now = wand_get_walltime(ev_hdl);
-        next.tv_sec = item->hop[item->ttl - 1].time_sent.tv_sec + 5;/* XXX*/
+        next.tv_sec = item->hop[item->ttl - 1].time_sent.tv_sec + LOSS_TIMEOUT;
         next.tv_usec = item->hop[item->ttl - 1].time_sent.tv_usec;
-
-        //printf("now: %d.%06d\n", now.tv_sec, now.tv_usec);
-        //printf("time destination %d should expire: %d.%06d\n", item->id,
-        //        next.tv_sec, next.tv_usec);
 
         /* XXX what does a negative result (timeout already expired) look
          * like? Just trigger immediately
          */
         if ( timercmp(&next, &now, <) ) {
-            //printf("next timeout now\n");
             probe_timeout_callback(ev_hdl, data);
             return;
         }
 
-        timersub(&next, &now, &next); //XXX can use same as target?
-
-        //printf("next timeout in %d.%d\n", next.tv_sec, next.tv_usec);
+        timersub(&next, &now, &next);
 
         probelist->timeout =
             wand_add_timer(ev_hdl, next.tv_sec, next.tv_usec, data,
@@ -1225,6 +1246,7 @@ int run_traceroute(int argc, char *argv[], int count, struct addrinfo **dests) {
 
     probelist.count = count;
     probelist.ident = ident;
+    probelist.packet_size = options.packet_size;
     probelist.ready = NULL;
     probelist.ready_end = NULL;
     probelist.outstanding = NULL;

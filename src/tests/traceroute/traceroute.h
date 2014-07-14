@@ -16,7 +16,8 @@
 
 /* timeout in usec to wait before declaring the response lost, currently 5s */
 /* TODO this used to be 20s, if we make it too short do we break stuff? */
-#define LOSS_TIMEOUT 5000000
+#define LOSS_TIMEOUT 5
+#define LOSS_TIMEOUT_US (LOSS_TIMEOUT * 1000000)
 
 /* TODO we can do this better than a fixed size buffer */
 #define MAX_HOPS_IN_PATH 30
@@ -155,6 +156,7 @@ struct probe_list_t {
     struct wand_timer_t *timeout;
     uint32_t count;
     uint16_t ident;
+    uint16_t packet_size;
 };
 
 
