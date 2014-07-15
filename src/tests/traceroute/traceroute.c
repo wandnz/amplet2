@@ -1158,6 +1158,9 @@ int run_traceroute(int argc, char *argv[], int count, struct addrinfo **dests) {
     uint16_t ident;
     struct addrinfo *sourcev4, *sourcev6;
     char *device;
+    struct probe_list_t probelist;
+    wand_event_handler_t *ev_hdl;
+    struct dest_info_t *item;
 
     Log(LOG_DEBUG, "Starting TRACEROUTE test");
 
@@ -1240,10 +1243,6 @@ int run_traceroute(int argc, char *argv[], int count, struct addrinfo **dests) {
         ident += 9000;
     }
 
-{
-    struct probe_list_t probelist;
-    wand_event_handler_t *ev_hdl;
-
     probelist.count = count;
     probelist.ident = ident;
     probelist.packet_size = options.packet_size;
@@ -1257,8 +1256,7 @@ int run_traceroute(int argc, char *argv[], int count, struct addrinfo **dests) {
 
     /* create all info blocks and place them in the send queue */
     for ( i = 0; i < count; i++ ) {
-        struct dest_info_t *item =
-            (struct dest_info_t*)calloc(1, sizeof(struct dest_info_t));
+        item = (struct dest_info_t*)calloc(1, sizeof(struct dest_info_t));
         item->addr = dests[i];
         item->ttl = INITIAL_TTL;
         item->id = i;
@@ -1290,29 +1288,6 @@ int run_traceroute(int argc, char *argv[], int count, struct addrinfo **dests) {
 
     wand_destroy_event_handler(ev_hdl);
 
-    /* XXX probelists get lost here because of temporary scoping */
-    report_results(&start_time, count, probelist.done, &options);
-
-    {
-        struct dest_info_t *item;
-        char addrstr[INET6_ADDRSTRLEN];
-        for ( item = probelist.done; item != NULL; item = item->next ) {
-            if ( item->addr->ai_family == AF_INET ) {
-                inet_ntop(item->addr->ai_family,
-                        &((struct sockaddr_in*)item->addr->ai_addr)->sin_addr,
-                        addrstr, INET6_ADDRSTRLEN);
-            } else {
-                inet_ntop(item->addr->ai_family,
-                        &((struct sockaddr_in6*)item->addr->ai_addr)->sin6_addr,
-                        addrstr, INET6_ADDRSTRLEN);
-            }
-            printf("%d %s: %d\n", item->id, addrstr, item->probes);
-        }
-    }
-}
-
-printf("SENT %d PACKETS\n", total_packets);
-
     /* sockets aren't needed any longer */
     if ( icmp_sockets.socket > 0 ) {
 	close(icmp_sockets.socket);
@@ -1333,30 +1308,44 @@ printf("SENT %d PACKETS\n", total_packets);
     }
 
     /* send report */
-#if 0
-    report_results(&start_time, count, info, &options);
+    report_results(&start_time, count, probelist.done, &options);
+
+    /* XXX temporary debug */
+    {
+        char addrstr[INET6_ADDRSTRLEN];
+        for ( item = probelist.done; item != NULL; item = item->next ) {
+            if ( item->addr->ai_family == AF_INET ) {
+                inet_ntop(item->addr->ai_family,
+                        &((struct sockaddr_in*)item->addr->ai_addr)->sin_addr,
+                        addrstr, INET6_ADDRSTRLEN);
+            } else {
+                inet_ntop(item->addr->ai_family,
+                        &((struct sockaddr_in6*)item->addr->ai_addr)->sin6_addr,
+                        addrstr, INET6_ADDRSTRLEN);
+            }
+            printf("%d %s: %d\n", item->id, addrstr, item->probes);
+        }
+        printf("SENT %d PACKETS\n", total_packets);
+    }
+
     /* tidy up */
-    for ( i = 0; i < count; i++ ) {
-        for ( hop = 0; hop < MAX_HOPS_IN_PATH; hop++ ) {
-            if ( info[i].hop[hop].reply ) {
+    for ( item = probelist.done; item != NULL; ) {
+        struct dest_info_t *tmp = item;
+        for ( i = 0; i < MAX_HOPS_IN_PATH; i++ ) {
+            if ( item->hop[i].reply == REPLY_OK ) {
                 /* we've allocated ai_addr ourselves, so have to free it */
-                /* TODO: freeing this data without the explicit checks for
-                 * NULL was causing segfaults, but I can't see a way for these
-                 * not to be set if reply is set? Reply is set immediately
-                 * before allocating this memory.
-                 */
-                if ( info[i].hop[hop].addr->ai_addr != NULL ) {
-                    free(info[i].hop[hop].addr->ai_addr);
+                if ( item->hop[i].addr->ai_addr != NULL ) {
+                    free(item->hop[i].addr->ai_addr);
                 }
-                /* XXX freeaddrinfo should deal with freeing ai_addr too? */
-                if ( info[i].hop[hop].addr != NULL ) {
-                    freeaddrinfo(info[i].hop[hop].addr);
+                if ( item->hop[i].addr != NULL ) {
+                    freeaddrinfo(item->hop[i].addr);
                 }
             }
         }
+        item = item->next;
+        free(tmp);
     }
-    free(info);
-#endif
+
     return 0;
 }
 
