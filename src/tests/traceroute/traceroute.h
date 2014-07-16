@@ -53,7 +53,8 @@ int amp_traceroute_build_ipv6_probe(void *packet, uint16_t packet_size, int id,
 typedef enum {
     REPLY_UNKNOWN = 0,
     REPLY_TIMED_OUT,
-    REPLY_OK
+    REPLY_OK,
+    REPLY_ASSUMED_STOPSET,
 } reply_t;
 
 
@@ -72,6 +73,7 @@ struct ipv6_body_t {
 struct opt_t {
     int random;			/* use random packet sizes (bytes) */
     int perturbate;		/* delay sending by up to this time (usec) */
+    int probeall;               /* probe every path in full */
     uint16_t packet_size;	/* use this packet size (bytes) */
 };
 
@@ -124,7 +126,7 @@ struct traceroute_report_header_t {
 
 
 
-#define INITIAL_TTL 8
+#define INITIAL_TTL 6
 typedef struct dest_info_t dest_info_t;
 struct dest_info_t {
     struct timeval last_time_sent;
@@ -145,6 +147,16 @@ struct dest_info_t {
     struct dest_info_t *next;
 };
 
+typedef struct stopset_t stopset_t;
+struct stopset_t {
+    uint8_t ttl;
+    uint8_t family;
+    //struct addrinfo *addr;
+    struct sockaddr *addr;
+    struct stopset_t *next;
+    struct stopset_t *path;
+};
+
 /* XXX need better names */
 struct probe_list_t {
     struct socket_t *sockets;
@@ -153,10 +165,11 @@ struct probe_list_t {
     struct dest_info_t *outstanding;
     struct dest_info_t *outstanding_end;
     struct dest_info_t *done;
+    struct stopset_t *stopset;
     struct wand_timer_t *timeout;
     uint32_t count;
     uint16_t ident;
-    uint16_t packet_size;
+    struct opt_t *opts;
 };
 
 
