@@ -127,6 +127,7 @@ struct traceroute_report_header_t {
 
 
 #define INITIAL_TTL 6
+#define INITIAL_WINDOW 50
 typedef struct dest_info_t dest_info_t;
 struct dest_info_t {
     struct timeval last_time_sent;
@@ -160,6 +161,7 @@ struct stopset_t {
 /* XXX need better names */
 struct probe_list_t {
     struct socket_t *sockets;
+    struct dest_info_t *pending;
     struct dest_info_t *ready;
     struct dest_info_t *ready_end;
     struct dest_info_t *outstanding;
@@ -170,6 +172,7 @@ struct probe_list_t {
     uint32_t count;
     uint16_t ident;
     struct opt_t *opts;
+    int window;
 };
 
 

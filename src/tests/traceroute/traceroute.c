@@ -422,6 +422,8 @@ static int append_ready_item(struct probe_list_t *probelist,
     assert(probelist);
     assert(item);
 
+    item->next = NULL;
+
     if ( probelist->ready == NULL ) {
         probelist->ready = item;
         probelist->ready_end = item;
@@ -435,30 +437,38 @@ static int append_ready_item(struct probe_list_t *probelist,
 }
 
 
+
+static int enqueue_next_pending(struct probe_list_t *probelist) {
+    if ( probelist->pending ) {
+        struct dest_info_t *next = probelist->pending;
+        probelist->pending = probelist->pending->next;
+        return append_ready_item(probelist, next);
+    }
+
+    return 0;
+}
+
+
+
+/*
+ *
+ */
 static int compare_addresses(struct sockaddr *a, struct sockaddr *b) {
     if ( a == NULL || b == NULL ) {
         return -1;
     }
 
     if ( a->sa_family != b->sa_family ) {
-        printf("different family\n");
         return (a->sa_family > b->sa_family) ? 1 : -1;
     }
 
     if ( a->sa_family == AF_INET ) {
-        char addrstr[INET6_ADDRSTRLEN];
         struct sockaddr_in *a4 = (struct sockaddr_in*)a;
         struct sockaddr_in *b4 = (struct sockaddr_in*)b;
-        printf("ipv4\n");
-        inet_ntop(a4->sin_family, &a4->sin_addr, addrstr, INET6_ADDRSTRLEN);
-        printf("a: %s\n", addrstr);
-        inet_ntop(b4->sin_family, &b4->sin_addr, addrstr, INET6_ADDRSTRLEN);
-        printf("b: %s\n", addrstr);
         return memcmp(&a4->sin_addr, &b4->sin_addr, sizeof(struct in_addr));
     }
 
     if ( a->sa_family == AF_INET6 ) {
-        printf("ipv6\n");
         struct sockaddr_in6 *a6 = (struct sockaddr_in6*)a;
         struct sockaddr_in6 *b6 = (struct sockaddr_in6*)b;
         return memcmp(&a6->sin6_addr, &b6->sin6_addr, sizeof(struct in6_addr));
@@ -468,7 +478,11 @@ static int compare_addresses(struct sockaddr *a, struct sockaddr *b) {
 }
 
 
-static struct stopset_t* find_in_stopset(struct sockaddr *addr,
+
+/*
+ *
+ */
+static struct stopset_t *find_in_stopset(struct sockaddr *addr,
         struct stopset_t *stopset) {
 
     struct stopset_t *item;
@@ -478,9 +492,7 @@ static struct stopset_t* find_in_stopset(struct sockaddr *addr,
     }
 
     for ( item = stopset; item != NULL; item = item->next ) {
-        printf("checking item\n");
         if ( compare_addresses(item->addr, addr) == 0 ) {
-            printf("found in stopset!\n");
             return item;
         }
     }
@@ -673,7 +685,7 @@ static int process_packet(int family, struct sockaddr *addr, char *packet,
             item->done_backward = 1;
             item->next = probelist->done;
             probelist->done = item;
-            return -1;
+            return enqueue_next_pending(probelist);
         }
 
         /* determine path length based on remaining TTL in embedded packet */
@@ -711,7 +723,7 @@ static int process_packet(int family, struct sockaddr *addr, char *packet,
         item->done_forward = 1;
         item->next = probelist->done;
         probelist->done = item;
-        return 0;
+        return enqueue_next_pending(probelist);
     }
 
     /* XXX no longer checking if port unreachables are from correct source */
@@ -843,7 +855,7 @@ static int process_packet(int family, struct sockaddr *addr, char *packet,
         item->done_backward = 1;
         item->next = probelist->done;
         probelist->done = item;
-        return 0;
+        return enqueue_next_pending(probelist);
     }
 
     /*
@@ -858,7 +870,7 @@ static int process_packet(int family, struct sockaddr *addr, char *packet,
             item->done_backward = 1;
             item->next = probelist->done;
             probelist->done = item;
-            return 0;
+            return enqueue_next_pending(probelist);
         }
         item->attempts = 0;
         item->no_reply_count = 0;
@@ -879,7 +891,7 @@ static int process_packet(int family, struct sockaddr *addr, char *packet,
             item->done_backward = 1;
             item->next = probelist->done;
             probelist->done = item;
-            return 0;
+            return enqueue_next_pending(probelist);
         }
         return append_ready_item(probelist, item);
     }
@@ -1125,6 +1137,7 @@ static void send_probe_callback(wand_event_handler_t *ev_hdl, void *data) {
         printf("failed to send probe\n");
         item->next = probelist->done;
         probelist->done = item;
+        enqueue_next_pending(probelist);
         if ( probelist->outstanding == NULL && probelist->ready == NULL ) {
             ev_hdl->running = 0;
             return;
@@ -1256,6 +1269,11 @@ static void probe_timeout_callback(wand_event_handler_t *ev_hdl, void *data) {
         item->done_backward = 1;
         item->next = probelist->done;
         probelist->done = item;
+
+        if ( enqueue_next_pending(probelist) ) {
+            wand_add_timer(ev_hdl, 0, MIN_INTER_PACKET_DELAY, data,
+                    send_probe_callback);
+        }
     }
 
     /* update timeout to be the next most outstanding packet */
@@ -1396,6 +1414,7 @@ int run_traceroute(int argc, char *argv[], int count, struct addrinfo **dests) {
 
     probelist.count = count;
     probelist.ident = ident;
+    probelist.pending = NULL;
     probelist.ready = NULL;
     probelist.ready_end = NULL;
     probelist.outstanding = NULL;
@@ -1404,6 +1423,7 @@ int run_traceroute(int argc, char *argv[], int count, struct addrinfo **dests) {
     probelist.stopset = NULL;
     probelist.sockets = &ip_sockets;
     probelist.timeout = NULL;
+    probelist.window = INITIAL_WINDOW;
     probelist.opts = &options;
 
     /* create all info blocks and place them in the send queue */
@@ -1414,7 +1434,13 @@ int run_traceroute(int argc, char *argv[], int count, struct addrinfo **dests) {
         item->id = i;
         item->next = NULL;
 
-        append_ready_item(&probelist, item);
+        if ( probelist.window ) {
+            append_ready_item(&probelist, item);
+            probelist.window--;
+        } else {
+            item->next = probelist.pending;
+            probelist.pending = item;
+        }
     }
 
     wand_event_init();
@@ -1433,6 +1459,7 @@ int run_traceroute(int argc, char *argv[], int count, struct addrinfo **dests) {
 
     wand_event_run(ev_hdl);
 
+    assert(probelist.pending == NULL);
     assert(probelist.ready == NULL);
     assert(probelist.ready_end == NULL);
     assert(probelist.outstanding == NULL);
@@ -1506,11 +1533,15 @@ int run_traceroute(int argc, char *argv[], int count, struct addrinfo **dests) {
     }
 
     /* tidy up the stopset if it was used */
+    i = 0;//XXX
     for ( stop = probelist.stopset; stop != NULL; /* nothing */) {
         struct stopset_t *tmp = stop;
         stop = stop->next;
         free(tmp);
+        i++;
     }
+
+    printf("STOPSET SIZE: %d\n", i);
 
     return 0;
 }
