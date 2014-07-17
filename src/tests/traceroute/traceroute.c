@@ -786,12 +786,33 @@ static int process_packet(int family, struct sockaddr *addr, char *packet,
             }
 
         } else if ( !probelist->opts->probeall ) {
-            struct stopset_t *stop;
+            //XXX move recently used items to front of stopset
+            struct stopset_t *stop, *prev;
+            int i;
             /*
              * Part of this path has been seen before, add the new portion to
              * the stopset
              */
             printf("found item in stopset, stopping\n");
+            prev = existing;
+            for ( i = existing->ttl + 1;
+                    i < item->path_length && i < INITIAL_TTL; i++ ) {
+                //TODO free this
+                struct stopset_t *stop = calloc(1, sizeof(struct stopset_t));
+                printf("adding item %d/%d to stopset as partial path\n",
+                        i, item->path_length);
+                stop->ttl = i + 1;
+                if ( item->hop[i].addr ) {
+                    stop->addr = item->hop[i].addr->ai_addr;
+                    printf("family 1: %d\n", stop->addr->sa_family);
+                } else {
+                    stop->addr = NULL;
+                }
+                stop->next = probelist->stopset;
+                stop->path = prev;
+                prev = stop;
+                probelist->stopset = stop;
+            }
 
             /*
              * And then add the rest of this path from the stopset onto what
