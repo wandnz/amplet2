@@ -24,12 +24,11 @@
 #include "libwandevent.h"
 
 
-int total_packets = 0;
-
 
 static struct option long_options[] = {
     {"help", no_argument, 0, 'h'},
     {"interface", required_argument, 0, 'I'},
+    {"probeall", no_argument, 0, 'a'},
     {"perturbate", required_argument, 0, 'p'},
     {"random", no_argument, 0, 'r'},
     {"size", required_argument, 0, 's'},
@@ -143,7 +142,6 @@ static int send_probe(struct socket_t *ip_sockets, uint16_t ident,
         usleep(delay);
     }
 
-    total_packets++;
     info->probes++;
     printf("send probe %d/%d attempt %d\n", info->id, info->ttl, info->attempts);
 
@@ -680,6 +678,7 @@ static int process_packet(int family, struct sockaddr *addr, char *packet,
 
     /* we've hit the destination on the first go so need the real ttl */
     if ( terminal_error(family, type) && item->ttl == INITIAL_TTL ) {
+        /* get the ttl from the embedded packet or terminate if not found */
         if ( (ttl = get_embedded_ttl(family, packet)) < 0 ) {
             item->done_forward = 1;
             item->done_backward = 1;
@@ -699,7 +698,6 @@ static int process_packet(int family, struct sockaddr *addr, char *packet,
 
         /* take the time the original probe to INITIAL_TTL was sent */
         item->hop[ttl - 1].time_sent = item->hop[INITIAL_TTL - 1].time_sent;
-        printf("hit destination on first probe, actual ttl %d\n", item->ttl);
     }
 
     /* record the delay between sending this probe and getting a response */
@@ -727,7 +725,6 @@ static int process_packet(int family, struct sockaddr *addr, char *packet,
     }
 
     /* XXX no longer checking if port unreachables are from correct source */
-    printf("accepted response for hop %d\n", ttl);
     if ( !item->first_response ) {
         item->first_response = ttl;
     }
@@ -782,7 +779,6 @@ static int process_packet(int family, struct sockaddr *addr, char *packet,
                 stop->ttl = i + 1;
                 if ( item->hop[i].addr ) {
                     stop->addr = item->hop[i].addr->ai_addr;
-                    printf("family 1: %d\n", stop->addr->sa_family);
                 } else {
                     stop->addr = NULL;
                 }
@@ -816,7 +812,6 @@ static int process_packet(int family, struct sockaddr *addr, char *packet,
                 stop->ttl = i + 1;
                 if ( item->hop[i].addr ) {
                     stop->addr = item->hop[i].addr->ai_addr;
-                    printf("family 1: %d\n", stop->addr->sa_family);
                 } else {
                     stop->addr = NULL;
                 }
@@ -840,13 +835,11 @@ static int process_packet(int family, struct sockaddr *addr, char *packet,
                         (struct addrinfo *)malloc(sizeof(struct addrinfo));
                     HOP_ADDR(stop->ttl)->ai_addr = stop->addr;
                     HOP_ADDR(stop->ttl)->ai_family = stop->addr->sa_family;
-                    printf("family 2: %d\n", HOP_ADDR(stop->ttl)->ai_addr->sa_family);
                     HOP_ADDR(stop->ttl)->ai_canonname = NULL;
                     HOP_ADDR(stop->ttl)->ai_next = NULL;
                 } else {
                     HOP_REPLY(stop->ttl) = REPLY_TIMED_OUT;
                     HOP_ADDR(stop->ttl) = NULL;
-                    printf("no family, hop is null\n");
                 }
             }
         }
@@ -1143,6 +1136,7 @@ static void send_probe_callback(wand_event_handler_t *ev_hdl, void *data) {
             return;
         }
     } else {
+        probelist->total_probes++;
         /* set a timeout if one hasn't already been set for an earlier probe */
         // XXX probelist->timeout == NULL?
         if ( probelist->outstanding == NULL ) {
@@ -1166,6 +1160,9 @@ static void send_probe_callback(wand_event_handler_t *ev_hdl, void *data) {
 
 
 
+/*
+ *
+ */
 static void recv_probe4_callback(wand_event_handler_t *ev_hdl,
         int fd, void *data, __attribute__((unused))enum wand_eventtype_t ev) {
     char packet[2048];
@@ -1174,14 +1171,12 @@ static void recv_probe4_callback(wand_event_handler_t *ev_hdl,
     struct sockaddr_in addr;
     socklen_t socklen = sizeof(addr);
 
-    //printf("recv_probe4_callback\n");
+    Log(LOG_DEBUG, "Got an IPv4 packet");
 
     recvfrom(fd, packet, sizeof(packet), 0, (struct sockaddr*)&addr, &socklen);
     gettimeofday(&now, NULL);
-    //if ( process_ipv4_packet(packet, now, data) > 0 ) {
     if ( process_packet(AF_INET, (struct sockaddr*)&addr, packet, now,
                 data) > 0 ) {
-        //printf("recv_probe4 enabling send timer\n");
         wand_add_timer(ev_hdl, 0, MIN_INTER_PACKET_DELAY, data,
                 send_probe_callback);
     }
@@ -1197,6 +1192,11 @@ static void recv_probe4_callback(wand_event_handler_t *ev_hdl,
     }
 }
 
+
+
+/*
+ *
+ */
 static void recv_probe6_callback(wand_event_handler_t *ev_hdl,
         int fd, void *data, __attribute__((unused))enum wand_eventtype_t ev) {
     char packet[2048];
@@ -1205,15 +1205,13 @@ static void recv_probe6_callback(wand_event_handler_t *ev_hdl,
     struct probe_list_t *probelist = (struct probe_list_t*)data;
     socklen_t socklen = sizeof(addr);
 
-    //printf("recv_probe6_callback\n");
+    Log(LOG_DEBUG, "Got an IPv6 packet");
 
     recvfrom(fd, packet, sizeof(packet), 0, (struct sockaddr*)&addr, &socklen);
     gettimeofday(&now, NULL);
     /* TODO get a full ipv6 header so we can treat them the same? */
-    //if ( process_ipv6_packet(packet, &addr, now, data) > 0 ) {
     if ( process_packet(AF_INET6, (struct sockaddr*)&addr, packet, now,
                 data) > 0 ) {
-        //printf("recv_probe6 enabling send timer\n");
         wand_add_timer(ev_hdl, 0, MIN_INTER_PACKET_DELAY, data,
                 send_probe_callback);
     }
@@ -1230,6 +1228,12 @@ static void recv_probe6_callback(wand_event_handler_t *ev_hdl,
 }
 
 
+
+/*
+ * Triggers when a probe has timed out after LOSS_TIMEOUT seconds. Will
+ * attempt to retransmit a probe until TRACEROUTE_RETRY_LIMIT attempts have
+ * been made.
+ */
 static void probe_timeout_callback(wand_event_handler_t *ev_hdl, void *data) {
     struct probe_list_t *probelist = (struct probe_list_t*)data;
     struct dest_info_t *item;
@@ -1237,35 +1241,28 @@ static void probe_timeout_callback(wand_event_handler_t *ev_hdl, void *data) {
     assert(probelist->outstanding);
     assert(probelist->outstanding_end);
 
+    Log(LOG_DEBUG, "Probe has timed out");
+
     probelist->timeout = NULL;
+    item = probelist->outstanding;
+    probelist->outstanding = probelist->outstanding->next;
+    if ( probelist->outstanding == NULL ) {
+        probelist->outstanding_end = NULL;
+    }
 
     /* resend this probe if it hasn't already failed too many times */
-    if ( inc_attempt_counter(probelist->outstanding) ) {
-        printf("attempts %d to destination %d, will retry\n",
-                probelist->outstanding->attempts,
-                probelist->outstanding->id);
-        item = probelist->outstanding;
-        probelist->outstanding = probelist->outstanding->next;
+    if ( inc_attempt_counter(item) ) {
+        Log(LOG_DEBUG, "Attempts %d to destination %d, will retry\n",
+                item->attempts, item->id);
         item->next = NULL;
 
-        /* TODO make appending function */
-        if ( probelist->ready == NULL ) {
-            probelist->ready = item;
-            probelist->ready_end = item;
+        if ( append_ready_item(probelist, item) ) {
             /* XXX in 100usec, or just do it now? or always have timer firing */
             wand_add_timer(ev_hdl, 0, MIN_INTER_PACKET_DELAY, data,
                     send_probe_callback);
-        } else {
-            probelist->ready_end->next = item;
-            probelist->ready_end = item;
         }
     } else {
         /* no response at first hop, stop probing backwards */
-        item = probelist->outstanding;
-        probelist->outstanding = probelist->outstanding->next;
-        if ( probelist->outstanding == NULL ) {
-            probelist->outstanding_end = NULL;
-        }
         item->done_backward = 1;
         item->next = probelist->done;
         probelist->done = item;
@@ -1285,8 +1282,9 @@ static void probe_timeout_callback(wand_event_handler_t *ev_hdl, void *data) {
         next.tv_sec = item->hop[item->ttl - 1].time_sent.tv_sec + LOSS_TIMEOUT;
         next.tv_usec = item->hop[item->ttl - 1].time_sent.tv_usec;
 
-        /* XXX what does a negative result (timeout already expired) look
-         * like? Just trigger immediately
+        /*
+         * The next timeout has expired too, recursively call the callback
+         * until we encounter one that will expire in the future.
          */
         if ( timercmp(&next, &now, <) ) {
             probe_timeout_callback(ev_hdl, data);
@@ -1425,6 +1423,7 @@ int run_traceroute(int argc, char *argv[], int count, struct addrinfo **dests) {
     probelist.timeout = NULL;
     probelist.window = INITIAL_WINDOW;
     probelist.opts = &options;
+    probelist.total_probes = 0;
 
     /* create all info blocks and place them in the send queue */
     for ( i = 0; i < count; i++ ) {
@@ -1505,7 +1504,7 @@ int run_traceroute(int argc, char *argv[], int count, struct addrinfo **dests) {
             }
             printf("%d %s: %d\n", item->id, addrstr, item->probes);
         }
-        printf("SENT %d PACKETS\n", total_packets);
+        printf("SENT %d PACKETS\n", probelist.total_probes);
     }
 
     /* tidy up all the address structures we have as results */

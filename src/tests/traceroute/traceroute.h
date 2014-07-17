@@ -173,6 +173,7 @@ struct probe_list_t {
     uint16_t ident;
     struct opt_t *opts;
     int window;
+    int total_probes;
 };
 
 
