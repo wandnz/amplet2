@@ -388,25 +388,31 @@ static int unexpected_error(int family, int type) {
  * Destination unreachable indicates we shouldn't probe forward any further,
  * but may continue with probing backwards towards the source.
  */
-static int terminal_error(int family, int type) {
+static int terminal_error(int family, int type, int code) {
 
     switch ( family ) {
         case AF_INET:
             if ( type != ICMP_PARAMETERPROB && type != ICMP_DEST_UNREACH ) {
                 return 0;
+            } else if ( type == ICMP_DEST_UNREACH &&
+                    code == ICMP_PORT_UNREACH ) {
+                return 1;
             }
             break;
 
         case AF_INET6:
             if ( type != ICMP6_PARAM_PROB && type != ICMP6_DST_UNREACH ) {
                 return 0;
+            } else if ( type == ICMP6_DST_UNREACH &&
+                    code == ICMP6_DST_UNREACH_NOPORT ) {
+                return 1;
             }
             break;
 
         default: break;
     };
 
-    return 1;
+    return 2;
 }
 
 
@@ -677,11 +683,12 @@ static int process_packet(int family, struct sockaddr *addr, char *packet,
     }
 
     /* we've hit the destination on the first go so need the real ttl */
-    if ( terminal_error(family, type) && item->ttl == INITIAL_TTL ) {
+    if ( terminal_error(family, type, code) && item->ttl == INITIAL_TTL ) {
         /* get the ttl from the embedded packet or terminate if not found */
         if ( (ttl = get_embedded_ttl(family, packet)) < 0 ) {
             item->done_forward = 1;
             item->done_backward = 1;
+            item->path_length = 0;
             item->next = probelist->done;
             probelist->done = item;
             return enqueue_next_pending(probelist);
@@ -700,6 +707,11 @@ static int process_packet(int family, struct sockaddr *addr, char *packet,
         item->hop[ttl - 1].time_sent = item->hop[INITIAL_TTL - 1].time_sent;
     }
 
+    /* mark first ttl to respond, so we know where to start reverse probing */
+    if ( !item->first_response ) {
+        item->first_response = ttl;
+    }
+
     /* record the delay between sending this probe and getting a response */
     if ( item->hop[ttl - 1].delay == 0 ) {
         item->hop[ttl - 1].delay =
@@ -707,26 +719,39 @@ static int process_packet(int family, struct sockaddr *addr, char *packet,
     }
 
     /* if unexpected error, record it and look to keep probing */
-    if ( unexpected_error(family, type) ) {
+    if ( unexpected_error(family, type) ||
+            /* or maybe it's an unreachable, but not from the destination */
+            terminal_error(family, type, code) == 2 ) {
+
         item->err_type = type;
         item->err_code = code;
 
         /* reschedule if this is an error we can recover from */
-        if ( !terminal_error(family, type) && inc_attempt_counter(item) ) {
+        if ( !terminal_error(family, type, code) &&
+                inc_attempt_counter(item) ) {
             return append_ready_item(probelist, item);
         }
 
-        /* otherwise end probing here */
-        //XXX can we still probe backwards?
-        item->done_forward = 1;
-        item->next = probelist->done;
-        probelist->done = item;
-        return enqueue_next_pending(probelist);
-    }
+        /* XXX if we get an error while probing backwards, what should we do? */
+        if ( item->done_forward ) {
+            printf("XXX error on reverse\n");
+        }
 
-    /* XXX no longer checking if port unreachables are from correct source */
-    if ( !item->first_response ) {
-        item->first_response = ttl;
+        /* don't record any hops that timed out while waiting for this error */
+        item->path_length = item->ttl - item->no_reply_count - 1;
+
+        /* end forward probing here and try backwards */
+        item->done_forward = 1;
+        item->ttl = item->first_response - 1;
+        if ( item->ttl == 0 ) {
+            item->done_backward = 1;
+            item->next = probelist->done;
+            probelist->done = item;
+            return enqueue_next_pending(probelist);
+        }
+        item->attempts = 0;
+        item->no_reply_count = 0;
+        return append_ready_item(probelist, item);
     }
 
     /* if expected error, update hop information */
@@ -773,7 +798,6 @@ static int process_packet(int family, struct sockaddr *addr, char *packet,
              */
              //TODO check that destinations won't be saved here
             for ( i = 0; i < item->path_length && i < INITIAL_TTL; i++ ) {
-                //TODO free this
                 struct stopset_t *stop = calloc(1, sizeof(struct stopset_t));
                 printf("adding item %d/%d to stopset\n", i, item->path_length);
                 stop->ttl = i + 1;
@@ -805,7 +829,6 @@ static int process_packet(int family, struct sockaddr *addr, char *packet,
             prev = existing;
             for ( i = existing->ttl + 1;
                     i < item->path_length && i < INITIAL_TTL; i++ ) {
-                //TODO free this
                 struct stopset_t *stop = calloc(1, sizeof(struct stopset_t));
                 printf("adding item %d/%d to stopset as partial path\n",
                         i, item->path_length);
@@ -855,7 +878,7 @@ static int process_packet(int family, struct sockaddr *addr, char *packet,
      * End forward probing and begin backwards probing if this is a terminal
      * error or if the path is too long.
      */
-    if ( terminal_error(family, type) || item->ttl >= MAX_HOPS_IN_PATH ) {
+    if ( terminal_error(family, type, code) || item->ttl >= MAX_HOPS_IN_PATH ) {
         item->done_forward = 1;
         item->path_length = item->ttl;
         item->ttl = item->first_response - 1;
@@ -1586,7 +1609,11 @@ void print_traceroute(void *data, uint32_t len) {
         printf("\n");
 	printf("%s", ampname);
 	inet_ntop(path->family, path->address, addrstr, INET6_ADDRSTRLEN);
-	printf(" (%s)\n", addrstr);
+	printf(" (%s)", addrstr);
+        if ( path->err_type > 0 ) {
+            printf(" error: %d/%d", path->err_type, path->err_code);
+        }
+        printf("\n");
 
         /* per-hop information for this path */
         for ( hopcount = 0; hopcount < path->length; hopcount++ ) {
@@ -1594,11 +1621,7 @@ void print_traceroute(void *data, uint32_t len) {
            offset += sizeof(struct traceroute_report_hop_t);
 
            inet_ntop(path->family, hop->address, addrstr, INET6_ADDRSTRLEN);
-           printf(" %.2d  %s %dus", hopcount+1, addrstr, ntohl(hop->rtt));
-           if ( path->err_type > 0 ) {
-                printf(" error: %d/%d", path->err_type, path->err_code);
-           }
-           printf("\n");
+           printf(" %.2d  %s %dus\n", hopcount+1, addrstr, ntohl(hop->rtt));
         }
     }
     printf("\n");
