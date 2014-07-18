@@ -802,6 +802,7 @@ static int process_packet(int family, struct sockaddr *addr, char *packet,
                 struct stopset_t *stop = calloc(1, sizeof(struct stopset_t));
                 printf("adding item %d/%d to stopset\n", i, item->path_length);
                 stop->ttl = i + 1;
+                stop->delay = item->hop[i].delay;
                 if ( item->hop[i].addr ) {
                     stop->addr = item->hop[i].addr->ai_addr;
                 } else {
@@ -834,6 +835,7 @@ static int process_packet(int family, struct sockaddr *addr, char *packet,
                 printf("adding item %d/%d to stopset as partial path\n",
                         i, item->path_length);
                 stop->ttl = i + 1;
+                stop->delay = item->hop[i].delay;
                 if ( item->hop[i].addr ) {
                     stop->addr = item->hop[i].addr->ai_addr;
                 } else {
@@ -861,6 +863,7 @@ static int process_packet(int family, struct sockaddr *addr, char *packet,
                     HOP_ADDR(stop->ttl)->ai_family = stop->addr->sa_family;
                     HOP_ADDR(stop->ttl)->ai_canonname = NULL;
                     HOP_ADDR(stop->ttl)->ai_next = NULL;
+                    item->hop[stop->ttl - 1].delay = stop->delay;
                 } else {
                     HOP_REPLY(stop->ttl) = REPLY_TIMED_OUT;
                     HOP_ADDR(stop->ttl) = NULL;

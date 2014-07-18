@@ -153,6 +153,7 @@ struct stopset_t {
     uint8_t ttl;
     uint8_t family;
     //struct addrinfo *addr;
+    uint32_t delay;
     struct sockaddr *addr;
     struct stopset_t *next;
     struct stopset_t *path;
