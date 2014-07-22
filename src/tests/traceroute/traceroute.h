@@ -74,12 +74,14 @@ struct opt_t {
     int random;			/* use random packet sizes (bytes) */
     int perturbate;		/* delay sending by up to this time (usec) */
     int probeall;               /* probe every path in full */
+    int as;                     /* lookup the AS number of each address */
     uint16_t packet_size;	/* use this packet size (bytes) */
 };
 
 struct hop_info_t {
     struct timeval time_sent;	/* when the probe was sent */
     uint32_t delay;		/* delay in receiving response, microseconds */
+    uint32_t as;                /* AS that the address belongs to */
     reply_t reply;
     struct addrinfo *addr;
 };
@@ -105,6 +107,7 @@ struct info_t {
 struct traceroute_report_hop_t {
     char address[16];
     int32_t rtt;
+    uint32_t as;                /* AS that the address belongs to */
 } __attribute__((__packed__));
 
 struct traceroute_report_path_t {
@@ -122,6 +125,8 @@ struct traceroute_report_header_t {
     uint16_t packet_size;
     uint8_t random;
     uint8_t count;
+    uint8_t probeall;
+    uint8_t as;
 } __attribute__((__packed__));
 
 

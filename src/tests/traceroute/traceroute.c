@@ -23,6 +23,8 @@
 #include "traceroute.h"
 #include "libwandevent.h"
 
+#include "global.h"
+#include "ampresolv.h"
 
 
 static struct option long_options[] = {
@@ -457,18 +459,34 @@ static int enqueue_next_pending(struct probe_list_t *probelist) {
 /*
  *
  */
-static int compare_addresses(struct sockaddr *a, struct sockaddr *b) {
+static int compare_addresses(struct sockaddr *a, struct sockaddr *b, int len) {
+    uint32_t mask;
+
     if ( a == NULL || b == NULL ) {
+        printf("null address\n");
         return -1;
     }
 
     if ( a->sa_family != b->sa_family ) {
+        printf("different family\n");
         return (a->sa_family > b->sa_family) ? 1 : -1;
     }
 
     if ( a->sa_family == AF_INET ) {
         struct sockaddr_in *a4 = (struct sockaddr_in*)a;
         struct sockaddr_in *b4 = (struct sockaddr_in*)b;
+        if ( len > 0 ) {
+            mask = ntohl(0xffffffff << len);
+            printf("mask: %d\n", mask);
+            printf("%d vs %d = %d vs %d\n", a4->sin_addr.s_addr,
+                    b4->sin_addr.s_addr, a4->sin_addr.s_addr & mask,
+                    b4->sin_addr.s_addr & mask);
+            if ( (a4->sin_addr.s_addr & mask) == (b4->sin_addr.s_addr & mask) ){
+                return 0;
+            }
+            return ((a4->sin_addr.s_addr & mask) >
+                    (b4->sin_addr.s_addr & mask)) ? 1 : -1;
+        }
         return memcmp(&a4->sin_addr, &b4->sin_addr, sizeof(struct in_addr));
     }
 
@@ -496,7 +514,7 @@ static struct stopset_t *find_in_stopset(struct sockaddr *addr,
     }
 
     for ( item = stopset; item != NULL; item = item->next ) {
-        if ( compare_addresses(item->addr, addr) == 0 ) {
+        if ( compare_addresses(item->addr, addr, 0) == 0 ) {
             return item;
         }
     }
@@ -722,7 +740,7 @@ static int process_packet(int family, struct sockaddr *addr, char *packet,
     if ( unexpected_error(family, type) ||
             /* or maybe it's an unreachable, but not from the destination */
             (terminal_error(family, type, code) == 2 &&
-             compare_addresses(item->addr->ai_addr, addr) != 0) ) {
+             compare_addresses(item->addr->ai_addr, addr, 0) != 0) ) {
 
         item->err_type = type;
         item->err_code = code;
@@ -1015,6 +1033,50 @@ static void extract_address(void *dst, const struct addrinfo *src) {
 
 
 
+static char *reverse_address(char *buffer, const struct sockaddr *addr) {
+    switch ( addr->sa_family ) {
+        case AF_INET: {
+            uint8_t ipv4[4];
+            memcpy(ipv4, &((struct sockaddr_in*)addr)->sin_addr, sizeof(ipv4));
+            snprintf(buffer,
+                    INET6_ADDRSTRLEN + strlen(".origin.asn.cymru.com"),
+                    "0.%d.%d.%d.%s", ipv4[2], ipv4[1], ipv4[0],
+                    "origin.asn.cymru.com");
+            printf("reversed: %s\n", buffer);
+        } break;
+
+        case AF_INET6: break;
+        default: break;
+    };
+
+    return buffer;
+}
+
+
+
+static uint32_t find_as_number(struct addrinfo *list, struct sockaddr *addr) {
+    struct addrinfo *rp;
+    uint32_t netmask;
+
+    for ( rp=list; rp != NULL; rp=rp->ai_next ) {
+        netmask = ((struct sockaddr_in*)rp->ai_addr)->sin_port;
+        /*
+        netmask = htonl(0xffffffff <<
+            (32-((struct sockaddr_in*)rp->ai_addr)->sin_port));
+        if ( (((struct sockaddr_in*)rp->ai_addr)->sin_addr.s_addr & netmask)
+                == (((struct sockaddr_in*)addr)->sin_addr.s_addr & netmask) ) {
+            return rp->ai_protocol;
+        }*/
+        if ( compare_addresses(rp->ai_addr, addr, netmask) == 0 ) {
+            return rp->ai_protocol;
+        }
+    }
+
+    return 0;
+}
+
+
+
 /*
  *
  */
@@ -1044,6 +1106,8 @@ static void report_results(struct timeval *start_time, int count,
     header->packet_size = htons(opt->packet_size);
     header->random = opt->random;
     header->count = count;
+    header->probeall = opt->probeall;
+    header->as = opt->as;
 
     offset = sizeof(struct traceroute_report_header_t);
 
@@ -1087,9 +1151,11 @@ static void report_results(struct timeval *start_time, int count,
             if ( item->hop[hopcount].addr == NULL ) {
                 memset(hop->address, 0, sizeof(hop->address));
                 hop->rtt = htonl(-1);
+                hop->as = htonl(0);
             } else {
                 extract_address(hop->address, item->hop[hopcount].addr);
                 hop->rtt = htonl(item->hop[hopcount].delay);
+                hop->as = htonl(item->hop[hopcount].as);
             }
             inet_ntop(path->family, hop->address, addrstr, INET6_ADDRSTRLEN);
             Log(LOG_DEBUG, " %d: %s %d\n", hopcount+1, addrstr,
@@ -1108,10 +1174,11 @@ static void report_results(struct timeval *start_time, int count,
  *
  */
 static void usage(char *prog) {
-    fprintf(stderr, "Usage: %s [-ar] [-p perturbate] [-s packetsize]\n", prog);
+    fprintf(stderr, "Usage: %s [-afr] [-p perturbate] [-s packetsize]\n", prog);
     fprintf(stderr, "\n");
     fprintf(stderr, "Options:\n");
-    fprintf(stderr, "  -a\t\tProbe all paths fully, even if duplicate\n");
+    fprintf(stderr, "  -a\t\tLookup AS numbers for all addresses\n");
+    fprintf(stderr, "  -f\t\tProbe all paths fully, even if duplicate\n");
     fprintf(stderr, "  -r\t\tUse a random packet size for each test\n");
     fprintf(stderr, "  -p <ms>\tMaximum number of milliseconds to delay test\n");
     fprintf(stderr, "  -s <bytes>\tFixed packet size to use for each test\n");
@@ -1365,13 +1432,14 @@ int run_traceroute(int argc, char *argv[], int count, struct addrinfo **dests) {
     sourcev6 = NULL;
     device = NULL;
 
-    while ( (opt = getopt_long(argc, argv, "hvI:ap:rs:S:4:6:",
+    while ( (opt = getopt_long(argc, argv, "hvI:afp:rs:S:4:6:",
                     long_options, NULL)) != -1 ) {
 	switch ( opt ) {
             case '4': sourcev4 = get_numeric_address(optarg, NULL); break;
             case '6': sourcev6 = get_numeric_address(optarg, NULL); break;
             case 'I': device = optarg; break;
-	    case 'a': options.probeall = 1; break;
+	    case 'a': options.as = 1; break;
+	    case 'f': options.probeall = 1; break;
 	    case 'p': options.perturbate = atoi(optarg); break;
 	    case 'r': options.random = 1; break;
 	    case 's': options.packet_size = atoi(optarg); break;
@@ -1513,6 +1581,114 @@ int run_traceroute(int argc, char *argv[], int count, struct addrinfo **dests) {
         freeaddrinfo(sourcev6);
     }
 
+
+    if ( options.as ) {
+        char buffer[INET6_ADDRSTRLEN + strlen(".origin.asn.cymru.com")];
+        pthread_mutex_t addrlist_lock;
+        int remaining = 0;
+        struct addrinfo *addrlist = NULL, *rp;
+        struct sockaddr *prev = NULL;
+        uint32_t mask = ntohl(0xffffff00);
+
+        pthread_mutex_init(&addrlist_lock, NULL);
+
+        /* add the items in the stopset, so they are probably only done once */
+        for ( stop = probelist.stopset; stop != NULL; stop = stop->next ) {
+            if ( stop->addr ) {
+                if ( prev != NULL &&
+                        compare_addresses(prev, stop->addr, mask) != 0 ) {
+                    amp_resolve_add(vars.ctx, &addrlist, &addrlist_lock,
+                            reverse_address(buffer, stop->addr), AF_TEXT, -1,
+                            &remaining);
+                } else {
+                    printf("SKIPPING DUP\n");
+                }
+                prev = stop->addr;
+            }
+        }
+
+        /* XXX we probably don't need to do *every* item, lots of duplicates */
+        for ( item = probelist.done; item != NULL; item = item->next ) {
+            for ( i = 6; i < item->path_length; i++ ) {
+                if ( item->hop[i].addr ) {
+                    if ( prev != NULL &&
+                            compare_addresses(prev, item->hop[i].addr->ai_addr,
+                                mask) != 0 ) {
+                        amp_resolve_add(vars.ctx, &addrlist, &addrlist_lock,
+                                reverse_address(buffer,
+                                    item->hop[i].addr->ai_addr),
+                                AF_TEXT, -1, &remaining);
+                    } else {
+                        printf("SKIPPING DUP2\n");
+                    }
+                    prev = item->hop[i].addr->ai_addr;
+                }
+            }
+        }
+
+        /* wait for all the responses to come in */
+        amp_resolve_wait(vars.ctx, &addrlist_lock, &remaining);
+
+        /* match up the AS numbers to the IP addresses */
+        for ( item = probelist.done; item != NULL; item = item->next ) {
+            for ( i = 0; i < item->path_length; i++ ) {
+                if ( item->hop[i].addr ) {
+                    item->hop[i].as =
+                        find_as_number(addrlist, item->hop[i].addr->ai_addr);
+                }
+            }
+        }
+/*
+        for ( rp=addrlist; rp != NULL; rp=rp->ai_next ) {
+            printf("AS: %d (%s)\n", rp->ai_protocol, rp->ai_canonname);
+            printf("%d\n", ((struct sockaddr_in*)rp->ai_addr)->sin_addr.s_addr);
+        }
+*/
+    }
+
+#if 0
+    {
+	struct addrinfo *tmp;
+        int resolver_fd;
+        resolve_dest_t foo;
+        struct addrinfo *addrlist = NULL;
+
+        /* connect to the local amp resolver/cache */
+        if ( (resolver_fd = amp_resolver_connect(vars.nssock)) < 0 ) {
+            Log(LOG_ALERT, "TODO tidy up nicely after failing resolving");
+            assert(0);
+        }
+
+        /* add all the names that we need to resolve */
+        /*
+        for ( resolve=item->resolve; resolve != NULL; resolve=resolve->next ) {
+            amp_resolve_add_new(resolver_fd, resolve);
+        }
+        */
+        foo.family = AF_TEXT;
+        foo.name = "130.217.250.13";
+        foo.count = 1;
+        printf("looking up AS for %s\n", foo.name);
+        amp_resolve_add_new(resolver_fd, &foo);
+
+        /* get the list of all the addresses the names resolved to (blocking) */
+        addrlist = amp_resolve_get_list(resolver_fd);
+
+        /* create the destination list from all the resolved addresses */
+        /*
+        for ( tmp = addrlist; tmp != NULL; tmp = tmp->ai_next ) {
+            destinations = realloc(destinations,
+                    (item->dest_count + total_resolve_count + 1) *
+                    sizeof(struct addrinfo));
+            destinations[item->dest_count + total_resolve_count] = tmp;
+            total_resolve_count++;
+        }
+        */
+    }
+#endif
+
+
+
     /* send report */
     report_results(&start_time, count, probelist.done, &options);
 
@@ -1621,11 +1797,15 @@ void print_traceroute(void *data, uint32_t len) {
 
         /* per-hop information for this path */
         for ( hopcount = 0; hopcount < path->length; hopcount++ ) {
-           hop = (struct traceroute_report_hop_t*)(data + offset);
-           offset += sizeof(struct traceroute_report_hop_t);
+            hop = (struct traceroute_report_hop_t*)(data + offset);
+            offset += sizeof(struct traceroute_report_hop_t);
 
-           inet_ntop(path->family, hop->address, addrstr, INET6_ADDRSTRLEN);
-           printf(" %.2d  %s %dus\n", hopcount+1, addrstr, ntohl(hop->rtt));
+            inet_ntop(path->family, hop->address, addrstr, INET6_ADDRSTRLEN);
+            printf(" %.2d  %s", hopcount+1, addrstr);
+            if ( header->as ) {
+                printf(" (AS%d)", ntohl(hop->as));
+            }
+            printf(" %dus\n", ntohl(hop->rtt));
         }
     }
     printf("\n");
