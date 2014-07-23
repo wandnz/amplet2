@@ -2,7 +2,7 @@
 .\" First parameter, NAME, should be all caps
 .\" Second parameter, SECTION, should be 1-8, maybe w/ subsection
 .\" other parameters are allowed: see man(7), man(1)
-.TH AMP-DNS 8 "Jul 24, 2014" "amplet2-client" "The Active Measurement Project"
+.TH AMP-TCPPING 8 "Jul 24, 2014" "amplet2-client" "The Active Measurement Project"
 .\" Please adjust this date whenever revising the manpage.
 .\"
 .\" Some roff macros, for reference:
@@ -16,24 +16,24 @@
 .\" .sp <n>    insert n+1 empty lines
 .\" for manpage-specific macros, see man(7)
 .SH NAME
-amp-dns \- AMP standalone DNS lookup test
+amp-tcpping \- AMP standalone TCP SYN latency test
 .SH SYNOPSIS
-\fBamp-dns\fR [\fB-hnrsx\fR] [\fB-p \fImilliseconds\fB\fR] [\fB-t \fItype\fB\fR] [\fB-c \fIclass\fB\fR] [\fB-z \fIsize\fB\fR] [\fB-I \fIiface\fB\fR] [\fB-4 \fIaddress\fB\fR] [\fB-6 \fIaddress\fB\fR] \fB-q \fIquery\fB\fR -- \fIdestination1\fR [\fIdestination2\fR \fI...\fR]
+\fBamp-tcpping\fR [\fB-hrx\fR] [\fB-P \fIportnumber\fB\fR] [\fB-p \fImilliseconds\fB\fR] [\fB-s \fIpacketsize\fB\fR] [\fB-I \fIiface\fB\fR] [\fB-4 \fIaddress\fB\fR] [\fB-6 \fIaddress\fB\fR] -- \fIdestination1\fR [\fIdestination2\fR \fI...\fR]
 .SH DESCRIPTION
 .\" TeX users may be more comfortable with the \fB<whatever>\fP and
 .\" \fI<whatever>\fP escape sequences to invode bold face and italics,
 .\" respectively.
-\fBamp-dns\fP is the standalone version of the \fBamplet2\fP(8)
-DNS lookup test. It is very similar in function to \fBdig\fR(1),
-except that it can
-test to multiple destinations simultaneously. All destinations listed on the
-command line will be tested to. Any destinations that are hostnames will be
-resolved, and every address that they resolve to will be tested.
+\fBamp-tcpping\fP is the standalone version of the \fBamplet2\fP(8)
+TCP Ping test. It attempts to measure latency by sending a TCP SYN packet
+to a destination and waiting for a response (which might be a SYN ACK, a RST
+or an ICMP error). This test is particularly useful for measuring latency
+for paths where ICMP is blocked or rate-limited. Like the AMP ICMP test, this
+test can measure latency for multiple destinations simultaneously. All 
+destinations listed on the command line will be tested to. Any destinations
+that are hostnames will be resolved and every address that the name resolves
+to will be tested.
+
 .SH OPTIONS
-.TP
-\fB-c, --class \fIclass\fB\fR
-Specifies the class of record that should be queried. Accepts the decimal
-value of any valid class, or IN for Internet. The default is IN.
 .TP
 \fB-h, --help\fR
 Show summary of options.
@@ -42,35 +42,25 @@ Show summary of options.
 Specifies the interface (device) that tests should use when sending packets.
 By default the interface will be selected according to the routing table.
 .TP
-\fB-n, --nsid\fR
-Include an EDNS name server ID request when sending the query. Off by default.
+\fB-P, --port \fIportnumber\fB\fR
+The destination port number to send the SYN packets to. The default port 
+number is 80 (i.e. the www port).
 .TP
 \fB-p, --perturbate \fImilliseconds\fB\fR
 Delay the test by a random number of milliseconds, up to a maximum of \fImilliseconds\fR. The default is to not perturbate tests (no delay).
 .TP
-\fB-q, --query \fIquery\fB\fR
-The query name to ask the server about.
+\fB-r, --random\fR
+Use a random packet size for each test.
 .TP
-\fB-r, --recurse\fR
-Enable recursion for this query. Off by default.
-.TP
-\fB-s, --dnssec\fR
-Request that DNSSEC records be sent. Off by default.
-.TP
-\fB-t, --type \fItype\fB\fR
-Specifies the type of record that should be queried. Accepts the decimal
-value of any valid type, or one of A, NS, AAAA, PTR, MX, SOA, ANY.
-The default is A.
+\fB-s, --size \fIpacketsize\fB\fR
+Specifies the total number of bytes to be sent per packet (including headers).
+The default is 84 bytes.
 .TP
 \fB-v, --version\fR
 Show version of program.
 .TP
 \fB-x, --debug\fR
 Enable extra debugging output.
-.TP
-\fB-z, --payload \fIsize\fB\fR
-Specifies the UDP payload buffer size for DNSSEC or NSID messages. The default
-is 4096.
 .TP
 \fB-4, --ipv4 \fIa.b.c.d\fB\fR
 Specifies the source IPv4 address that tests should use when sending packets to
@@ -86,12 +76,16 @@ By default the IPv6 address of the outgoing interface will be used.
 .BR amplet2 (8),
 .BR amp-icmp (8),
 .BR amp-trace (8),
+.BR amp-dns (8),
 .BR amp-throughput (8),
-.BR amp-http (8),
-.BR amp-tcpping (8).
+.BR amp-http (8).
+
+.SH SECURITY
+\fBamp-tcpping\fR requires raw socket access to run.
+.\" CAP_NET_RAWIO, see man ping
 
 .SH AUTHOR
-amp-dns was written by Brendon Jones <brendonj@waikato.ac.nz>.
+amp-tcpping was written by Shane Alcock <salcock@waikato.ac.nz>.
 .PP
-This manual page was written by Brendon Jones <brendonj@waikato.ac.nz>,
+This manual page was written by Shane Alcock <salcock@waikato.ac.nz>,
 for the Debian project (and may be used by others).
