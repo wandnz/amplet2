@@ -189,6 +189,21 @@ AC_ARG_ENABLE(throughput,
 AM_CONDITIONAL(WANT_THROUGHPUT_TEST,
 	[test x"$want_throughput_test" = xtrue])
 
+AC_ARG_ENABLE(tcpping,
+    AC_HELP_STRING([--enable-tcpping],
+	[Enable the tcpping test (default: yes)]),
+    [case "${enableval}" in
+    true) ;&
+    yes) want_tcpping_test=true ;;
+    false) ;&
+    no)	 want_tcpping_test=false ;;
+    *) AC_MSG_ERROR(bad value ${enableval} for --enable-tcpping) ;;
+    esac],
+    [want_tcpping_test=true])
+# using AM_CONDITIONAL propagates this value through to all Makefile.am files
+AM_CONDITIONAL(WANT_TCPPING_TEST,
+	[test x"$want_tcpping_test" = xtrue])
+
 AC_ARG_ENABLE(http,
     AC_HELP_STRING([--enable-http],
 	[Enable the http test (default: yes)]),
@@ -232,6 +247,7 @@ AC_CONFIG_FILES([Makefile
                  src/tests/dns/test/Makefile
                  src/tests/traceroute/Makefile
                  src/tests/traceroute/test/Makefile
+                 src/tests/tcpping/Makefile
                  src/tests/http/Makefile
                  src/tests/throughput/Makefile
                  src/tests/throughput/test/Makefile
@@ -255,3 +271,4 @@ reportopt "Compiled with icmp test support" $want_icmp_test
 reportopt "Compiled with dns test support" $want_dns_test
 reportopt "Compiled with http test support" $want_http_test
 reportopt "Compiled with throughput test support" $want_throughput_test
+reportopt "Compiled with tcpping test support" $want_tcpping_test

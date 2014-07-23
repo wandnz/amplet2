@@ -18,6 +18,7 @@ typedef enum {
     AMP_TEST_TRACEROUTE,
     AMP_TEST_HTTP,
     AMP_TEST_THROUGHPUT,
+    AMP_TEST_TCPPING,
     AMP_TEST_REMOTE_SKELETON,
     AMP_TEST_LAST,
 } test_type_t;

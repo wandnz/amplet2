@@ -24,6 +24,10 @@ if WANT_THROUGHPUT_TEST
 SUBDIRS+=throughput
 endif
 
+if WANT_TCPPING_TEST
+SUBDIRS+=tcpping
+endif
+
 if WANT_PYTHON
 SUBDIRS+=python
 endif
