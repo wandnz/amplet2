@@ -204,6 +204,13 @@ AC_ARG_ENABLE(tcpping,
 AM_CONDITIONAL(WANT_TCPPING_TEST,
 	[test x"$want_tcpping_test" = xtrue])
 
+if test x"$want_tcpping_test" = xtrue; then
+    AC_CHECK_LIB([pcap], [pcap_next],pcap_found=1,pcap_found=0)
+    if test "$pcap_found" = 0; then
+       AC_MSG_ERROR(libpcap is required for tcpping but not found; use LDFLAGS to specify library location or disable tcpping test by setting --enable-tcpping=no)
+    fi
+fi
+
 AC_ARG_ENABLE(http,
     AC_HELP_STRING([--enable-http],
 	[Enable the http test (default: yes)]),

@@ -53,8 +53,8 @@ struct tcppingglobals {
     char *device;
     int outstanding;
 
-    wand_timer_t *nextpackettimer;
-    wand_timer_t *losstimer;
+    struct wand_timer_t *nextpackettimer;
+    struct wand_timer_t *losstimer;
 };
 
 
