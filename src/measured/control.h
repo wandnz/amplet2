@@ -13,6 +13,8 @@
 
 int initialise_control_socket(struct socket_t *sockets, char *iface,
         char *ipv4, char *ipv6, char *port);
-void control_establish_callback(struct wand_fdcb_t *handle, enum wand_eventtype_t ev);
+void control_establish_callback(wand_event_handler_t *ev_hdl, int eventfd,
+        __attribute__((unused))void *data,
+        __attribute__((unused))enum wand_eventtype_t ev);
 
 #endif

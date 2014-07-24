@@ -11,8 +11,8 @@ Patch0: amplet2-client-init.patch
 Patch1: amplet2-client-default.patch
 BuildRoot:	%(mktemp -ud %{_tmppath}/%{name}-%{version}-%{release}-XXXXXX)
 
-BuildRequires: openssl-devel libconfuse-devel libwandevent-devel libcurl-devel unbound-devel
-Requires: rabbitmq-server >= 3.1.5 librabbitmq-amp >= 0.4.0 libwandevent unbound-libs
+BuildRequires: openssl-devel libconfuse-devel libwandevent-devel >= 3.0.0 libcurl-devel unbound-devel
+Requires: rabbitmq-server >= 3.1.5 librabbitmq-amp >= 0.4.0 libwandevent >= 3.0.0 unbound-libs
 
 %description
 This package contains the client tools for the AMP Measurement Suite.
@@ -24,7 +24,7 @@ one or more rabbitmq brokers via the AMQP protocol.
 %package lite
 Summary: AMP client tools without a local rabbitmq broker
 Group: Applications/Internet
-Requires: librabbitmq-amp >= 0.4.0 libwandevent
+Requires: librabbitmq-amp >= 0.4.0 libwandevent >= 3.0.0
 
 %description lite
 AMP client tools without a local rabbitmq broker

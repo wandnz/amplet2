@@ -189,16 +189,17 @@ int initialise_resolver_socket(char *path) {
  * Accept a new connection on the local name resolution socket and spawn
  * a new thread to deal with the queries from the test process.
  */
-void resolver_socket_event_callback(struct wand_fdcb_t *handle,
-        __attribute__((unused))enum wand_eventtype_t ev) {
+void resolver_socket_event_callback(
+        __attribute__((unused))wand_event_handler_t *ev_hdl, int eventfd,
+        void *data, __attribute__((unused))enum wand_eventtype_t ev) {
 
     int fd;
     pthread_t thread;
-    struct amp_resolve_info *data;
+    struct amp_resolve_info *info;
 
     Log(LOG_DEBUG, "Accepting for new resolver connection");
 
-    if ( (fd = accept(handle->fd, NULL, NULL)) < 0 ) {
+    if ( (fd = accept(eventfd, NULL, NULL)) < 0 ) {
         Log(LOG_WARNING, "Failed to accept for name resolution: %s",
                 strerror(errno));
         return;
@@ -206,11 +207,11 @@ void resolver_socket_event_callback(struct wand_fdcb_t *handle,
 
     Log(LOG_DEBUG, "Accepted new resolver connection on fd %d", fd);
 
-    data = calloc(1, sizeof(struct amp_resolve_info));
-    data->ctx = handle->data;
-    data->fd = fd;
+    info = calloc(1, sizeof(struct amp_resolve_info));
+    info->ctx = data;
+    info->fd = fd;
 
     /* create the thread and detach, we don't need to look after it */
-    pthread_create(&thread, NULL, amp_resolver_worker_thread, data);
+    pthread_create(&thread, NULL, amp_resolver_worker_thread, info);
     pthread_detach(thread);
 }
