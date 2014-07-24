@@ -459,16 +459,13 @@ static int enqueue_next_pending(struct probe_list_t *probelist) {
 /*
  *
  */
-static int compare_addresses(struct sockaddr *a, struct sockaddr *b, int len) {
-    uint32_t mask;
-
+static int compare_addresses(const struct sockaddr *a,
+        const struct sockaddr *b, int len) {
     if ( a == NULL || b == NULL ) {
-        printf("null address\n");
         return -1;
     }
 
     if ( a->sa_family != b->sa_family ) {
-        printf("different family\n");
         return (a->sa_family > b->sa_family) ? 1 : -1;
     }
 
@@ -476,12 +473,9 @@ static int compare_addresses(struct sockaddr *a, struct sockaddr *b, int len) {
         struct sockaddr_in *a4 = (struct sockaddr_in*)a;
         struct sockaddr_in *b4 = (struct sockaddr_in*)b;
         if ( len > 0 ) {
-            mask = ntohl(0xffffffff << len);
-            printf("mask: %d\n", mask);
-            printf("%d vs %d = %d vs %d\n", a4->sin_addr.s_addr,
-                    b4->sin_addr.s_addr, a4->sin_addr.s_addr & mask,
-                    b4->sin_addr.s_addr & mask);
-            if ( (a4->sin_addr.s_addr & mask) == (b4->sin_addr.s_addr & mask) ){
+            uint32_t mask = ntohl(0xffffffff << len);
+            if ( (a4->sin_addr.s_addr & mask) ==
+                    (b4->sin_addr.s_addr & mask) ) {
                 return 0;
             }
             return ((a4->sin_addr.s_addr & mask) >
@@ -493,6 +487,28 @@ static int compare_addresses(struct sockaddr *a, struct sockaddr *b, int len) {
     if ( a->sa_family == AF_INET6 ) {
         struct sockaddr_in6 *a6 = (struct sockaddr_in6*)a;
         struct sockaddr_in6 *b6 = (struct sockaddr_in6*)b;
+        if ( len > 0 ) {
+            uint32_t mask[4];
+            int i;
+            for ( i = 0; i < 4; i++ ) {
+                if ( len >= ((i + 1) * 32) ) {
+                    mask[i] = 0xffffffff;
+                } else if ( len < ((i + 1) * 32) && len > (i * 32) ) {
+                    mask[i] = ntohl(0xffffffff << (((i + 1) * 32) - len));
+                } else {
+                    mask[i] = 0;
+                }
+            }
+
+            for ( i = 0; i < 4; i++ ) {
+                if ( (a6->sin6_addr.s6_addr32[i] & mask[i]) !=
+                        (b6->sin6_addr.s6_addr32[i] & mask[i]) ) {
+                    return ((a6->sin6_addr.s6_addr32[i] & mask[i]) >
+                            (b6->sin6_addr.s6_addr32[i] & mask[i])) ? 1 : -1;
+                }
+            }
+            return 0;
+        }
         return memcmp(&a6->sin6_addr, &b6->sin6_addr, sizeof(struct in6_addr));
     }
 
@@ -1045,8 +1061,24 @@ static char *reverse_address(char *buffer, const struct sockaddr *addr) {
             printf("reversed: %s\n", buffer);
         } break;
 
-        case AF_INET6: break;
-        default: break;
+        case AF_INET6: {
+            struct in6_addr *ipv6 = &((struct sockaddr_in6*)addr)->sin6_addr;
+            snprintf(buffer,
+                    INET6_ADDRSTRLEN + strlen(".origin6.asn.cymru.com"),
+                    "%x.%x.%x.%x.%x.%x.%x.%x.%x.%x.%x.%x.%x.%x.%x.%x.%s",
+                    ipv6->s6_addr[7] & 0x0f, (ipv6->s6_addr[7] & 0xf0) >> 4,
+                    ipv6->s6_addr[6] & 0x0f, (ipv6->s6_addr[6] & 0xf0) >> 4,
+                    ipv6->s6_addr[5] & 0x0f, (ipv6->s6_addr[5] & 0xf0) >> 4,
+                    ipv6->s6_addr[4] & 0x0f, (ipv6->s6_addr[4] & 0xf0) >> 4,
+                    ipv6->s6_addr[3] & 0x0f, (ipv6->s6_addr[3] & 0xf0) >> 4,
+                    ipv6->s6_addr[2] & 0x0f, (ipv6->s6_addr[2] & 0xf0) >> 4,
+                    ipv6->s6_addr[1] & 0x0f, (ipv6->s6_addr[1] & 0xf0) >> 4,
+                    ipv6->s6_addr[0] & 0x0f, (ipv6->s6_addr[0] & 0xf0) >> 4,
+                    "origin6.asn.cymru.com");
+            printf("reversed: %s\n", buffer);
+        } break;
+
+        default: return NULL;
     };
 
     return buffer;
@@ -1586,40 +1618,47 @@ int run_traceroute(int argc, char *argv[], int count, struct addrinfo **dests) {
         char buffer[INET6_ADDRSTRLEN + strlen(".origin.asn.cymru.com")];
         pthread_mutex_t addrlist_lock;
         int remaining = 0;
-        struct addrinfo *addrlist = NULL, *rp;
+        struct addrinfo *addrlist = NULL;
         struct sockaddr *prev = NULL;
-        uint32_t mask = ntohl(0xffffff00);
+        int masklen;
 
         pthread_mutex_init(&addrlist_lock, NULL);
 
         /* add the items in the stopset, so they are probably only done once */
+        /* XXX checking previous item only helps prevent some duplicates */
         for ( stop = probelist.stopset; stop != NULL; stop = stop->next ) {
             if ( stop->addr ) {
-                if ( prev != NULL &&
-                        compare_addresses(prev, stop->addr, mask) != 0 ) {
+                if ( stop->addr->sa_family == AF_INET ) {
+                    masklen = 24;
+                } else {
+                    masklen = 64;
+                }
+                if ( prev == NULL ||
+                        compare_addresses(prev, stop->addr, masklen) != 0 ) {
                     amp_resolve_add(vars.ctx, &addrlist, &addrlist_lock,
                             reverse_address(buffer, stop->addr), AF_TEXT, -1,
                             &remaining);
-                } else {
-                    printf("SKIPPING DUP\n");
                 }
                 prev = stop->addr;
             }
         }
 
-        /* XXX we probably don't need to do *every* item, lots of duplicates */
+        /* XXX checking previous item only helps prevent some duplicates */
         for ( item = probelist.done; item != NULL; item = item->next ) {
             for ( i = 6; i < item->path_length; i++ ) {
                 if ( item->hop[i].addr ) {
-                    if ( prev != NULL &&
+                    if ( item->hop[i].addr->ai_family == AF_INET ) {
+                        masklen = 24;
+                    } else {
+                        masklen = 64;
+                    }
+                    if ( prev == NULL ||
                             compare_addresses(prev, item->hop[i].addr->ai_addr,
-                                mask) != 0 ) {
+                                masklen) != 0 ) {
                         amp_resolve_add(vars.ctx, &addrlist, &addrlist_lock,
                                 reverse_address(buffer,
                                     item->hop[i].addr->ai_addr),
                                 AF_TEXT, -1, &remaining);
-                    } else {
-                        printf("SKIPPING DUP2\n");
                     }
                     prev = item->hop[i].addr->ai_addr;
                 }
@@ -1638,12 +1677,8 @@ int run_traceroute(int argc, char *argv[], int count, struct addrinfo **dests) {
                 }
             }
         }
-/*
-        for ( rp=addrlist; rp != NULL; rp=rp->ai_next ) {
-            printf("AS: %d (%s)\n", rp->ai_protocol, rp->ai_canonname);
-            printf("%d\n", ((struct sockaddr_in*)rp->ai_addr)->sin_addr.s_addr);
-        }
-*/
+
+        amp_resolve_freeaddr(addrlist);
     }
 
 #if 0
