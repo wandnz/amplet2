@@ -191,17 +191,15 @@ static void process_options(struct tcppingglobals *tcpping) {
 
     /* pick a random packet size within allowable boundaries */
     if ( tcpping->options.random ) {
-        tcpping->options.packet_size = MIN_PACKET_LEN +
-            (int)((1500 - MIN_PACKET_LEN) * (random()/(RAND_MAX+1.0)));
-        Log(LOG_DEBUG, "Setting packetsize to random value: %d\n",
+        tcpping->options.packet_size = 
+            (int)(1400 * (random()/(RAND_MAX+1.0)));
+        Log(LOG_DEBUG, "Setting packetsize to random value: %d",
                 tcpping->options.packet_size);
     }
 
-    /* make sure that the packet size is big enough for our data */
-    if ( tcpping->options.packet_size < MIN_PACKET_LEN ) {
-        Log(LOG_WARNING, "Packet size %d below minimum size, raising to %d",
-                tcpping->options.packet_size, MIN_PACKET_LEN);
-        tcpping->options.packet_size = MIN_PACKET_LEN;
+    if ( tcpping->options.packet_size > 1400) {
+        Log(LOG_DEBUG, "Requested payload too large, limiting to 1400 bytes");
+        tcpping->options.packet_size = 1400;
     }
 
     /* delay the start by a random amount of perturbate is set */
@@ -257,7 +255,7 @@ static uint16_t tcp_checksum(uint16_t *packet, uint16_t *pseudo,
 }
 
 static int set_tcp_checksum(struct tcphdr *tcp, int packet_size,
-        int iplen, struct sockaddr *srcaddr, struct addrinfo *destaddr) {
+        struct sockaddr *srcaddr, struct addrinfo *destaddr) {
 
     struct pseudotcp_ipv4 pseudov4;
     struct pseudotcp_ipv6 pseudov6;
@@ -271,7 +269,7 @@ static int set_tcp_checksum(struct tcphdr *tcp, int packet_size,
 
         pseudov4.zero = 0;
         pseudov4.protocol = 6;
-        pseudov4.length = htons(packet_size - iplen);
+        pseudov4.length = htons(packet_size);
 
         pseudo = (char *)&pseudov4;
         pseudolen = sizeof(pseudov4);
@@ -282,7 +280,7 @@ static int set_tcp_checksum(struct tcphdr *tcp, int packet_size,
         memcpy(pseudov6.daddr, 
                 ((struct sockaddr_in6 *)destaddr->ai_addr)->sin6_addr.s6_addr,
                 sizeof(struct in6_addr));
-        pseudov6.length = htonl(packet_size - iplen);
+        pseudov6.length = htonl(packet_size);
         pseudov6.zero_1 = 0;
         pseudov6.zero_2 = 0;
         pseudov6.next = 6;
@@ -296,38 +294,13 @@ static int set_tcp_checksum(struct tcphdr *tcp, int packet_size,
     }
 
     tcp->check = tcp_checksum((uint16_t *)tcp, (uint16_t *)pseudo, 
-            pseudolen, packet_size - iplen);
+            pseudolen, packet_size);
 
     return 1;
 }
 
-static int craft_tcp_reset(struct tcppingglobals *tp, char *packet, 
-        uint16_t srcport, int iplen, struct sockaddr *srcaddr,
-        struct addrinfo *destaddr, uint32_t seq) {
-
-    struct tcphdr *tcp;
-    tcp = (struct tcphdr *)packet;
-    tcp->source = htons(srcport);
-    tcp->dest = htons(tp->options.port);
-    tcp->seq = ntohl(seq);
-    tcp->ack_seq = 0;
-    tcp->doff = 5;
-    tcp->urg = 0;
-    tcp->ack = 0;
-    tcp->psh = 0;
-    tcp->rst = 1;
-    tcp->syn = 0;
-    tcp->fin = 0;
-    tcp->window = htons(6666);
-    tcp->check = 0;
-    tcp->urg_ptr = 0;
-
-    return set_tcp_checksum(tcp, tp->options.packet_size, iplen, srcaddr, 
-            destaddr);
-}
-
 static int craft_tcp_syn(struct tcppingglobals *tp, char *packet, 
-        uint16_t srcport, int iplen, struct sockaddr *srcaddr,
+        uint16_t srcport, int packet_size, struct sockaddr *srcaddr,
         struct addrinfo *destaddr) {
 
     struct tcphdr *tcp;
@@ -351,10 +324,9 @@ static int craft_tcp_syn(struct tcppingglobals *tp, char *packet,
     mss = (struct tcpmssoption *)(packet + sizeof(struct tcphdr));
     mss->mssopt = 2;
     mss->msssize = 4;
-    mss->mssvalue = 536;
+    mss->mssvalue = htons(536);
 
-    return set_tcp_checksum(tcp, tp->options.packet_size, iplen, srcaddr, 
-            destaddr);
+    return set_tcp_checksum(tcp, packet_size, srcaddr,  destaddr);
 }
 
 /* Given a TCP header from a response packet, find the index of the
@@ -374,7 +346,7 @@ static inline int match_response(struct tcppingglobals *tp,
      * at a copy of the packet we originally sent.
      */
     if (istcp)
-        destid = (ntohl(tcp->ack) - tp->seqindex);
+        destid = (ntohl(tcp->ack_seq) - tp->seqindex) - 1;
     else
         destid = (ntohl(tcp->seq) - tp->seqindex);
 
@@ -391,50 +363,6 @@ static inline int match_response(struct tcppingglobals *tp,
     }
 
     return destid;
-}
-
-static void send_reset(struct tcppingglobals *tp, int destindex, uint32_t seq) {
-    char packet[tp->options.packet_size];
-    int bytes_sent;
-    struct addrinfo *dest = NULL;
-    uint16_t srcport;
-    int sock;
-    struct sockaddr *srcaddr;
-    int iplen;
-
-    assert(destindex < tp->destcount);
-    dest = tp->dests[destindex];
-    srcaddr = (struct sockaddr *)&(tp->info[destindex].source);
-
-    if (dest->ai_family == AF_INET) {
-        srcport = tp->sourceportv4;
-        sock = tp->raw_sockets.socket;
-        iplen = sizeof(struct iphdr);
-    }
-    else if (dest->ai_family == AF_INET6) {
-        srcport = tp->sourceportv6;
-        sock = tp->raw_sockets.socket6;
-        iplen = sizeof(struct ip6_hdr);
-    } else {
-        Log(LOG_WARNING, "Trying to send RST to an unsupported family?");
-        return;
-    }
-
-    /* Form a TCP SYN packet */
-    if (craft_tcp_reset(tp, packet, srcport, iplen, srcaddr, dest, seq) < 0) {
-        Log(LOG_WARNING, "Error while crafting TCP RST packet");
-        return;
-    }
-
-    /* Send the packet */
-    bytes_sent = sendto(sock, packet, sizeof(packet) - iplen, 0, dest->ai_addr,
-            dest->ai_addrlen);
-    
-    /* TODO Handle partial sends and error cases better */
-    if ( bytes_sent != (int)(sizeof(packet) - iplen) ) {
-        Log(LOG_DEBUG, "TCPPing RST: only sent %d of %d bytes", bytes_sent, 
-                sizeof(packet) - iplen);
-    }
 }
 
 static void process_tcp_response(struct tcppingglobals *tp, struct tcphdr *tcp,
@@ -466,10 +394,6 @@ static void process_tcp_response(struct tcppingglobals *tp, struct tcphdr *tcp,
             tp->info[destid].replyflags += 0x01;
 
         tp->outstanding --;
-
-        /* Send a RST so that the other end isn't stuck holding open a 
-         * connection for us */
-        send_reset(tp, destid, ntohl(tcp->ack));
 
     }
 }
@@ -569,17 +493,18 @@ static void receive_packet(wand_event_handler_t *ev_hdl,
 
     struct pcapdevice *p = (struct pcapdevice *)evdata;
     struct tcppingglobals *tp = (struct tcppingglobals *)p->callbackdata;
-    int rem = 0;
     struct pcaptransport transport;
 
     assert(fd > 0);
     assert(ev == EV_READ);
 
     transport = pcap_transport_header(p);
-    if (transport.header == NULL || rem <= 0)
+    if (transport.header == NULL || transport.remaining <= 0)
         return;
 
+
     if (transport.protocol == 6) {
+        Log(LOG_DEBUG, "Received TCP packet on pcap device");
         process_tcp_response(tp, (struct tcphdr *)transport.header,
                 transport.remaining, transport.ts);
     }
@@ -610,10 +535,10 @@ static void send_packet(wand_event_handler_t *ev_hdl,
     struct tcppingglobals *tp = (struct tcppingglobals *)evdata;
     struct addrinfo *dest = NULL;
     uint16_t srcport;
-    char packet[tp->options.packet_size];
+    int packet_size = sizeof(struct tcphdr) + 4 + tp->options.packet_size;
+    char packet[packet_size];
     int bytes_sent;
     int sock;
-    int iplen;
     struct timeval tv;
     struct sockaddr *srcaddr;
 
@@ -627,12 +552,10 @@ static void send_packet(wand_event_handler_t *ev_hdl,
     if (dest->ai_family == AF_INET) {
         srcport = tp->sourceportv4;
         sock = tp->raw_sockets.socket;
-        iplen = sizeof(struct iphdr);
     }
     else if (dest->ai_family == AF_INET6) {
         srcport = tp->sourceportv6;
         sock = tp->raw_sockets.socket6;
-        iplen = sizeof(struct ip6_hdr);
     } else {
         Log(LOG_WARNING, "Unknown address family: %d", dest->ai_family);
         goto nextdest;
@@ -654,7 +577,7 @@ static void send_packet(wand_event_handler_t *ev_hdl,
     }
 
     /* Form a TCP SYN packet */
-    if (craft_tcp_syn(tp, packet, srcport, iplen, srcaddr, dest) < 0) {
+    if (craft_tcp_syn(tp, packet, srcport, packet_size, srcaddr, dest) < 0) {
         Log(LOG_WARNING, "Error while crafting TCP packet for TCPPing test");
         goto nextdest;
     }
@@ -674,13 +597,13 @@ static void send_packet(wand_event_handler_t *ev_hdl,
     tp->info[tp->destindex].icmpcode = 0;
 
     /* Send the packet */
-    bytes_sent = sendto(sock, packet, sizeof(packet) - iplen, 0, dest->ai_addr,
+    bytes_sent = sendto(sock, packet, packet_size, 0, dest->ai_addr,
             dest->ai_addrlen);
     
     /* TODO Handle partial sends and error cases better */
-    if ( bytes_sent != (int)(sizeof(packet) - iplen) ) {
+    if ( bytes_sent != packet_size ) {
         Log(LOG_DEBUG, "TCPPing: only sent %d of %d bytes", bytes_sent, 
-                sizeof(packet) - iplen);
+                packet_size);
     } else {
         tp->outstanding ++;
     }
@@ -719,7 +642,6 @@ static void report_results(struct timeval *start_time, int count,
 
     header = (struct tcpping_report_header_t *) buffer;
     header->version = htonl(AMP_TCPPING_TEST_VERSION);
-    header->packet_size = htons(opt->packet_size);
     header->port = htons(opt->port);
     header->random = opt->random;
     header->count = count;
@@ -755,12 +677,14 @@ static void report_results(struct timeval *start_time, int count,
                         &((struct sockaddr_in*)
                             info[i].addr->ai_addr)->sin_addr,
                         sizeof(struct in_addr));
+                item->packet_size = sizeof(struct iphdr);
                 break;
             case AF_INET6:
                 memcpy(item->address,
                         &((struct sockaddr_in6*)
                             info[i].addr->ai_addr)->sin6_addr,
                         sizeof(struct in6_addr));
+                item->packet_size = sizeof(struct ip6_hdr);
                 break;
             default:
                 Log(LOG_WARNING, "Unknown address family %d\n", item->family);
@@ -768,6 +692,8 @@ static void report_results(struct timeval *start_time, int count,
                 break;
         };
 
+        item->packet_size += sizeof(struct tcphdr) + opt->packet_size;
+        item->packet_size = htons(item->packet_size);
         item->namelen = strlen(ampname) + 1;
         len += sizeof(struct tcpping_report_item_t);
         
@@ -803,7 +729,7 @@ static void usage(char *prog) {
     fprintf(stderr, "  -P, --port                 The port number to probe on the target host\n");
     fprintf(stderr, "  -r, --random               Use a random packet size for each test\n");
     fprintf(stderr, "  -p, --perturbate <ms>      Maximum number of milliseconds to delay test\n");
-    fprintf(stderr, "  -s, --size       <bytes>   Fixed packet size to use for each test\n");
+    fprintf(stderr, "  -s, --size       <bytes>   Amount of additional payload to append to the SYN\n");
     fprintf(stderr, "  -I, --interface  <iface>   Source interface name\n");
     fprintf(stderr, "  -4, --ipv4       <address> Source IPv4 address\n");
     fprintf(stderr, "  -6, --ipv6       <address> Source IPv6 address\n");
@@ -828,7 +754,7 @@ int run_tcpping(int argc, char *argv[], int count, struct addrinfo **dests) {
     globals = (struct tcppingglobals *)malloc(sizeof(struct tcppingglobals));
 
     /* Set defaults before processing options */
-    globals->options.packet_size = DEFAULT_TCPPING_SYN_LENGTH;
+    globals->options.packet_size = 0;
     globals->options.random = 0;
     globals->options.perturbate = 0;
     globals->options.port = 80;  /* Default to testing port 80 */
@@ -879,15 +805,19 @@ int run_tcpping(int argc, char *argv[], int count, struct addrinfo **dests) {
     globals->destcount = count;
     globals->outstanding = 0;
     globals->dests = dests;
+    globals->nextpackettimer = NULL;
+    globals->losstimer = NULL;
 
     /* Send a SYN to our first destination. This will setup a timer callback
      * for sending the next packet and a fd callback for any response.
      */
-    send_packet(ev_hdl, globals);
-    globals->losstimer = wand_add_timer(ev_hdl, LOSS_TIMEOUT, 0, globals,
-            halt_test);
+    if (count > 0) {
+        send_packet(ev_hdl, globals);
+        globals->losstimer = wand_add_timer(ev_hdl, LOSS_TIMEOUT, 0, globals,
+                halt_test);
 
-    wand_event_run(ev_hdl);
+        wand_event_run(ev_hdl);
+    }
 
     if ( globals->losstimer ) {
         wand_del_timer(ev_hdl, globals->losstimer);
@@ -930,11 +860,14 @@ void print_tcpping(void *data, uint32_t len) {
     assert(ntohl(header->version) == AMP_TCPPING_TEST_VERSION);
 
     printf("\n");
-    printf("AMP TCPPing test to port %u, %u destinations, %u byte packets ",
-            header->port, header->count, header->packet_size);
+    printf("AMP TCPPing test to port %u, %u destinations",
+            ntohs(header->port), header->count);
     if (header->random) {
         printf("(random size)\n");
+    } else {
+        printf("\n");
     }
+
 
     offset = sizeof(struct tcpping_report_header_t);
 
@@ -951,7 +884,7 @@ void print_tcpping(void *data, uint32_t len) {
 
         if ( ((int32_t)ntohl(item->rtt)) < 0 ) {
             if ( item->reply == 0 ) {
-                printf(" missing");
+                printf(" missing ");
             } else if (item->reply == 2) {
                 printf(" error (%u/%u) ", item->icmptype, item->icmpcode);
             }
@@ -977,7 +910,7 @@ void print_tcpping(void *data, uint32_t len) {
                 printf("ICMP (%u/%u) ", item->icmptype, item->icmpcode);
             }
         }
-        printf("\n"); 
+        printf("%d bytes\n", ntohs(item->packet_size)); 
     }
 
     printf("\n");

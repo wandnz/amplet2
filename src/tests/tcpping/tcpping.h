@@ -102,6 +102,7 @@ struct info_t {
 struct tcpping_report_item_t {
     char address[16];
     int32_t rtt;
+    uint16_t packet_size;
     uint8_t family;
     uint8_t reply;
     uint8_t replyflags;
@@ -112,7 +113,6 @@ struct tcpping_report_item_t {
 
 struct tcpping_report_header_t {
     uint32_t version;
-    uint16_t packet_size;
     uint16_t port;
     uint8_t random;
     uint8_t count;

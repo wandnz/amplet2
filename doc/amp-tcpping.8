@@ -53,8 +53,10 @@ Delay the test by a random number of milliseconds, up to a maximum of \fImillise
 Use a random packet size for each test.
 .TP
 \fB-s, --size \fIpacketsize\fB\fR
-Specifies the total number of bytes to be sent per packet (including headers).
-The default is 84 bytes.
+Specifies the total number of bytes to be sent per packet (EXCLUDING headers).
+The default is 0 bytes, i.e. no payload. Payload-bearing SYNs are typically
+dropped by firewalls and other security appliances so take this into
+consideration before setting this option.
 .TP
 \fB-v, --version\fR
 Show version of program.

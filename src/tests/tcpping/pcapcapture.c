@@ -37,7 +37,33 @@ static int get_interface_addresses(void) {
             ifaddrlist = ifa;
             break;
         }
+
     }
+
+    /*
+    for (ifa = ifaddrlist; ifa != NULL; ifa = ifa->ifa_next) {
+        char host[4000];
+        int s;
+        int family = ifa->ifa_addr->sa_family;
+        printf("%s %d%s\n", ifa->ifa_name, family,
+                (family == AF_INET) ?   " (AF_INET)" :
+                (family == AF_PACKET) ? " (AF_PACKET)" :
+                (family == AF_INET6) ?  " (AF_INET6)" : "");
+
+        if (family == AF_INET || family == AF_INET6) {
+            s = getnameinfo(ifa->ifa_addr,
+                    (family == AF_INET) ? sizeof(struct sockaddr_in) :
+                    sizeof(struct sockaddr_in6),
+                    host, NI_MAXHOST, NULL, 0, NI_NUMERICHOST);
+            if (s != 0) {
+                printf("getnameinfo() failed: %s\n", gai_strerror(s));
+                return -1;
+            }
+            printf("\taddress: <%s>\n", host);
+        }
+
+    }
+    */
 
     return 0;
 }
@@ -51,17 +77,17 @@ static char *find_address_interface(struct sockaddr *sin) {
 
         if (ifa->ifa_addr->sa_family == AF_INET) {
             struct sockaddr_in *sin4 = (struct sockaddr_in *)sin;
-            struct sockaddr_in *ifa4 = (struct sockaddr_in *)&(ifa->ifa_addr);
-    
+            struct sockaddr_in *ifa4 = (struct sockaddr_in *)(ifa->ifa_addr);
+   
             if (sin4->sin_addr.s_addr == ifa4->sin_addr.s_addr)
                 return ifa->ifa_name;
         } 
 
         if (ifa->ifa_addr->sa_family == AF_INET6) {
             struct sockaddr_in6 *sin6 = (struct sockaddr_in6 *)sin;
-            struct sockaddr_in6 *ifa6 = (struct sockaddr_in6 *)&(ifa->ifa_addr);
-    
-            if (memcmp(&sin6->sin6_addr, &ifa6->sin6_addr, 
+            struct sockaddr_in6 *ifa6 = (struct sockaddr_in6 *)(ifa->ifa_addr);
+
+            if (memcmp(&sin6->sin6_addr.s6_addr, &ifa6->sin6_addr.s6_addr, 
                         sizeof(struct in6_addr)) == 0) {
                 return ifa->ifa_name;
             }
@@ -86,8 +112,12 @@ static int create_pcap_filter(struct pcapdevice *p, uint16_t srcportv4,
     }
 
     snprintf(filterstring, 1024-1, 
-            "(tcp and (src port %d or src port %d) and dst port %d) or (icmp[0] == 11 or icmp[0] == 3) or (icmp6)", 
+            //"(tcp and (dst port %d or dst port %d) and src port %d)", 
+            "(tcp and (dst port %d or dst port %d) and src port %d) or (icmp[0] == 11 or icmp[0] == 3) or (icmp6)", 
             srcportv4, srcportv6, destport);
+
+    Log(LOG_DEBUG, "Compiling filter string %s for device %s", filterstring,
+        device);
 
     if (pcap_compile(p->pcap, &fcode, filterstring, 1, 
                 PCAP_NETMASK_UNKNOWN) < 0) {
@@ -112,6 +142,9 @@ int find_source_address(struct addrinfo *dest, struct sockaddr *saddr) {
     struct sockaddr *gendest = NULL;
     struct sockaddr_in6 sin6dest;
     struct sockaddr_in sin4dest;
+    char bogusmsg[4];
+    int one = 1;
+
 
     /* Find the source address that we should use to test to our dest */
     if ((s = socket(dest->ai_family, SOCK_DGRAM, IPPROTO_UDP)) < 0) {
@@ -137,11 +170,12 @@ int find_source_address(struct addrinfo *dest, struct sockaddr *saddr) {
         memset(&sin6dest, 0, sizeof(struct sockaddr_in6));
         destptr = (struct sockaddr_in6 *)(dest->ai_addr);
 
-        sin6dest.sin6_family = AF_INET;
+        sin6dest.sin6_family = AF_INET6;
         memcpy(&sin6dest.sin6_addr, &destptr->sin6_addr, 
                 sizeof(struct in6_addr));
         sin6dest.sin6_port = htons(53);
         gendest = (struct sockaddr *)&sin6dest;
+
     }
 
     if (gendest == NULL) {
@@ -151,6 +185,12 @@ int find_source_address(struct addrinfo *dest, struct sockaddr *saddr) {
 
     if (connect(s, gendest, size) < 0) {
         Log(LOG_ERR, "Failed to connect to destination in find_source_address");
+        return 0;
+    }
+
+    memset(bogusmsg, 0, sizeof(bogusmsg));
+    if (send(s, bogusmsg, sizeof(bogusmsg), 0) < 0) {
+        Log(LOG_ERR, "Failed to send test UDP packet");
         return 0;
     }
 
@@ -242,7 +282,7 @@ struct pcaptransport pcap_transport_header(struct pcapdevice *p) {
 
     packet = (char *)pcap_next(p->pcap, &header);
     if (packet == NULL) {
-        Log(LOG_WARNING, "Null result from pcap_next()");
+        Log(LOG_DEBUG, "Null result from pcap_next() -- packet was probably filtered");
         return tranny;
     }
     tranny.ts = header.ts;
