@@ -30,14 +30,14 @@ def get_data(data):
     if version != AMP_TCPPING_TEST_VERSION:
         raise VersionMismatch(version, AMP_TCPPING_TEST_VERSION)
     
-    header_len = struct.calcsize("!IhhBB")
-    item_len = struct.calcsize("!16siBBBBBB")
+    header_len = struct.calcsize("!IhBB")
+    item_len = struct.calcsize("!16sihBBBBBB")
 
     # offset past the version number which has already been read
     offset = struct.calcsize("!I")
 
     # read the rest of the header that records test options
-    packet_size,port,random,count = struct.unpack_from("!hhBB", data, offset)
+    port,random,count = struct.unpack_from("!hBB", data, offset)
 
     offset = header_len
     results = []
@@ -47,8 +47,8 @@ def get_data(data):
         # "p" pascal string could be useful here, length byte before string
         # except that they don't appear to work in any useful fashion
         # http://bugs.python.org/issue2981
-        addr,rtt,family,reply,replyflags,icmptype,icmpcode,namelen = 
-                struct.unpack_from("!16siBBBBBB", data, offset)
+        addr,rtt,packet_size,family,reply,replyflags,icmptype,icmpcode, \
+                namelen = struct.unpack_from("!16sihBBBBBB", data, offset)
 
         assert(namelen > 0 and namelen < 255)
         offset += item_len
