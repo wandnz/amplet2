@@ -20,7 +20,6 @@
  */
 void add_test_watchdog(wand_event_handler_t *ev_hdl, pid_t pid, uint16_t max,
         char *testname) {
-    struct wand_timer_t *timer;
     schedule_item_t *item;
     kill_schedule_item_t *kill;
 
@@ -34,13 +33,7 @@ void add_test_watchdog(wand_event_handler_t *ev_hdl, pid_t pid, uint16_t max,
     item->data.kill = kill;
 
     /* schedule task to kill test process if it goes too long */
-    timer = (struct wand_timer_t *)malloc(sizeof(struct wand_timer_t));
-    timer->data = item;
-    timer->expire = wand_calc_expire(ev_hdl, max, 0);
-    timer->callback = kill_running_test;
-    timer->prev = NULL;
-    timer->next = NULL;
-    wand_add_timer(ev_hdl, timer);
+    wand_add_timer(ev_hdl, max, 0, item, kill_running_test);
 }
 
 
@@ -55,6 +48,7 @@ static void cancel_test_watchdog(wand_event_handler_t *ev_hdl, pid_t pid) {
     schedule_item_t *item;
 
     /* search the list of timers to find the watchdog for this pid */
+    /* TODO why not store a reference to the watchdog in the test info block? */
     while ( timer != NULL ) {
 	tmp = timer;
 	timer = timer->next;
@@ -68,7 +62,6 @@ static void cancel_test_watchdog(wand_event_handler_t *ev_hdl, pid_t pid) {
 			free(item->data.kill);
 		    }
 		    free(item);
-		    free(tmp);
 		    return;
 		}
 	    }
@@ -86,7 +79,10 @@ static void cancel_test_watchdog(wand_event_handler_t *ev_hdl, pid_t pid) {
  * finish at the same time, possibly causing libwandevent not to fire this
  * event for every child, so loop around and consume all the children.
  */
-void child_reaper(struct wand_signal_t *signal) {
+void child_reaper(wand_event_handler_t *ev_hdl,
+        __attribute__((unused))int signum,
+        __attribute__((unused))void *data) {
+
     siginfo_t infop;
 
     while ( 1 ) {
@@ -115,7 +111,7 @@ void child_reaper(struct wand_signal_t *signal) {
 
 	/* if the task ended normally then remove the scheduled kill */
 	if ( infop.si_pid > 0 && infop.si_code == CLD_EXITED ) {
-	    cancel_test_watchdog(signal->data, infop.si_pid);
+	    cancel_test_watchdog(ev_hdl, infop.si_pid);
 	} else {
 	    /* TODO do we want to report on killed tests? */
 	}
@@ -128,8 +124,9 @@ void child_reaper(struct wand_signal_t *signal) {
  * Kill a test process that has run for too long. The SIGCHLD handler will
  * take care of tidying everything up.
  */
-void kill_running_test(struct wand_timer_t *timer) {
-    schedule_item_t *item = (schedule_item_t *)timer->data;
+void kill_running_test(__attribute__((unused))wand_event_handler_t *ev_hdl,
+        void *data) {
+    schedule_item_t *item = (schedule_item_t *)data;
 
     assert(item);
     assert(item->type == EVENT_CANCEL_TEST);
@@ -152,5 +149,4 @@ void kill_running_test(struct wand_timer_t *timer) {
     /* tidy up the watchdog timer that just fired, it is no longer needed */
     free(item->data.kill);
     free(item);
-    free(timer);
 }

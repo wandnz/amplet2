@@ -309,30 +309,27 @@ static void fork_test(wand_event_handler_t *ev_hdl,test_schedule_item_t *item) {
 /*
  * Start a scheduled test running and reschedule it to run again next interval
  */
-void run_scheduled_test(struct wand_timer_t *timer) {
-    schedule_item_t *item = (schedule_item_t *)timer->data;
-    test_schedule_item_t *data;
+void run_scheduled_test(wand_event_handler_t *ev_hdl, void *data) {
+    schedule_item_t *item = (schedule_item_t *)data;
+    test_schedule_item_t *test_item;
     struct timeval next;
 
     assert(item->type == EVENT_RUN_TEST);
 
-    data = (test_schedule_item_t *)item->data.test;
+    test_item = (test_schedule_item_t *)item->data.test;
 
-    Log(LOG_DEBUG, "Running a %s test", amp_tests[data->test_id]->name);
-    printf("running a %s test at %d\n", amp_tests[data->test_id]->name,
+    Log(LOG_DEBUG, "Running a %s test", amp_tests[test_item->test_id]->name);
+    printf("running a %s test at %d\n", amp_tests[test_item->test_id]->name,
 	    (int)time(NULL));
 
     /*
      * run the test as soon as we know what it is, so it happens as close to
      * the right time as we can get it.
      */
-    fork_test(item->ev_hdl, data);
+    fork_test(item->ev_hdl, test_item);
 
     /* while the test runs, reschedule it again */
-    next = get_next_schedule_time(item->ev_hdl, data->repeat, data->start,
-	    data->end, MS_FROM_TV(data->interval));
-    timer->expire = wand_calc_expire(item->ev_hdl, next.tv_sec, next.tv_usec);
-    timer->prev = NULL;
-    timer->next = NULL;
-    wand_add_timer(item->ev_hdl, timer);
+    next = get_next_schedule_time(item->ev_hdl, test_item->repeat,
+            test_item->start, test_item->end, MS_FROM_TV(test_item->interval));
+    wand_add_timer(ev_hdl, next.tv_sec, next.tv_usec, data, run_scheduled_test);
 }
