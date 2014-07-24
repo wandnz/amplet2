@@ -832,7 +832,7 @@ static int process_packet(int family, struct sockaddr *addr, char *packet,
              * the near portion of the trace
              */
              //TODO check that destinations won't be saved here
-            for ( i = 0; i < item->path_length && i < INITIAL_TTL; i++ ) {
+            for ( i = 0; i < item->path_length && i < INITIAL_TTL - 1; i++ ) {
                 struct stopset_t *stop = calloc(1, sizeof(struct stopset_t));
                 printf("adding item %d/%d to stopset\n", i, item->path_length);
                 stop->ttl = i + 1;
