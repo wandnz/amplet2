@@ -219,23 +219,19 @@ static void process_control_message(int fd, test_t *test) {
  * be used to set up watchdogs. After forking, that process will take care of
  * validating the SSL certs and actually running the server.
  */
-static void control_read_callback(struct wand_fdcb_t *handle,
+static void control_read_callback(wand_event_handler_t *ev_hdl, int fd,
+        __attribute__((unused))void *data,
         __attribute__((unused))enum wand_eventtype_t ev) {
 
-    wand_event_handler_t *ev_hdl;
     uint8_t test_id;
     test_t *test;
     pid_t pid;
-    int fd;
 
     /*
      * The main event loop shouldn't trigger on these events any more, once
      * we read data from here it is someone elses problem.
      */
-    fd = handle->fd;
-    ev_hdl = handle->data;
-    wand_del_event(ev_hdl, handle);
-    free(handle);
+    wand_del_fd(ev_hdl, fd);
 
     /* Read the first byte to get the test id. We will trust this value for
      * now, before we verify the SSL certificate - there isn't much harm that
@@ -296,27 +292,23 @@ static void control_read_callback(struct wand_fdcb_t *handle,
  * A connection has been made on our control port. Accept it and set up an
  * event for when data arrives on this connection.
  */
-void control_establish_callback(struct wand_fdcb_t *handle,
+void control_establish_callback(wand_event_handler_t *ev_hdl, int eventfd,
+        __attribute__((unused))void *data,
         __attribute__((unused))enum wand_eventtype_t ev) {
+
     int fd;
     struct sockaddr_storage remote;
     socklen_t size = sizeof(remote);
-    struct wand_fdcb_t *control_ev;
 
     Log(LOG_DEBUG, "Got new control connection");
 
-    if ( (fd = accept(handle->fd, (struct sockaddr *)&remote, &size)) < 0 ) {
+    if ( (fd = accept(eventfd, (struct sockaddr *)&remote, &size)) < 0 ) {
         Log(LOG_WARNING, "Failed to accept connection on control socket: %s",
                 strerror(errno));
         return;
     }
 
-    control_ev = (struct wand_fdcb_t*)malloc(sizeof(struct wand_fdcb_t));
-    control_ev->fd = fd;
-    control_ev->flags = EV_READ;
-    control_ev->data = handle->data;
-    control_ev->callback = control_read_callback;
-    wand_add_event(handle->data, control_ev);
+    wand_add_fd(ev_hdl, fd, EV_READ, NULL, control_read_callback);
 
     return;
 }

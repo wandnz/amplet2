@@ -3,6 +3,6 @@
 
 #include <libwandevent.h>
 
-void run_scheduled_test(struct wand_timer_t *timer);
+void run_scheduled_test(wand_event_handler_t *ev_hdl, void *data);
 
 #endif
