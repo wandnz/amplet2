@@ -11,6 +11,7 @@
 #include <malloc.h>
 #include <string.h>
 #include <pcap.h>
+#include <unistd.h>
 
 #include "config.h"
 #include "testlib.h"
@@ -143,7 +144,6 @@ int find_source_address(struct addrinfo *dest, struct sockaddr *saddr) {
     struct sockaddr_in6 sin6dest;
     struct sockaddr_in sin4dest;
     char bogusmsg[4];
-    int one = 1;
 
 
     /* Find the source address that we should use to test to our dest */
@@ -199,6 +199,8 @@ int find_source_address(struct addrinfo *dest, struct sockaddr *saddr) {
         return 0;
     }
 
+    close(s);
+    
     return 1;    
 
 }
