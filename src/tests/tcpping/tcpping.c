@@ -305,12 +305,25 @@ static int craft_tcp_syn(struct tcppingglobals *tp, char *packet,
 
     struct tcphdr *tcp;
     struct tcpmssoption *mss;
+    int headerremaining = 0;
+    uint32_t *noop = NULL;
+
     tcp = (struct tcphdr *)packet;
     tcp->source = htons(srcport);
     tcp->dest = htons(tp->options.port);
     tcp->seq = htonl(tp->seqindex + (tp->destindex * 100));
     tcp->ack_seq = 0;
-    tcp->doff = 6;
+    
+    /* Pad IPv4 packets out to match the length of a IPv6 packet with
+     * the same amount of payload.
+     */
+    if (srcaddr->sa_family == AF_INET) {
+        tcp->doff = 11;
+        headerremaining = 5;
+    } else {
+        tcp->doff = 6;
+        headerremaining = 0;
+    }
     tcp->urg = 0;
     tcp->ack = 0;
     tcp->psh = 0;
@@ -325,6 +338,15 @@ static int craft_tcp_syn(struct tcppingglobals *tp, char *packet,
     mss->mssopt = 2;
     mss->msssize = 4;
     mss->mssvalue = htons(536);
+
+    /* Fill any remaining header space with NOOP options */
+    noop = (uint32_t *)(packet + sizeof(struct tcphdr) + 
+            sizeof(struct tcpmssoption));
+    while (headerremaining > 0) {
+        *noop = 0x01010101;
+        noop ++;
+        headerremaining --;
+    }
 
     return set_tcp_checksum(tcp, packet_size, srcaddr,  destaddr);
 }
@@ -535,14 +557,13 @@ static void send_packet(wand_event_handler_t *ev_hdl,
     struct tcppingglobals *tp = (struct tcppingglobals *)evdata;
     struct addrinfo *dest = NULL;
     uint16_t srcport;
-    int packet_size = sizeof(struct tcphdr) + 4 + tp->options.packet_size;
-    char packet[packet_size];
+    int packet_size;
+    char *packet = NULL;
     int bytes_sent;
     int sock;
     struct timeval tv;
     struct sockaddr *srcaddr;
 
-    memset(packet, 0, sizeof(packet));
 
     /* Grab the next available destination */
     assert(tp->destindex < tp->destcount);
@@ -552,10 +573,12 @@ static void send_packet(wand_event_handler_t *ev_hdl,
     if (dest->ai_family == AF_INET) {
         srcport = tp->sourceportv4;
         sock = tp->raw_sockets.socket;
+        packet_size = sizeof(struct tcphdr) + 24 + tp->options.packet_size;
     }
     else if (dest->ai_family == AF_INET6) {
         srcport = tp->sourceportv6;
         sock = tp->raw_sockets.socket6;
+        packet_size = sizeof(struct tcphdr) + 4 + tp->options.packet_size;
     } else {
         Log(LOG_WARNING, "Unknown address family: %d", dest->ai_family);
         goto nextdest;
@@ -575,6 +598,8 @@ static void send_packet(wand_event_handler_t *ev_hdl,
 
         goto nextdest;        
     }
+
+    packet = calloc(packet_size, 1);
 
     /* Form a TCP SYN packet */
     if (craft_tcp_syn(tp, packet, srcport, packet_size, srcaddr, dest) < 0) {
@@ -622,6 +647,10 @@ nextdest:
                 tp, send_packet);
     }
 
+    if (packet) {
+        free(packet);
+    }
+
 }
 
 
@@ -633,6 +662,7 @@ static void report_results(struct timeval *start_time, int count,
     struct tcpping_report_item_t *item;
     int len, maxlen;
     int i;
+    int padding = 0;
 
     maxlen = (sizeof(struct tcpping_report_header_t)) + 
             (count * sizeof(struct tcpping_report_item_t)) +
@@ -678,6 +708,7 @@ static void report_results(struct timeval *start_time, int count,
                             info[i].addr->ai_addr)->sin_addr,
                         sizeof(struct in_addr));
                 item->packet_size = sizeof(struct iphdr);
+                padding = 20;
                 break;
             case AF_INET6:
                 memcpy(item->address,
@@ -685,6 +716,7 @@ static void report_results(struct timeval *start_time, int count,
                             info[i].addr->ai_addr)->sin6_addr,
                         sizeof(struct in6_addr));
                 item->packet_size = sizeof(struct ip6_hdr);
+                padding = 0;
                 break;
             default:
                 Log(LOG_WARNING, "Unknown address family %d\n", item->family);
@@ -692,7 +724,7 @@ static void report_results(struct timeval *start_time, int count,
                 break;
         };
 
-        item->packet_size += sizeof(struct tcphdr) + opt->packet_size;
+        item->packet_size += sizeof(struct tcphdr) + opt->packet_size + padding;
         item->packet_size = htons(item->packet_size);
         item->namelen = strlen(ampname) + 1;
         len += sizeof(struct tcpping_report_item_t);

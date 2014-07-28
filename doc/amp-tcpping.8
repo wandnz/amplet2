@@ -57,6 +57,12 @@ Specifies the total number of bytes to be sent per packet (EXCLUDING headers).
 The default is 0 bytes, i.e. no payload. Payload-bearing SYNs are typically
 dropped by firewalls and other security appliances so take this into
 consideration before setting this option.
+
+Note that IPv4 packets are padded with an additional 20 bytes of TCP options
+to ensure that the packet sizes match for both IPv4 and IPv6. Any requested
+payload is in addition to any padding. In our experience, this padding does
+NOT cause our SYNs to be dropped, but unfortunately the maximum allowable
+amount of options is very small.
 .TP
 \fB-v, --version\fR
 Show version of program.
