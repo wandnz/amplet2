@@ -281,6 +281,8 @@ struct pcaptransport pcap_transport_header(struct pcapdevice *p) {
     tranny.header = NULL;
     tranny.protocol = 0;
     tranny.remaining = 0;
+    tranny.tv.tv_sec = 0;
+    tranny.tv.tv_usec = 0;
 
     packet = (char *)pcap_next(p->pcap, &header);
     if (packet == NULL) {
