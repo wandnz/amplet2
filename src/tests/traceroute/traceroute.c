@@ -444,6 +444,10 @@ static int append_ready_item(struct probe_list_t *probelist,
 
 
 
+/*
+ * Add the next outstanding destination to the queue of those being actively
+ * probed.
+ */
 static int enqueue_next_pending(struct probe_list_t *probelist) {
     if ( probelist->pending ) {
         struct dest_info_t *next = probelist->pending;
@@ -526,11 +530,41 @@ static struct stopset_t *find_in_stopset(struct sockaddr *addr,
     struct stopset_t *item;
 
     if ( stopset == NULL ) {
+        printf("stopset is empty\n");
         return NULL;
     }
 
+    if ( addr == NULL ) {
+        printf("addr is null\n");
+        return NULL;
+    }
+
+    printf("stopset not empty, looking\n");
+
     for ( item = stopset; item != NULL; item = item->next ) {
+        char addrstr[INET6_ADDRSTRLEN];
+
+        if ( item->addr == NULL ) {
+            printf("null address, skipping\n");
+            continue;
+        }
+
+        inet_ntop(addr->sa_family, &((struct sockaddr_in*)addr)->sin_addr,
+                addrstr, INET6_ADDRSTRLEN);
+        printf("looking for %s, ", addrstr);
+        if ( item->addr->sa_family == AF_INET ) {
+            inet_ntop(AF_INET,
+                    &((struct sockaddr_in*)item->addr)->sin_addr, addrstr,
+                    INET6_ADDRSTRLEN);
+        } else {
+            inet_ntop(AF_INET6,
+                    &((struct sockaddr_in6*)item->addr)->sin6_addr, addrstr,
+                    INET6_ADDRSTRLEN);
+        }
+        printf("comparing to %s\n", addrstr);
+
         if ( compare_addresses(item->addr, addr, 0) == 0 ) {
+            /* TODO move to front */
             return item;
         }
     }
@@ -620,6 +654,9 @@ static char *get_embedded_packet(int family, char *packet) {
 
 
 
+/*
+ *
+ */
 static int get_icmp_code(int family, char *packet) {
     switch ( family ) {
         case AF_INET: {
@@ -641,6 +678,9 @@ static int get_icmp_code(int family, char *packet) {
 
 
 
+/*
+ *
+ */
 static int get_icmp_type(int family, char *packet) {
     switch ( family ) {
         case AF_INET: {
@@ -815,23 +855,160 @@ static int process_packet(int family, struct sockaddr *addr, char *packet,
     HOP_ADDR(ttl)->ai_canonname = NULL;
     HOP_ADDR(ttl)->ai_next = NULL;
 
-    /* end probing if going backwards and reached a known point */
+    /* end probing if probing all, going backwards and hit the first hop */
+    if ( item->done_forward && probelist->opts->probeall && item->ttl == 1) {
+        item->done_backward = 1;
+        item->next = probelist->done;
+        probelist->done = item;
+        return enqueue_next_pending(probelist);
+    }
+
+    /* end probing if using stopset, going backwards and reached known point */
+    if ( item->done_forward && ( (!probelist->opts->probeall &&
+                 (existing = find_in_stopset(addr, probelist->stopset))) ||
+                item->ttl == 1) ) {
+        int i;
+        int stopttl = item->ttl;
+        struct stopset_t *prev;
+
+        /* if we are at the first hop, or an existing hop then we stop */
+        if ( !probelist->opts->probeall && existing ) {
+            struct stopset_t *tmp;
+            /* check a few hops back, in case our previous hops were added */
+            for ( i = item->ttl + 1;
+                    i < item->path_length - 1 && i < INITIAL_TTL - 1; i++ ) {
+                printf("i = %d, pathlen = %d, initial = %d\n", i,
+                        item->path_length, INITIAL_TTL);
+                if ( !item->hop[i].addr ) {
+                    printf("skipping lookup of null address\n");
+                    continue;
+                }
+                tmp = find_in_stopset(item->hop[i].addr->ai_addr,
+                        probelist->stopset);
+                if ( !tmp ) {
+                    break;
+                }
+                existing = tmp;
+                stopttl = i + 1;
+            }
+
+        } else if ( item->ttl == 1 ) {
+            stopttl = 0;
+        } else {
+            printf("ttl = %d, existing = %p\n", item->ttl, existing);
+            assert(0);
+        }
+
+        prev = existing;
+        printf("stopttl = %d\n", stopttl);
+
+        /* add any previously unseen items in the path to the stopset */
+        for ( i = stopttl;
+                i < item->path_length - 1 && i < INITIAL_TTL - 1; i++ ) {
+            char addrstr[INET6_ADDRSTRLEN];
+            struct stopset_t *stopitem = calloc(1, sizeof(struct stopset_t));
+            stopitem->ttl = i + 1;
+            stopitem->delay = item->hop[i].delay;
+            if ( item->hop[i].addr && item->hop[i].addr->ai_addr ) {
+                stopitem->addr = item->hop[i].addr->ai_addr;
+                if ( stopitem->addr->sa_family == AF_INET ) {
+                    inet_ntop(AF_INET,
+                            &((struct sockaddr_in*)stopitem->addr)->sin_addr,
+                            addrstr, INET6_ADDRSTRLEN);
+                } else {
+                    inet_ntop(AF_INET6,
+                            &((struct sockaddr_in6*)stopitem->addr)->sin6_addr,
+                            addrstr, INET6_ADDRSTRLEN);
+                }
+                printf("adding address %s (ttl %d) to stopset\n", addrstr,
+                        stopitem->ttl);
+            } else {
+                stopitem->addr = NULL;
+                printf("adding address 0.0.0.0 to stopset\n");
+            }
+            stopitem->next = probelist->stopset;
+
+            /* link it up to the rest of the path that already exists */
+            stopitem->path = prev;
+            prev = stopitem; //XXX any reason we can't just reuse existing?
+
+#if 0
+            //XXX
+            if ( i > 0 ) {
+                /* next hop in the path back is the one we just added */
+                stop->path = probelist->stopset;
+            } else {
+                /* this is the last hop in the path backwards */
+                stop->path = NULL;
+            }
+
+            //XXX
+            stopitem->path = prev;
+            prev = stopitem;
+#endif
+
+            probelist->stopset = stopitem;
+        }
+
+        if ( existing ) {
+            struct stopset_t *stop;
+            /*
+             * And then add the rest of this path from the stopset onto what
+             * we have measured so far, to complete the path
+             */
+             //TODO will hops[] always be able to be fixed length? or will
+             // need to move entries around in it?
+            for ( stop = existing->path; stop != NULL; stop = stop->path ) {
+                if ( stop->addr && item->hop[stop->ttl - 1].addr == NULL ) {
+                    printf("filling in hop at ttl %d\n", stop->ttl);
+                    HOP_REPLY(stop->ttl) = REPLY_ASSUMED_STOPSET;
+                    HOP_ADDR(stop->ttl) =
+                        (struct addrinfo *)malloc(sizeof(struct addrinfo));
+                    HOP_ADDR(stop->ttl)->ai_addr = stop->addr;
+                    HOP_ADDR(stop->ttl)->ai_family = stop->addr->sa_family;
+                    HOP_ADDR(stop->ttl)->ai_canonname = NULL;
+                    HOP_ADDR(stop->ttl)->ai_next = NULL;
+                    item->hop[stop->ttl - 1].delay = stop->delay;
+                } else if ( item->hop[stop->ttl - 1].addr == NULL ) {
+                    printf("filling in null hop at ttl %d\n", stop->ttl);
+                    HOP_REPLY(stop->ttl) = REPLY_TIMED_OUT;
+                    HOP_ADDR(stop->ttl) = NULL;
+                } else {
+                    printf("leaving good response hop at ttl %d\n", stop->ttl);
+                }
+            }
+        }
+
+        /* end probing for this destination */
+        item->done_backward = 1;
+        item->next = probelist->done;
+        probelist->done = item;
+        return enqueue_next_pending(probelist);
+    }
+
+
+
+#if 0
     //XXX addrinfo vs sockaddr structs
     //XXX use TTL when looking up item in stopset?
     if ( item->done_forward &&
-            (item->ttl == 1 ||
+            (item->ttl == 1 || //XXX
              (existing = find_in_stopset(addr, probelist->stopset))) ) {
+        //XXX find_in_stopset doesnt get called when ttl == 1, obviously
+
+        printf("done probing, update stopset\n");
 
         //XXX can probably merge half of this once adding to list is sorted
         if ( !probelist->opts->probeall && item->ttl == 1 && !existing ) {
             int i;
-
             /*
              * This is a totally unique path, add every item to the stopset,
              * up to the initial TTL where probing started (we only want
              * the near portion of the trace
              */
              //TODO check that destinations won't be saved here
+             // TODO can we quickly check we aren't adding a duplicate path
+             // that the previous packet created?
             for ( i = 0; i < item->path_length && i < INITIAL_TTL - 1; i++ ) {
                 struct stopset_t *stop = calloc(1, sizeof(struct stopset_t));
                 printf("adding item %d/%d to stopset\n", i, item->path_length);
@@ -859,26 +1036,40 @@ static int process_packet(int family, struct sockaddr *addr, char *packet,
             int i;
             /*
              * Part of this path has been seen before, add the new portion to
-             * the stopset
+             * the stopset. Depending on what happened just before this point,
+             * the address we have might not actually be the longest match with
+             * what is already in the stopset.
              */
+             //XXX keep rolling back in the path until we don't get a match
+             /*
+            for ( i = item->ttl + 1;
+                    i < item->path_length && i < INITIAL_TTL; i++ ) {
+                prev = find_in_stopset(item->hop[i].addr->ai_addr,
+                        probelist->stopset);
+                if ( !prev ) {
+                    break;
+                }
+                printf("--backing up one hop in stopset\n");
+                existing = prev;
+            }*/
             printf("found item in stopset, stopping\n");
             prev = existing;
             for ( i = existing->ttl + 1;
                     i < item->path_length && i < INITIAL_TTL; i++ ) {
-                struct stopset_t *stop = calloc(1, sizeof(struct stopset_t));
+                struct stopset_t *stopitem = calloc(1,sizeof(struct stopset_t));
                 printf("adding item %d/%d to stopset as partial path\n",
                         i, item->path_length);
-                stop->ttl = i + 1;
-                stop->delay = item->hop[i].delay;
+                stopitem->ttl = i + 1;
+                stopitem->delay = item->hop[i].delay;
                 if ( item->hop[i].addr ) {
-                    stop->addr = item->hop[i].addr->ai_addr;
+                    stopitem->addr = item->hop[i].addr->ai_addr;
                 } else {
-                    stop->addr = NULL;
+                    stopitem->addr = NULL;
                 }
-                stop->next = probelist->stopset;
-                stop->path = prev;
-                prev = stop;
-                probelist->stopset = stop;
+                stopitem->next = probelist->stopset;
+                stopitem->path = prev;
+                prev = stopitem;
+                probelist->stopset = stopitem;
             }
 
             /*
@@ -911,6 +1102,7 @@ static int process_packet(int family, struct sockaddr *addr, char *packet,
         probelist->done = item;
         return enqueue_next_pending(probelist);
     }
+#endif
 
     /*
      * End forward probing and begin backwards probing if this is a terminal
@@ -1049,22 +1241,34 @@ static void extract_address(void *dst, const struct addrinfo *src) {
 
 
 
+/*
+ * The Team Cymru DNS lookup requires the address to be reversed before
+ * prepending it to a special zone. IPv4 addresses should have the octets
+ * reversed, IPv6 addresses should have the nibbles reversed.
+ */
 static char *reverse_address(char *buffer, const struct sockaddr *addr) {
     switch ( addr->sa_family ) {
         case AF_INET: {
+            /* reverse the /24 */
             uint8_t ipv4[4];
             memcpy(ipv4, &((struct sockaddr_in*)addr)->sin_addr, sizeof(ipv4));
             snprintf(buffer,
-                    INET6_ADDRSTRLEN + strlen(".origin.asn.cymru.com"),
+                    INET6_ADDRSTRLEN + strlen(INET_AS_MAP_ZONE) + 2,
                     "0.%d.%d.%d.%s", ipv4[2], ipv4[1], ipv4[0],
-                    "origin.asn.cymru.com");
-            printf("reversed: %s\n", buffer);
+                    INET_AS_MAP_ZONE);
+            Log(LOG_DEBUG, "reversed: %s\n", buffer);
         } break;
 
         case AF_INET6: {
+            /* reverse the /64 */
             struct in6_addr *ipv6 = &((struct sockaddr_in6*)addr)->sin6_addr;
+            /*
+             * INET6_ADDRSTRLEN isn't exactly accurate here, but is longer
+             * that what is required. Normally 4 characters each in 8
+             * divisions, we have 1 character each in 16 divisions here.
+             */
             snprintf(buffer,
-                    INET6_ADDRSTRLEN + strlen(".origin6.asn.cymru.com"),
+                    INET6_ADDRSTRLEN + strlen(INET6_AS_MAP_ZONE) + 2,
                     "%x.%x.%x.%x.%x.%x.%x.%x.%x.%x.%x.%x.%x.%x.%x.%x.%s",
                     ipv6->s6_addr[7] & 0x0f, (ipv6->s6_addr[7] & 0xf0) >> 4,
                     ipv6->s6_addr[6] & 0x0f, (ipv6->s6_addr[6] & 0xf0) >> 4,
@@ -1074,8 +1278,8 @@ static char *reverse_address(char *buffer, const struct sockaddr *addr) {
                     ipv6->s6_addr[2] & 0x0f, (ipv6->s6_addr[2] & 0xf0) >> 4,
                     ipv6->s6_addr[1] & 0x0f, (ipv6->s6_addr[1] & 0xf0) >> 4,
                     ipv6->s6_addr[0] & 0x0f, (ipv6->s6_addr[0] & 0xf0) >> 4,
-                    "origin6.asn.cymru.com");
-            printf("reversed: %s\n", buffer);
+                    INET6_AS_MAP_ZONE);
+            Log(LOG_DEBUG, "reversed: %s\n", buffer);
         } break;
 
         default: return NULL;
@@ -1086,19 +1290,16 @@ static char *reverse_address(char *buffer, const struct sockaddr *addr) {
 
 
 
+/*
+ * Search the list of prefixes and AS numbers for one that matches the given
+ * address.
+ */
 static uint32_t find_as_number(struct addrinfo *list, struct sockaddr *addr) {
     struct addrinfo *rp;
     uint32_t netmask;
 
     for ( rp=list; rp != NULL; rp=rp->ai_next ) {
         netmask = ((struct sockaddr_in*)rp->ai_addr)->sin_port;
-        /*
-        netmask = htonl(0xffffffff <<
-            (32-((struct sockaddr_in*)rp->ai_addr)->sin_port));
-        if ( (((struct sockaddr_in*)rp->ai_addr)->sin_addr.s_addr & netmask)
-                == (((struct sockaddr_in*)addr)->sin_addr.s_addr & netmask) ) {
-            return rp->ai_protocol;
-        }*/
         if ( compare_addresses(rp->ai_addr, addr, netmask) == 0 ) {
             return rp->ai_protocol;
         }
@@ -1460,6 +1661,7 @@ int run_traceroute(int argc, char *argv[], int count, struct addrinfo **dests) {
     options.random = 0;
     options.perturbate = 0;
     options.probeall = 0;
+    options.as = 0;
     sourcev4 = NULL;
     sourcev6 = NULL;
     device = NULL;
@@ -1615,7 +1817,7 @@ int run_traceroute(int argc, char *argv[], int count, struct addrinfo **dests) {
 
 
     if ( options.as ) {
-        char buffer[INET6_ADDRSTRLEN + strlen(".origin.asn.cymru.com")];
+        char buffer[INET6_ADDRSTRLEN + strlen(INET6_AS_MAP_ZONE) + 2];
         pthread_mutex_t addrlist_lock;
         int remaining = 0;
         struct addrinfo *addrlist = NULL;
@@ -1628,6 +1830,7 @@ int run_traceroute(int argc, char *argv[], int count, struct addrinfo **dests) {
         /* XXX checking previous item only helps prevent some duplicates */
         for ( stop = probelist.stopset; stop != NULL; stop = stop->next ) {
             if ( stop->addr ) {
+                /* just check /24s and /64s */
                 if ( stop->addr->sa_family == AF_INET ) {
                     masklen = 24;
                 } else {
@@ -1645,13 +1848,14 @@ int run_traceroute(int argc, char *argv[], int count, struct addrinfo **dests) {
 
         /* XXX checking previous item only helps prevent some duplicates */
         for ( item = probelist.done; item != NULL; item = item->next ) {
-            for ( i = 6; i < item->path_length; i++ ) {
+            /* just check /24s and /64s */
+            if ( item->addr->ai_family == AF_INET ) {
+                masklen = 24;
+            } else {
+                masklen = 64;
+            }
+            for ( i = INITIAL_TTL; i < item->path_length; i++ ) {
                 if ( item->hop[i].addr ) {
-                    if ( item->hop[i].addr->ai_family == AF_INET ) {
-                        masklen = 24;
-                    } else {
-                        masklen = 64;
-                    }
                     if ( prev == NULL ||
                             compare_addresses(prev, item->hop[i].addr->ai_addr,
                                 masklen) != 0 ) {
@@ -1683,6 +1887,7 @@ int run_traceroute(int argc, char *argv[], int count, struct addrinfo **dests) {
 
 #if 0
     {
+        /* TODO resolve AS numbers when running as a scheduled test */
 	struct addrinfo *tmp;
         int resolver_fd;
         resolve_dest_t foo;
@@ -1770,12 +1975,11 @@ int run_traceroute(int argc, char *argv[], int count, struct addrinfo **dests) {
     }
 
     /* tidy up the stopset if it was used */
-    i = 0;//XXX
-    for ( stop = probelist.stopset; stop != NULL; /* nothing */) {
+    i = 0;
+    for ( stop = probelist.stopset, i = 0; stop != NULL; i++) {
         struct stopset_t *tmp = stop;
         stop = stop->next;
         free(tmp);
-        i++;
     }
 
     printf("STOPSET SIZE: %d\n", i);

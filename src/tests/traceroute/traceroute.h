@@ -16,7 +16,7 @@
 
 /* timeout in usec to wait before declaring the response lost, currently 5s */
 /* TODO this used to be 20s, if we make it too short do we break stuff? */
-#define LOSS_TIMEOUT 5
+#define LOSS_TIMEOUT 3
 #define LOSS_TIMEOUT_US (LOSS_TIMEOUT * 1000000)
 
 /* TODO we can do this better than a fixed size buffer */
@@ -133,6 +133,8 @@ struct traceroute_report_header_t {
 
 #define INITIAL_TTL 6
 #define INITIAL_WINDOW 50
+#define INET_AS_MAP_ZONE "origin.asn.cymru.com"
+#define INET6_AS_MAP_ZONE "origin6.asn.cymru.com"
 typedef struct dest_info_t dest_info_t;
 struct dest_info_t {
     struct timeval last_time_sent;
