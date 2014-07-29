@@ -478,8 +478,8 @@ static int compare_addresses(const struct sockaddr *a,
     if ( a->sa_family == AF_INET ) {
         struct sockaddr_in *a4 = (struct sockaddr_in*)a;
         struct sockaddr_in *b4 = (struct sockaddr_in*)b;
-        if ( len > 0 ) {
-            uint32_t mask = ntohl(0xffffffff << len);
+        if ( len > 0 && len <= 32 ) {
+            uint32_t mask = ntohl(0xffffffff << (32 - len));
             if ( (a4->sin_addr.s_addr & mask) ==
                     (b4->sin_addr.s_addr & mask) ) {
                 return 0;
@@ -493,7 +493,7 @@ static int compare_addresses(const struct sockaddr *a,
     if ( a->sa_family == AF_INET6 ) {
         struct sockaddr_in6 *a6 = (struct sockaddr_in6*)a;
         struct sockaddr_in6 *b6 = (struct sockaddr_in6*)b;
-        if ( len > 0 ) {
+        if ( len > 0 && len <= 128 ) {
             uint32_t mask[4];
             int i;
             for ( i = 0; i < 4; i++ ) {
