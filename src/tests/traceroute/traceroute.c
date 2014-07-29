@@ -124,9 +124,9 @@ static int send_probe(struct socket_t *ip_sockets, uint16_t ident,
             sock = ip_sockets->socket6;
             if ( setsockopt(sock, SOL_IPV6, IPV6_UNICAST_HOPS, &ttl,
                     sizeof(ttl)) < 0 ) {
-                printf("failed to set ttl to %d\n", info->ttl);
-                printf("error setting IPV6_UNICAST_HOPS: %s\n",
+                Log(LOG_WARNING, "Failed to set IPv6_UNICAST_HOPS: %s",
                         strerror(errno));
+                return -1;
             }
             length = build_ipv6_probe(packet, packet_size, id,
                     ident, info->addr);
@@ -140,12 +140,14 @@ static int send_probe(struct socket_t *ip_sockets, uint16_t ident,
 
     /* send packet with appropriate inter packet delay */
     while ( (delay = delay_send_packet(sock, packet, length, info->addr)) > 0 ){
-        printf("BAD: sleeping for %ldus cause we triggered too early\n", delay);
+        Log(LOG_DEBUG, "Sleeping for %ldus - send event triggered early",
+                delay);
         usleep(delay);
     }
 
     info->probes++;
-    printf("send probe %d/%d attempt %d\n", info->id, info->ttl, info->attempts);
+    Log(LOG_DEBUG, "Sending probe to destination %d (ttl %d, attempt %d)\n",
+            info->id, info->ttl, info->attempts);
 
     if ( delay < 0 ) {
         /*
@@ -530,25 +532,20 @@ static struct stopset_t *find_in_stopset(struct sockaddr *addr,
     struct stopset_t *item;
 
     if ( stopset == NULL ) {
-        printf("stopset is empty\n");
         return NULL;
     }
 
     if ( addr == NULL ) {
-        printf("addr is null\n");
         return NULL;
     }
 
-    printf("stopset not empty, looking\n");
-
     for ( item = stopset; item != NULL; item = item->next ) {
-        char addrstr[INET6_ADDRSTRLEN];
+        //char addrstr[INET6_ADDRSTRLEN];
 
         if ( item->addr == NULL ) {
-            printf("null address, skipping\n");
             continue;
         }
-
+/*
         inet_ntop(addr->sa_family, &((struct sockaddr_in*)addr)->sin_addr,
                 addrstr, INET6_ADDRSTRLEN);
         printf("looking for %s, ", addrstr);
@@ -562,7 +559,7 @@ static struct stopset_t *find_in_stopset(struct sockaddr *addr,
                     INET6_ADDRSTRLEN);
         }
         printf("comparing to %s\n", addrstr);
-
+*/
         if ( compare_addresses(item->addr, addr, 0) == 0 ) {
             /* TODO move to front */
             return item;
@@ -877,10 +874,9 @@ static int process_packet(int family, struct sockaddr *addr, char *packet,
             /* check a few hops back, in case our previous hops were added */
             for ( i = item->ttl + 1;
                     i < item->path_length - 1 && i < INITIAL_TTL - 1; i++ ) {
-                printf("i = %d, pathlen = %d, initial = %d\n", i,
-                        item->path_length, INITIAL_TTL);
+                //printf("i = %d, pathlen = %d, initial = %d\n", i,
+                //        item->path_length, INITIAL_TTL);
                 if ( !item->hop[i].addr ) {
-                    printf("skipping lookup of null address\n");
                     continue;
                 }
                 tmp = find_in_stopset(item->hop[i].addr->ai_addr,
@@ -895,12 +891,10 @@ static int process_packet(int family, struct sockaddr *addr, char *packet,
         } else if ( item->ttl == 1 ) {
             stopttl = 0;
         } else {
-            printf("ttl = %d, existing = %p\n", item->ttl, existing);
             assert(0);
         }
 
         prev = existing;
-        printf("stopttl = %d\n", stopttl);
 
         /* add any previously unseen items in the path to the stopset */
         for ( i = stopttl;
@@ -920,33 +914,17 @@ static int process_packet(int family, struct sockaddr *addr, char *packet,
                             &((struct sockaddr_in6*)stopitem->addr)->sin6_addr,
                             addrstr, INET6_ADDRSTRLEN);
                 }
-                printf("adding address %s (ttl %d) to stopset\n", addrstr,
-                        stopitem->ttl);
+                Log(LOG_DEBUG, "adding address %s (ttl %d) to stopset",
+                        addrstr, stopitem->ttl);
             } else {
                 stopitem->addr = NULL;
-                printf("adding address 0.0.0.0 to stopset\n");
+                Log(LOG_DEBUG, "adding address 0.0.0.0 to stopset");
             }
             stopitem->next = probelist->stopset;
 
             /* link it up to the rest of the path that already exists */
             stopitem->path = prev;
             prev = stopitem; //XXX any reason we can't just reuse existing?
-
-#if 0
-            //XXX
-            if ( i > 0 ) {
-                /* next hop in the path back is the one we just added */
-                stop->path = probelist->stopset;
-            } else {
-                /* this is the last hop in the path backwards */
-                stop->path = NULL;
-            }
-
-            //XXX
-            stopitem->path = prev;
-            prev = stopitem;
-#endif
-
             probelist->stopset = stopitem;
         }
 
@@ -960,7 +938,7 @@ static int process_packet(int family, struct sockaddr *addr, char *packet,
              // need to move entries around in it?
             for ( stop = existing->path; stop != NULL; stop = stop->path ) {
                 if ( stop->addr && item->hop[stop->ttl - 1].addr == NULL ) {
-                    printf("filling in hop at ttl %d\n", stop->ttl);
+                    Log(LOG_DEBUG, "filling in hop at ttl %d", stop->ttl);
                     HOP_REPLY(stop->ttl) = REPLY_ASSUMED_STOPSET;
                     HOP_ADDR(stop->ttl) =
                         (struct addrinfo *)malloc(sizeof(struct addrinfo));
@@ -970,11 +948,11 @@ static int process_packet(int family, struct sockaddr *addr, char *packet,
                     HOP_ADDR(stop->ttl)->ai_next = NULL;
                     item->hop[stop->ttl - 1].delay = stop->delay;
                 } else if ( item->hop[stop->ttl - 1].addr == NULL ) {
-                    printf("filling in null hop at ttl %d\n", stop->ttl);
+                    Log(LOG_DEBUG, "filling in null hop at ttl %d", stop->ttl);
                     HOP_REPLY(stop->ttl) = REPLY_TIMED_OUT;
                     HOP_ADDR(stop->ttl) = NULL;
                 } else {
-                    printf("leaving good response hop at ttl %d\n", stop->ttl);
+                    Log(LOG_DEBUG, "leaving good hop at ttl %d", stop->ttl);
                 }
             }
         }
@@ -985,124 +963,6 @@ static int process_packet(int family, struct sockaddr *addr, char *packet,
         probelist->done = item;
         return enqueue_next_pending(probelist);
     }
-
-
-
-#if 0
-    //XXX addrinfo vs sockaddr structs
-    //XXX use TTL when looking up item in stopset?
-    if ( item->done_forward &&
-            (item->ttl == 1 || //XXX
-             (existing = find_in_stopset(addr, probelist->stopset))) ) {
-        //XXX find_in_stopset doesnt get called when ttl == 1, obviously
-
-        printf("done probing, update stopset\n");
-
-        //XXX can probably merge half of this once adding to list is sorted
-        if ( !probelist->opts->probeall && item->ttl == 1 && !existing ) {
-            int i;
-            /*
-             * This is a totally unique path, add every item to the stopset,
-             * up to the initial TTL where probing started (we only want
-             * the near portion of the trace
-             */
-             //TODO check that destinations won't be saved here
-             // TODO can we quickly check we aren't adding a duplicate path
-             // that the previous packet created?
-            for ( i = 0; i < item->path_length && i < INITIAL_TTL - 1; i++ ) {
-                struct stopset_t *stop = calloc(1, sizeof(struct stopset_t));
-                printf("adding item %d/%d to stopset\n", i, item->path_length);
-                stop->ttl = i + 1;
-                stop->delay = item->hop[i].delay;
-                if ( item->hop[i].addr ) {
-                    stop->addr = item->hop[i].addr->ai_addr;
-                } else {
-                    stop->addr = NULL;
-                }
-                stop->next = probelist->stopset;
-                if ( i > 0 ) {
-                    /* next hop in the path back is the one we just added */
-                    stop->path = probelist->stopset;
-                } else {
-                    /* this is the last hop in the path backwards */
-                    stop->path = NULL;
-                }
-                probelist->stopset = stop;
-            }
-
-        } else if ( !probelist->opts->probeall ) {
-            //XXX move recently used items to front of stopset
-            struct stopset_t *stop, *prev;
-            int i;
-            /*
-             * Part of this path has been seen before, add the new portion to
-             * the stopset. Depending on what happened just before this point,
-             * the address we have might not actually be the longest match with
-             * what is already in the stopset.
-             */
-             //XXX keep rolling back in the path until we don't get a match
-             /*
-            for ( i = item->ttl + 1;
-                    i < item->path_length && i < INITIAL_TTL; i++ ) {
-                prev = find_in_stopset(item->hop[i].addr->ai_addr,
-                        probelist->stopset);
-                if ( !prev ) {
-                    break;
-                }
-                printf("--backing up one hop in stopset\n");
-                existing = prev;
-            }*/
-            printf("found item in stopset, stopping\n");
-            prev = existing;
-            for ( i = existing->ttl + 1;
-                    i < item->path_length && i < INITIAL_TTL; i++ ) {
-                struct stopset_t *stopitem = calloc(1,sizeof(struct stopset_t));
-                printf("adding item %d/%d to stopset as partial path\n",
-                        i, item->path_length);
-                stopitem->ttl = i + 1;
-                stopitem->delay = item->hop[i].delay;
-                if ( item->hop[i].addr ) {
-                    stopitem->addr = item->hop[i].addr->ai_addr;
-                } else {
-                    stopitem->addr = NULL;
-                }
-                stopitem->next = probelist->stopset;
-                stopitem->path = prev;
-                prev = stopitem;
-                probelist->stopset = stopitem;
-            }
-
-            /*
-             * And then add the rest of this path from the stopset onto what
-             * we have measured so far, to complete the path
-             */
-             //TODO will hops[] always be able to be fixed length? or will
-             // need to move entries around in it?
-            for ( stop = existing->path; stop != NULL; stop = stop->path ) {
-                printf("filling in hop at ttl %d\n", stop->ttl);
-                if ( stop->addr ) {
-                    HOP_REPLY(stop->ttl) = REPLY_ASSUMED_STOPSET;
-                    HOP_ADDR(stop->ttl) =
-                        (struct addrinfo *)malloc(sizeof(struct addrinfo));
-                    HOP_ADDR(stop->ttl)->ai_addr = stop->addr;
-                    HOP_ADDR(stop->ttl)->ai_family = stop->addr->sa_family;
-                    HOP_ADDR(stop->ttl)->ai_canonname = NULL;
-                    HOP_ADDR(stop->ttl)->ai_next = NULL;
-                    item->hop[stop->ttl - 1].delay = stop->delay;
-                } else {
-                    HOP_REPLY(stop->ttl) = REPLY_TIMED_OUT;
-                    HOP_ADDR(stop->ttl) = NULL;
-                }
-            }
-        }
-
-        /* end probing for this destination */
-        item->done_backward = 1;
-        item->next = probelist->done;
-        probelist->done = item;
-        return enqueue_next_pending(probelist);
-    }
-#endif
 
     /*
      * End forward probing and begin backwards probing if this is a terminal
@@ -1256,7 +1116,6 @@ static char *reverse_address(char *buffer, const struct sockaddr *addr) {
                     INET6_ADDRSTRLEN + strlen(INET_AS_MAP_ZONE) + 2,
                     "0.%d.%d.%d.%s", ipv4[2], ipv4[1], ipv4[0],
                     INET_AS_MAP_ZONE);
-            Log(LOG_DEBUG, "reversed: %s\n", buffer);
         } break;
 
         case AF_INET6: {
@@ -1279,11 +1138,12 @@ static char *reverse_address(char *buffer, const struct sockaddr *addr) {
                     ipv6->s6_addr[1] & 0x0f, (ipv6->s6_addr[1] & 0xf0) >> 4,
                     ipv6->s6_addr[0] & 0x0f, (ipv6->s6_addr[0] & 0xf0) >> 4,
                     INET6_AS_MAP_ZONE);
-            Log(LOG_DEBUG, "reversed: %s\n", buffer);
         } break;
 
         default: return NULL;
     };
+
+    Log(LOG_DEBUG, "reversed: %s\n", buffer);
 
     return buffer;
 }
@@ -1439,7 +1299,6 @@ static void send_probe_callback(wand_event_handler_t *ev_hdl, void *data) {
 
     /* do nothing if there are no packets to send */
     if ( probelist->ready == NULL ) {
-        printf("no packet to send\n");
         return;
     }
 
@@ -1454,7 +1313,6 @@ static void send_probe_callback(wand_event_handler_t *ev_hdl, void *data) {
     /* send probe to the destination at the appropriate TTL */
     if ( send_probe(probelist->sockets, probelist->ident,
                 probelist->opts->packet_size, item) < 0 ) {
-        printf("failed to send probe\n");
         item->next = probelist->done;
         probelist->done = item;
         enqueue_next_pending(probelist);
@@ -1888,7 +1746,7 @@ int run_traceroute(int argc, char *argv[], int count, struct addrinfo **dests) {
 #if 0
     {
         /* TODO resolve AS numbers when running as a scheduled test */
-	struct addrinfo *tmp;
+        struct addrinfo *tmp;
         int resolver_fd;
         resolve_dest_t foo;
         struct addrinfo *addrlist = NULL;
