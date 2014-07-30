@@ -530,7 +530,7 @@ int compare_addresses(const struct sockaddr *a,
 static struct stopset_t *find_in_stopset(struct sockaddr *addr,
         struct stopset_t *stopset) {
 
-    struct stopset_t *item;
+    struct stopset_t *item, *prev = NULL;
 
     if ( stopset == NULL ) {
         return NULL;
@@ -541,30 +541,21 @@ static struct stopset_t *find_in_stopset(struct sockaddr *addr,
     }
 
     for ( item = stopset; item != NULL; item = item->next ) {
-        //char addrstr[INET6_ADDRSTRLEN];
-
         if ( item->addr == NULL ) {
             continue;
         }
-/*
-        inet_ntop(addr->sa_family, &((struct sockaddr_in*)addr)->sin_addr,
-                addrstr, INET6_ADDRSTRLEN);
-        printf("looking for %s, ", addrstr);
-        if ( item->addr->sa_family == AF_INET ) {
-            inet_ntop(AF_INET,
-                    &((struct sockaddr_in*)item->addr)->sin_addr, addrstr,
-                    INET6_ADDRSTRLEN);
-        } else {
-            inet_ntop(AF_INET6,
-                    &((struct sockaddr_in6*)item->addr)->sin6_addr, addrstr,
-                    INET6_ADDRSTRLEN);
-        }
-        printf("comparing to %s\n", addrstr);
-*/
+
         if ( compare_addresses(item->addr, addr, 0) == 0 ) {
-            /* TODO move to front */
+            /* move the item to the front, LRU-like */
+            if ( prev ) {
+                prev->next = item->next;
+                item->next = stopset;
+                stopset = item;
+            }
             return item;
         }
+
+        prev = item;
     }
 
     return NULL;
