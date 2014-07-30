@@ -1,3 +1,9 @@
+amplet2 (0.3.3-2) unstable; urgency=low
+
+  * Use local resolvers from /etc/resolv.conf if none specified.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Wed, 18 Jun 2014 15:21:28 +1200
+
 amplet2 (0.3.2-1) unstable; urgency=low
 
   * Fix name resolution threads writing to dead test processes.
