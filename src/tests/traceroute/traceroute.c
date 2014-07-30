@@ -140,9 +140,9 @@ static int send_probe(struct socket_t *ip_sockets, uint16_t ident,
     };
 
     /* send packet with appropriate inter packet delay */
-    while ( (delay = delay_send_packet(sock, packet, length, info->addr)) > 0 ){
-        Log(LOG_DEBUG, "Sleeping for %ldus - send event triggered early",
-                delay);
+    while ( (delay = delay_send_packet(sock, packet, length, info->addr,
+                    &(info->hop[info->ttl - 1].time_sent))) > 0 ) {
+        Log(LOG_DEBUG, "Sleeping for %ldus - send event triggered early",delay);
         usleep(delay);
     }
 
@@ -166,8 +166,6 @@ static int send_probe(struct socket_t *ip_sockets, uint16_t ident,
             info->hop[i].addr = NULL;
         }
         return -1;
-    } else {
-        gettimeofday(&(info->hop[info->ttl - 1].time_sent), NULL);
     }
 
     return 0;
@@ -1492,6 +1490,11 @@ int run_traceroute(int argc, char *argv[], int count, struct addrinfo **dests) {
     if ( !open_sockets(&icmp_sockets, &ip_sockets) ) {
 	Log(LOG_ERR, "Unable to open sockets, aborting test");
 	exit(-1);
+    }
+
+    if ( set_default_socket_options(&icmp_sockets) < 0 ) {
+        Log(LOG_ERR, "Failed to set default socket options, aborting test");
+        exit(-1);
     }
 
     if ( device && bind_sockets_to_device(&ip_sockets, device) < 0 ) {
