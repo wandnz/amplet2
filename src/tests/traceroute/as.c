@@ -180,12 +180,12 @@ int set_as_numbers(struct stopset_t *stopset, struct dest_info_t *donelist) {
             masklen = 64;
         }
         for ( i = INITIAL_TTL; i < item->path_length; i++ ) {
-            /* don't lookup AS numbers for RFC1918 addresses */
-            if ( is_rfc1918(item->hop[i].addr->ai_addr) ) {
-                continue;
-            }
+            if ( item->hop[i].addr && item->hop[i].addr->ai_addr ) {
+                /* don't lookup AS numbers for RFC1918 addresses */
+                if ( is_rfc1918(item->hop[i].addr->ai_addr) ) {
+                    continue;
+                }
 
-            if ( item->hop[i].addr ) {
                 if ( prev == NULL ||
                         compare_addresses(prev, item->hop[i].addr->ai_addr,
                             masklen) != 0 ) {
