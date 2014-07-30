@@ -22,6 +22,7 @@
 #include "testlib.h"
 #include "traceroute.h"
 #include "libwandevent.h"
+#include "as.h"
 
 #include "global.h"
 #include "ampresolv.h"
@@ -465,7 +466,7 @@ static int enqueue_next_pending(struct probe_list_t *probelist) {
 /*
  *
  */
-static int compare_addresses(const struct sockaddr *a,
+int compare_addresses(const struct sockaddr *a,
         const struct sockaddr *b, int len) {
     if ( a == NULL || b == NULL ) {
         return -1;
@@ -1101,6 +1102,7 @@ static void extract_address(void *dst, const struct addrinfo *src) {
 
 
 
+#if 0
 /*
  * The Team Cymru DNS lookup requires the address to be reversed before
  * prepending it to a special zone. IPv4 addresses should have the octets
@@ -1147,9 +1149,10 @@ static char *reverse_address(char *buffer, const struct sockaddr *addr) {
 
     return buffer;
 }
+#endif
 
 
-
+#if 0
 /*
  * Search the list of prefixes and AS numbers for one that matches the given
  * address.
@@ -1167,6 +1170,7 @@ static uint32_t find_as_number(struct addrinfo *list, struct sockaddr *addr) {
 
     return 0;
 }
+#endif
 
 
 
@@ -1251,8 +1255,8 @@ static void report_results(struct timeval *start_time, int count,
                 hop->as = htonl(item->hop[hopcount].as);
             }
             inet_ntop(path->family, hop->address, addrstr, INET6_ADDRSTRLEN);
-            Log(LOG_DEBUG, " %d: %s %d\n", hopcount+1, addrstr,
-                    ntohl(hop->rtt));
+            Log(LOG_DEBUG, " %d: %s %d AS%d\n", hopcount+1, addrstr,
+                    ntohl(hop->rtt), ntohl(hop->as));
         }
     }
 
@@ -1673,119 +1677,12 @@ int run_traceroute(int argc, char *argv[], int count, struct addrinfo **dests) {
         freeaddrinfo(sourcev6);
     }
 
-
+    /* lookup AS numbers for all addresses if required */
     if ( options.as ) {
-        char buffer[INET6_ADDRSTRLEN + strlen(INET6_AS_MAP_ZONE) + 2];
-        pthread_mutex_t addrlist_lock;
-        int remaining = 0;
-        struct addrinfo *addrlist = NULL;
-        struct sockaddr *prev = NULL;
-        int masklen;
-
-        pthread_mutex_init(&addrlist_lock, NULL);
-
-        /* add the items in the stopset, so they are probably only done once */
-        /* XXX checking previous item only helps prevent some duplicates */
-        for ( stop = probelist.stopset; stop != NULL; stop = stop->next ) {
-            if ( stop->addr ) {
-                /* just check /24s and /64s */
-                if ( stop->addr->sa_family == AF_INET ) {
-                    masklen = 24;
-                } else {
-                    masklen = 64;
-                }
-                if ( prev == NULL ||
-                        compare_addresses(prev, stop->addr, masklen) != 0 ) {
-                    amp_resolve_add(vars.ctx, &addrlist, &addrlist_lock,
-                            reverse_address(buffer, stop->addr), AF_TEXT, -1,
-                            &remaining);
-                }
-                prev = stop->addr;
-            }
+        if ( set_as_numbers(probelist.stopset, probelist.done) < 0 ) {
+            Log(LOG_WARNING, "Failed to set AS numbers for addresses");
         }
-
-        /* XXX checking previous item only helps prevent some duplicates */
-        for ( item = probelist.done; item != NULL; item = item->next ) {
-            /* just check /24s and /64s */
-            if ( item->addr->ai_family == AF_INET ) {
-                masklen = 24;
-            } else {
-                masklen = 64;
-            }
-            for ( i = INITIAL_TTL; i < item->path_length; i++ ) {
-                if ( item->hop[i].addr ) {
-                    if ( prev == NULL ||
-                            compare_addresses(prev, item->hop[i].addr->ai_addr,
-                                masklen) != 0 ) {
-                        amp_resolve_add(vars.ctx, &addrlist, &addrlist_lock,
-                                reverse_address(buffer,
-                                    item->hop[i].addr->ai_addr),
-                                AF_TEXT, -1, &remaining);
-                    }
-                    prev = item->hop[i].addr->ai_addr;
-                }
-            }
-        }
-
-        /* wait for all the responses to come in */
-        amp_resolve_wait(vars.ctx, &addrlist_lock, &remaining);
-
-        /* match up the AS numbers to the IP addresses */
-        for ( item = probelist.done; item != NULL; item = item->next ) {
-            for ( i = 0; i < item->path_length; i++ ) {
-                if ( item->hop[i].addr ) {
-                    item->hop[i].as =
-                        find_as_number(addrlist, item->hop[i].addr->ai_addr);
-                }
-            }
-        }
-
-        amp_resolve_freeaddr(addrlist);
     }
-
-#if 0
-    {
-        /* TODO resolve AS numbers when running as a scheduled test */
-        struct addrinfo *tmp;
-        int resolver_fd;
-        resolve_dest_t foo;
-        struct addrinfo *addrlist = NULL;
-
-        /* connect to the local amp resolver/cache */
-        if ( (resolver_fd = amp_resolver_connect(vars.nssock)) < 0 ) {
-            Log(LOG_ALERT, "TODO tidy up nicely after failing resolving");
-            assert(0);
-        }
-
-        /* add all the names that we need to resolve */
-        /*
-        for ( resolve=item->resolve; resolve != NULL; resolve=resolve->next ) {
-            amp_resolve_add_new(resolver_fd, resolve);
-        }
-        */
-        foo.family = AF_TEXT;
-        foo.name = "130.217.250.13";
-        foo.count = 1;
-        printf("looking up AS for %s\n", foo.name);
-        amp_resolve_add_new(resolver_fd, &foo);
-
-        /* get the list of all the addresses the names resolved to (blocking) */
-        addrlist = amp_resolve_get_list(resolver_fd);
-
-        /* create the destination list from all the resolved addresses */
-        /*
-        for ( tmp = addrlist; tmp != NULL; tmp = tmp->ai_next ) {
-            destinations = realloc(destinations,
-                    (item->dest_count + total_resolve_count + 1) *
-                    sizeof(struct addrinfo));
-            destinations[item->dest_count + total_resolve_count] = tmp;
-            total_resolve_count++;
-        }
-        */
-    }
-#endif
-
-
 
     /* send report */
     report_results(&start_time, count, probelist.done, &options);

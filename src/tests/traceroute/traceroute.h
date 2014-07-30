@@ -6,6 +6,8 @@
 #include <netdb.h>
 #include <netinet/ip6.h>
 
+#include "testlib.h"
+
 /* use the current date with 2 digit count appended as version: YYYYMMDDXX */
 #define AMP_TRACEROUTE_TEST_VERSION 2014020300
 
@@ -40,6 +42,8 @@ int run_traceroute(int argc, char *argv[], int count, struct addrinfo **dests);
 int save_traceroute(char *monitor, uint64_t timestamp, void *data, uint32_t len);
 void print_traceroute(void *data, uint32_t len);
 test_t *register_test(void);
+int compare_addresses(const struct sockaddr *a,
+        const struct sockaddr *b, int len);
 
 #if UNIT_TEST
 int amp_traceroute_build_ipv4_probe(void *packet, uint16_t packet_size, int id,
@@ -133,8 +137,6 @@ struct traceroute_report_header_t {
 
 #define INITIAL_TTL 6
 #define INITIAL_WINDOW 50
-#define INET_AS_MAP_ZONE "origin.asn.cymru.com"
-#define INET6_AS_MAP_ZONE "origin6.asn.cymru.com"
 typedef struct dest_info_t dest_info_t;
 struct dest_info_t {
     struct timeval last_time_sent;
