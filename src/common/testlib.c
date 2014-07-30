@@ -7,6 +7,7 @@
 #include <errno.h>
 #include <assert.h>
 #include <string.h>
+#include <sys/ioctl.h>
 
 #include <amqp.h>
 #include <amqp_framing.h>
@@ -18,6 +19,43 @@
 #include "messaging.h"
 #include "ssl.h"
 #include "global.h"
+
+
+
+
+/*
+ * Try to get the best timestamp that is available to us, in order of
+ * preference: SO_TIMESTAMP, SIOCGSTAMP, gettimeofday().
+ */
+static void get_timestamp(int sock, struct msghdr *msg, struct timeval *now) {
+    struct cmsghdr *c;
+    struct timeval *tv;
+
+    assert(msg);
+    assert(now);
+
+#ifdef SO_TIMESTAMP
+    /* try getting the timestamp using SO_TIMESTAMP if available */
+    for ( c = CMSG_FIRSTHDR(msg); c; c = CMSG_NXTHDR(msg, c) ) {
+        if ( c->cmsg_level != SOL_SOCKET || c->cmsg_type != SO_TIMESTAMP ) {
+            continue;
+        }
+        if ( c->cmsg_len < CMSG_LEN(sizeof(struct timeval)) ) {
+            continue;
+        }
+        tv = ((struct timeval*)CMSG_DATA(c));
+        now->tv_sec = tv->tv_sec;
+        now->tv_usec = tv->tv_usec;
+        return;
+    }
+#endif
+
+    /* next try using SIOCGSTAMP to get a timestamp */
+    if ( ioctl(sock, SIOCGSTAMP, now) < 0 ) {
+        /* failing that, call gettimeofday() which we know will work */
+        gettimeofday(now, NULL);
+    }
+}
 
 
 
@@ -114,18 +152,24 @@ int wait_for_data(struct socket_t *sockets, int *maxwait) {
 
 /*
  * Wait for up to timeout microseconds to receive a packet on the given
- * sockets and return the number of bytes read.
+ * sockets and return the number of bytes read. If valid pointers with
+ * storage for an address or timeval are given then they will be populated
+ * with the source address and time the packet was received.
  */
-int get_packet(struct socket_t *sockets, char *buf, int len,
-        struct sockaddr *saddr, int *timeout) {
+int get_packet(struct socket_t *sockets, char *buf, int buflen,
+        struct sockaddr *saddr, int *timeout, struct timeval *now) {
 
     int bytes;
     int sock;
     int family;
     socklen_t addrlen;
+    struct iovec iov;
+    struct msghdr msg;
+    char ans_data[4096];
 
     assert(sockets);
     assert(sockets->socket || sockets->socket6);
+    assert(timeout);
 
     /* wait for data to be ready, up to timeout (wait will update it) */
     if ( (family = wait_for_data(sockets, timeout)) <= 0 ) {
@@ -143,9 +187,26 @@ int get_packet(struct socket_t *sockets, char *buf, int len,
         default: return 0;
     };
 
-    if ( (bytes = recvfrom(sock, buf, len, 0, saddr, &addrlen)) < 0 ) {
-        Log(LOG_ERR, "Failed to recvfrom()");
+    /* set up the message structure, including the user supplied packet */
+    iov.iov_base = buf;
+    iov.iov_len = buflen;
+    memset(&msg, 0, sizeof(msg));
+    msg.msg_name = saddr;
+    msg.msg_namelen = addrlen;
+    msg.msg_iov = &iov;
+    msg.msg_iovlen = 1;
+    msg.msg_control = ans_data;
+    msg.msg_controllen = sizeof(ans_data);
+
+    /* receive the packet that we know is ready on one of our sockets */
+    if ( (bytes = recvmsg(sock, &msg, 0)) < 0 ) {
+        Log(LOG_ERR, "Failed to recvmsg()");
         exit(-1);
+    }
+
+    /* populate the timestamp argument with the receive time of packet */
+    if ( now ) {
+        get_timestamp(sock, &msg, now);
     }
 
     return bytes;
@@ -158,7 +219,8 @@ int get_packet(struct socket_t *sockets, char *buf, int len,
  * but if it is too soon for the test to be sending again then return a delay
  * time to wait (in microseconds).
  */
-int delay_send_packet(int sock, char *packet, int size, struct addrinfo *dest) {
+int delay_send_packet(int sock, char *packet, int size, struct addrinfo *dest,
+        struct timeval *sent) {
 
     int bytes_sent;
     static struct timeval last = {0, 0};
@@ -179,6 +241,12 @@ int delay_send_packet(int sock, char *packet, int size, struct addrinfo *dest) {
 	delay = 0;
 	last.tv_sec = now.tv_sec;
 	last.tv_usec = now.tv_usec;
+
+        /* populate sent timestamp as well, if not null */
+        if ( sent ) {
+            sent->tv_sec = now.tv_sec;
+            sent->tv_usec = now.tv_usec;
+        }
     }
 
     /*
@@ -591,3 +659,49 @@ int bind_sockets_to_address(struct socket_t *sockets,
     return 0;
 }
 
+
+
+/*
+ * Enable socket timestamping if it is available.
+ *
+ * TODO should this whole function be contained within the ifdef as well as
+ * the call? Or better to always call it but maybe do no work?
+ */
+static void set_timestamp_socket_option(int sock) {
+    assert(sock >= 0);
+#ifdef SO_TIMESTAMP
+    int one = 1;
+    /* try to enable socket timestamping using SO_TIMESTAMP */
+    if ( setsockopt(sock, SOL_SOCKET, SO_TIMESTAMP, &one, sizeof(one)) < 0 ) {
+        Log(LOG_DEBUG, "No SO_TIMESTAMP support, using SIOCGSTAMP");
+    }
+#endif
+}
+
+
+
+/*
+ * Set all the default options that our test sockets need to perform the tests.
+ *
+ * TODO return failure if anything important actually fails to be set? There
+ * is currently nothing important enough to warn about.
+ *
+ * TODO can we make some sort of cross test open socket function that means
+ * this can be called automagically? There is a lot of repetition in the
+ * individual test open socket functions and device binding functions that
+ * could be removed.
+ */
+int set_default_socket_options(struct socket_t *sockets) {
+    assert(sockets);
+    assert(sockets->socket >= 0 || sockets->socket6 >= 0);
+
+    if ( sockets->socket >= 0 ) {
+        set_timestamp_socket_option(sockets->socket);
+    }
+
+    if ( sockets->socket6 >= 0 ) {
+        set_timestamp_socket_option(sockets->socket6);
+    }
+
+    return 0;
+}

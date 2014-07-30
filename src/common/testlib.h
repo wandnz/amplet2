@@ -34,8 +34,9 @@ struct socket_t {
 
 int wait_for_data(struct socket_t *sockets, int *maxwait);
 int get_packet(struct socket_t *sockets, char *buf, int len,
-	struct sockaddr *saddr, int *timeout);
-int delay_send_packet(int sock, char *packet, int size, struct addrinfo *dest);
+	struct sockaddr *saddr, int *timeout, struct timeval *now);
+int delay_send_packet(int sock, char *packet, int size, struct addrinfo *dest,
+        struct timeval *sent);
 int report(test_type_t type, uint64_t timestamp, void *bytes, size_t len);
 char *address_to_name(struct addrinfo *address);
 uint16_t start_remote_server(test_type_t type, struct addrinfo *dest);
@@ -46,5 +47,6 @@ int bind_sockets_to_device(struct socket_t *sockets, char *device);
 int bind_socket_to_address(int sock, struct addrinfo *address);
 int bind_sockets_to_address(struct socket_t *sockets,
         struct addrinfo *sourcev4, struct addrinfo *sourcev6);
+int set_default_socket_options(struct socket_t *sockets);
 
 #endif

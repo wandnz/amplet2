@@ -266,7 +266,6 @@ static void harvest(struct socket_t *raw_sockets, uint16_t ident, int wait,
 
     char packet[RESPONSE_BUFFER_LEN];
     struct timeval now;
-    struct sockaddr_in6 addr;
     struct iphdr *ip;
     int result;
     ssize_t bytes;
@@ -278,9 +277,7 @@ static void harvest(struct socket_t *raw_sockets, uint16_t ident, int wait,
      * excess bytes will be discarded.
      */
     while ( (bytes = get_packet(raw_sockets, packet, RESPONSE_BUFFER_LEN,
-                (struct sockaddr*)&addr, &wait)) > 0 ) {
-	gettimeofday(&now, NULL);
-
+                    NULL, &wait, &now)) > 0 ) {
 	/*
 	 * this check isn't as nice as it could be - should we explicitly ask
 	 * for the icmp6 header to be returned so we can be sure we are
@@ -373,7 +370,7 @@ static void send_packet(struct socket_t *raw_sockets, int seq, uint16_t ident,
 
     /* send packet with appropriate inter packet delay */
     while ( (delay = delay_send_packet(sock, packet, opt->packet_size-h_len,
-		    dest)) > 0 ) {
+		    dest, &(info[seq].time_sent))) > 0 ) {
 	/* check for responses while we wait out the interpacket delay */
 	harvest(raw_sockets, ident, delay, -1, count, info);
     }
@@ -385,9 +382,6 @@ static void send_packet(struct socket_t *raw_sockets, int seq, uint16_t ident,
          */
         info[seq].reply = 1;
         memset(&(info[seq].time_sent), 0, sizeof(struct timeval));
-    } else {
-        /* record the time the packet was sent */
-        gettimeofday(&(info[seq].time_sent), NULL);
     }
 }
 
@@ -618,6 +612,11 @@ int run_icmp(int argc, char *argv[], int count, struct addrinfo **dests) {
     if ( !open_sockets(&raw_sockets) ) {
 	Log(LOG_ERR, "Unable to open raw ICMP sockets, aborting test");
 	exit(-1);
+    }
+
+    if ( set_default_socket_options(&raw_sockets) < 0 ) {
+        Log(LOG_ERR, "Failed to set default socket options, aborting test");
+        exit(-1);
     }
 
     if ( device && bind_sockets_to_device(&raw_sockets, device) < 0 ) {
