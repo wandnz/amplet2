@@ -902,6 +902,11 @@ static int process_packet(int family, struct sockaddr *addr, char *packet,
                 Log(LOG_DEBUG, "adding address %s (ttl %d) to stopset",
                         addrstr, stopitem->ttl);
             } else {
+                /* actually, don't bother adding a null hop as the last one */
+                if ( stopitem->ttl == INITIAL_TTL - 1 ) {
+                    free(stopitem);
+                    break;
+                }
                 stopitem->addr = NULL;
                 if ( stopitem->family == AF_INET ) {
                     Log(LOG_DEBUG, "adding address 0.0.0.0 to stopset");
