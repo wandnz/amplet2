@@ -525,30 +525,23 @@ int compare_addresses(const struct sockaddr *a,
 /*
  *
  */
-static struct stopset_t *find_in_stopset(struct sockaddr *addr,
-        struct stopset_t *stopset) {
+static struct stopset_t *find_in_stopset(struct sockaddr *addr, int ttl,
+        struct stopset_t **stopset) {
 
     struct stopset_t *item, *prev = NULL;
 
-    if ( stopset == NULL ) {
+    if ( stopset == NULL || *stopset == NULL || addr == NULL ) {
         return NULL;
     }
 
-    if ( addr == NULL ) {
-        return NULL;
-    }
-
-    for ( item = stopset; item != NULL; item = item->next ) {
-        if ( item->addr == NULL ) {
-            continue;
-        }
-
-        if ( compare_addresses(item->addr, addr, 0) == 0 ) {
+    for ( item = *stopset; item != NULL; item = item->next ) {
+        if ( item->addr && item->ttl == ttl &&
+                compare_addresses(item->addr, addr, 0) == 0 ) {
             /* move the item to the front, LRU-like */
             if ( prev ) {
                 prev->next = item->next;
-                item->next = stopset;
-                stopset = item;
+                item->next = *stopset;
+                *stopset = item;
             }
             return item;
         }
@@ -852,7 +845,8 @@ static int process_packet(int family, struct sockaddr *addr, char *packet,
 
     /* end probing if using stopset, going backwards and reached known point */
     if ( item->done_forward && ( (!probelist->opts->probeall &&
-                 (existing = find_in_stopset(addr, probelist->stopset))) ||
+                 (existing = find_in_stopset(addr, item->ttl,
+                                             &probelist->stopset))) ||
                 item->ttl == 1) ) {
         int i;
         int stopttl = item->ttl;
@@ -869,8 +863,8 @@ static int process_packet(int family, struct sockaddr *addr, char *packet,
                 if ( !item->hop[i].addr ) {
                     continue;
                 }
-                tmp = find_in_stopset(item->hop[i].addr->ai_addr,
-                        probelist->stopset);
+                tmp = find_in_stopset(item->hop[i].addr->ai_addr, i + 1,
+                        &probelist->stopset);
                 if ( !tmp ) {
                     break;
                 }
@@ -893,6 +887,7 @@ static int process_packet(int family, struct sockaddr *addr, char *packet,
             struct stopset_t *stopitem = calloc(1, sizeof(struct stopset_t));
             stopitem->ttl = i + 1;
             stopitem->delay = item->hop[i].delay;
+            stopitem->family = item->addr->ai_family;//XXX
             if ( item->hop[i].addr && item->hop[i].addr->ai_addr ) {
                 stopitem->addr = item->hop[i].addr->ai_addr;
                 if ( stopitem->addr->sa_family == AF_INET ) {
@@ -908,7 +903,11 @@ static int process_packet(int family, struct sockaddr *addr, char *packet,
                         addrstr, stopitem->ttl);
             } else {
                 stopitem->addr = NULL;
-                Log(LOG_DEBUG, "adding address 0.0.0.0 to stopset");
+                if ( stopitem->family == AF_INET ) {
+                    Log(LOG_DEBUG, "adding address 0.0.0.0 to stopset");
+                } else {
+                    Log(LOG_DEBUG, "adding address :: to stopset");
+                }
             }
             stopitem->next = probelist->stopset;
 
@@ -1626,6 +1625,26 @@ int run_traceroute(int argc, char *argv[], int count, struct addrinfo **dests) {
         }
         printf("SENT %d PACKETS\n", probelist.total_probes);
     }
+
+/*
+    for ( stop = probelist.stopset; stop != NULL; stop = stop->next ) {
+        {
+            char addrstr[INET6_ADDRSTRLEN];
+            if ( !stop->addr ) {
+                printf("STOPSET 0.0.0.0\n");
+                continue;
+            }
+            if ( stop->addr->sa_family == AF_INET ) {
+                inet_ntop(AF_INET, &((struct sockaddr_in*)stop->addr)->sin_addr,
+                        addrstr, INET6_ADDRSTRLEN);
+            } else {
+                inet_ntop(AF_INET6, &((struct sockaddr_in6*)stop->addr)->sin6_addr,
+                        addrstr, INET6_ADDRSTRLEN);
+            }
+            printf("STOPSET %s\n", addrstr);
+        }
+    }
+*/
 
     /* tidy up all the address structures we have as results */
     for ( item = probelist.done; item != NULL; /* nothing */ ) {
