@@ -16,15 +16,21 @@
 #define MIN_TRACEROUTE_PROBE_LEN (sizeof(struct ip6_hdr) + \
         sizeof(struct udphdr) + sizeof(struct ipv6_body_t))
 
-/* timeout in usec to wait before declaring the response lost, currently 5s */
-/* TODO this used to be 20s, if we make it too short do we break stuff? */
+/* timeout in seconds to wait before declaring a response lost, currently 3s */
 #define LOSS_TIMEOUT 3
 #define LOSS_TIMEOUT_US (LOSS_TIMEOUT * 1000000)
 
 /* TODO we can do this better than a fixed size buffer */
 #define MAX_HOPS_IN_PATH 30
 
+/* Destination port for the UDP probe packets */
 #define TRACEROUTE_DEST_PORT 33434
+
+/* TTL to use for the first probe packet */
+#define INITIAL_TTL 6
+
+/* Maximum number of destinations that can have probe packets outstanding */
+#define INITIAL_WINDOW 50
 
 /* number of times to try at a particular TTL to elicit a response */
 #define TRACEROUTE_RETRY_LIMIT 2
@@ -53,14 +59,16 @@ int amp_traceroute_build_ipv6_probe(void *packet, uint16_t packet_size, int id,
 #endif
 
 
-
+/*
+ * Used to describe responses - if the stopset is used then some addresses
+ * listed in a path may not have been actually observed.
+ */
 typedef enum {
     REPLY_UNKNOWN = 0,
     REPLY_TIMED_OUT,
     REPLY_OK,
     REPLY_ASSUMED_STOPSET,
 } reply_t;
-
 
 /*
  * Packet structure used in the body of IPv6 packets, it's easier to do it
@@ -82,30 +90,37 @@ struct opt_t {
     uint16_t packet_size;	/* use this packet size (bytes) */
 };
 
+/*
+ * Information block for the probe sent to a particular TTL.
+ */
 struct hop_info_t {
     struct timeval time_sent;	/* when the probe was sent */
     uint32_t delay;		/* delay in receiving response, microseconds */
     uint32_t as;                /* AS that the address belongs to */
-    reply_t reply;
-    struct addrinfo *addr;
+    reply_t reply;              /* Has a reply been received */
+    struct addrinfo *addr;      /* Address that the reply came from */
 };
 
 /*
- * Information block recording data for each icmp echo request test packet
- * that is sent, and when the response is received.
+ * Information block recording data for the UDP probe packets sent to a single
+ * destination.
  */
-struct info_t {
-    struct timeval last_time_sent;	/* when the probe was sent */
-    struct addrinfo *addr;	/* address probe was sent to */
-    int8_t ttl;		        /* TTL or hop limit of response packet */
-    uint8_t path_length;
-    uint8_t done;
-    uint8_t retry;
-    uint8_t attempts;
-    uint8_t no_reply_count;
-    uint8_t err_type;		/* type of ICMP error reply or 0 if no error */
-    uint8_t err_code;		/* code of ICMP error reply, else undefined */
+typedef struct dest_info_t dest_info_t;
+struct dest_info_t {
+    struct addrinfo *addr;      /* address probe was sent to */
+    uint32_t id;                /* ID number of destination */
+    uint32_t probes;            /* number of probes sent so far */
+    int8_t first_response;      /* TTL of first response packet */
+    int8_t ttl;                 /* current TTL being probed */
+    uint8_t path_length;        /* total length of path, once confirmed */
+    uint8_t done_forward;       /* true if forward probing has finished */
+    uint8_t done_backward;      /* true if backwards probing has finished */
+    uint8_t attempts;           /* number of probe attempts at this TTL */
+    uint8_t no_reply_count;     /* number of probes sent without response */
+    uint8_t err_type;           /* ICMP response error type (0 if success) */
+    uint8_t err_code;           /* ICMP response error code */
     struct hop_info_t hop[MAX_HOPS_IN_PATH];
+    struct dest_info_t *next;
 };
 
 struct traceroute_report_hop_t {
@@ -134,34 +149,14 @@ struct traceroute_report_header_t {
 } __attribute__((__packed__));
 
 
-
-#define INITIAL_TTL 6
-#define INITIAL_WINDOW 50
-typedef struct dest_info_t dest_info_t;
-struct dest_info_t {
-    struct timeval last_time_sent;
-    struct addrinfo *addr;
-    uint32_t id;
-    uint32_t probes;
-    int8_t first_response;
-    int8_t ttl;
-    uint8_t path_length;
-    uint8_t done_forward;
-    uint8_t done_backward;
-    uint8_t retry;
-    uint8_t attempts;
-    uint8_t no_reply_count;
-    uint8_t err_type;
-    uint8_t err_code;
-    struct hop_info_t hop[MAX_HOPS_IN_PATH];
-    struct dest_info_t *next;
-};
-
+/*
+ * Stopset item to record addresses close to the monitor that have already
+ * been probed, and what the rest of the path should be.
+ */
 typedef struct stopset_t stopset_t;
 struct stopset_t {
     uint8_t ttl;
     uint8_t family;
-    //struct addrinfo *addr;
     uint32_t delay;
     struct sockaddr *addr;
     struct stopset_t *next;
@@ -185,11 +180,5 @@ struct probe_list_t {
     int window;
     int total_probes;
 };
-
-
-
-
-
-
 
 #endif
