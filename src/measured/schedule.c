@@ -228,40 +228,6 @@ static time_t get_period_default_frequency(schedule_period_t period) {
 
 
 /*
- * Convert a scheduling number in a string to an integer, while also checking
- * that it fits within the limits of the schedule. This is used to convert
- * millisecond time values in the schedule for start, end, frequency.
- */
-static int64_t get_time_value(char *value_string, char repeat) {
-    int value;
-    int max_interval;
-    char *endptr;
-
-    if ( value_string == NULL ) {
-	return -1;
-    }
-
-    value = strtol(value_string, &endptr, 10);
-
-    /* no number was found */
-    if ( endptr == value_string ) {
-	return -1;
-    }
-
-    /* don't accept any value that would overflow the time period */
-    max_interval = (int)get_period_max_value(repeat) * 1000;
-
-    /* negative values are illegal, as are any outside of the repeat cycle */
-    if ( max_interval < 0 || value < 0 || value > max_interval ) {
-	return -1;
-    }
-
-    return value;
-}
-
-
-
-/*
  *
  */
 static int64_t check_time_range(int64_t value, schedule_period_t period) {
@@ -578,28 +544,32 @@ static char **parse_test_targets(yaml_document_t *document, yaml_node_t *node,
  * www.foo.com:n:v4 -- resolve up to n ipv4 addresses
  * www.foo.com:n:v6 -- resolve up to n ipv6 addresses
  */
-static void populate_target_lists(test_schedule_item_t *test,
+static char **populate_target_lists(test_schedule_item_t *test,
         char **targets) {
 
-    char *addr_str, *count_str, *target;
+    char *addr_str, *count_str;
     int family;
     nametable_t *addresses;
     int count;
+    uint16_t max_targets;
 
+    max_targets = amp_tests[test->test_id]->max_targets;
     test->dests = NULL;
     test->resolve = NULL;
     test->resolve_count = 0;
     test->dest_count = 0;
 
     /* for every address in the list, find it in nametable or set to resolve */
-    for ( target = *targets; target != NULL; target++ ) {
-        addr_str = strtok(target, ":");
+    for ( ; *targets != NULL && (max_targets == 0 ||
+            (test->dest_count + test->resolve_count) < max_targets);
+            targets++ ) {
+        addr_str = strtok(*targets, ":");
         family = AF_UNSPEC;
         count = 0;
         if ( (count_str=strtok(NULL, ":")) != NULL ) {
             do {
                 if (strncmp(count_str, "*", 1) == 0 ) {
-                    /* nothing - backwards compatability with old format */
+                    /* do nothing - backwards compatability with old format */
                 } else if ( strncmp(count_str, "v4", 2) == 0 ) {
                     family = AF_INET;
                 } else if ( strncmp(count_str, "v6", 2) == 0 ) {
@@ -619,7 +589,9 @@ static void populate_target_lists(test_schedule_item_t *test,
              * given family, up to the maximum count.
              */
             for ( addr=addresses->addr; addr != NULL; addr=addr->ai_next ) {
-                if ( count > 0 && test->dest_count >= count ) {
+                if ( (test->dest_count + test->resolve_count) >= max_targets ||
+                    (count > 0 &&
+                        (test->dest_count + test->resolve_count) >= count) ) {
                     break;
                 }
 
@@ -635,7 +607,8 @@ static void populate_target_lists(test_schedule_item_t *test,
 	    /* if it isn't then it will be resolved at test time */
             resolve_dest_t *dest;
 
-	    Log(LOG_DEBUG, "Unknown destination '%s' will be resolved", target);
+	    Log(LOG_DEBUG, "Unknown destination '%s' will be resolved",
+                    *targets);
 
             dest = (resolve_dest_t*)malloc(sizeof(resolve_dest_t));
 	    dest->name = strdup(addr_str);
@@ -647,6 +620,11 @@ static void populate_target_lists(test_schedule_item_t *test,
             test->resolve_count++;
 	}
     }
+
+    Log(LOG_DEBUG, "%d known targets, %d to resolve", test->dest_count,
+            test->resolve_count);
+
+    return targets;
 }
 
 
@@ -656,18 +634,21 @@ static void populate_target_lists(test_schedule_item_t *test,
  * All the times are given by the user in seconds, but we'll use milliseconds
  * because it makes scheduling easier.
  */
-static test_schedule_item_t *create_test(yaml_document_t *document,
+static test_schedule_item_t *create_and_schedule_test(
+        wand_event_handler_t *ev_hdl, yaml_document_t *document,
         yaml_node_item_t index) {
 
-    test_schedule_item_t *test;
+    test_schedule_item_t *test = NULL;
+    schedule_item_t *sched;
     yaml_node_t *node, *key, *value;
     yaml_node_pair_t *pair;
     test_type_t test_id;
     int64_t start = 0, end = -1, frequency = -1;
     char *period_str = NULL, *testname = NULL, **params = NULL;
     schedule_period_t period;
-    char **targets = NULL;
+    char **targets = NULL, **remaining = NULL;
     int target_len;
+    struct timeval next;
 
     /* make sure the node exists and is of the right type */
     if ( (node = yaml_document_get_node(document, index)) == NULL ||
@@ -684,7 +665,7 @@ static test_schedule_item_t *create_test(yaml_document_t *document,
 
         /* key has to be a scalar node, if it's not then this isn't for us */
         if ( key->type != YAML_SCALAR_NODE ) {
-            return NULL;
+            goto end;
         }
 
         /* read the appropriate value based on the key, could be in any order */
@@ -720,7 +701,7 @@ static test_schedule_item_t *create_test(yaml_document_t *document,
     /* confirm the test name is valid */
     if ( (test_id = get_test_id(testname)) == AMP_TEST_INVALID ) {
         Log(LOG_WARNING, "Unknown test '%s'", testname);
-        return NULL;
+        goto end;
     }
 
     /* need to figure out the period before we can do much else */
@@ -729,14 +710,14 @@ static test_schedule_item_t *create_test(yaml_document_t *document,
     } else if ( (period =
                 get_period_label(period_str)) == SCHEDULE_PERIOD_INVALID ) {
         Log(LOG_WARNING, "Invalid period: '%s'", period_str);
-        return NULL;
+        goto end;
     }
 
     /* now that the period is determined, we can validate the other values */
     if ( check_time_range(start, period) < 0 ) {
         Log(LOG_WARNING, "Invalid start value %d for period %s\n",
                 start, period_str);
-        return NULL;
+        goto end;
     }
 
     /* default to the end of the period if not set */
@@ -745,7 +726,7 @@ static test_schedule_item_t *create_test(yaml_document_t *document,
     } else if ( check_time_range(end, period) < 0 ) {
         Log(LOG_WARNING, "Invalid end value %d for period %s\n",
                 end, period_str);
-        return NULL;
+        goto end;
     }
 
     /* default to a vaguely sensible frequency if not set */
@@ -754,20 +735,65 @@ static test_schedule_item_t *create_test(yaml_document_t *document,
     } else if ( check_time_range(frequency, period) < 0 ) {
         Log(LOG_WARNING, "Invalid frequency value %d for period %s\n",
                 frequency, period_str);
-        return NULL;
+        goto end;
     }
 
-    /* if everything looks good, finally construct the test object */
-    test = (test_schedule_item_t *)malloc(sizeof(test_schedule_item_t));
-    test->interval.tv_sec = S_FROM_MS(frequency);
-    test->interval.tv_usec = US_FROM_MS(frequency);
-    test->period = period;
-    test->start = start;
-    test->end = end;
-    test->test_id = test_id;
-    test->params = params;
-    /* convert the list of targets into actual dests and ones to resolve */
-    populate_target_lists(test, targets);
+    Log(LOG_DEBUG, "start:%d end:%d freq:%d period:%d", start, end, frequency,
+            period);
+
+    remaining = targets;
+
+    do {
+        Log(LOG_DEBUG, "Creating test schedule instance for %s test", testname);
+        /* if everything looks good, finally construct the test object */
+        test = (test_schedule_item_t *)malloc(sizeof(test_schedule_item_t));
+        test->interval.tv_sec = S_FROM_MS(frequency);
+        test->interval.tv_usec = US_FROM_MS(frequency);
+        test->period = period;
+        test->start = start;
+        test->end = end;
+        test->test_id = test_id;
+        test->params = params;
+        /*
+         * Convert the list of targets into actual dests and ones to resolve.
+         * We update the list to only point at the remainder (if there are
+         * any left due to destination count limitations).
+         */
+        remaining = populate_target_lists(test, remaining);
+
+        /*
+         * See if we can merge this test with an existing one. Obviously if
+         * there are still outstanding targets then the test is maxed out and
+         * there is no room for more destinations.
+         */
+        if ( *remaining == NULL && amp_tests[test->test_id]->max_targets != 1 ){
+            /* check if this test at this time already exists */
+            if ( merge_scheduled_tests(ev_hdl, test) ) {
+                /* remove pointer to names, merged test owns it */
+                test->resolve = NULL;
+                /* free this test, it has now merged */
+                free_test_schedule_item(test);
+                break;
+            }
+        }
+
+        sched = (schedule_item_t *)malloc(sizeof(schedule_item_t));
+        sched->type = EVENT_RUN_TEST;
+        sched->ev_hdl = ev_hdl;
+        sched->data.test = test;
+
+        /* create the timer event for this test */
+        next = get_next_schedule_time(ev_hdl, test->period, test->start,
+                test->end, MS_FROM_TV(test->interval));
+        wand_add_timer(ev_hdl, next.tv_sec, next.tv_usec, sched,
+                run_scheduled_test);
+
+    } while ( *remaining != NULL );
+
+end:
+    if ( targets ) {
+        free(targets);
+    }
 
     return test;
 }
@@ -780,7 +806,6 @@ static test_schedule_item_t *create_test(yaml_document_t *document,
 static void read_schedule_file(wand_event_handler_t *ev_hdl, char *filename) {
 
     FILE *in;
-    test_schedule_item_t *test = NULL;
     yaml_parser_t parser;
     yaml_document_t document;
     yaml_node_t *root;
@@ -835,37 +860,13 @@ static void read_schedule_file(wand_event_handler_t *ev_hdl, char *filename) {
             yaml_node_item_t *item;
             for ( item = value->data.sequence.items.start;
                     item != value->data.sequence.items.top; item++ ) {
-                if ( (test = create_test(&document, *item)) != NULL ) {
-                    /* test created ok, schedule it */
-                    struct timeval next;
-                    schedule_item_t *sched;
-                    /* see if we can merge this test with an existing one */
-                    if ( amp_tests[test->test_id]->max_targets != 1 ) {
-                        /* check if this test at this time already exists */
-                        if ( merge_scheduled_tests(ev_hdl, test) ) {
-                            /* remove pointer to names, merged test owns it */
-                            test->resolve = NULL;
-                            /* free this test, it has now merged */
-                            free_test_schedule_item(test);
-                            continue;
-                        }
-                    }
-                    sched = (schedule_item_t *)malloc(sizeof(schedule_item_t));
-                    sched->type = EVENT_RUN_TEST;
-                    sched->ev_hdl = ev_hdl;
-                    sched->data.test = test;
-
-                    /* create the timer event for this test */
-                    next = get_next_schedule_time(ev_hdl, test->period,
-                            test->start, test->end, MS_FROM_TV(test->interval));
-                    wand_add_timer(ev_hdl, next.tv_sec, next.tv_usec, sched,
-                            run_scheduled_test);
-                }
+                create_and_schedule_test(ev_hdl, &document, *item);
             }
         }
      }
 
 parser_format_error:
+     yaml_document_delete(&document);
      yaml_parser_delete(&parser);
 
 parser_load_error:
@@ -1107,8 +1108,8 @@ int update_remote_schedule(char *dir, char *url, char *cacert, char *cert,
 time_t amp_test_get_period_max_value(char repeat) {
     return get_period_max_value(repeat);
 }
-int64_t amp_test_get_time_value(char *value_string, char repeat) {
-    return get_time_value(value_string, repeat);
+int64_t amp_test_check_time_range(int64_t value, schedule_period_t period) {
+    return check_time_range(value, period);
 }
 time_t amp_test_get_period_start(char repeat) {
     return get_period_start(repeat);

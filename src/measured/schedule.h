@@ -125,7 +125,7 @@ int update_remote_schedule(char *dir, char *server, char *cacert, char *cert,
 void remote_schedule_callback(wand_event_handler_t *ev_hdl, void *data);
 #if UNIT_TEST
 time_t amp_test_get_period_max_value(char repeat);
-int64_t amp_test_get_time_value(char *value_string, char repeat);
+int64_t amp_test_check_time_range(int64_t value, schedule_period_t period);
 time_t amp_test_get_period_start(char repeat);
 #endif
 
