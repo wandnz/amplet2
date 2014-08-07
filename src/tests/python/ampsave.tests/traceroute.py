@@ -20,7 +20,7 @@ def get_printable_address(family, addr):
 
 
 # version needs to keep up with the number in src/tests/traceroute/traceroute.h
-AMP_TRACEROUTE_TEST_VERSION = 2014020300
+AMP_TRACEROUTE_TEST_VERSION = 2014080700
 
 
 # Old data coming from deployed amplet2-client debian package 0.1.13-1
@@ -81,16 +81,29 @@ def data_2013032800(data):
 
 
 # New data that is byte swapped, variable length strings etc
-def data_2014020300(data):
-    header_len = struct.calcsize("!IhBB")
-    path_len = struct.calcsize("!16sBBBBB")
-    hop_len = struct.calcsize("!16si")
+def parse_data(data):
+    # These values are only set by later versions, this is what the older
+    # tests should default to
+    lookup_ip = True
+    lookup_as = False
 
-    # offset past the version number which has already been read
+    # offset past the version number
+    version = struct.unpack_from("!I", data, 0)
     offset = struct.calcsize("!I")
 
+    if version == 2014020300:
+        header_len = struct.calcsize("!IhBB")
+        path_len = struct.calcsize("!16sBBBBB")
+        hop_len = struct.calcsize("!16si")
+        packet_size,random,count = struct.unpack_from("!hBB", data, offset)
+    else:
+        header_len = struct.calcsize("!IhBBBB")
+        path_len = struct.calcsize("!16sBBBBB")
+        hop_len = struct.calcsize("!16siI")
+        packet_size,random,count,lookup_ip,lookup_as = struct.unpack_from(
+                "!hBBBB", data, offset)
+
     # read the rest of the header that records test options
-    packet_size,random,count = struct.unpack_from("!hBB", data, offset)
 
     offset = header_len
     results = []
@@ -114,24 +127,33 @@ def data_2014020300(data):
             "error_code": errcode if errcode > 0 else None,
             "packet_size": packet_size,
             "random": random,
+            "ip": lookup_ip,
+            "as": lookup_as,
             "hops": [],
         }
 
         # extract each hop in the path
         hopcount = length
         while hopcount > 0:
-            hop_addr,rtt = struct.unpack_from("!16si", data, offset)
+            if version == 2014020300:
+                hop_addr,rtt = struct.unpack_from("!16si", data, offset)
+            else:
+                hop_addr,rtt,asn = struct.unpack_from("!16siI", data, offset)
             offset += hop_len
 
-            # Use a proper python None value to mark this rather than a -1
-            if rtt < 0:
-                rtt = None
+            hopitem = {}
+
+            if lookup_ip:
+                if rtt < 0:
+                    rtt = None
+                hopitem["rtt"] = rtt
+                hopitem["address"] = get_printable_address(family, hop_addr)
+
+            if lookup_as:
+                hopitem["as"] = asn
 
             # Append this hop to the path list
-            path["hops"].append({
-                "rtt": rtt,
-                "address": get_printable_address(family, hop_addr),
-                })
+            path["hops"].append(hopitem)
             hopcount -= 1
 
         # Add this whole path with hops to the results
@@ -159,7 +181,7 @@ def get_data(data):
         return data_2013032800(data)
 
     # deal with the current version, which is what we should be using
-    if version == 2014020300:
-        return data_2014020300(data)
+    if version == 2014020300 or version == 2014080700:
+        return parse_data(data)
 
     raise VersionMismatch(version, AMP_TRACEROUTE_TEST_VERSION)
