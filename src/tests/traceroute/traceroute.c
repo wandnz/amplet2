@@ -1124,7 +1124,7 @@ static void report_results(struct timeval *start_time, int count,
     header->packet_size = htons(opt->packet_size);
     header->random = opt->random;
     header->count = count;
-    header->probeall = opt->probeall;
+    header->ip = opt->ip;
     header->as = opt->as;
 
     offset = sizeof(struct traceroute_report_header_t);
@@ -1196,6 +1196,7 @@ static void usage(char *prog) {
     fprintf(stderr, "\n");
     fprintf(stderr, "Options:\n");
     fprintf(stderr, "  -a\t\tLookup AS numbers for all addresses\n");
+    fprintf(stderr, "  -b\t\tSuppress IP addresses in output\n");
     fprintf(stderr, "  -f\t\tProbe all paths fully, even if duplicate\n");
     fprintf(stderr, "  -r\t\tUse a random packet size for each test\n");
     fprintf(stderr, "  -p <ms>\tMaximum number of milliseconds to delay test\n");
@@ -1444,18 +1445,20 @@ int run_traceroute(int argc, char *argv[], int count, struct addrinfo **dests) {
     options.random = 0;
     options.perturbate = 0;
     options.probeall = 0;
+    options.ip = 1;
     options.as = 0;
     sourcev4 = NULL;
     sourcev6 = NULL;
     device = NULL;
 
-    while ( (opt = getopt_long(argc, argv, "hvI:afp:rs:S:4:6:",
+    while ( (opt = getopt_long(argc, argv, "hvI:abfp:rs:S:4:6:",
                     long_options, NULL)) != -1 ) {
 	switch ( opt ) {
             case '4': sourcev4 = get_numeric_address(optarg, NULL); break;
             case '6': sourcev6 = get_numeric_address(optarg, NULL); break;
             case 'I': device = optarg; break;
 	    case 'a': options.as = 1; break;
+	    case 'b': options.ip = 0; break;
 	    case 'f': options.probeall = 1; break;
 	    case 'p': options.perturbate = atoi(optarg); break;
 	    case 'r': options.random = 1; break;
@@ -1740,10 +1743,13 @@ void print_traceroute(void *data, uint32_t len) {
             hop = (struct traceroute_report_hop_t*)(data + offset);
             offset += sizeof(struct traceroute_report_hop_t);
 
-            inet_ntop(path->family, hop->address, addrstr, INET6_ADDRSTRLEN);
-            printf(" %.2d  %s", hopcount+1, addrstr);
+            printf(" %.2d", hopcount+1);
+            if ( header->ip ) {
+                inet_ntop(path->family, hop->address, addrstr,INET6_ADDRSTRLEN);
+                printf("  %s", addrstr);
+            }
             if ( header->as ) {
-                printf(" (AS%d)", ntohl(hop->as));
+                printf("  (AS%d)", ntohl(hop->as));
             }
             printf(" %dus\n", ntohl(hop->rtt));
         }

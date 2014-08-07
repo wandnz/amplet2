@@ -9,7 +9,7 @@
 #include "testlib.h"
 
 /* use the current date with 2 digit count appended as version: YYYYMMDDXX */
-#define AMP_TRACEROUTE_TEST_VERSION 2014020300
+#define AMP_TRACEROUTE_TEST_VERSION 2014080700
 
 #define DEFAULT_TRACEROUTE_PROBE_LEN 60
 
@@ -86,6 +86,7 @@ struct opt_t {
     int random;			/* use random packet sizes (bytes) */
     int perturbate;		/* delay sending by up to this time (usec) */
     int probeall;               /* probe every path in full */
+    int ip;                     /* report the IP address of each hop */
     int as;                     /* lookup the AS number of each address */
     uint16_t packet_size;	/* use this packet size (bytes) */
 };
@@ -144,7 +145,7 @@ struct traceroute_report_header_t {
     uint16_t packet_size;
     uint8_t random;
     uint8_t count;
-    uint8_t probeall;
+    uint8_t ip;
     uint8_t as;
 } __attribute__((__packed__));
 
