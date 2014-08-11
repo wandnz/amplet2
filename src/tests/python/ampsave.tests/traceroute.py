@@ -91,6 +91,7 @@ def parse_data(data):
     version = struct.unpack_from("!I", data, 0)
     offset = struct.calcsize("!I")
 
+    # read the rest of the header that records test options
     if version == 2014020300:
         header_len = struct.calcsize("!IhBB")
         path_len = struct.calcsize("!16sBBBBB")
@@ -103,7 +104,9 @@ def parse_data(data):
         packet_size,random,count,lookup_ip,lookup_as = struct.unpack_from(
                 "!hBBBB", data, offset)
 
-    # read the rest of the header that records test options
+    # someone has turned off all the reporting, ignore it, we shouldn't do this
+    if lookup_ip = False and lookup_as = False:
+        return None
 
     offset = header_len
     results = []
