@@ -31,7 +31,9 @@
 static struct option long_options[] = {
     {"help", no_argument, 0, 'h'},
     {"interface", required_argument, 0, 'I'},
-    {"probeall", no_argument, 0, 'a'},
+    {"asn", no_argument, 0, 'a'},
+    {"noip", no_argument, 0, 'b'},
+    {"probeall", no_argument, 0, 'f'},
     {"perturbate", required_argument, 0, 'p'},
     {"random", no_argument, 0, 'r'},
     {"size", required_argument, 0, 's'},
