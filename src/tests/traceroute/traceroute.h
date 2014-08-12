@@ -96,8 +96,8 @@ struct opt_t {
  */
 struct hop_info_t {
     struct timeval time_sent;	/* when the probe was sent */
+    int64_t as;                 /* AS that the address belongs to */
     uint32_t delay;		/* delay in receiving response, microseconds */
-    uint32_t as;                /* AS that the address belongs to */
     reply_t reply;              /* Has a reply been received */
     struct addrinfo *addr;      /* Address that the reply came from */
 };
@@ -126,8 +126,8 @@ struct dest_info_t {
 
 struct traceroute_report_hop_t {
     char address[16];
+    int64_t as;                /* AS that the address belongs to */
     int32_t rtt;
-    uint32_t as;                /* AS that the address belongs to */
 } __attribute__((__packed__));
 
 struct traceroute_report_path_t {

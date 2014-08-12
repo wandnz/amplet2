@@ -1171,12 +1171,12 @@ static void report_results(struct timeval *start_time, int count,
             if ( item->hop[hopcount].addr == NULL ) {
                 memset(hop->address, 0, sizeof(hop->address));
                 hop->rtt = htonl(-1);
-                hop->as = htonl(0);
             } else {
                 extract_address(hop->address, item->hop[hopcount].addr);
                 hop->rtt = htonl(item->hop[hopcount].delay);
-                hop->as = htonl(item->hop[hopcount].as);
             }
+
+            hop->as = htonl(item->hop[hopcount].as);
             inet_ntop(path->family, hop->address, addrstr, INET6_ADDRSTRLEN);
             Log(LOG_DEBUG, " %d: %s %d AS%d\n", hopcount+1, addrstr,
                     ntohl(hop->rtt), ntohl(hop->as));
@@ -1751,7 +1751,12 @@ void print_traceroute(void *data, uint32_t len) {
                 printf("  %s", addrstr);
             }
             if ( header->as ) {
-                printf("  (AS%d)", ntohl(hop->as));
+                switch ( ntohl(hop->as) ) {
+                    case AS_UNKNOWN: printf("  (unknown)"); break;
+                    case AS_PRIVATE: printf("  (private)"); break;
+                    case AS_NULL: printf("  (no AS)"); break;
+                    default: printf("  (AS%d)", ntohl(hop->as)); break;
+                };
             }
             printf(" %dus\n", ntohl(hop->rtt));
         }

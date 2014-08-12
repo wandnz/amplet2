@@ -100,7 +100,7 @@ def parse_data(data):
     else:
         header_len = struct.calcsize("!IhBBBB")
         path_len = struct.calcsize("!16sBBBBB")
-        hop_len = struct.calcsize("!16siI")
+        hop_len = struct.calcsize("!16sqi")
         packet_size,random,count,lookup_ip,lookup_as = struct.unpack_from(
                 "!hBBBB", data, offset)
 
@@ -141,7 +141,7 @@ def parse_data(data):
             if version == 2014020300:
                 hop_addr,rtt = struct.unpack_from("!16si", data, offset)
             else:
-                hop_addr,rtt,asn = struct.unpack_from("!16siI", data, offset)
+                hop_addr,asn,rtt = struct.unpack_from("!16sqi", data, offset)
             offset += hop_len
 
             hopitem = {}

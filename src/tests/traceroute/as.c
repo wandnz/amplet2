@@ -12,31 +12,48 @@
 
 
 
-static int is_rfc1918(struct sockaddr *addr) {
-    struct sockaddr_in block;
-    block.sin_family = AF_INET;
+static int is_private_address(struct sockaddr *addr) {
 
     /* a null pointer is not an RFC1918 address */
     if ( addr == NULL ) {
         return 0;
     }
 
-    block.sin_addr.s_addr = htonl(0x0a000000); /* 10.0.0.0/8 */
-    if ( compare_addresses(addr, (struct sockaddr*)&block, 8) == 0 ) {
-        return 1;
-    }
+    if ( addr->sa_family == AF_INET ) {
+        struct sockaddr_in block;
+        block.sin_family = AF_INET;
 
-    block.sin_addr.s_addr = htonl(0xac100000); /* 172.16.0.0/12 */
-    if ( compare_addresses(addr, (struct sockaddr*)&block, 12) == 0 ) {
-        return 1;
-    }
+        block.sin_addr.s_addr = 0; /* 0.0.0.0 */
+        if ( compare_addresses(addr, (struct sockaddr*)&block, 32) == 0 ) {
+            return 1;
+        }
 
-    block.sin_addr.s_addr = htonl(0xc0a80000); /* 192.168.0.0/24 */
-    if ( compare_addresses(addr, (struct sockaddr*)&block, 16) == 0 ) {
-        return 1;
-    }
+        block.sin_addr.s_addr = htonl(0x0a000000); /* 10.0.0.0/8 */
+        if ( compare_addresses(addr, (struct sockaddr*)&block, 8) == 0 ) {
+            return 1;
+        }
 
-    /* TODO add any comparable IPv6 addresses we know we can skip? */
+        block.sin_addr.s_addr = htonl(0xac100000); /* 172.16.0.0/12 */
+        if ( compare_addresses(addr, (struct sockaddr*)&block, 12) == 0 ) {
+            return 1;
+        }
+
+        block.sin_addr.s_addr = htonl(0xc0a80000); /* 192.168.0.0/24 */
+        if ( compare_addresses(addr, (struct sockaddr*)&block, 16) == 0 ) {
+            return 1;
+        }
+
+    } else if ( addr->sa_family == AF_INET6 ) {
+        struct sockaddr_in6 block;
+
+        block.sin6_family = AF_INET6;
+        memset(&block.sin6_addr, 0, sizeof(block.sin6_addr));
+        if ( compare_addresses(addr, (struct sockaddr*)&block, 128) == 0 ) {
+            return 1;
+        }
+
+        /* TODO add any comparable IPv6 addresses we know we can skip? */
+    }
 
     return 0;
 }
@@ -103,6 +120,10 @@ static uint32_t find_as_number(struct addrinfo *list, struct sockaddr *addr) {
     struct addrinfo *rp;
     uint32_t netmask;
 
+    if ( is_private_address(addr) ) {
+        return AS_PRIVATE;
+    }
+
     for ( rp=list; rp != NULL; rp=rp->ai_next ) {
         netmask = ((struct sockaddr_in*)rp->ai_addr)->sin_port;
         if ( compare_addresses(rp->ai_addr, addr, netmask) == 0 ) {
@@ -110,7 +131,7 @@ static uint32_t find_as_number(struct addrinfo *list, struct sockaddr *addr) {
         }
     }
 
-    return 0;
+    return AS_UNKNOWN;
 }
 
 
@@ -142,7 +163,7 @@ int set_as_numbers(struct stopset_t *stopset, struct dest_info_t *donelist) {
         if ( stop->addr ) {
 
             /* don't lookup AS numbers for RFC1918 addresses */
-            if ( is_rfc1918(stop->addr) ) {
+            if ( is_private_address(stop->addr) ) {
                 continue;
             }
 
@@ -182,7 +203,7 @@ int set_as_numbers(struct stopset_t *stopset, struct dest_info_t *donelist) {
         for ( i = INITIAL_TTL; i < item->path_length; i++ ) {
             if ( item->hop[i].addr && item->hop[i].addr->ai_addr ) {
                 /* don't lookup AS numbers for RFC1918 addresses */
-                if ( is_rfc1918(item->hop[i].addr->ai_addr) ) {
+                if ( is_private_address(item->hop[i].addr->ai_addr) ) {
                     continue;
                 }
 
@@ -223,6 +244,8 @@ int set_as_numbers(struct stopset_t *stopset, struct dest_info_t *donelist) {
             if ( item->hop[i].addr ) {
                 item->hop[i].as =
                     find_as_number(addrlist, item->hop[i].addr->ai_addr);
+            } else {
+                item->hop[i].as = AS_NULL;
             }
         }
     }
