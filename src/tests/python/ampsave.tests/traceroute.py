@@ -105,7 +105,7 @@ def parse_data(data):
                 "!hBBBB", data, offset)
 
     # someone has turned off all the reporting, ignore it, we shouldn't do this
-    if lookup_ip = False and lookup_as = False:
+    if lookup_ip == False and lookup_as == False:
         return None
 
     offset = header_len
