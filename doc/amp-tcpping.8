@@ -2,7 +2,7 @@
 .\" First parameter, NAME, should be all caps
 .\" Second parameter, SECTION, should be 1-8, maybe w/ subsection
 .\" other parameters are allowed: see man(7), man(1)
-.TH AMP-TRACE 8 "Jul 24, 2014" "amplet2-client" "The Active Measurement Project"
+.TH AMP-TCPPING 8 "Jul 24, 2014" "amplet2-client" "The Active Measurement Project"
 .\" Please adjust this date whenever revising the manpage.
 .\"
 .\" Some roff macros, for reference:
@@ -16,19 +16,23 @@
 .\" .sp <n>    insert n+1 empty lines
 .\" for manpage-specific macros, see man(7)
 .SH NAME
-amp-trace \- AMP standalone UDP traceroute test
+amp-tcpping \- AMP standalone TCP SYN latency test
 .SH SYNOPSIS
-\fBamp-trace\fR [\fB-hrx\fR] [\fB-p \fImilliseconds\fB\fR] [\fB-s \fIpacketsize\fB\fR] [\fB-I \fIiface\fB\fR] [\fB-4 \fIaddress\fB\fR] [\fB-6 \fIaddress\fB\fR] -- \fIdestination1\fR [\fIdestination2\fR \fI...\fR]
+\fBamp-tcpping\fR [\fB-hrx\fR] [\fB-P \fIportnumber\fB\fR] [\fB-p \fImilliseconds\fB\fR] [\fB-s \fIpacketsize\fB\fR] [\fB-I \fIiface\fB\fR] [\fB-4 \fIaddress\fB\fR] [\fB-6 \fIaddress\fB\fR] -- \fIdestination1\fR [\fIdestination2\fR \fI...\fR]
 .SH DESCRIPTION
 .\" TeX users may be more comfortable with the \fB<whatever>\fP and
 .\" \fI<whatever>\fP escape sequences to invode bold face and italics,
 .\" respectively.
-\fBamp-trace\fP is the standalone version of the \fBamplet2\fP(8)
-UDP traceroute test. It is very similar in function to \fBtraceroute\fR(1),
-except that it can
-test to multiple destinations simultaneously. All destinations listed on the
-command line will be tested to. Any destinations that are hostnames will be
-resolved, and every address that they resolve to will be tested.
+\fBamp-tcpping\fP is the standalone version of the \fBamplet2\fP(8)
+TCP Ping test. It attempts to measure latency by sending a TCP SYN packet
+to a destination and waiting for a response (which might be a SYN ACK, a RST
+or an ICMP error). This test is particularly useful for measuring latency
+for paths where ICMP is blocked or rate-limited. Like the AMP ICMP test, this
+test can measure latency for multiple destinations simultaneously. All 
+destinations listed on the command line will be tested to. Any destinations
+that are hostnames will be resolved and every address that the name resolves
+to will be tested.
+
 .SH OPTIONS
 .TP
 \fB-h, --help\fR
@@ -38,6 +42,10 @@ Show summary of options.
 Specifies the interface (device) that tests should use when sending packets.
 By default the interface will be selected according to the routing table.
 .TP
+\fB-P, --port \fIportnumber\fB\fR
+The destination port number to send the SYN packets to. The default port 
+number is 80 (i.e. the www port).
+.TP
 \fB-p, --perturbate \fImilliseconds\fB\fR
 Delay the test by a random number of milliseconds, up to a maximum of \fImilliseconds\fR. The default is to not perturbate tests (no delay).
 .TP
@@ -45,8 +53,16 @@ Delay the test by a random number of milliseconds, up to a maximum of \fImillise
 Use a random packet size for each test.
 .TP
 \fB-s, --size \fIpacketsize\fB\fR
-Specifies the total number of bytes to be sent per packet (including headers).
-The default is 60 bytes.
+Specifies the total number of bytes to be sent per packet (EXCLUDING headers).
+The default is 0 bytes, i.e. no payload. Payload-bearing SYNs are typically
+dropped by firewalls and other security appliances so take this into
+consideration before setting this option.
+
+Note that IPv4 packets are padded with an additional 20 bytes of TCP options
+to ensure that the packet sizes match for both IPv4 and IPv6. Any requested
+payload is in addition to any padding. In our experience, this padding does
+NOT cause our SYNs to be dropped, but unfortunately the maximum allowable
+amount of options is very small.
 .TP
 \fB-v, --version\fR
 Show version of program.
@@ -67,17 +83,17 @@ By default the IPv6 address of the outgoing interface will be used.
 .SH SEE ALSO
 .BR amplet2 (8),
 .BR amp-icmp (8),
+.BR amp-trace (8),
 .BR amp-dns (8),
 .BR amp-throughput (8),
-.BR amp-http (8),
-.BR amp-tcpping (8).
+.BR amp-http (8).
 
 .SH SECURITY
-\fBamp-trace\fR requires raw socket access to run.
+\fBamp-tcpping\fR requires raw socket access to run.
 .\" CAP_NET_RAWIO, see man ping
 
 .SH AUTHOR
-amp-trace was written by Brendon Jones <brendonj@waikato.ac.nz>.
+amp-tcpping was written by Shane Alcock <salcock@waikato.ac.nz>.
 .PP
-This manual page was written by Brendon Jones <brendonj@waikato.ac.nz>,
+This manual page was written by Shane Alcock <salcock@waikato.ac.nz>,
 for the Debian project (and may be used by others).
