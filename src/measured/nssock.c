@@ -43,6 +43,11 @@ static void *amp_resolver_worker_thread(void *thread_data) {
             break;
         }
 
+        /* zero here is a marker - no more names need to be resolved */
+        if ( info.namelen == 0 ) {
+            break;
+        }
+
         if ( (bytes = recv(data->fd, name, info.namelen, 0)) <= 0 ) {
             Log(LOG_WARNING, "Error reading name, aborting");
             break;
@@ -53,10 +58,6 @@ static void *amp_resolver_worker_thread(void *thread_data) {
         /* add it to the list of names to resolve and go back for more */
         amp_resolve_add(data->ctx, &addrlist, &addrlist_lock, name,
                 info.family, info.count, &remaining);
-
-        if ( !info.more ) {
-            break;
-        }
     }
 
     Log(LOG_DEBUG, "Got all requests, waiting for responses");

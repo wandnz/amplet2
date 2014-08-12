@@ -163,7 +163,7 @@ int set_as_numbers(struct stopset_t *stopset, struct dest_info_t *donelist) {
                     resolve.family = AF_TEXT;
                     resolve.name = buffer;
                     resolve.count = -1;
-                    resolve.next = (stop->next) ? (resolve_dest_t*)1 : 0;
+                    resolve.next = NULL;
                     amp_resolve_add_new(resolver_fd, &resolve);
                 }
             }
@@ -198,7 +198,7 @@ int set_as_numbers(struct stopset_t *stopset, struct dest_info_t *donelist) {
                         resolve.family = AF_TEXT;
                         resolve.name = buffer;
                         resolve.count = -1;
-                        resolve.next = (stop->next) ? (resolve_dest_t*)1 : 0;
+                        resolve.next = NULL;
                         amp_resolve_add_new(resolver_fd, &resolve);
                     }
                 }
@@ -211,6 +211,9 @@ int set_as_numbers(struct stopset_t *stopset, struct dest_info_t *donelist) {
     if ( resolver_fd < 0 ) {
         amp_resolve_wait(vars.ctx, &addrlist_lock, &remaining);
     } else {
+        /* send the flag indicating end of list to resolve */
+        amp_resolve_flag_done(resolver_fd);
+
         addrlist = amp_resolve_get_list(resolver_fd);
     }
 

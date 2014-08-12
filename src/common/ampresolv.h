@@ -37,7 +37,6 @@ struct amp_resolve_query {
     uint8_t namelen;            /* length of the name string that follows */
     uint8_t count;              /* maximum number of results to return */
     uint8_t family;             /* address family to query for or AF_UNSPEC */
-    uint8_t more;               /* flag noting if more queries follow */
 };
 
 /*
@@ -65,6 +64,7 @@ void amp_resolver_context_delete(struct ub_ctx *ctx);
 
 struct addrinfo *amp_resolve_get_list(int fd);
 int amp_resolve_add_new(int fd, resolve_dest_t *resolve);
+int amp_resolve_flag_done(int fd);
 int amp_resolver_connect(char *path);
 
 #endif

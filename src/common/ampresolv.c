@@ -441,7 +441,6 @@ int amp_resolve_add_new(int fd, resolve_dest_t *resolve) {
     info.namelen = strlen(resolve->name) + 1;
     info.count = resolve->count;
     info.family = resolve->family;
-    info.more = (resolve->next) ? 1 : 0;
 
     /* send the supporting metadata about name length, family etc */
     if ( send(fd, &info, sizeof(info), 0) < 0 ) {
@@ -453,6 +452,28 @@ int amp_resolve_add_new(int fd, resolve_dest_t *resolve) {
     /* send namelen bytes containing the name to resolve */
     if ( send(fd, resolve->name, info.namelen, 0) < 0 ) {
         Log(LOG_WARNING, "Failed to send resolution query: %s",
+                strerror(errno));
+        return -1;
+    }
+
+    return 0;
+}
+
+
+
+/*
+ *
+ */
+int amp_resolve_flag_done(int fd) {
+    struct amp_resolve_query info;
+
+    info.namelen = 0;
+    info.count = 0;
+    info.family = 0;
+
+    /* send the supporting metadata about name length, family etc */
+    if ( send(fd, &info, sizeof(info), 0) < 0 ) {
+        Log(LOG_WARNING, "Failed to send resolution query info: %s",
                 strerror(errno));
         return -1;
     }
