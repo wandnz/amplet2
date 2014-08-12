@@ -88,7 +88,7 @@ def parse_data(data):
     lookup_as = False
 
     # offset past the version number
-    version = struct.unpack_from("!I", data, 0)
+    version, = struct.unpack_from("!I", data, 0)
     offset = struct.calcsize("!I")
 
     # read the rest of the header that records test options
