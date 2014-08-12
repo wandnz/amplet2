@@ -116,7 +116,7 @@ static char *reverse_address(char *buffer, const struct sockaddr *addr) {
  * Search the list of prefixes and AS numbers for one that matches the given
  * address.
  */
-static uint32_t find_as_number(struct addrinfo *list, struct sockaddr *addr) {
+static int64_t find_as_number(struct addrinfo *list, struct sockaddr *addr) {
     struct addrinfo *rp;
     uint32_t netmask;
 
