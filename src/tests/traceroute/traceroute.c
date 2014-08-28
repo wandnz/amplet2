@@ -1619,6 +1619,7 @@ int run_traceroute(int argc, char *argv[], int count, struct addrinfo **dests) {
     report_results(&start_time, count, probelist.done, &options);
 
     /* XXX temporary debug */
+#if 0
     {
         char addrstr[INET6_ADDRSTRLEN];
         for ( item = probelist.done; item != NULL; item = item->next ) {
@@ -1655,6 +1656,7 @@ int run_traceroute(int argc, char *argv[], int count, struct addrinfo **dests) {
         }
     }
 */
+#endif
 
     /* tidy up all the address structures we have as results */
     for ( item = probelist.done; item != NULL; /* nothing */ ) {
@@ -1688,7 +1690,7 @@ int run_traceroute(int argc, char *argv[], int count, struct addrinfo **dests) {
         free(tmp);
     }
 
-    printf("STOPSET SIZE: %d\n", i);
+    //printf("STOPSET SIZE: %d\n", i);
 
     return 0;
 }

@@ -144,9 +144,9 @@ static void amp_resolve_callback(void *d, int err, struct ub_result *result) {
                     item->ai_protocol = atoi(
                             strtok_r(result->data[i] + 1, " | ", &asptr));
                     prefix = strtok_r(NULL, " | ", &asptr);
-                    printf("trying to convert prefix %s\n", prefix);
+                    //printf("trying to convert prefix %s\n", prefix);
                     addr = strtok_r(prefix, "/", &addrptr);
-                    printf("trying to convert addr %s\n", addr);
+                    //printf("trying to convert addr %s\n", addr);
                     item->ai_addr = calloc(1, sizeof(struct sockaddr_storage));
                     if ( inet_pton(AF_INET, addr,
                             &((struct sockaddr_in*)item->ai_addr)->sin_addr) ) {
@@ -165,7 +165,7 @@ static void amp_resolve_callback(void *d, int err, struct ub_result *result) {
                         ((struct sockaddr_in6*)item->ai_addr)->sin6_port =
                             atoi(strtok_r(NULL, " | ", &addrptr));
                     } else {
-                        printf("NOT IPV4 OR 6\n");
+                        //printf("NOT IPV4 OR 6\n");
                         pthread_mutex_unlock(data->lock);
                         assert(0);
                     }
