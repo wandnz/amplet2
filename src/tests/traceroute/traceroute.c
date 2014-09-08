@@ -685,24 +685,42 @@ static int get_icmp_type(int family, char *packet) {
 
 
 /*
+ *
+ */
+static int get_ttl(int family, char *packet) {
+    if ( packet == NULL ) {
+        return -1;
+    }
+
+    switch ( family ) {
+        case AF_INET:
+            return ((struct iphdr *)packet)->ttl;
+        case AF_INET6:
+            return ((struct ip6_hdr*)packet)->ip6_ctlun.ip6_un1.ip6_un1_hlim;
+        default:
+            return -1;
+    };
+
+}
+
+
+
+/*
  * Get the TTL/hopcount from the embedded packet that triggered the ICMP
  * error response.
  */
 static int get_embedded_ttl(int family, char *packet) {
     char *embedded;
 
+    if ( packet == NULL ) {
+        return -1;
+    }
+
     if ( (embedded = get_embedded_packet(family, packet)) == NULL ) {
         return -1;
     }
 
-    switch ( family ) {
-        case AF_INET:
-            return ((struct iphdr *)embedded)->ttl;
-        case AF_INET6:
-            return ((struct ip6_hdr*)embedded)->ip6_ctlun.ip6_un1.ip6_un1_hlim;
-        default:
-            return -1;
-    };
+    return get_ttl(family, embedded);
 }
 
 
@@ -740,8 +758,40 @@ static int process_packet(int family, struct sockaddr *addr, char *packet,
 
     /* we've hit the destination on the first go so need the real ttl */
     if ( terminal_error(family, type, code) && item->ttl == INITIAL_TTL ) {
-        /* get the ttl from the embedded packet or terminate if not found */
-        if ( (ttl = get_embedded_ttl(family, packet)) < 0 ) {
+        /*
+         * Get the ttl from the response packet or terminate if not found.
+         * For IPv4 we can't trust that the target host will/won't decrement
+         * the TTL before responding, so we will use a heuristic based on the
+         * TTL of the response packet. For IPv6 we don't have the response
+         * header, but the hop limit field in the embedded packet appears to
+         * be treated sanely so we use that.
+         */
+        switch ( family ) {
+            case AF_INET: ttl = get_ttl(family, packet); break;
+            case AF_INET6: ttl = get_embedded_ttl(family, packet); break;
+            default: ttl = -1; break;
+        };
+
+        if ( ttl >= 0 && family == AF_INET ) {
+            /* determine path length based on TTL in response packet */
+            if ( ttl == 0 ) {
+                ttl = 1;
+            } else if ( ttl <= 32 ) {
+                ttl = 32 - ttl + 1;
+            } else if ( ttl <= 64 ) {
+                ttl = 64 - ttl + 1;
+            } else if ( ttl <= 128 ) {
+                ttl = 128 - ttl + 1;
+            } else {
+                ttl = 255 - ttl + 1;
+            }
+        } else if ( ttl >= 0 && family == AF_INET6 ) {
+            /* determine path length based on TTL in embedded packet */
+            ttl = INITIAL_TTL - ttl + 1;
+        }
+
+        /* if the TTL was bogus then we end probing now */
+        if ( ttl < 0 || ttl > MAX_HOPS_IN_PATH ) {
             item->done_forward = 1;
             item->done_backward = 1;
             item->path_length = 0;
@@ -750,14 +800,7 @@ static int process_packet(int family, struct sockaddr *addr, char *packet,
             return enqueue_next_pending(probelist);
         }
 
-        /* determine path length based on remaining TTL in embedded packet */
-        item->ttl = ttl = INITIAL_TTL - ttl;
-
-        /* TTL of 1 means 1 ipv4 hop away, TTL of 0 means 1 ipv6 hop away */
-        if ( item->ttl > 1 || item->ttl == 0 ) {
-            item->ttl++;
-            ttl++;
-        }
+        item->ttl = ttl;
 
         /* take the time the original probe to INITIAL_TTL was sent */
         item->hop[ttl - 1].time_sent = item->hop[INITIAL_TTL - 1].time_sent;
