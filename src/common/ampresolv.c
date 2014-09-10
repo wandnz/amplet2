@@ -142,8 +142,10 @@ static void amp_resolve_callback(void *d, int err, struct ub_result *result) {
                     /* initial byte of data is the length of the string */
                     //TODO check errors
                     item->ai_protocol = atoi(
-                            strtok_r(result->data[i] + 1, " | ", &asptr));
-                    prefix = strtok_r(NULL, " | ", &asptr);
+                            strtok_r(result->data[i] + 1, "|", &asptr));
+                    prefix = strtok_r(NULL, "|", &asptr);
+                    /* spin past leading whitespace */
+                    while ( *prefix == ' ' ) prefix++;
                     //printf("trying to convert prefix %s\n", prefix);
                     addr = strtok_r(prefix, "/", &addrptr);
                     //printf("trying to convert addr %s\n", addr);
@@ -155,7 +157,7 @@ static void amp_resolve_callback(void *d, int err, struct ub_result *result) {
                         item->ai_addr->sa_family = AF_INET;
                         item->ai_addrlen = sizeof(struct sockaddr_in);
                         ((struct sockaddr_in*)item->ai_addr)->sin_port =
-                            atoi(strtok_r(NULL, " | ", &addrptr));
+                            atoi(strtok_r(NULL, "|", &addrptr));
                     } else if ( inet_pton(AF_INET6, addr,
                                 &((struct sockaddr_in6*)
                                     item->ai_addr)->sin6_addr)) {
@@ -163,7 +165,7 @@ static void amp_resolve_callback(void *d, int err, struct ub_result *result) {
                         item->ai_addr->sa_family = AF_INET6;
                         item->ai_addrlen = sizeof(struct sockaddr_in6);
                         ((struct sockaddr_in6*)item->ai_addr)->sin6_port =
-                            atoi(strtok_r(NULL, " | ", &addrptr));
+                            atoi(strtok_r(NULL, "|", &addrptr));
                     } else {
                         //printf("NOT IPV4 OR 6\n");
                         pthread_mutex_unlock(data->lock);
