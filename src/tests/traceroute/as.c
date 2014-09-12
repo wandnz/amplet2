@@ -2,6 +2,7 @@
 #include <pthread.h>
 #include <string.h>
 #include <assert.h>
+#include <errno.h>
 
 #include "global.h"
 #include "testlib.h"
@@ -9,6 +10,7 @@
 #include "as.h"
 #include "ampresolv.h"
 #include "traceroute.h"
+#include "asn.h"
 
 
 
@@ -149,10 +151,11 @@ int set_as_numbers(struct stopset_t *stopset, struct dest_info_t *donelist) {
     struct stopset_t *stop;
     struct dest_info_t *item;
     int i;
-    int resolver_fd;
+    int asn_fd;
 
     /* connect to the local amp resolver/cache if it is available */
-    if ( (resolver_fd = amp_resolver_connect(vars.nssock)) < 0 ) {
+    //XXX rename amp_resolver_connect() to something about local sockets?
+    if ( (asn_fd = amp_resolver_connect(vars.asnsock)) < 0 ) {
         Log(LOG_DEBUG, "No central amplet resolver, using standalone");
         pthread_mutex_init(&addrlist_lock, NULL);
     }
@@ -175,17 +178,13 @@ int set_as_numbers(struct stopset_t *stopset, struct dest_info_t *donelist) {
             }
             if ( prev == NULL ||
                     compare_addresses(prev, stop->addr, masklen) != 0 ) {
-                reverse_address(buffer, stop->addr);
-                if ( resolver_fd < 0 ) {
+                if ( asn_fd < 0 ) {
+                    /* XXX lets do it over dns for now, it's easier */
+                    reverse_address(buffer, stop->addr);
                     amp_resolve_add(vars.ctx, &addrlist, &addrlist_lock,
                             buffer, AF_TEXT, -1, &remaining);
                 } else {
-                    resolve_dest_t resolve;
-                    resolve.family = AF_TEXT;
-                    resolve.name = buffer;
-                    resolve.count = -1;
-                    resolve.next = NULL;
-                    amp_resolve_add_new(resolver_fd, &resolve);
+                    amp_asn_add_query(asn_fd, stop->addr);
                 }
             }
             prev = stop->addr;
@@ -210,17 +209,14 @@ int set_as_numbers(struct stopset_t *stopset, struct dest_info_t *donelist) {
                 if ( prev == NULL ||
                         compare_addresses(prev, item->hop[i].addr->ai_addr,
                             masklen) != 0 ) {
-                    reverse_address(buffer, item->hop[i].addr->ai_addr);
-                    if ( resolver_fd < 0 ) {
+                    if ( asn_fd < 0 ) {
+                        /* XXX lets do it over dns for now, it's easier */
+                        reverse_address(buffer, item->hop[i].addr->ai_addr);
                         amp_resolve_add(vars.ctx, &addrlist, &addrlist_lock,
                                 buffer, AF_TEXT, -1, &remaining);
                     } else {
-                        resolve_dest_t resolve;
-                        resolve.family = AF_TEXT;
-                        resolve.name = buffer;
-                        resolve.count = -1;
-                        resolve.next = NULL;
-                        amp_resolve_add_new(resolver_fd, &resolve);
+                        amp_asn_add_query(asn_fd,
+                                item->hop[i].addr->ai_addr);
                     }
                 }
                 prev = item->hop[i].addr->ai_addr;
@@ -229,13 +225,13 @@ int set_as_numbers(struct stopset_t *stopset, struct dest_info_t *donelist) {
     }
 
     /* wait for all the responses to come in */
-    if ( resolver_fd < 0 ) {
+    if ( asn_fd < 0 ) {
         amp_resolve_wait(vars.ctx, &addrlist_lock, &remaining);
     } else {
         /* send the flag indicating end of list to resolve */
-        amp_resolve_flag_done(resolver_fd);
+        amp_asn_flag_done(asn_fd);
 
-        addrlist = amp_resolve_get_list(resolver_fd);
+        addrlist = amp_asn_get_list(asn_fd);
     }
 
     /* match up the AS numbers to the IP addresses */

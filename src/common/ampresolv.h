@@ -66,5 +66,4 @@ struct addrinfo *amp_resolve_get_list(int fd);
 int amp_resolve_add_new(int fd, resolve_dest_t *resolve);
 int amp_resolve_flag_done(int fd);
 int amp_resolver_connect(char *path);
-
 #endif

@@ -42,6 +42,7 @@
 #include "testlib.h"
 #include "rabbitcfg.h"
 #include "nssock.h"
+#include "asnsock.h"
 
 #define AMP_CLIENT_CONFIG_DIR AMP_CONFIG_DIR "/clients"
 
@@ -489,6 +490,7 @@ int main(int argc, char *argv[]) {
     int backgrounded = 0;
     int configure_rabbit = 0;
     int nssock_fd;
+    int asnsock_fd;
 
     while ( 1 ) {
 
@@ -682,6 +684,12 @@ int main(int argc, char *argv[]) {
         return -1;
     }
 
+    /* construct our custom, per-client asn lookup socket */
+    if ( asprintf(&vars.asnsock, "%s/%s.asn", AMP_RUN_DIR, vars.ampname) < 0 ) {
+        Log(LOG_ALERT, "Failed to build local asn socket path");
+        return -1;
+    }
+
     /* fetch remote schedule configuration if it is fresher than what we have */
     if ( fetch_remote && vars.fetch_remote ) {
         if ( vars.schedule_url == NULL ) {
@@ -730,6 +738,13 @@ int main(int argc, char *argv[]) {
     }
     wand_add_fd(ev_hdl, nssock_fd, EV_READ, vars.ctx,
             resolver_socket_event_callback);
+
+    /* create the asn lookup unix socket and add event listener for it */
+    if ( (asnsock_fd = initialise_asn_socket(vars.asnsock)) < 0 ) {
+        Log(LOG_ALERT, "Failed to initialise local asn resolver, aborting");
+        return -1;
+    }
+    wand_add_fd(ev_hdl, asnsock_fd, EV_READ, NULL, asn_socket_event_callback);
 
     /* create the control socket and add an event listener for it */
     if ( vars.control_enabled && ssl_ctx != NULL ) {
