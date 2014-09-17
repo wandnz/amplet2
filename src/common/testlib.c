@@ -314,6 +314,74 @@ char *address_to_name(struct addrinfo *address) {
 
 
 /*
+ * Compare two addresses for equality. Returns an integer less than, equal to,
+ * or greater than zero if address a is less than, equal to or greater than
+ * address b, respectively.
+ */
+int compare_addresses(const struct sockaddr *a,
+        const struct sockaddr *b, int len) {
+    if ( a == NULL || b == NULL ) {
+        return -1;
+    }
+
+    if ( a->sa_family != b->sa_family ) {
+        return (a->sa_family > b->sa_family) ? 1 : -1;
+    }
+
+    /* all addresses match if no bits are checked */
+    if ( len == 0 ) {
+        return 0;
+    }
+
+    if ( a->sa_family == AF_INET ) {
+        struct sockaddr_in *a4 = (struct sockaddr_in*)a;
+        struct sockaddr_in *b4 = (struct sockaddr_in*)b;
+        if ( len > 0 && len <= 32 ) {
+            uint32_t mask = ntohl(0xffffffff << (32 - len));
+            if ( (a4->sin_addr.s_addr & mask) ==
+                    (b4->sin_addr.s_addr & mask) ) {
+                return 0;
+            }
+            return ((a4->sin_addr.s_addr & mask) >
+                    (b4->sin_addr.s_addr & mask)) ? 1 : -1;
+        }
+        return memcmp(&a4->sin_addr, &b4->sin_addr, sizeof(struct in_addr));
+    }
+
+    if ( a->sa_family == AF_INET6 ) {
+        struct sockaddr_in6 *a6 = (struct sockaddr_in6*)a;
+        struct sockaddr_in6 *b6 = (struct sockaddr_in6*)b;
+        if ( len > 0 && len <= 128 ) {
+            uint32_t mask[4];
+            int i;
+            for ( i = 0; i < 4; i++ ) {
+                if ( len >= ((i + 1) * 32) ) {
+                    mask[i] = 0xffffffff;
+                } else if ( len < ((i + 1) * 32) && len > (i * 32) ) {
+                    mask[i] = ntohl(0xffffffff << (((i + 1) * 32) - len));
+                } else {
+                    mask[i] = 0;
+                }
+            }
+
+            for ( i = 0; i < 4; i++ ) {
+                if ( (a6->sin6_addr.s6_addr32[i] & mask[i]) !=
+                        (b6->sin6_addr.s6_addr32[i] & mask[i]) ) {
+                    return ((a6->sin6_addr.s6_addr32[i] & mask[i]) >
+                            (b6->sin6_addr.s6_addr32[i] & mask[i])) ? 1 : -1;
+                }
+            }
+            return 0;
+        }
+        return memcmp(&a6->sin6_addr, &b6->sin6_addr, sizeof(struct in6_addr));
+    }
+
+    return -1;
+}
+
+
+
+/*
  * Send a port number over an SSL connection. Mostly just a convenience for
  * starting test servers to save having to remember how to send SSL data and
  * byteswap.
