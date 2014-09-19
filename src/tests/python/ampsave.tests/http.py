@@ -14,7 +14,7 @@ class VersionMismatch(Exception):
 
 
 # version needs to keep up with the version number in src/tests/http/http.h
-AMP_HTTP_TEST_VERSION = 2013050800
+AMP_HTTP_TEST_VERSION = 2014091900
 
 def get_data(data):
     """
@@ -25,8 +25,8 @@ def get_data(data):
     http_report_object_t structures describing all the objects. All of
     these are described in src/tests/http/http.h
     """
-    header_len = struct.calcsize("=II256sIIHBBBBBB6sBB")
-    server_len = struct.calcsize("=128sQQQQ46sHiHBB")
+    header_len = struct.calcsize("=II512sIIHBBBBBB6sBB")
+    server_len = struct.calcsize("=256sQQQQ46sHiHBB")
     object_len = struct.calcsize("=256sQQQQQQQQQQQQII6sBB")
     cache_len = struct.calcsize("=ii5sbbB")
 
@@ -37,7 +37,7 @@ def get_data(data):
     offset = struct.calcsize("=II")
 
     # read the rest of the header that records test options
-    url,dur,size,obj,servers,persist,max_con,max_con_ps,max_ps_ps,pipe,pad,pipe_max,cache = struct.unpack_from("=256sIIHBBBBBB6sBB", data, offset)
+    url,dur,size,obj,servers,persist,max_con,max_con_ps,max_ps_ps,pipe,pad,pipe_max,cache = struct.unpack_from("=512sIIHBBBBBB6sBB", data, offset)
 
     offset = header_len
     results = {
@@ -59,7 +59,7 @@ def get_data(data):
     # extract every server in the data portion of the message
     while servers > 0:
 	# "p" pascal string could be useful here, length byte before string
-        host,start_s,start_us,end_s,end_us,addr,pad1,size,pad2,obj,pad3 = struct.unpack_from("=128sQQQQ46sHiHBB", data, offset)
+        host,start_s,start_us,end_s,end_us,addr,pad1,size,pad2,obj,pad3 = struct.unpack_from("=256sQQQQ46sHiHBB", data, offset)
         offset += server_len
 
         server = {
