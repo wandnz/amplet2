@@ -7,6 +7,7 @@
 #include <errno.h>
 #include <stdio.h>
 #include <arpa/inet.h>
+#include <string.h>
 
 #include "asnsock.h"
 #include "ampresolv.h"
@@ -59,7 +60,7 @@ static int connect_to_whois_server(void) {
  * convert the text result into a struct addrinfo
  */
 static struct addrinfo *build_addrinfo(char *line) {
-    char *asptr, *addrptr, *prefix, *addr;
+    char *asptr, *addrptr, *addr;
     struct addrinfo *item = calloc(1, sizeof(struct addrinfo));
     item->ai_addr = calloc(1, sizeof(struct sockaddr_storage));
 
@@ -122,8 +123,8 @@ static void *amp_asn_worker_thread(void *thread_data) {
     int index;
     int buflen = 1024;//XXX define? and bigger
     struct sockaddr_storage addr;
-    void *target;
-    int length;
+    void *target = NULL;
+    int length = 0;
     int asn;
     int outstanding;
 
@@ -163,7 +164,7 @@ static void *amp_asn_worker_thread(void *thread_data) {
                 break;
             }
 
-            if ( addr.ss_family == AF_UNSPEC) {
+            if ( addr.ss_family != AF_INET && addr.ss_family != AF_INET6 ) {
                 /* no more ASNs need to be resolved */
                 Log(LOG_DEBUG, "Got all requests, waiting for responses");
                 if ( whois_fd != -1 ) {
