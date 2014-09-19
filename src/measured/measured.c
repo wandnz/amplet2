@@ -44,6 +44,7 @@
 #include "nssock.h"
 #include "asnsock.h"
 #include "iptrie.h"
+#include "localsock.h"
 
 #define AMP_CLIENT_CONFIG_DIR AMP_CONFIG_DIR "/clients"
 
@@ -734,7 +735,7 @@ int main(int argc, char *argv[]) {
     wand_add_signal(SIGCHLD, NULL, child_reaper);
 
     /* create the resolver/cache unix socket and add event listener for it */
-    if ( (nssock_fd = initialise_resolver_socket(vars.nssock)) < 0 ) {
+    if ( (nssock_fd = initialise_local_socket(vars.nssock)) < 0 ) {
         Log(LOG_ALERT, "Failed to initialise local resolver, aborting");
         return -1;
     }
@@ -742,7 +743,7 @@ int main(int argc, char *argv[]) {
             resolver_socket_event_callback);
 
     /* create the asn lookup unix socket and add event listener for it */
-    if ( (asnsock_fd = initialise_asn_socket(vars.asnsock)) < 0 ) {
+    if ( (asnsock_fd = initialise_local_socket(vars.asnsock)) < 0 ) {
         Log(LOG_ALERT, "Failed to initialise local asn resolver, aborting");
         return -1;
     }

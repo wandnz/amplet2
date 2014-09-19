@@ -4,7 +4,6 @@
 #include <unbound.h>
 #include <libwandevent.h>
 
-#define MAX_RESOLVER_SOCKET_BACKLOG 16
 
 /* data block given to each resolving thread */
 struct amp_resolve_info {
@@ -12,7 +11,6 @@ struct amp_resolve_info {
     struct ub_ctx *ctx;         /* shared unbound context (with the cache) */
 };
 
-int initialise_resolver_socket(char *path);
 void resolver_socket_event_callback(wand_event_handler_t *ev_hdl, int eventfd,
         void *data, __attribute__((unused))enum wand_eventtype_t ev);
 
