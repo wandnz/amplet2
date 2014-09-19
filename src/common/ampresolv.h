@@ -26,12 +26,6 @@ struct amp_resolve_data {
     struct addrinfo **addrlist; /* list to store the results in */
 };
 
-/* data block given to each resolving thread */
-struct amp_resolve_info {
-    int fd;                     /* file descriptor to the test process */
-    struct ub_ctx *ctx;         /* shared unbound context (with the cache) */
-};
-
 /* data block used to transfer information about a query to be performed */
 struct amp_resolve_query {
     uint8_t namelen;            /* length of the name string that follows */
