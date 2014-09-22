@@ -193,13 +193,25 @@ int set_as_numbers(struct stopset_t *stopset, struct dest_info_t *donelist) {
 
     /* XXX checking previous item only helps prevent some duplicates */
     for ( item = donelist; item != NULL; item = item->next ) {
+        if ( item->path_length < 1 || item->first_response < 1 ) {
+            continue;
+        }
+
         /* just check /24s and /64s */
         if ( item->addr->ai_family == AF_INET ) {
             masklen = 24;
         } else {
             masklen = 64;
         }
-        for ( i = INITIAL_TTL; i < item->path_length; i++ ) {
+
+        /*
+         * Final hops won't end up in the stopset, so if the path was shorter
+         * than the initial TTL then we might still need to query for an
+         * address with a low TTL. Just check from the first response
+         * (zero-indexed) which should either be the destination or the
+         * INITIAL_TTL.
+         */
+        for ( i = item->first_response - 1; i < item->path_length; i++ ) {
             if ( item->hop[i].addr && item->hop[i].addr->ai_addr ) {
                 /* don't lookup AS numbers for RFC1918 addresses */
                 if ( is_private_address(item->hop[i].addr->ai_addr) ) {
