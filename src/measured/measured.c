@@ -818,6 +818,16 @@ int main(int argc, char *argv[]) {
     free(vars.schedule_dir);
     free(vars.nametable_dir);
     free(vars.nssock);
+    free(vars.asnsock);
+
+    /* clean up the ASN socket, mutex, storage */
+    pthread_mutex_lock(asn_info.mutex);
+    iptrie_clear(*asn_info.trie);
+    pthread_mutex_unlock(asn_info.mutex);
+    pthread_mutex_destroy(asn_info.mutex);
+    free(asn_info.mutex);
+    free(asn_info.refresh);
+    free(asn_info.trie);
 
     amp_resolver_context_delete(vars.ctx);
 
