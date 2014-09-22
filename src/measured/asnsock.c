@@ -118,7 +118,6 @@ static void *amp_asn_worker_thread(void *thread_data) {
     int whois_fd = -1;
     int max_fd;
     int ready;
-    int last_bulk = 0;
     char *buffer = NULL;
     int index;
     int buflen = 1024;//XXX define? and bigger
@@ -134,6 +133,7 @@ static void *amp_asn_worker_thread(void *thread_data) {
     buffer = calloc(1, buflen);
     index = 0;
     outstanding = 0;
+    memset(&addr, 0, sizeof(addr));
 
     pthread_mutex_lock(info->mutex);
     if ( time(NULL) > *info->refresh ) {
