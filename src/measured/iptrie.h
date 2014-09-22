@@ -18,5 +18,6 @@ struct iptrie {
 iptrie_t *iptrie_add(iptrie_t *root, struct sockaddr *address, uint8_t prefix,
         uint32_t as);
 uint32_t iptrie_lookup_as(iptrie_t *root, struct sockaddr *address);
+void iptrie_clear(iptrie_t *root);
 
 #endif

@@ -135,6 +135,17 @@ static void *amp_asn_worker_thread(void *thread_data) {
     index = 0;
     outstanding = 0;
 
+    pthread_mutex_lock(info->mutex);
+    if ( time(NULL) > *info->refresh ) {
+        Log(LOG_DEBUG, "Clearing ASN cache");
+        iptrie_clear(*info->trie);
+        *info->trie = NULL;
+        *info->refresh = time(NULL) + MIN_ASN_CACHE_REFRESH +
+            (rand() % MAX_ASN_CACHE_REFRESH_OFFSET);
+        Log(LOG_DEBUG, "Next refresh at %d", *info->refresh);
+    }
+    pthread_mutex_unlock(info->mutex);
+
     while ( 1 ) {
         FD_ZERO(&readset);
         FD_ZERO(&writeset);
@@ -378,6 +389,7 @@ void asn_socket_event_callback(
     info = calloc(1, sizeof(struct amp_asn_info));
     info->trie = ((struct amp_asn_info*)data)->trie;
     info->mutex = ((struct amp_asn_info*)data)->mutex;
+    info->refresh = ((struct amp_asn_info*)data)->refresh;
     info->fd = fd;
 
     /* create the thread and detach, we don't need to look after it */

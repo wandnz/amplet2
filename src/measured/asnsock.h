@@ -5,12 +5,20 @@
 
 #include "iptrie.h"
 
+/*
+ * Ideally the cache could refresh individual items and expunge those
+ * that haven't been used for a while. In the meantime, lets just empty
+ * the whole cache and start again every 24 hours + 0-60 minutes.
+ */
+#define MIN_ASN_CACHE_REFRESH 86400
+#define MAX_ASN_CACHE_REFRESH_OFFSET 3600
 
 /* data block given to each resolving thread */
 struct amp_asn_info {
     int fd;                     /* file descriptor to the test process */
     iptrie_t **trie;            /* shared ASN data (with the cache) */
-    pthread_mutex_t *mutex;
+    pthread_mutex_t *mutex;     /* protect the shared cache */
+    time_t *refresh;           /* time the cache should be refreshed */
 };
 
 void asn_socket_event_callback(

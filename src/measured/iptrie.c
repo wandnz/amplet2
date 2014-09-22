@@ -238,3 +238,20 @@ uint32_t iptrie_lookup_as(iptrie_t *root, struct sockaddr *address) {
     /* no branch where expected, the ASN isn't here */
     return 0;
 }
+
+
+
+/*
+ * Post-order traversal, free each node after freeing all the children.
+ */
+void iptrie_clear(iptrie_t *root) {
+    if ( root == NULL ) {
+        return;
+    }
+
+    iptrie_clear(root->left);
+    iptrie_clear(root->right);
+
+    free(root->address);
+    free(root);
+}

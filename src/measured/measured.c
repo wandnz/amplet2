@@ -748,10 +748,16 @@ int main(int argc, char *argv[]) {
         return -1;
     }
 
+    asn_info.refresh = malloc(sizeof(time_t));
+    *asn_info.refresh = time(NULL) + MIN_ASN_CACHE_REFRESH +
+        (rand() % MAX_ASN_CACHE_REFRESH_OFFSET);
     asn_info.trie = malloc(sizeof(iptrie_t*));
     *asn_info.trie = NULL;
     asn_info.mutex = malloc(sizeof(pthread_mutex_t));
     pthread_mutex_init(asn_info.mutex, NULL);
+
+    Log(LOG_DEBUG, "Creating local socket for ASN lookups");
+    Log(LOG_DEBUG, "ASN cache will be refreshed at %d", *asn_info.refresh);
     wand_add_fd(ev_hdl, asnsock_fd, EV_READ, &asn_info,
             asn_socket_event_callback);
 
