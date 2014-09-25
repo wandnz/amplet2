@@ -751,8 +751,9 @@ int main(int argc, char *argv[]) {
     asn_info.refresh = malloc(sizeof(time_t));
     *asn_info.refresh = time(NULL) + MIN_ASN_CACHE_REFRESH +
         (rand() % MAX_ASN_CACHE_REFRESH_OFFSET);
-    asn_info.trie = malloc(sizeof(iptrie_t*));
-    *asn_info.trie = NULL;
+    asn_info.trie = malloc(sizeof(struct iptrie));
+    asn_info.trie->ipv4 = NULL;
+    asn_info.trie->ipv6 = NULL;
     asn_info.mutex = malloc(sizeof(pthread_mutex_t));
     pthread_mutex_init(asn_info.mutex, NULL);
 
@@ -822,7 +823,7 @@ int main(int argc, char *argv[]) {
 
     /* clean up the ASN socket, mutex, storage */
     pthread_mutex_lock(asn_info.mutex);
-    iptrie_clear(*asn_info.trie);
+    iptrie_clear(asn_info.trie);
     pthread_mutex_unlock(asn_info.mutex);
     pthread_mutex_destroy(asn_info.mutex);
     free(asn_info.mutex);

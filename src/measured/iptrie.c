@@ -110,8 +110,8 @@ static int get_matching_prefix_length(struct sockaddr *a, struct sockaddr *b) {
  * exist then it will be added at the appropriate location, if it does exist
  * then it will be updated.
  */
-iptrie_t *iptrie_add(iptrie_t *root, struct sockaddr *address, uint8_t prefix,
-        uint32_t as) {
+static iptrie_node_t *iptrie_add_internal(iptrie_node_t *root,
+        struct sockaddr *address, uint8_t prefix, uint32_t as) {
 
     int cmp, len;
 
@@ -122,7 +122,7 @@ iptrie_t *iptrie_add(iptrie_t *root, struct sockaddr *address, uint8_t prefix,
 
     /* empty trie, add this address at the root */
     if ( root == NULL ) {
-        iptrie_t *node = malloc(sizeof(iptrie_t));
+        iptrie_node_t *node = malloc(sizeof(iptrie_node_t));
         node->as = as;
         node->prefix = prefix;
         node->address = malloc(sizeof(struct sockaddr_storage));
@@ -160,7 +160,7 @@ iptrie_t *iptrie_add(iptrie_t *root, struct sockaddr *address, uint8_t prefix,
      * will become children of this new branching node.
      */
     if ( len < root->prefix ) {
-        iptrie_t *node = malloc(sizeof(iptrie_t));
+        iptrie_node_t *node = malloc(sizeof(iptrie_node_t));
         node->as = 0;
         node->prefix = len;
         node->address = malloc(sizeof(struct sockaddr_storage));
@@ -174,12 +174,12 @@ iptrie_t *iptrie_add(iptrie_t *root, struct sockaddr *address, uint8_t prefix,
 
         if ( cmp == 0 ) {
             /* the next bit is a zero, add it down the left branch */
-            node->left = iptrie_add(node->left, address, prefix, as);
+            node->left = iptrie_add_internal(node->left, address, prefix, as);
             /* and put the existing node on the right branch */
             node->right = root;
         } else if ( cmp != 0 ) {
             /* the next bit is a one, add it down the right branch */
-            node->right = iptrie_add(node->right, address, prefix, as);
+            node->right = iptrie_add_internal(node->right, address, prefix, as);
             /* and put the existing node on the left branch */
             node->left = root;
         }
@@ -193,10 +193,10 @@ iptrie_t *iptrie_add(iptrie_t *root, struct sockaddr *address, uint8_t prefix,
      */
     if ( cmp == 0 ) {
         /* the next bit is a zero, go down the left branch */
-        root->left = iptrie_add(root->left, address, prefix, as);
+        root->left = iptrie_add_internal(root->left, address, prefix, as);
     } else if ( cmp != 0 ) {
         /* the next bit is a one, go down the right branch */
-        root->right = iptrie_add(root->right, address, prefix, as);
+        root->right = iptrie_add_internal(root->right, address, prefix, as);
     }
 
     return root;
@@ -205,9 +205,29 @@ iptrie_t *iptrie_add(iptrie_t *root, struct sockaddr *address, uint8_t prefix,
 
 
 /*
+ * We keep separate tries for ipv4 and ipv6, so figure out which one we should
+ * use based on the address we've been given to add.
+ */
+void iptrie_add(struct iptrie *root, struct sockaddr *address,
+        uint8_t prefix, uint32_t as) {
+
+    switch ( address->sa_family ) {
+        case AF_INET:
+            root->ipv4 = iptrie_add_internal(root->ipv4, address, prefix, as);
+            break;
+        case AF_INET6:
+            root->ipv6 = iptrie_add_internal(root->ipv6, address, prefix, as);
+            break;
+    };
+}
+
+
+
+/*
  *
  */
-uint32_t iptrie_lookup_as(iptrie_t *root, struct sockaddr *address) {
+static uint32_t iptrie_lookup_as_internal(iptrie_node_t *root,
+        struct sockaddr *address) {
     int next;
 
     /* empty trie or missing address, can't return a useful AS number */
@@ -230,9 +250,9 @@ uint32_t iptrie_lookup_as(iptrie_t *root, struct sockaddr *address) {
 
     /* non-leaf node, continue down the trie and try the next branch */
     if ( next == 0 && root->left ) {
-        return iptrie_lookup_as(root->left, address);
+        return iptrie_lookup_as_internal(root->left, address);
     } else if ( next == 1 && root->right ) {
-        return iptrie_lookup_as(root->right, address);
+        return iptrie_lookup_as_internal(root->right, address);
     }
 
     /* no branch where expected, the ASN isn't here */
@@ -242,16 +262,44 @@ uint32_t iptrie_lookup_as(iptrie_t *root, struct sockaddr *address) {
 
 
 /*
+ * We keep separate tries for ipv4 and ipv6, so figure out which one we should
+ * use based on the address we've been given to look up.
+ */
+uint32_t iptrie_lookup_as(struct iptrie *root, struct sockaddr *address) {
+
+    switch ( address->sa_family ) {
+        case AF_INET:
+            return iptrie_lookup_as_internal(root->ipv4, address);
+        case AF_INET6:
+            return iptrie_lookup_as_internal(root->ipv6, address);
+    };
+
+    return 0;
+}
+
+
+
+/*
  * Post-order traversal, free each node after freeing all the children.
  */
-void iptrie_clear(iptrie_t *root) {
+static void iptrie_clear_internal(iptrie_node_t *root) {
     if ( root == NULL ) {
         return;
     }
 
-    iptrie_clear(root->left);
-    iptrie_clear(root->right);
+    iptrie_clear_internal(root->left);
+    iptrie_clear_internal(root->right);
 
     free(root->address);
     free(root);
+}
+
+
+
+void iptrie_clear(struct iptrie *root) {
+    iptrie_clear_internal(root->ipv4);
+    iptrie_clear_internal(root->ipv6);
+
+    root->ipv4 = NULL;
+    root->ipv6 = NULL;
 }

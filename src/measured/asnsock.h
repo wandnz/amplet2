@@ -16,9 +16,9 @@
 /* data block given to each resolving thread */
 struct amp_asn_info {
     int fd;                     /* file descriptor to the test process */
-    iptrie_t **trie;            /* shared ASN data (with the cache) */
+    struct iptrie *trie;        /* shared ASN data (with the cache) */
     pthread_mutex_t *mutex;     /* protect the shared cache */
-    time_t *refresh;           /* time the cache should be refreshed */
+    time_t *refresh;            /* time the cache should be refreshed */
 };
 
 void asn_socket_event_callback(

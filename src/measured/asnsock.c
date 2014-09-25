@@ -138,8 +138,7 @@ static void *amp_asn_worker_thread(void *thread_data) {
     pthread_mutex_lock(info->mutex);
     if ( time(NULL) > *info->refresh ) {
         Log(LOG_DEBUG, "Clearing ASN cache");
-        iptrie_clear(*info->trie);
-        *info->trie = NULL;
+        iptrie_clear(info->trie);
         *info->refresh = time(NULL) + MIN_ASN_CACHE_REFRESH +
             (rand() % MAX_ASN_CACHE_REFRESH_OFFSET);
         Log(LOG_DEBUG, "Next refresh at %d", *info->refresh);
@@ -207,7 +206,7 @@ static void *amp_asn_worker_thread(void *thread_data) {
 
             /* see if ASN for address has already been fetched */
             pthread_mutex_lock(info->mutex);
-            if ( (asn = iptrie_lookup_as(*info->trie,
+            if ( (asn = iptrie_lookup_as(info->trie,
                             (struct sockaddr*)&addr)) > 0 ) {
                 struct addrinfo *item = calloc(1, sizeof(struct addrinfo));
 
@@ -305,11 +304,11 @@ static void *amp_asn_worker_thread(void *thread_data) {
 
                 pthread_mutex_lock(info->mutex);
                 if ( item->ai_family == AF_INET ) {
-                    *info->trie = iptrie_add(*info->trie, item->ai_addr,
+                    iptrie_add(info->trie, item->ai_addr,
                             ((struct sockaddr_in*)item->ai_addr)->sin_port,
                             item->ai_protocol);
                 } else {
-                    *info->trie = iptrie_add(*info->trie, item->ai_addr,
+                    iptrie_add(info->trie, item->ai_addr,
                             ((struct sockaddr_in6*)item->ai_addr)->sin6_port,
                             item->ai_protocol);
                 }
