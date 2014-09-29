@@ -15,103 +15,91 @@
 
 
 
-/*
- * Open a TCP connection to the Team Cymru whois server and send the options
- * that will make the output look like we expect.
- */
-static int connect_to_whois_server(void) {
-    struct addrinfo hints, *result;
-    int fd;
-    char *server = "whois.cymru.com";
-    char *port = "43";
 
-    memset(&hints, 0, sizeof(hints));
-    hints.ai_family = AF_INET;
-    hints.ai_socktype = SOCK_STREAM;
-    hints.ai_protocol = IPPROTO_TCP;
+static void add_parsed_line(struct amp_asn_info *info, struct iptrie *result,
+        char *line) {
 
-    if ( getaddrinfo(server, port, &hints, &result) < 0 ) {
-        return -1;
-    }
+    char *asptr, *addrptr, *addrstr;
+    struct sockaddr_storage addr;
+    uint64_t as;
+    uint8_t prefix;
 
-    if ( (fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0 ) {
-        return -1;
-    }
-
-    if ( connect(fd, result->ai_addr, result->ai_addrlen) < 0 ) {
-        return -1;
-    }
-
-    freeaddrinfo(result);
-
-    //TODO check sending works ok
-    send(fd, "begin\n", strlen("begin\n"), 0);
-    send(fd, "noheader\n", strlen("noheader\n"), 0);
-    send(fd, "noasname\n", strlen("noasname\n"), 0);
-    send(fd, "prefix\n", strlen("prefix\n"), 0);
-
-    return fd;
-}
-
-
-
-//XXX this is all duplicated in common/ampresolv.c
-/*
- * convert the text result into a struct addrinfo
- */
-static struct addrinfo *build_addrinfo(char *line) {
-    char *asptr, *addrptr, *addr;
-    struct addrinfo *item = calloc(1, sizeof(struct addrinfo));
-    item->ai_addr = calloc(1, sizeof(struct sockaddr_storage));
+    memset(&addr, 0, sizeof(struct sockaddr_storage));
 
     /* the ASN is the first part of the line */
-    item->ai_protocol = atoi(strtok_r(line, "|", &asptr));
+    as = atoi(strtok_r(line, "|", &asptr));
 
     /*
      * the address portion is next, because we are forcing all cached values
      * to be /24s or /64s, this is what we are going to use instead
      * of the actual network prefix
      */
-    addr = strtok_r(NULL, "|", &asptr);
+    addrstr = strtok_r(NULL, "|", &asptr);
     /* trim the whitespace from front and back */
-    addr = strtok_r(addr, " ", &addrptr);
+    addrstr = strtok_r(addrstr, " ", &addrptr);
 
-    /*
-     * Try to convert the address string into a sockaddr to determine the
-     * address family. Build a struct addrinfo for the address portion, and
-     * store the prefix length in the port field.
-     */
-    if ( inet_pton(AF_INET, addr,
-                &((struct sockaddr_in*)item->ai_addr)->sin_addr) ) {
-        item->ai_family = AF_INET;
-        item->ai_addr->sa_family = AF_INET;
-        item->ai_addrlen = sizeof(struct sockaddr_in);
-        ((struct sockaddr_in*)item->ai_addr)->sin_port = 24;
-
-    } else if ( inet_pton(AF_INET6, addr,
-                &((struct sockaddr_in6*)item->ai_addr)->sin6_addr)) {
-        item->ai_family = AF_INET6;
-        item->ai_addr->sa_family = AF_INET6;
-        item->ai_addrlen = sizeof(struct sockaddr_in6);
-        ((struct sockaddr_in6*)item->ai_addr)->sin6_port = 64;
-
+    /* turn the address string into a useful sockaddr */
+    if ( inet_pton(AF_INET, addrstr,
+                &((struct sockaddr_in*)&addr)->sin_addr) ) {
+        addr.ss_family = AF_INET;
+        prefix = 24;
+    } else if ( inet_pton(AF_INET6, addrstr,
+                &((struct sockaddr_in6*)&addr)->sin6_addr)) {
+        addr.ss_family = AF_INET6;
+        prefix = 64;
     } else {
         assert(0);
     }
 
-    item->ai_canonname = NULL;
-    item->ai_next = NULL;
+    /* add to the result set */
+    iptrie_add(result, (struct sockaddr*)&addr, prefix, as);
 
-    return item;
+    /* add to the global cache */
+    if ( info != NULL ) {
+        pthread_mutex_lock(info->mutex);
+        iptrie_add(info->trie, (struct sockaddr*)&addr, prefix, as);
+        pthread_mutex_unlock(info->mutex);
+    }
+}
+
+
+
+/* send back all the results of ASN resolution */
+static void return_asn_list(iptrie_node_t *root, void *data) {
+
+    int addrlen;
+    int fd = *(int*)data;
+
+    switch ( root->address->sa_family ) {
+        case AF_INET: addrlen = sizeof(struct sockaddr_in); break;
+        case AF_INET6: addrlen = sizeof(struct sockaddr_in6); break;
+        default: return;
+    };
+
+    if ( send(fd, &root->as, sizeof(root->as), MSG_NOSIGNAL) < 0 ) {
+        //XXX better not leave these empty without proper error handling!
+    }
+
+    if ( send(fd, &root->prefix, sizeof(root->prefix), MSG_NOSIGNAL) < 0 ) {
+        //XXX
+    }
+
+    if ( send(fd, &root->address->sa_family, sizeof(uint16_t),
+                MSG_NOSIGNAL) < 0 ) {
+        //XXX
+    }
+
+    if ( send(fd, root->address, addrlen, MSG_NOSIGNAL) < 0 ) {
+        //XXX
+    }
 }
 
 
 
 static void *amp_asn_worker_thread(void *thread_data) {
     struct amp_asn_info *info = (struct amp_asn_info*)thread_data;
-    struct addrinfo *addrlist = NULL, *item;
+    struct iptrie result = { NULL, NULL };
     char addrstr[INET6_ADDRSTRLEN + 1];
-    uint8_t more;
     int bytes;
 
     fd_set readset, writeset;
@@ -207,38 +195,23 @@ static void *amp_asn_worker_thread(void *thread_data) {
             /* see if ASN for address has already been fetched */
             pthread_mutex_lock(info->mutex);
             if ( (asn = iptrie_lookup_as(info->trie,
-                            (struct sockaddr*)&addr)) > 0 ) {
-                struct addrinfo *item = calloc(1, sizeof(struct addrinfo));
-
+                            (struct sockaddr*)&addr)) >= 0 ) {
+                int prefix;
                 pthread_mutex_unlock(info->mutex);
 
-                /*
-                 * It's in the cache, build a nice addrinfo around it,
-                 * assuming that everything we put into the cache is a
-                 * /24 or /64.
-                 */
-                item->ai_family = addr.ss_family;
-                item->ai_protocol = asn;
                 if ( addr.ss_family == AF_INET ) {
-                    item->ai_addr = malloc(sizeof(struct sockaddr_in));
-                    memcpy(item->ai_addr, &addr, sizeof(struct sockaddr_in));
-                    item->ai_addrlen = sizeof(struct sockaddr_in);
-                    ((struct sockaddr_in*)item->ai_addr)->sin_port = 24;
+                    prefix = 24;
                 } else {
-                    item->ai_addr = malloc(sizeof(struct sockaddr_in6));
-                    memcpy(item->ai_addr, &addr, sizeof(struct sockaddr_in6));
-                    item->ai_addrlen = sizeof(struct sockaddr_in6);
-                    ((struct sockaddr_in6*)item->ai_addr)->sin6_port = 64;
+                    prefix = 64;
                 }
 
-                item->ai_canonname = NULL;
-                item->ai_next = addrlist;
-                addrlist = item;
+                /* add the values to our result trie */
+                iptrie_add(&result, (struct sockaddr*)&addr, prefix, asn);
                 continue;
             }
             pthread_mutex_unlock(info->mutex);
 
-            /* convert to a string for the query */
+            /* not found, need to query - convert to a string for the query */
             inet_ntop(addr.ss_family, target, addrstr, INET6_ADDRSTRLEN);
 
             /* need a newline between addresses, null terminate too */
@@ -264,7 +237,6 @@ static void *amp_asn_worker_thread(void *thread_data) {
         }
 
         if ( whois_fd != -1 && FD_ISSET(whois_fd, &readset) ) {
-            struct addrinfo *item;
             char *line;
             char *lineptr = NULL;
             int linelen;
@@ -294,25 +266,12 @@ static void *amp_asn_worker_thread(void *thread_data) {
                     continue;
                 }
 
-                item = build_addrinfo(line);
-                item->ai_next = addrlist;
-                addrlist = item;
+                /* parse the response line and add a new result item */
+                add_parsed_line(info, &result, line);
 
                 /* move the remaining data to the front of the buffer */
                 memmove(buffer, buffer + linelen, buflen - linelen);
                 index = index - linelen;
-
-                pthread_mutex_lock(info->mutex);
-                if ( item->ai_family == AF_INET ) {
-                    iptrie_add(info->trie, item->ai_addr,
-                            ((struct sockaddr_in*)item->ai_addr)->sin_port,
-                            item->ai_protocol);
-                } else {
-                    iptrie_add(info->trie, item->ai_addr,
-                            ((struct sockaddr_in6*)item->ai_addr)->sin6_port,
-                            item->ai_protocol);
-                }
-                pthread_mutex_unlock(info->mutex);
 
                 outstanding--;
                 if ( outstanding == 0 ) {
@@ -328,35 +287,16 @@ static void *amp_asn_worker_thread(void *thread_data) {
 
     Log(LOG_DEBUG, "Got all responses, sending them back");
 
-    /* send back all the results of name resolution */
-    for ( item = addrlist; item != NULL; item = item->ai_next) {
-        if ( send(info->fd, item, sizeof(*item), MSG_NOSIGNAL) < 0 ) {
-            Log(LOG_WARNING, "Failed to send resolved address info: %s",
-                    strerror(errno));
-            goto end;
-        }
+    iptrie_leaves(&result, return_asn_list, &info->fd);
 
-        if ( send(info->fd, item->ai_addr, item->ai_addrlen,
-                    MSG_NOSIGNAL) < 0 ) {
-            Log(LOG_WARNING, "Failed to send resolved address: %s",
-                    strerror(errno));
-            goto end;
-        }
+    Log(LOG_DEBUG, "Tidying up after asn resolution thread");
 
-        more = (item->ai_next) ? 1 : 0;
-        if ( send(info->fd, &more, sizeof(uint8_t), MSG_NOSIGNAL) < 0 ) {
-            Log(LOG_WARNING, "Failed to send more flag: %s", strerror(errno));
-            goto end;
-        }
-    }
-
-    Log(LOG_DEBUG, "asn resolution thread completed, exiting");
-
-end:
     close(info->fd);
-    amp_resolve_freeaddr(addrlist);
+    iptrie_clear(&result);
     free(thread_data);
     free(buffer);
+
+    Log(LOG_DEBUG, "asn resolution thread completed, exiting");
 
     pthread_exit(NULL);
 }

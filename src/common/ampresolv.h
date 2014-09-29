@@ -7,9 +7,6 @@
 
 #define MAX_DNS_NAME_LEN 256
 
-/* custom address family to do an origin AS lookup via DNS */
-#define AF_TEXT (AF_MAX + 1)
-
 /* max wait between checking if all DNS responses have come in: 10ms */
 #define MAX_DNS_POLL_USEC 10000
 

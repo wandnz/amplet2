@@ -111,7 +111,7 @@ static int get_matching_prefix_length(struct sockaddr *a, struct sockaddr *b) {
  * then it will be updated.
  */
 static iptrie_node_t *iptrie_add_internal(iptrie_node_t *root,
-        struct sockaddr *address, uint8_t prefix, uint32_t as) {
+        struct sockaddr *address, uint8_t prefix, int64_t as) {
 
     int cmp, len;
 
@@ -125,8 +125,13 @@ static iptrie_node_t *iptrie_add_internal(iptrie_node_t *root,
         iptrie_node_t *node = malloc(sizeof(iptrie_node_t));
         node->as = as;
         node->prefix = prefix;
-        node->address = malloc(sizeof(struct sockaddr_storage));
-        memcpy(node->address, address, sizeof(struct sockaddr_storage));
+        if ( address->sa_family == AF_INET ) {
+            node->address = malloc(sizeof(struct sockaddr_in));
+            memcpy(node->address, address, sizeof(struct sockaddr_in));
+        } else {
+            node->address = malloc(sizeof(struct sockaddr_in6));
+            memcpy(node->address, address, sizeof(struct sockaddr_in6));
+        }
         node->left = NULL;
         node->right = NULL;
         return node;
@@ -163,10 +168,11 @@ static iptrie_node_t *iptrie_add_internal(iptrie_node_t *root,
         iptrie_node_t *node = malloc(sizeof(iptrie_node_t));
         node->as = 0;
         node->prefix = len;
-        node->address = malloc(sizeof(struct sockaddr_storage));
         if ( address->sa_family == AF_INET ) {
+            node->address = malloc(sizeof(struct sockaddr_in));
             memcpy(node->address, address, sizeof(struct sockaddr_in));
         } else {
+            node->address = malloc(sizeof(struct sockaddr_in6));
             memcpy(node->address, address, sizeof(struct sockaddr_in6));
         }
         node->left = NULL;
@@ -209,7 +215,7 @@ static iptrie_node_t *iptrie_add_internal(iptrie_node_t *root,
  * use based on the address we've been given to add.
  */
 void iptrie_add(struct iptrie *root, struct sockaddr *address,
-        uint8_t prefix, uint32_t as) {
+        uint8_t prefix, int64_t as) {
 
     switch ( address->sa_family ) {
         case AF_INET:
@@ -226,18 +232,18 @@ void iptrie_add(struct iptrie *root, struct sockaddr *address,
 /*
  *
  */
-static uint32_t iptrie_lookup_as_internal(iptrie_node_t *root,
+static int64_t iptrie_lookup_as_internal(iptrie_node_t *root,
         struct sockaddr *address) {
     int next;
 
     /* empty trie or missing address, can't return a useful AS number */
     if ( root == NULL || address == NULL ) {
-        return 0;
+        return -1;
     }
 
     /* if the address doesn't match at this prefix, it isn't present */
     if ( compare_addresses(root->address, address, root->prefix) != 0 ) {
-        return 0;
+        return -1;
     }
 
     /* if this is a leaf node, then it matches what we were looking for */
@@ -256,7 +262,7 @@ static uint32_t iptrie_lookup_as_internal(iptrie_node_t *root,
     }
 
     /* no branch where expected, the ASN isn't here */
-    return 0;
+    return -1;
 }
 
 
@@ -265,7 +271,7 @@ static uint32_t iptrie_lookup_as_internal(iptrie_node_t *root,
  * We keep separate tries for ipv4 and ipv6, so figure out which one we should
  * use based on the address we've been given to look up.
  */
-uint32_t iptrie_lookup_as(struct iptrie *root, struct sockaddr *address) {
+int64_t iptrie_lookup_as(struct iptrie *root, struct sockaddr *address) {
 
     switch ( address->sa_family ) {
         case AF_INET:
@@ -274,7 +280,7 @@ uint32_t iptrie_lookup_as(struct iptrie *root, struct sockaddr *address) {
             return iptrie_lookup_as_internal(root->ipv6, address);
     };
 
-    return 0;
+    return -1;
 }
 
 
@@ -302,4 +308,37 @@ void iptrie_clear(struct iptrie *root) {
 
     root->ipv4 = NULL;
     root->ipv6 = NULL;
+}
+
+
+
+/*
+ * Apply the user function to each of the leaves (only the leaves contain
+ * values that were added, internal nodes have been created as a by-product).
+ */
+static void iptrie_leaves_internal(iptrie_node_t *root,
+        void (*func)(iptrie_node_t *node, void *data), void *data) {
+
+    if ( root == NULL ) {
+        return;
+    }
+
+    if ( root->left == NULL && root->right == NULL ) {
+        func(root, data);
+    } else {
+        iptrie_leaves_internal(root->left, func, data);
+        iptrie_leaves_internal(root->right, func, data);
+    }
+}
+
+
+
+/*
+ * Apply the user function to each of the leaves (only the leaves contain
+ * values that were added, internal nodes have been created as a by-product).
+ */
+void iptrie_leaves(struct iptrie *root, void (*func)(iptrie_node_t*, void*),
+        void *data) {
+    iptrie_leaves_internal(root->ipv4, func, data);
+    iptrie_leaves_internal(root->ipv6, func, data);
 }

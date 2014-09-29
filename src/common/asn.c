@@ -6,15 +6,65 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <arpa/inet.h>
 
 #include "debug.h"
 #include "asn.h"
+#include "iptrie.h"
+
+//XXX duplicated in asnsock.c
+static void add_parsed_line(struct iptrie *result, char *line) {
+
+    char *asptr, *addrptr, *addrstr;
+    struct sockaddr_storage addr;
+    uint64_t as;
+    uint8_t prefix;
+
+    memset(&addr, 0, sizeof(struct sockaddr_storage));
+
+    /* the ASN is the first part of the line */
+    as = atoi(strtok_r(line, "|", &asptr));
+
+    /*
+     * the address portion is next, because we are forcing all cached values
+     * to be /24s or /64s, this is what we are going to use instead
+     * of the actual network prefix
+     */
+    addrstr = strtok_r(NULL, "|", &asptr);
+    /* trim the whitespace from front and back */
+    addrstr = strtok_r(addrstr, " ", &addrptr);
+
+    /* turn the address string into a useful sockaddr */
+    if ( inet_pton(AF_INET, addrstr,
+                &((struct sockaddr_in*)&addr)->sin_addr) ) {
+        addr.ss_family = AF_INET;
+        prefix = 24;
+    } else if ( inet_pton(AF_INET6, addrstr,
+                &((struct sockaddr_in6*)&addr)->sin6_addr)) {
+        addr.ss_family = AF_INET6;
+        prefix = 64;
+    } else {
+        assert(0);
+    }
+
+    /* add to the result set */
+    iptrie_add(result, (struct sockaddr*)&addr, prefix, as);
+
+    /* add to the global cache */
+    /*
+    if ( info != NULL ) {
+        pthread_mutex_lock(info->mutex);
+        iptrie_add(info->trie, (struct sockaddr*)&addr, prefix, as);
+        pthread_mutex_unlock(info->mutex);
+    }
+    */
+}
 
 
 /*
  *
  */
-int amp_asn_flag_done(int fd) {
+static int amp_asn_flag_done_local(int fd) {
     uint16_t flag = AF_UNSPEC;
 
     /* send the supporting metadata about name length, family etc */
@@ -29,59 +79,66 @@ int amp_asn_flag_done(int fd) {
 
 
 /*
+ *
+ */
+static int amp_asn_flag_done_direct(int fd) {
+    /* send the supporting metadata about name length, family etc */
+    if ( send(fd, "end\n", strlen("end\n"), 0) < 0 ) {
+        Log(LOG_WARNING, "Failed to send asn end flag: %s", strerror(errno));
+        return -1;
+    }
+
+    return 0;
+}
+
+
+
+/*
  * Get a list of addrinfo structs that is the result of all the queries
  * that were sent to this thread. This will block until all the queries
  * complete or time out.
  */
-struct addrinfo *amp_asn_get_list(int fd) {
-    struct addrinfo *addrlist = NULL;
-    struct addrinfo item;
-    uint8_t more;
+static struct iptrie *amp_asn_fetch_results_local(int fd,
+        struct iptrie *result) {
 
     Log(LOG_DEBUG, "Waiting for address list");
 
     /* everything we read should be the result of a name lookup */
     while ( 1 ) {
-        struct addrinfo *tmp;
-        if ( recv(fd, &item, sizeof(struct addrinfo), 0) <= 0 ) {
+        int64_t asn;
+        uint16_t family;
+        uint8_t prefix;
+        size_t addrlen;
+        struct sockaddr_storage addr;
+
+        if ( recv(fd, &asn, sizeof(asn), 0) <= 0 ) {
             break;
         }
 
-        tmp = calloc(1, sizeof(struct addrinfo));
-        tmp->ai_flags = item.ai_flags;
-        tmp->ai_family = item.ai_family;
-        tmp->ai_socktype = item.ai_socktype;
-        tmp->ai_protocol = item.ai_protocol;
-        tmp->ai_addrlen = item.ai_addrlen;
-        tmp->ai_addr = calloc(1, tmp->ai_addrlen);
-        tmp->ai_canonname = NULL;
-
-        assert(tmp->ai_addrlen > 0);
-        assert(tmp->ai_addr);
-
-        if ( recv(fd, tmp->ai_addr, tmp->ai_addrlen, 0) <= 0 ) {
-            free(tmp);
+        if ( recv(fd, &prefix, sizeof(prefix), 0) <= 0 ) {
             break;
         }
 
-        if ( recv(fd, &more, sizeof(more), 0) <= 0 ) {
-            free(tmp->ai_canonname);
-            free(tmp);
+        if ( recv(fd, &family, sizeof(family), 0) <= 0 ) {
             break;
         }
 
-        /* add the item to the front of the list once it is complete */
-        tmp->ai_next = addrlist;
-        addrlist = tmp;
+        switch ( family ) {
+            case AF_INET: addrlen = sizeof(struct sockaddr_in); break;
+            case AF_INET6: addrlen = sizeof(struct sockaddr_in6); break;
+            default: break;
+        };
 
-        if ( !more ) {
+        if ( recv(fd, &addr, addrlen, 0) <= 0 ) {
             break;
         }
+
+        iptrie_add(result, (struct sockaddr *)&addr, prefix, asn);
     }
 
     close(fd); //XXX do this here or at next level up in the test?
 
-    return addrlist;
+    return result;
 }
 
 
@@ -89,7 +146,7 @@ struct addrinfo *amp_asn_get_list(int fd) {
 /*
  *
  */
-int amp_asn_add_query(int fd, struct sockaddr *address) {
+static int amp_asn_add_query_local(int fd, struct sockaddr *address) {
     void *addr;
     int length;
 
@@ -119,4 +176,200 @@ int amp_asn_add_query(int fd, struct sockaddr *address) {
 }
 
 
+
+static void amp_asn_add_query_direct(int fd, struct sockaddr *address) {
+    char addrstr[INET6_ADDRSTRLEN];
+
+    /* always need to query - convert to a string for the query */
+    switch ( address->sa_family ) {
+        case AF_INET: inet_ntop(AF_INET,
+                              &((struct sockaddr_in*)address)->sin_addr,
+                              addrstr, INET6_ADDRSTRLEN);
+                      break;
+        case AF_INET6: inet_ntop(AF_INET6,
+                               &((struct sockaddr_in6*)address)->sin6_addr,
+                               addrstr, INET6_ADDRSTRLEN);
+                       break;
+        default: return;
+    };
+
+    /* need a newline between addresses, null terminate too */
+    addrstr[strlen(addrstr) + 1] = '\0';
+    addrstr[strlen(addrstr)] = '\n';
+
+    /* write this query and go back for more */
+    /* XXX just like netcat, we don't care to select on the
+     * writing file descriptor? Should we?
+     */
+    if ( send(fd, addrstr, strlen(addrstr), 0) < 0 ) {
+        Log(LOG_WARNING, "Error writing to whois socket: %s\n",strerror(errno));
+    }
+}
+
+
+
+///XXX duplicate of the main loop in asnsock.c, can plug this in?
+static struct iptrie *amp_asn_fetch_results_direct(int whois_fd,
+        struct iptrie *result) {
+
+    int bytes;
+    char *buffer = NULL;
+    int index;
+    int buflen = 1024;//XXX define? and bigger
+    char *line;
+    char *lineptr = NULL;
+    int linelen;
+
+    Log(LOG_DEBUG, "Fetching ASN results (standalone)");
+
+    /* XXX smaller than planned so it will fill while testing */
+    buffer = calloc(1, buflen);
+    index = 0;
+
+    /* read the available ASN data until we run out */
+    while ( (bytes = recv(whois_fd, buffer, buflen - index, 0)) > 0 ) {
+        index += bytes;
+
+        /*
+         * Only deal with whole lines of text. Also, always call strtok_r
+         * with all the parameters because we modify buffer at the end
+         * of the loop.
+         */
+        while ( (line = strtok_r(buffer, "\n", &lineptr)) != NULL ) {
+
+            linelen = strlen(line) + 1;
+
+            /* ignore the header or any error messages */
+            if ( strncmp(line, "Bulk", 4) == 0 ||
+                    strncmp(line, "Error", 5) == 0 ) {
+                memmove(buffer, buffer + linelen, buflen - linelen);
+                index = index - linelen;
+                continue;
+            }
+
+            /* parse the response line and add a new result item */
+            add_parsed_line(result, line);
+
+            /* move the remaining data to the front of the buffer */
+            memmove(buffer, buffer + linelen, buflen - linelen);
+            index = index - linelen;
+
+            /* XXX do something with this, if plugging into asnsock.c */
+            /*
+               outstanding--;
+               if ( outstanding == 0 ) {
+               break;
+               }
+             */
+        }
+    }
+
+    free(buffer);
+
+    return result;
+}
+
+
+
+/*
+ * Open a TCP connection to the Team Cymru whois server and send the options
+ * that will make the output look like we expect.
+ */
+int connect_to_whois_server(void) {
+    struct addrinfo hints, *result;
+    int fd;
+    char *server = "whois.cymru.com";
+    char *port = "43";
+
+    memset(&hints, 0, sizeof(hints));
+    hints.ai_family = AF_INET;
+    hints.ai_socktype = SOCK_STREAM;
+    hints.ai_protocol = IPPROTO_TCP;
+
+    if ( getaddrinfo(server, port, &hints, &result) < 0 ) {
+        return -1;
+    }
+
+    if ( (fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0 ) {
+        return -1;
+    }
+
+    if ( connect(fd, result->ai_addr, result->ai_addrlen) < 0 ) {
+        return -1;
+    }
+
+    freeaddrinfo(result);
+
+    //TODO check sending works ok
+    send(fd, "begin\n", strlen("begin\n"), 0);
+    send(fd, "noheader\n", strlen("noheader\n"), 0);
+    send(fd, "noasname\n", strlen("noasname\n"), 0);
+    send(fd, "prefix\n", strlen("prefix\n"), 0);
+
+    return fd;
+}
+
+
+
+void amp_asn_add_query(iptrie_node_t *root, void *data) {
+    int fd = *(int*)data;
+    struct sockaddr_storage addr;
+    socklen_t socklen;
+
+    socklen = sizeof(struct sockaddr_storage);
+
+    if ( getsockname(fd, (struct sockaddr*)&addr, &socklen) < 0 ) {
+        return;
+    }
+
+    if ( addr.ss_family == AF_UNIX ) {
+        /* local socket, send the query as a sockaddr to the cache process */
+        amp_asn_add_query_local(fd, root->address);
+    } else {
+        /* TCP whois connection, send the query as a string to whois server */
+        amp_asn_add_query_direct(fd, root->address);
+    }
+}
+
+
+
+void amp_asn_flag_done(int fd) {
+    struct sockaddr_storage addr;
+    socklen_t socklen;
+
+    socklen = sizeof(struct sockaddr_storage);
+
+    if ( getsockname(fd, (struct sockaddr*)&addr, &socklen) < 0 ) {
+        return;
+    }
+
+    if ( addr.ss_family == AF_UNIX ) {
+        /* local socket, need to send a family == AF_UNSPEC */
+        amp_asn_flag_done_local(fd);
+    } else {
+        /* TCP whois connection, need to send the "end" flag */
+        amp_asn_flag_done_direct(fd);
+    }
+}
+
+
+
+struct iptrie *amp_asn_fetch_results(int fd, struct iptrie *results) {
+    struct sockaddr_storage addr;
+    socklen_t socklen;
+
+    socklen = sizeof(struct sockaddr_storage);
+
+    if ( getsockname(fd, (struct sockaddr*)&addr, &socklen) < 0 ) {
+        return results;
+    }
+
+    /* local socket, read the trie of ASN results */
+    if ( addr.ss_family == AF_UNIX ) {
+        return amp_asn_fetch_results_local(fd, results);
+    }
+
+    /* TCP whois connection, read all the string responses and parse them */
+    return amp_asn_fetch_results_direct(fd, results);
+}
 

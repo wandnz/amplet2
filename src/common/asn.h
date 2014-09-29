@@ -5,9 +5,12 @@
 #include <sys/socket.h>
 #include <netdb.h>
 
-int amp_asn_flag_done(int fd);
-int amp_asn_connect(char *path);
-int amp_asn_add_query(int fd, struct sockaddr *address);
-struct addrinfo *amp_asn_get_list(int fd);
+#include "iptrie.h"
+
+
+int connect_to_whois_server(void);
+void amp_asn_flag_done(int fd);
+void amp_asn_add_query(iptrie_node_t *root, void *data);
+struct iptrie *amp_asn_fetch_results(int fd, struct iptrie *results);
 
 #endif
