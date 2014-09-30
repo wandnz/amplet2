@@ -1592,7 +1592,7 @@ int run_traceroute(int argc, char *argv[], int count, struct addrinfo **dests) {
 
     /* lookup AS numbers for all addresses if required */
     if ( options.as ) {
-        if ( set_as_numbers(probelist.stopset, probelist.done) < 0 ) {
+        if ( set_as_numbers(probelist.done) < 0 ) {
             Log(LOG_WARNING, "Failed to set AS numbers for addresses");
         }
     }

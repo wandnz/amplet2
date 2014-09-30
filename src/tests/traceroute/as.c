@@ -66,7 +66,7 @@ static int is_private_address(struct sockaddr *addr) {
 /*
  *
  */
-int set_as_numbers(struct stopset_t *stopset, struct dest_info_t *donelist) {
+int set_as_numbers(struct dest_info_t *donelist) {
     struct iptrie trie = { NULL, NULL };
     struct dest_info_t *item;
     int masklen;
@@ -78,7 +78,7 @@ int set_as_numbers(struct stopset_t *stopset, struct dest_info_t *donelist) {
         Log(LOG_DEBUG, "No central ASN resolver, using standalone");
         if ( (asn_fd = connect_to_whois_server()) < 0 ) {
             Log(LOG_DEBUG, "No ability to resolve ASNs, skipping");
-            return;
+            return -1;
         }
     }
 

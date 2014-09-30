@@ -9,6 +9,7 @@
 #include <arpa/inet.h>
 #include <string.h>
 
+#include "asn.h"
 #include "asnsock.h"
 #include "ampresolv.h"
 #include "debug.h"
