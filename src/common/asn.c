@@ -311,25 +311,29 @@ int connect_to_whois_server(void) {
 
     /* enable bulk input mode */
     if ( send(fd, "begin\n", strlen("begin\n"), 0) < 0 ) {
-        Log("Failed to send header to whois server: %s", strerror(errno));
+        Log(LOG_WARNING, "Failed to send header to whois server: %s",
+                strerror(errno));
         return -1;
     }
 
     /* disable column headings */
     if ( send(fd, "noheader\n", strlen("noheader\n"), 0) < 0 ) {
-        Log("Failed to send header to whois server: %s", strerror(errno));
+        Log(LOG_WARNING, "Failed to send header to whois server: %s",
+                strerror(errno));
         return -1;
     }
 
     /* don't bother getting the plaintext name for the ASN */
     if ( send(fd, "noasname\n", strlen("noasname\n"), 0) < 0 ) {
-        Log("Failed to send header to whois server: %s", strerror(errno));
+        Log(LOG_WARNING, "Failed to send header to whois server: %s",
+                strerror(errno));
         return -1;
     }
 
     /*
     if ( send(fd, "prefix\n", strlen("prefix\n"), 0) < 0 ) {
-        Log("Failed to send header to whois server: %s", strerror(errno));
+        Log(LOG_WARNING, "Failed to send header to whois server: %s",
+                strerror(errno));
         return -1;
     }
     */
