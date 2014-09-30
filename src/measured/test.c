@@ -332,7 +332,7 @@ void run_scheduled_test(wand_event_handler_t *ev_hdl, void *data) {
     fork_test(item->ev_hdl, test_item);
 
     /* while the test runs, reschedule it again */
-    next = get_next_schedule_time(item->ev_hdl, test_item->repeat,
+    next = get_next_schedule_time(item->ev_hdl, test_item->period,
             test_item->start, test_item->end, MS_FROM_TV(test_item->interval));
     wand_add_timer(ev_hdl, next.tv_sec, next.tv_usec, data, run_scheduled_test);
 }

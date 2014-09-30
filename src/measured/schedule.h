@@ -41,6 +41,13 @@
 }
 
 
+typedef enum schedule_period {
+    SCHEDULE_PERIOD_INVALID,
+    SCHEDULE_PERIOD_HOURLY,
+    SCHEDULE_PERIOD_DAILY,
+    SCHEDULE_PERIOD_WEEKLY,
+} schedule_period_t;
+
 
 /*
  * Data block for scheduled test events.
@@ -49,7 +56,7 @@ typedef struct test_schedule_item {
     struct timeval interval;	    /* time between test runs */
     uint64_t start;		    /* first time in period test can run (ms) */
     uint64_t end;		    /* last time in period test can run (ms) */
-    char repeat;		    /* repeat cycle: H(our), D(ay), W(eek) */
+    schedule_period_t period;	    /* repeat cycle: Hourly, Daily, Weekly */
     test_type_t test_id;	    /* id of test to run */
     uint32_t dest_count;	    /* number of current destinations */
     uint32_t resolve_count;	    /* max possible count of dests to resolve */
@@ -111,13 +118,14 @@ void clear_test_schedule(wand_event_handler_t *ev_hdl);
 void read_schedule_dir(wand_event_handler_t *ev_hdl, char *directory);
 void setup_schedule_refresh(wand_event_handler_t *ev_hdl);
 struct timeval get_next_schedule_time(wand_event_handler_t *ev_hdl,
-	char repeat, uint64_t start, uint64_t end, uint64_t frequency);
+        schedule_period_t period, uint64_t start, uint64_t end,
+        uint64_t frequency);
 int update_remote_schedule(char *dir, char *server, char *cacert, char *cert,
         char *key);
 void remote_schedule_callback(wand_event_handler_t *ev_hdl, void *data);
 #if UNIT_TEST
 time_t amp_test_get_period_max_value(char repeat);
-int64_t amp_test_get_time_value(char *value_string, char repeat);
+int64_t amp_test_check_time_range(int64_t value, schedule_period_t period);
 time_t amp_test_get_period_start(char repeat);
 #endif
 
