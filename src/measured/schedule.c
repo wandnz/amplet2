@@ -669,7 +669,7 @@ static test_schedule_item_t *create_and_schedule_test(
         }
 
         /* read the appropriate value based on the key, could be in any order */
-        if ( strcmp((char*)key->data.scalar.value, "type") == 0 ) {
+        if ( strcmp((char*)key->data.scalar.value, "test") == 0 ) {
             assert(value->type == YAML_SCALAR_NODE);
             testname = (char*)value->data.scalar.value;
         } else if ( strcmp((char*)key->data.scalar.value, "frequency") == 0 ) {
