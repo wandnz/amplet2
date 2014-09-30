@@ -61,13 +61,15 @@ static void add_parsed_line(struct iptrie *result, char *line) {
 }
 
 
+
 /*
- *
+ * Send the flag to the other end of the remote socket to indicate that there
+ * are no more ASNs to look up. This is done by sending a partial record with
+ * the address family set to AF_UNSPEC.
  */
 static int amp_asn_flag_done_local(int fd) {
     uint16_t flag = AF_UNSPEC;
 
-    /* send the supporting metadata about name length, family etc */
     if ( send(fd, &flag, sizeof(flag), 0) < 0 ) {
         Log(LOG_WARNING, "Failed to send asn end flag: %s", strerror(errno));
         return -1;
@@ -79,10 +81,10 @@ static int amp_asn_flag_done_local(int fd) {
 
 
 /*
- *
+ * Send the flag to the whois server to indicate that there are no more ASNs
+ * to look up. This is done by sending the plaintext string "end\n".
  */
 static int amp_asn_flag_done_direct(int fd) {
-    /* send the supporting metadata about name length, family etc */
     if ( send(fd, "end\n", strlen("end\n"), 0) < 0 ) {
         Log(LOG_WARNING, "Failed to send asn end flag: %s", strerror(errno));
         return -1;
@@ -144,7 +146,8 @@ static struct iptrie *amp_asn_fetch_results_local(int fd,
 
 
 /*
- *
+ * Add an ASN query across the local socket - send the address family and
+ * the sockaddr struct.
  */
 static int amp_asn_add_query_local(int fd, struct sockaddr *address) {
     void *addr;
@@ -177,10 +180,14 @@ static int amp_asn_add_query_local(int fd, struct sockaddr *address) {
 
 
 
+/*
+ * Add an ASN query across a TCP connection to the whois server - send a
+ * plaintext string containing the IP address, ending with a newline.
+ */
 static void amp_asn_add_query_direct(int fd, struct sockaddr *address) {
     char addrstr[INET6_ADDRSTRLEN];
 
-    /* always need to query - convert to a string for the query */
+    /* convert to a string for the query */
     switch ( address->sa_family ) {
         case AF_INET: inet_ntop(AF_INET,
                               &((struct sockaddr_in*)address)->sin_addr,
@@ -193,14 +200,11 @@ static void amp_asn_add_query_direct(int fd, struct sockaddr *address) {
         default: return;
     };
 
-    /* need a newline between addresses, null terminate too */
+    /* need a newline between addresses, null terminate too to be good */
     addrstr[strlen(addrstr) + 1] = '\0';
     addrstr[strlen(addrstr)] = '\n';
 
     /* write this query and go back for more */
-    /* XXX just like netcat, we don't care to select on the
-     * writing file descriptor? Should we?
-     */
     if ( send(fd, addrstr, strlen(addrstr), 0) < 0 ) {
         Log(LOG_WARNING, "Error writing to whois socket: %s\n",strerror(errno));
     }
@@ -274,6 +278,7 @@ static struct iptrie *amp_asn_fetch_results_direct(int whois_fd,
 /*
  * Open a TCP connection to the Team Cymru whois server and send the options
  * that will make the output look like we expect.
+ * See http://www.team-cymru.org/Services/ip-to-asn.html for details.
  */
 int connect_to_whois_server(void) {
     struct addrinfo hints, *result;
