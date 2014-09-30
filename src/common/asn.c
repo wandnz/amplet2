@@ -296,20 +296,41 @@ int connect_to_whois_server(void) {
     }
 
     if ( (fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0 ) {
+        freeaddrinfo(result);
         return -1;
     }
 
     if ( connect(fd, result->ai_addr, result->ai_addrlen) < 0 ) {
+        freeaddrinfo(result);
         return -1;
     }
 
     freeaddrinfo(result);
 
-    //TODO check sending works ok
-    send(fd, "begin\n", strlen("begin\n"), 0);
-    send(fd, "noheader\n", strlen("noheader\n"), 0);
-    send(fd, "noasname\n", strlen("noasname\n"), 0);
-    send(fd, "prefix\n", strlen("prefix\n"), 0);
+    /* enable bulk input mode */
+    if ( send(fd, "begin\n", strlen("begin\n"), 0) < 0 ) {
+        Log("Failed to send header to whois server: %s", strerror(errno));
+        return -1;
+    }
+
+    /* disable column headings */
+    if ( send(fd, "noheader\n", strlen("noheader\n"), 0) < 0 ) {
+        Log("Failed to send header to whois server: %s", strerror(errno));
+        return -1;
+    }
+
+    /* don't bother getting the plaintext name for the ASN */
+    if ( send(fd, "noasname\n", strlen("noasname\n"), 0) < 0 ) {
+        Log("Failed to send header to whois server: %s", strerror(errno));
+        return -1;
+    }
+
+    /*
+    if ( send(fd, "prefix\n", strlen("prefix\n"), 0) < 0 ) {
+        Log("Failed to send header to whois server: %s", strerror(errno));
+        return -1;
+    }
+    */
 
     return fd;
 }
