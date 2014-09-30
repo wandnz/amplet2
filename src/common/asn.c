@@ -125,11 +125,13 @@ static struct iptrie *amp_asn_fetch_results_local(int fd,
             break;
         }
 
-        switch ( family ) {
-            case AF_INET: addrlen = sizeof(struct sockaddr_in); break;
-            case AF_INET6: addrlen = sizeof(struct sockaddr_in6); break;
-            default: break;
-        };
+        if ( family == AF_INET ) {
+            addrlen = sizeof(struct sockaddr_in);
+        } else if ( family == AF_INET6 ) {
+            addrlen = sizeof(struct sockaddr_in6);
+        } else {
+            break;
+        }
 
         if ( recv(fd, &addr, addrlen, 0) <= 0 ) {
             break;
