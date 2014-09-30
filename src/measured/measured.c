@@ -42,6 +42,9 @@
 #include "testlib.h"
 #include "rabbitcfg.h"
 #include "nssock.h"
+#include "asnsock.h"
+#include "iptrie.h"
+#include "localsock.h"
 
 #define AMP_CLIENT_CONFIG_DIR AMP_CONFIG_DIR "/clients"
 
@@ -489,6 +492,8 @@ int main(int argc, char *argv[]) {
     int backgrounded = 0;
     int configure_rabbit = 0;
     int nssock_fd;
+    int asnsock_fd;
+    struct amp_asn_info asn_info;
 
     while ( 1 ) {
 
@@ -682,6 +687,12 @@ int main(int argc, char *argv[]) {
         return -1;
     }
 
+    /* construct our custom, per-client asn lookup socket */
+    if ( asprintf(&vars.asnsock, "%s/%s.asn", AMP_RUN_DIR, vars.ampname) < 0 ) {
+        Log(LOG_ALERT, "Failed to build local asn socket path");
+        return -1;
+    }
+
     /* fetch remote schedule configuration if it is fresher than what we have */
     if ( fetch_remote && vars.fetch_remote ) {
         if ( vars.schedule_url == NULL ) {
@@ -724,12 +735,32 @@ int main(int argc, char *argv[]) {
     wand_add_signal(SIGCHLD, NULL, child_reaper);
 
     /* create the resolver/cache unix socket and add event listener for it */
-    if ( (nssock_fd = initialise_resolver_socket(vars.nssock)) < 0 ) {
+    if ( (nssock_fd = initialise_local_socket(vars.nssock)) < 0 ) {
         Log(LOG_ALERT, "Failed to initialise local resolver, aborting");
         return -1;
     }
     wand_add_fd(ev_hdl, nssock_fd, EV_READ, vars.ctx,
             resolver_socket_event_callback);
+
+    /* create the asn lookup unix socket and add event listener for it */
+    if ( (asnsock_fd = initialise_local_socket(vars.asnsock)) < 0 ) {
+        Log(LOG_ALERT, "Failed to initialise local asn resolver, aborting");
+        return -1;
+    }
+
+    asn_info.refresh = malloc(sizeof(time_t));
+    *asn_info.refresh = time(NULL) + MIN_ASN_CACHE_REFRESH +
+        (rand() % MAX_ASN_CACHE_REFRESH_OFFSET);
+    asn_info.trie = malloc(sizeof(struct iptrie));
+    asn_info.trie->ipv4 = NULL;
+    asn_info.trie->ipv6 = NULL;
+    asn_info.mutex = malloc(sizeof(pthread_mutex_t));
+    pthread_mutex_init(asn_info.mutex, NULL);
+
+    Log(LOG_DEBUG, "Creating local socket for ASN lookups");
+    Log(LOG_DEBUG, "ASN cache will be refreshed at %d", *asn_info.refresh);
+    wand_add_fd(ev_hdl, asnsock_fd, EV_READ, &asn_info,
+            asn_socket_event_callback);
 
     /* create the control socket and add an event listener for it */
     if ( vars.control_enabled && ssl_ctx != NULL ) {
@@ -788,6 +819,16 @@ int main(int argc, char *argv[]) {
     free(vars.schedule_dir);
     free(vars.nametable_dir);
     free(vars.nssock);
+    free(vars.asnsock);
+
+    /* clean up the ASN socket, mutex, storage */
+    pthread_mutex_lock(asn_info.mutex);
+    iptrie_clear(asn_info.trie);
+    pthread_mutex_unlock(asn_info.mutex);
+    pthread_mutex_destroy(asn_info.mutex);
+    free(asn_info.mutex);
+    free(asn_info.refresh);
+    free(asn_info.trie);
 
     amp_resolver_context_delete(vars.ctx);
 

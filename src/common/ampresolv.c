@@ -136,40 +136,6 @@ static void amp_resolve_callback(void *d, int err, struct ub_result *result) {
                        memcpy(&((struct sockaddr_in6*)item->ai_addr)->sin6_addr,
                                result->data[i], result->len[i]);
                        break;
-            case 0x10: {
-                    char *asptr, *addrptr;
-                    char *prefix, *addr;
-                    /* initial byte of data is the length of the string */
-                    //TODO check errors
-                    item->ai_protocol = atoi(
-                            strtok_r(result->data[i] + 1, " | ", &asptr));
-                    prefix = strtok_r(NULL, " | ", &asptr);
-                    //printf("trying to convert prefix %s\n", prefix);
-                    addr = strtok_r(prefix, "/", &addrptr);
-                    //printf("trying to convert addr %s\n", addr);
-                    item->ai_addr = calloc(1, sizeof(struct sockaddr_storage));
-                    if ( inet_pton(AF_INET, addr,
-                            &((struct sockaddr_in*)item->ai_addr)->sin_addr) ) {
-
-                        item->ai_family = AF_INET;
-                        item->ai_addr->sa_family = AF_INET;
-                        item->ai_addrlen = sizeof(struct sockaddr_in);
-                        ((struct sockaddr_in*)item->ai_addr)->sin_port =
-                            atoi(strtok_r(NULL, " | ", &addrptr));
-                    } else if ( inet_pton(AF_INET6, addr,
-                                &((struct sockaddr_in6*)
-                                    item->ai_addr)->sin6_addr)) {
-                        item->ai_family = AF_INET6;
-                        item->ai_addr->sa_family = AF_INET6;
-                        item->ai_addrlen = sizeof(struct sockaddr_in6);
-                        ((struct sockaddr_in6*)item->ai_addr)->sin6_port =
-                            atoi(strtok_r(NULL, " | ", &addrptr));
-                    } else {
-                        //printf("NOT IPV4 OR 6\n");
-                        pthread_mutex_unlock(data->lock);
-                        assert(0);
-                    }
-                } break;
             default: Log(LOG_WARNING, "Unknown query response type");
                      pthread_mutex_unlock(data->lock);
                      assert(0);
@@ -291,13 +257,6 @@ void amp_resolve_add(struct ub_ctx *ctx, struct addrinfo **res,
         data->max = max;
     } else {
         data->max = -1; // XXX can we push this back to the schedule code?
-    }
-
-    /* custom address family to TEXT query for origin AS number */
-    if ( family == AF_TEXT ) {
-        ub_resolve_async(ctx, name, 0x10, 0x01, (void*)data,
-                amp_resolve_callback, NULL);
-        return;
     }
 
     /* query for the A record */

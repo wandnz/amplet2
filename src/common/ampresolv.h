@@ -7,9 +7,6 @@
 
 #define MAX_DNS_NAME_LEN 256
 
-/* custom address family to do an origin AS lookup via DNS */
-#define AF_TEXT (AF_MAX + 1)
-
 /* max wait between checking if all DNS responses have come in: 10ms */
 #define MAX_DNS_POLL_USEC 10000
 
@@ -24,12 +21,6 @@ struct amp_resolve_data {
     int qcount;                 /* how many requests for name, shared max */
     int *remaining;             /* total requests for test, shared addrlist */
     struct addrinfo **addrlist; /* list to store the results in */
-};
-
-/* data block given to each resolving thread */
-struct amp_resolve_info {
-    int fd;                     /* file descriptor to the test process */
-    struct ub_ctx *ctx;         /* shared unbound context (with the cache) */
 };
 
 /* data block used to transfer information about a query to be performed */
@@ -66,5 +57,4 @@ struct addrinfo *amp_resolve_get_list(int fd);
 int amp_resolve_add_new(int fd, resolve_dest_t *resolve);
 int amp_resolve_flag_done(int fd);
 int amp_resolver_connect(char *path);
-
 #endif
