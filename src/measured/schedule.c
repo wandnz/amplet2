@@ -699,7 +699,8 @@ static test_schedule_item_t *create_and_schedule_test(
     }
 
     /* confirm the test name is valid */
-    if ( (test_id = get_test_id(testname)) == AMP_TEST_INVALID ) {
+    if ( testname == NULL ||
+            (test_id = get_test_id(testname)) == AMP_TEST_INVALID ) {
         Log(LOG_WARNING, "Unknown test '%s'", testname);
         goto end;
     }
