@@ -1,12 +1,12 @@
 Name: libwandevent
-Version: 2.0.1
+Version: 3.0.1
 Release: 1%{?dist}
 Summary: C API for writing event driven programs	
 
 Group: Development/Libraries
 License: GPL2
 URL: http://research.wand.net.nz/software/libwandevent.php	
-Source0: http://research.wand.net.nz/software/libwandevent/libwandevent-2.0.1.tar.gz
+Source0: http://research.wand.net.nz/software/libwandevent/libwandevent-3.0.1.tar.gz
 BuildRoot: %(mktemp -ud %{_tmppath}/%{name}-%{version}-%{release}-XXXXXX)
 
 
@@ -67,5 +67,8 @@ rm -rf %{buildroot}
 %postun -p /sbin/ldconfig
 
 %changelog
+* Thu Aug 28 2014 Brendon Jones <brendonj@waikato.ac.nz> 3.0.1-1
+- New upstream release
+
 * Fri Aug 23 2013 Brendon Jones <brendonj@waikato.ac.nz> 2.0.1-1
 - Initial RPM packaging
