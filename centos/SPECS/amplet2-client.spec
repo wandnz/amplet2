@@ -1,18 +1,18 @@
 Name: amplet2
-Version: 0.3.3
-Release: 8%{?dist}
+Version: 0.3.6
+Release: 1%{?dist}
 Summary: AMP Network Performance Measurement Suite - Client Tools
 
 Group: Applications/Internet
 License: AMP
 URL: http://research.wand.net.nz/software/amp.php
-Source0: http://research.wand.net.nz/software/amp/amplet2-0.3.3.tar.gz
+Source0: http://research.wand.net.nz/software/amp/amplet2-0.3.6.tar.gz	
 Patch0: amplet2-client-init.patch
 Patch1: amplet2-client-default.patch
 BuildRoot:	%(mktemp -ud %{_tmppath}/%{name}-%{version}-%{release}-XXXXXX)
 
-BuildRequires: openssl-devel libconfuse-devel libwandevent-devel >= 3.0.0 libcurl-devel unbound-devel
-Requires: rabbitmq-server >= 3.1.5 librabbitmq-amp >= 0.4.0 libwandevent >= 3.0.0 unbound-libs
+BuildRequires: openssl-devel libconfuse-devel libwandevent-devel >= 3.0.1 libcurl-devel unbound-devel libpcap-devel
+Requires: rabbitmq-server >= 3.1.5 librabbitmq-amp >= 0.4.0 libwandevent >= 3.0.1 unbound-libs
 
 %description
 This package contains the client tools for the AMP Measurement Suite.
@@ -24,7 +24,7 @@ one or more rabbitmq brokers via the AMQP protocol.
 %package lite
 Summary: AMP client tools without a local rabbitmq broker
 Group: Applications/Internet
-Requires: librabbitmq-amp >= 0.4.0 libwandevent >= 3.0.0
+Requires: librabbitmq-amp >= 0.4.0 libwandevent >= 3.0.1
 
 %description lite
 AMP client tools without a local rabbitmq broker
@@ -200,6 +200,20 @@ fi
 
 
 %changelog
+* Tue Sep 30 2014 Brendon Jones <brendonj@waikato.ac.nz> 0.3.6-1
+- Updated schedule file format to new testing YAML format.
+- Updated ASN fetching for traceroute test to use TCP bulk whois interface.
+- Fix HTTP test crashing with long URLs.
+
+* Thu Aug 28 2014 Brendon Jones <brendonj@waikato.ac.nz> 0.3.5-1
+- Use package name as ident when logging to syslog.
+- Update test thread names to reflect the test being performed.
+- Use socket timestamps rather than gettimeofday() where possible.
+- Upgrade from libwandevent2 to libwandevent3.
+- Use local stopsets in traceroute test to reduce nearby probing.
+- Add option to traceroute test to fetch AS numbers for addresses in path.
+- Added TCPPing test.
+
 * Thu Jun 26 2014 Brendon Jones <brendonj@waikato.ac.nz> 0.3.3-8
 - Update initscipts to better deal with multiple amplet clients
 - Mark some files as config files to preserve some local modifications

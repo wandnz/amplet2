@@ -1,3 +1,23 @@
+amplet2 (0.3.6-1) unstable; urgency=low
+
+  * Updated schedule file format to new testing YAML format.
+  * Updated ASN fetching for traceroute test to use TCP bulk whois interface.
+  * Fix HTTP test crashing with long URLs.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Tue, 30 Sep 2014 16:12:40 +1300
+
+amplet2 (0.3.5-1) unstable; urgency=low
+
+  * Use package name as ident when logging to syslog.
+  * Update test thread names to reflect the test being performed.
+  * Use socket timestamps rather than gettimeofday() where possible.
+  * Upgrade from libwandevent2 to libwandevent3.
+  * Use local stopsets in traceroute test to reduce nearby probing.
+  * Add option to traceroute test to fetch AS numbers for addresses in path.
+  * Added TCPPing test.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Thu, 28 Aug 2014 14:06:14 +1200
+
 amplet2 (0.3.3-2) unstable; urgency=low
 
   * Use local resolvers from /etc/resolv.conf if none specified.
