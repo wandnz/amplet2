@@ -26,7 +26,7 @@ void iptrie_add(struct iptrie *root, struct sockaddr *address,
         uint8_t prefix, int64_t as);
 int64_t iptrie_lookup_as(struct iptrie *root, struct sockaddr *address);
 void iptrie_clear(struct iptrie *root);
-void iptrie_leaves(struct iptrie *root, void (*func)(iptrie_node_t*, void*),
-        void *data);
+void iptrie_on_all_leaves(struct iptrie *root,
+        void (*func)(iptrie_node_t*, void*), void *data);
 
 #endif

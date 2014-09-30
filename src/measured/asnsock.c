@@ -287,7 +287,7 @@ static void *amp_asn_worker_thread(void *thread_data) {
 
     Log(LOG_DEBUG, "Got all responses, sending them back");
 
-    iptrie_leaves(&result, return_asn_list, &info->fd);
+    iptrie_on_all_leaves(&result, return_asn_list, &info->fd);
 
     Log(LOG_DEBUG, "Tidying up after asn resolution thread");
 

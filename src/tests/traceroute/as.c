@@ -112,7 +112,7 @@ int set_as_numbers(struct stopset_t *stopset, struct dest_info_t *donelist) {
     }
 
     /* traverse the trie and actually make the queries now */
-    iptrie_leaves(&trie, amp_asn_add_query, &asn_fd);
+    iptrie_on_all_leaves(&trie, amp_asn_add_query, &asn_fd);
     amp_asn_flag_done(asn_fd);
 
     /* fetch all the results into the same trie we queried from, setting ASNs */

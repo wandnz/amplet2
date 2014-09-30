@@ -316,7 +316,7 @@ void iptrie_clear(struct iptrie *root) {
  * Apply the user function to each of the leaves (only the leaves contain
  * values that were added, internal nodes have been created as a by-product).
  */
-static void iptrie_leaves_internal(iptrie_node_t *root,
+static void iptrie_on_all_leaves_internal(iptrie_node_t *root,
         void (*func)(iptrie_node_t *node, void *data), void *data) {
 
     if ( root == NULL ) {
@@ -326,8 +326,8 @@ static void iptrie_leaves_internal(iptrie_node_t *root,
     if ( root->left == NULL && root->right == NULL ) {
         func(root, data);
     } else {
-        iptrie_leaves_internal(root->left, func, data);
-        iptrie_leaves_internal(root->right, func, data);
+        iptrie_on_all_leaves_internal(root->left, func, data);
+        iptrie_on_all_leaves_internal(root->right, func, data);
     }
 }
 
@@ -337,8 +337,8 @@ static void iptrie_leaves_internal(iptrie_node_t *root,
  * Apply the user function to each of the leaves (only the leaves contain
  * values that were added, internal nodes have been created as a by-product).
  */
-void iptrie_leaves(struct iptrie *root, void (*func)(iptrie_node_t*, void*),
-        void *data) {
-    iptrie_leaves_internal(root->ipv4, func, data);
-    iptrie_leaves_internal(root->ipv6, func, data);
+void iptrie_on_all_leaves(struct iptrie *root,
+        void (*func)(iptrie_node_t*, void*), void *data) {
+    iptrie_on_all_leaves_internal(root->ipv4, func, data);
+    iptrie_on_all_leaves_internal(root->ipv6, func, data);
 }
