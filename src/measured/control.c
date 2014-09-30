@@ -185,6 +185,14 @@ static void process_control_message(int fd, test_t *test) {
         exit(0);
     }
 
+    /*
+     * XXX turn this off for now, as relying on reverse DNS doesn't actually
+     * add a lot of useful security, and we don't have control over how it
+     * is set for most of our monitors. For now, we will accept a control
+     * connection from anyone that has a valid cert, as there doesn't appear
+     * to be anything too bad they can do (i.e. use us to attack others).
+     */
+#if 0
     /* Validate that the client hostname matches the common name in the cert */
     if ( matches_common_name(hostname, client_cert) != 0 ) {
         Log(LOG_DEBUG, "Closing control connection to unverified client");
@@ -194,6 +202,7 @@ static void process_control_message(int fd, test_t *test) {
         Log(LOG_DEBUG, "Terminating control process, pid: %d", getpid());
         exit(0);
     }
+#endif
 
     Log(LOG_DEBUG, "Successfully validated peer cert");
 
