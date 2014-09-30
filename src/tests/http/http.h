@@ -8,12 +8,15 @@
 #include "curl/curl.h"
 
 /* use the current date with 2 digit count appended as version: YYYYMMDDXX */
-#define AMP_HTTP_TEST_VERSION 2013050800
+#define AMP_HTTP_TEST_VERSION 2014091900
 
-#define MAX_URL_LEN 256
 #define MAX_DNS_NAME_LEN 256
-#define MAX_PATH_LEN 256
+#define MAX_PATH_LEN 2048
 #define MAX_ADDR_LEN 46
+#define MAX_REPORTABLE_PATH_LEN 256
+
+#define MAX_URL_LEN (MAX_PATH_LEN + MAX_DNS_NAME_LEN)
+#define MAX_REPORTABLE_URL_LEN (MAX_REPORTABLE_PATH_LEN + MAX_DNS_NAME_LEN)
 
 #define FLOAT_TO_TV(f, tv) {\
     (tv).tv_sec = (uint64_t) f;\
@@ -118,7 +121,7 @@ struct amp_timeval_t {
 
 struct http_report_server_t {
     /* TODO make the name field variable length? */
-    char hostname[128]; // XXX MAX_DNS_NAME_LEN
+    char hostname[MAX_DNS_NAME_LEN];
     struct amp_timeval_t start;
     struct amp_timeval_t end;
     /* nicer way than storing just 16 bytes for the address? */
@@ -131,7 +134,7 @@ struct http_report_server_t {
 } __attribute__((packed));
 
 struct http_report_object_t {
-    char path[MAX_PATH_LEN];
+    char path[MAX_REPORTABLE_PATH_LEN];
     struct amp_timeval_t start;
     struct amp_timeval_t end;
     struct amp_timeval_t lookup;
@@ -149,7 +152,7 @@ struct http_report_object_t {
 struct http_report_header_t {
     uint32_t version;
     uint32_t reserved;
-    char url[MAX_URL_LEN];
+    char url[MAX_REPORTABLE_URL_LEN];
     uint32_t duration;
     uint32_t bytes;
     uint16_t total_objects;

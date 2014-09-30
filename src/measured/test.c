@@ -108,6 +108,9 @@ static void run_test(const test_schedule_item_t * const item) {
             amp_resolve_add_new(resolver_fd, resolve);
         }
 
+        /* send the flag to mark the end of the list */
+        amp_resolve_flag_done(resolver_fd);
+
         /* get the list of all the addresses the names resolved to (blocking) */
         addrlist = amp_resolve_get_list(resolver_fd);
 

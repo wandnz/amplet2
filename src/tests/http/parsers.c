@@ -160,7 +160,7 @@ size_t parse_response(void *ptr, size_t size, size_t nmemb, void *data) {
     }
 
     /* open a pipe for writing data to the lexer */
-    fcntl(pipefd[1], O_NONBLOCK, 1);
+    fcntl(pipefd[1], F_SETFL, O_NONBLOCK);
     if ( (writer = fdopen(pipefd[1], "w")) == NULL ) {
         Log(LOG_ERR, "error opening pipe for writing: %d\n", errno);
         exit(1);

@@ -62,7 +62,7 @@ static void report_header_results(struct http_report_header_t *header,
     assert(opt);
 
     header->version = AMP_HTTP_TEST_VERSION;
-    strncpy(header->url, opt->url, MAX_URL_LEN);
+    strncpy(header->url, opt->url, MAX_REPORTABLE_URL_LEN);
     header->duration = ((global.end.tv_sec - global.start.tv_sec) * 1000) +
         (global.end.tv_usec - global.start.tv_usec + 500) / 1000;
     header->bytes = global.bytes;
@@ -89,7 +89,7 @@ static void report_object_results(struct http_report_object_t *object,
     assert(object);
     assert(info);
 
-    strncpy(object->path, info->path, MAX_PATH_LEN);
+    strncpy(object->path, info->path, MAX_REPORTABLE_PATH_LEN);
     object->start.tv_sec = info->start.tv_sec;
     object->start.tv_usec = info->start.tv_usec;
     object->end.tv_sec = info->end.tv_sec;
@@ -475,7 +475,7 @@ static struct object_stats_t *create_object(char *host, char *path,
         memset(object, 0, sizeof(struct object_stats_t));
 
         strncpy(object->server_name, host, MAX_DNS_NAME_LEN);
-        strncpy(object->path, path, MAX_URL_LEN);
+        strncpy(object->path, path, MAX_PATH_LEN);
 
         /* some counters dont default to zero */
         object->headers.max_age = -1;
