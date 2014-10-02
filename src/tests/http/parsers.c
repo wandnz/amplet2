@@ -131,6 +131,17 @@ size_t parse_headers(void *ptr, size_t size, size_t nmemb, void *data) {
             server->pipelining_maxrequests = options.pipelining_maxrequests;
         }
 
+    } else if ( strncmp(buf, "Location: ", strlen("Location: ")) == 0 ) {
+        /*
+         * Make a copy of the location header so we can redirect there after
+         * reporting that this initial object returned a redirect. If we just
+         * used the curl functionality with CURLOPT_FOLLOWLOCATION then it
+         * would hide this and we wouldn't know the redirect took place and it
+         * wouldn't show up as a separate object.
+         */
+        char location[MAX_URL_LEN];
+        sscanf(buf, "Location: %s", &location);
+        object->location = strdup(location);
     } else {
         Log(LOG_DEBUG, "ignored header: %s\n", buf);
     }

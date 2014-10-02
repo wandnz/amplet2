@@ -18,7 +18,7 @@ CHAR	    [a-zA-Z0-9_ ]
     struct object_stats_t;
     struct server_stats_t;
 
-    extern struct server_stats_t *add_object(/*struct object_stats_t *s,*/ char *url);
+    extern struct server_stats_t *add_object(char *url, int parse);
     extern void* pipeline_next_object(struct server_stats_t *server);
 
 %}
@@ -125,7 +125,7 @@ CHAR	    [a-zA-Z0-9_ ]
 static void parsed_complete_object(char *url) {
     struct server_stats_t *server;
 
-    server = add_object(url);
+    server = add_object(url, 0);
 
     if(server != NULL)
 	pipeline_next_object(server);

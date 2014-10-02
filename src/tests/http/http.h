@@ -110,6 +110,8 @@ struct object_stats_t {
     long code;
     CURL *handle;
     uint8_t pipeline;
+    char *location;
+    int parse;
     struct object_stats_t *next;
 };
 
@@ -173,6 +175,6 @@ int save_http(char *monitor, uint64_t timestamp, void *data, uint32_t len);
 void print_http(void *data, uint32_t len);
 test_t *register_test(void);
 CURL *pipeline_next_object(struct server_stats_t *server);
-struct server_stats_t *add_object(char *url);
+struct server_stats_t *add_object(char *url, int parse);
 
 #endif

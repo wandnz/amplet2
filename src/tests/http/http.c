@@ -198,9 +198,9 @@ static void report_results(struct timeval *start_time,
 
 /*
  * Split URL into server and path components. Based on code originally from
- * the first HTTP test in AMP.
+ * the first HTTP test in AMP. 
  */
-static void split_url(char *url, char *server, char *path) {
+static void split_url(char *url, char *server, char *path, int set) {
     static char *base_server = NULL;
     static char *base_path = NULL;
     char *start;
@@ -273,7 +273,19 @@ static void split_url(char *url, char *server, char *path) {
     server[length] = '\0';
 
     /* save these so we can later parse relative URLs easily */
-    if ( base_server == NULL ) {
+    if ( base_server == NULL || set ) {
+        /*
+         * If we follow a 3XX redirect for the first page we are parsing
+         * then these need to be updated so the base values use the new
+         * location (e.g. www.wand.net.nz redirects to wand.net.nz).
+         */
+        if ( base_server ) {
+            free(base_server);
+        }
+        if ( base_path ) {
+            free(base_path);
+        }
+
         base_server = strdup(server);
         base_path = strdup(path);
         //printf("setting base server/path: %s %s\n", base_server, base_path);
@@ -467,7 +479,7 @@ static struct object_stats_t *pop_object_from_queue(char *object,
  *
  */
 static struct object_stats_t *create_object(char *host, char *path,
-        struct object_stats_t *queue) {
+        struct object_stats_t *queue, int parse) {
 
     if ( queue == NULL ) {
         struct object_stats_t *object =
@@ -476,6 +488,8 @@ static struct object_stats_t *create_object(char *host, char *path,
 
         strncpy(object->server_name, host, MAX_DNS_NAME_LEN);
         strncpy(object->path, path, MAX_PATH_LEN);
+
+        object->parse = parse;
 
         /* some counters dont default to zero */
         object->headers.max_age = -1;
@@ -491,14 +505,14 @@ static struct object_stats_t *create_object(char *host, char *path,
         }
     }
 
-    queue->next = create_object(host, path, queue->next);
+    queue->next = create_object(host, path, queue->next, parse);
     return queue;
 }
 
 /*
  *
  */
-struct server_stats_t *add_object(char *url) {
+struct server_stats_t *add_object(char *url, int parse) {
 
     struct server_stats_t *server;
     int i;
@@ -512,7 +526,7 @@ struct server_stats_t *add_object(char *url) {
         return NULL;
     }
 
-    split_url(url, host, path);
+    split_url(url, host, path, parse);
 
     /* find the server that this object is being fetched from */
     server_list = get_server(host, server_list, &server);
@@ -530,7 +544,7 @@ struct server_stats_t *add_object(char *url) {
     }
 
     /* not finished and not in progress, try to add to the pending queue */
-    server->pending = create_object(host, path, server->pending);
+    server->pending = create_object(host, path, server->pending, parse);
 
     return server;
 }
@@ -683,9 +697,7 @@ CURL *pipeline_next_object(struct server_stats_t *server) {
                 CURL_IPRESOLVE_WHATEVER);
     }
 
-    //if ( strcmp(options.url, object->url) == 0 ) {
-    if ( strcmp(options.host, object->server_name) == 0 &&
-            strcmp(options.path, object->path) == 0 ) {
+    if ( object->parse ) {
         /* this is the main page, parse the result for more objects */
         curl_easy_setopt(object->handle, CURLOPT_WRITEFUNCTION, parse_response);
     } else {
@@ -735,7 +747,7 @@ CURL *pipeline_next_object(struct server_stats_t *server) {
 
 
 
-static void save_stats(CURL *handle, int pipeline) {
+static struct object_stats_t *save_stats(CURL *handle, int pipeline) {
     char *url;
     struct timeval end;
     struct object_stats_t *object;
@@ -751,7 +763,7 @@ static void save_stats(CURL *handle, int pipeline) {
     gettimeofday(&end, NULL);
 
     curl_easy_getinfo(handle, CURLINFO_EFFECTIVE_URL, &url);
-    split_url(url, host, path);
+    split_url(url, host, path, 0);
     get_server(host, server_list, &server);
 
     /* CURLINFO_PRIMARY_IP was added in 7.19.0 */
@@ -806,6 +818,8 @@ static void save_stats(CURL *handle, int pipeline) {
     server->finished = add_object_to_queue(object, server->finished);
 
     curl_slist_free_all(object->slist);
+
+    return object;
 }
 
 
@@ -816,6 +830,7 @@ static void check_messages(CURLM *multi, int *running_handles, int pipeline) {
     CURLMsg *msg;
     int msg_queue;
     struct server_stats_t *server;
+    struct object_stats_t *object;
     char *url;
     double bytes;
     CURL *handle;
@@ -843,15 +858,26 @@ static void check_messages(CURLM *multi, int *running_handles, int pipeline) {
             //TODO should we break out of loop or anything here?
         }
 
-        save_stats(msg->easy_handle, pipeline);
+        object = save_stats(msg->easy_handle, pipeline);
         curl_multi_remove_handle(multi, handle);
 
         /* split the url before we cleanup the handle (and lose the pointer) */
-        split_url(url, (char*)&host, (char*)&path);
+        split_url(url, (char*)&host, (char*)&path, 0);
 
         /* no longer participate in the shared dns cache with this handle */
         curl_easy_setopt(handle, CURLOPT_SHARE, NULL);
         curl_easy_cleanup(handle);
+
+        /* if this object was a redirect, then try to follow it */
+        if ( object->location != NULL && (
+                    object->code == 301 || object->code == 302 ||
+                    object->code == 303 || /*object->code == 305 || */
+                    object->code == 307 || object->code == 308) ) {
+            /* add the new location to the queue to be fetched */
+            Log(LOG_DEBUG, "Following %d redirect to %s", object->code,
+                    object->location);
+            add_object(object->location, object->parse);
+        }
 
         /* queue any more objects that we have for that server */
         get_server(host, server_list, &server);
@@ -893,7 +919,7 @@ static int fetch(char *url) {
     curl_share_setopt(share_handle, CURLSHOPT_SHARE, CURL_LOCK_DATA_DNS);
 
     /* add the primary server/path that is being fetched */
-    add_object(url);
+    add_object(url, 1);
 
     pipeline_next_object(server_list);
 
@@ -1164,7 +1190,7 @@ int run_http(int argc, char *argv[], __attribute__((unused))int count,
             case '4': options.sourcev4 = optarg; break;
             case '6': options.sourcev6 = optarg; break;
 	    //case 'u': strncpy(options.url, optarg, MAX_URL_LEN); break;
-	    case 'u': split_url(optarg, options.host, options.path);
+	    case 'u': split_url(optarg, options.host, options.path, 1);
                       strncpy(options.url, optarg, MAX_URL_LEN); break;
 	    case 'k': options.keep_alive = 1; break;
 	    case 'm': options.max_connections = atoi(optarg); break;
