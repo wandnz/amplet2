@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <arpa/inet.h>
 #include <string.h>
+#include <strings.h>
 
 #include "asn.h"
 #include "asnsock.h"
@@ -108,7 +109,7 @@ static void *amp_asn_worker_thread(void *thread_data) {
     int max_fd;
     int ready;
     char *buffer = NULL;
-    int index;
+    int offset;
     int buflen = 1024;//XXX define? and bigger
     struct sockaddr_storage addr;
     void *target = NULL;
@@ -120,7 +121,7 @@ static void *amp_asn_worker_thread(void *thread_data) {
 
     /* XXX smaller than planned so it will fill while testing */
     buffer = calloc(1, buflen);
-    index = 0;
+    offset = 0;
     outstanding = 0;
     memset(&addr, 0, sizeof(addr));
 
@@ -242,28 +243,39 @@ static void *amp_asn_worker_thread(void *thread_data) {
             char *lineptr = NULL;
             int linelen;
 
-            /* read the available ASN data */
-            if ( (bytes = recv(whois_fd, buffer, buflen - index, 0)) < 1 ) {
+            /*
+             * Read the available ASN data (up to one less than the available
+             * space, so we have room to null terminate the buffer).
+             */
+            if ( (bytes = recv(whois_fd, buffer + offset,
+                            buflen - offset - 1, 0)) < 1 ) {
                 /* error or end of file */
                 break;
             }
 
-            index += bytes;
+            offset += bytes;
 
             /*
-             * Only deal with whole lines of text. Also, always call strtok_r
-             * with all the parameters because we modify buffer at the end
-             * of the loop.
+             * We use string functions looking for newlines in the buffer,
+             * so null terminate it in case we end up travelling off the end.
              */
-            while ( (line = strtok_r(buffer, "\n", &lineptr)) != NULL ) {
+            buffer[offset] = '\0';
 
+            /* Only deal with whole lines of text */
+            while ( index(buffer, '\n') != NULL ) {
+                /*
+                 * Always call strtok_r with all the parameters because we
+                 * modify buffer at the end of the loop.
+                 */
+                line = strtok_r(buffer, "\n", &lineptr);
                 linelen = strlen(line) + 1;
 
                 /* ignore the header or any error messages */
                 if ( strncmp(line, "Bulk", 4) == 0 ||
                         strncmp(line, "Error", 5) == 0 ) {
                     memmove(buffer, buffer + linelen, buflen - linelen);
-                    index = index - linelen;
+                    offset = offset - linelen;
+                    buffer[offset] = '\0';
                     continue;
                 }
 
@@ -272,7 +284,8 @@ static void *amp_asn_worker_thread(void *thread_data) {
 
                 /* move the remaining data to the front of the buffer */
                 memmove(buffer, buffer + linelen, buflen - linelen);
-                index = index - linelen;
+                offset = offset - linelen;
+                buffer[offset] = '\0';
 
                 outstanding--;
                 if ( outstanding == 0 ) {

@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <arpa/inet.h>
+#include <strings.h>
 
 #include "debug.h"
 #include "asn.h"
@@ -220,7 +221,7 @@ static struct iptrie *amp_asn_fetch_results_direct(int whois_fd,
 
     int bytes;
     char *buffer = NULL;
-    int index;
+    int offset;
     int buflen = 1024;//XXX define? and bigger
     char *line;
     char *lineptr = NULL;
@@ -230,26 +231,30 @@ static struct iptrie *amp_asn_fetch_results_direct(int whois_fd,
 
     /* XXX smaller than planned so it will fill while testing */
     buffer = calloc(1, buflen);
-    index = 0;
+    offset = 0;
 
     /* read the available ASN data until we run out */
-    while ( (bytes = recv(whois_fd, buffer, buflen - index, 0)) > 0 ) {
-        index += bytes;
+    while ( (bytes = recv(whois_fd, buffer + offset,
+                    buflen - offset - 1, 0)) > 0 ) {
+        offset += bytes;
+        buffer[offset] = '\0';
 
         /*
          * Only deal with whole lines of text. Also, always call strtok_r
          * with all the parameters because we modify buffer at the end
          * of the loop.
          */
-        while ( (line = strtok_r(buffer, "\n", &lineptr)) != NULL ) {
+        while ( index(buffer, '\n') != NULL ) {
 
+            line = strtok_r(buffer, "\n", &lineptr);
             linelen = strlen(line) + 1;
 
             /* ignore the header or any error messages */
             if ( strncmp(line, "Bulk", 4) == 0 ||
                     strncmp(line, "Error", 5) == 0 ) {
                 memmove(buffer, buffer + linelen, buflen - linelen);
-                index = index - linelen;
+                offset = offset - linelen;
+                buffer[offset] = '\0';
                 continue;
             }
 
@@ -258,7 +263,8 @@ static struct iptrie *amp_asn_fetch_results_direct(int whois_fd,
 
             /* move the remaining data to the front of the buffer */
             memmove(buffer, buffer + linelen, buflen - linelen);
-            index = index - linelen;
+            offset = offset - linelen;
+            buffer[offset] = '\0';
 
             /* XXX do something with this, if plugging into asnsock.c */
             /*
