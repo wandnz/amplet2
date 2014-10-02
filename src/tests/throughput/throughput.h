@@ -62,10 +62,25 @@
 #define MAX_TEST_PORT 8836
 #define DEFAULT_WRITE_SIZE  (128 * 1024) // 128-kbyte like iperf uses
 #define DEFAULT_TPUT_PAUSE  10000
-#define DEFAULT_TEST_SCHEDULE "T10000" /* iperf default: 10s client to server */
+#define DEFAULT_TEST_DURATION 10 /* iperf default: 10s */
 
 
-enum tput_type{
+/*
+ * Used as shortcuts for scheduling common tests through the web interface.
+ * Some degree of overlap with the tput_type enum which is annoying, and these
+ * also have to be specified by number on the command line, which is why they
+ * are currently intended to be used only by generated schedule files.
+ */
+enum tput_schedule_direction {
+    DIRECTION_NOT_SET = -1,
+    CLIENT_TO_SERVER = 0,
+    SERVER_TO_CLIENT = 1,
+    CLIENT_THEN_SERVER = 2,
+    SERVER_THEN_CLIENT = 3,
+};
+
+
+enum tput_type {
     TPUT_NULL = 0,
     TPUT_2_CLIENT,
     TPUT_2_SERVER,

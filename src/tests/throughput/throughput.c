@@ -121,7 +121,7 @@ int run_throughput(int argc, char *argv[], int count, struct addrinfo **dests) {
     Log(LOG_DEBUG, "Starting throughput test");
 
     /* XXX this option string needs to be up to date with server and client? */
-    while ( (opt = getopt_long(argc, argv, "?hvp:P:rsz:o:i:Nm:wS:c:4:6:I:t:",
+    while ( (opt = getopt_long(argc, argv, "?hvp:P:rsz:o:i:Nm:wS:c:d:4:6:I:t:",
                     long_options, &option_index)) != -1 ) {
         switch ( opt ) {
             case 's': server_flag_index = optind - 1; break;

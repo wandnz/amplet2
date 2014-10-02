@@ -664,10 +664,11 @@ int run_throughput_client(int argc, char *argv[], int count,
         struct addrinfo **dests) {
     struct opt_t options;
     int opt;
-    char modifiable[] = DEFAULT_TEST_SCHEDULE;
     int option_index = 0;
     extern struct option long_options[];
     char *client;
+    int duration = -1;
+    enum tput_schedule_direction direction = DIRECTION_NOT_SET;
 
     Log(LOG_DEBUG, "Running throughput test as client");
 
@@ -691,7 +692,7 @@ int run_throughput_client(int argc, char *argv[], int count,
     options.device = NULL;
     client = NULL;
 
-    while ( (opt = getopt_long(argc, argv, "?hp:P:rz:o:i:Nm:wS:c:4:6:I:t:",
+    while ( (opt = getopt_long(argc, argv, "?hp:P:rz:o:i:Nm:wS:c:d:4:6:I:t:",
                     long_options, &option_index)) != -1 ) {
 
         switch ( opt ) {
@@ -712,14 +713,8 @@ int run_throughput_client(int argc, char *argv[], int count,
             case 'N': options.sock_disable_nagle = 1; break;
             case 'M': options.sock_mss = atoi(optarg); break;
             case 'w': options.disable_web10g = 1; break;
-            case 't': {
-                          /* take a time in seconds for iperf compatability */
-                          int duration = atoi(optarg);
-                          char sched[128];
-                          snprintf(sched, sizeof(sched), "T%d", duration*1000);
-                          parseSchedule(&options, sched);
-                          break;
-                      }
+            case 't': duration = atoi(optarg); break;
+            case 'd': direction = atoi(optarg); break;
             case 'h':
             case '?':
             default: usage(argv[0]); exit(0);
@@ -777,10 +772,66 @@ int run_throughput_client(int argc, char *argv[], int count,
         exit(1);
     }
 
-    /* If there is no test schedule set it to use the default */
+    /* schedule can't be set if direction and duration are also set */
+    if ( duration > 0 && direction != DIRECTION_NOT_SET && options.schedule ) {
+        Log(LOG_ERR,
+                "Schedule string given as well as duration/direction flags");
+        exit(1);
+    }
+
+    /*
+     * If there is no test schedule, then try to make one from the other
+     * flags that were given, or use a default schedule.
+     */
     if ( options.schedule == NULL ) {
-        Log(LOG_DEBUG, "No test schedule using default");
-        parseSchedule(&options, modifiable);
+        char sched[128];
+
+        Log(LOG_DEBUG, "No test schedule, creating one");
+
+        /*
+         * This is seconds because that's easier for the user to type on the
+         * command line, while in the schedule things are in ms (should
+         * probably move the schedule to seconds too, who wants to run tests
+         * for fractions of seconds?)
+         */
+        if ( duration < 0 ) {
+            duration = DEFAULT_TEST_DURATION;
+        }
+
+        Log(LOG_DEBUG, "Using duration of %d seconds", duration);
+
+        /* and put it back into milliseconds */
+        duration *= 1000;
+
+        /*
+         * This is really a hidden option to make life easier when scheduling
+         * tests through the web interface. If it was more user facing then
+         * it should be a bit nicer and use better textual values (which would
+         * involve strcmp and not work as a switch statement).
+         */
+        switch ( direction ) {
+            case CLIENT_TO_SERVER:
+                snprintf(sched, sizeof(sched), "T%d", duration);
+                break;
+            case SERVER_TO_CLIENT:
+                snprintf(sched, sizeof(sched), "t%d", duration);
+                break;
+            case CLIENT_THEN_SERVER:
+                snprintf(sched, sizeof(sched), "T%d,n,t%d", duration, duration);
+                break;
+            case SERVER_THEN_CLIENT:
+                snprintf(sched, sizeof(sched), "t%d,n,T%d", duration, duration);
+                break;
+            default:
+                Log(LOG_WARNING, "Using default direction client -> server");
+                snprintf(sched, sizeof(sched), "T%d", duration);
+                break;
+        };
+
+        Log(LOG_DEBUG, "Generated schedule: '%s'", sched);
+
+        /* create the schedule list as if this was a normal schedule string */
+        parseSchedule(&options, sched);
     }
 
     /* Print out our schedule */
