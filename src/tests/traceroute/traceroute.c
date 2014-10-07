@@ -730,7 +730,7 @@ static int process_packet(int family, struct sockaddr *addr, char *packet,
     /* if unexpected error, record it and look to keep probing */
     if ( unexpected_error(family, type) ||
             /* or maybe it's an unreachable, but not from the destination */
-            (terminal_error(family, type, code) == 2 &&
+            (terminal_error(family, type, code) == 1 &&
              compare_addresses(item->addr->ai_addr, addr, 0) != 0) ) {
 
         item->err_type = type;
