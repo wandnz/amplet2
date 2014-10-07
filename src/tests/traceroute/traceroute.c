@@ -697,37 +697,8 @@ static int process_packet(int family, struct sockaddr *addr, char *packet,
 
     /* we've hit the destination on the first go so need the real ttl */
     if ( terminal_error(family, type, code) && item->ttl == INITIAL_TTL ) {
-        /*
-         * Get the ttl from the response packet or terminate if not found.
-         * For IPv4 we can't trust that the target host will/won't decrement
-         * the TTL before responding, so we will use a heuristic based on the
-         * TTL of the response packet. For IPv6 we don't have the response
-         * header, but the hop limit field in the embedded packet appears to
-         * be treated sanely so we use that.
-         */
-        switch ( family ) {
-            case AF_INET: ttl = get_ttl(family, packet); break;
-            case AF_INET6: ttl = get_embedded_ttl(family, packet); break;
-            default: ttl = -1; break;
-        };
-
-        if ( ttl >= 0 && family == AF_INET ) {
-            /* determine path length based on TTL in response packet */
-            if ( ttl == 0 ) {
-                ttl = 1;
-            } else if ( ttl <= 32 ) {
-                ttl = 32 - ttl + 1;
-            } else if ( ttl <= 64 ) {
-                ttl = 64 - ttl + 1;
-            } else if ( ttl <= 128 ) {
-                ttl = 128 - ttl + 1;
-            } else {
-                ttl = 255 - ttl + 1;
-            }
-        } else if ( ttl >= 0 && family == AF_INET6 ) {
-            /* determine path length based on TTL in embedded packet */
-            ttl = INITIAL_TTL - ttl + 1;
-        }
+        /* extract the TTL from the packet we sent, embedded in the response */
+        ttl = (INITIAL_TTL - get_embedded_ttl(family, packet)) + 1;
 
         /* if the TTL was bogus then we end probing now */
         if ( ttl < 0 || ttl > MAX_HOPS_IN_PATH ) {
@@ -947,9 +918,27 @@ static int process_packet(int family, struct sockaddr *addr, char *packet,
      * error or if the path is too long.
      */
     if ( terminal_error(family, type, code) || item->ttl >= MAX_HOPS_IN_PATH ) {
-        item->done_forward = 1;
         item->path_length = item->ttl;
-        item->ttl = item->first_response - 1;
+
+        if ( item->done_forward && terminal_error(family, type, code) == 1 ) {
+            /*
+             * If we have already completed forward probing then we really
+             * shouldn't be getting any more port unreachable messages. What
+             * appears to cause this is stupid boxes (that are the target of
+             * the test, and hit on the very first probe) decrementing the TTL
+             * before responding to the message, making the path appear one
+             * hop longer than it really is. We'll adjust the path to use this
+             * response as the last one in the path, and lower the TTL by one.
+             */
+            item->ttl = item->ttl - 1;
+            Log(LOG_DEBUG,
+                    "End host decremented TTL on initial response, adjusting");
+        } else {
+            item->done_forward = 1;
+            /* next probe should be one less than the first responding hop */
+            item->ttl = item->first_response - 1;
+        }
+
         if ( item->ttl == 0 ) {
             item->done_backward = 1;
             item->next = probelist->done;
