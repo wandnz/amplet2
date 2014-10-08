@@ -943,7 +943,7 @@ void remote_schedule_callback(wand_event_handler_t *ev_hdl, void *data) {
     }
 
     /* TODO should we have a watchdog on this task? */
-    add_test_watchdog(item->ev_hdl, pid, SCHEDULE_FETCH_TIMEOUT,
+    add_test_watchdog(item->ev_hdl, pid, SCHEDULE_FETCH_TIMEOUT, 0,
             "Remote schedule fetch");
 
     /* reschedule checking for schedule updates */

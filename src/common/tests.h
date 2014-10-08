@@ -106,11 +106,20 @@ typedef struct test {
     void *dlhandle;
 
     /*
-     * true of the test should be reporting data to the broker, false if
+     * true if the test should be reporting data to the broker, false if
      * the data should be displayed to stdout. This is set at load time by
      * the process that loads the test.
      */
     int report;
+
+    /*
+     * true if the test should be sent a SIGINT before being sent a SIGKILL
+     * when it runs out of time, false if it should just be sent the SIGKILL.
+     * This can be useful to report partial results from a test that tests to
+     * multiple locations.
+     */
+     int sigint;
+
 } test_t;
 
 

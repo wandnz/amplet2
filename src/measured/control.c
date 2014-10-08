@@ -292,7 +292,7 @@ static void control_read_callback(wand_event_handler_t *ev_hdl, int fd,
 
     /* TODO update name to mark it as a server timer? */
     add_test_watchdog(ev_hdl, pid, test->max_duration + TEST_SERVER_EXTRA_TIME,
-            test->name);
+            test->sigint, test->name);
 }
 
 

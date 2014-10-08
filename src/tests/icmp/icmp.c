@@ -770,6 +770,9 @@ test_t *register_test() {
     /* the icmp test doesn't require us to run a custom server */
     new_test->server_callback = NULL;
 
+    /* don't give the icmp test a SIGINT warning, it should not take long! */
+    new_test->sigint = 0;
+
     return new_test;
 }
 

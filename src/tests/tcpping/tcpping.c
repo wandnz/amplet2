@@ -16,6 +16,7 @@
 #include <malloc.h>
 #include <string.h>
 #include <unistd.h>
+#include <signal.h>
 
 #include "config.h"
 #include "testlib.h"
@@ -742,6 +743,19 @@ static void report_results(struct timeval *start_time, int count,
 
 }
 
+/*
+ * Halt the event loop in the event of a SIGINT (either sent from the terminal
+ * if running standalone, or sent by the watchdog if running as part of
+ * measured) and report the results that have been collected so far.
+ */
+static void interrupt_test(wand_event_handler_t *ev_hdl,
+        __attribute__((unused))int signum,
+        __attribute__((unused))void *data) {
+
+    Log(LOG_INFO, "Received SIGINT, halting TCPPing test");
+    ev_hdl->running = false;
+}
+
 /* Force the event loop to halt, so we can end the test and report the
  * results that we do have.
  */
@@ -839,6 +853,9 @@ int run_tcpping(int argc, char *argv[], int count, struct addrinfo **dests) {
     globals->dests = dests;
     globals->nextpackettimer = NULL;
     globals->losstimer = NULL;
+
+    /* catch a SIGINT and end the test early */
+    wand_add_signal(SIGINT, NULL, interrupt_test);
 
     /* Send a SYN to our first destination. This will setup a timer callback
      * for sending the next packet and a fd callback for any response.
@@ -960,6 +977,7 @@ test_t *register_test() {
     new_test->run_callback = run_tcpping;
     new_test->print_callback = print_tcpping;
     new_test->server_callback = NULL;
+    new_test->sigint = 1;
     return new_test;
 }
 

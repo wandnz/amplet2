@@ -304,7 +304,8 @@ static void fork_test(wand_event_handler_t *ev_hdl,test_schedule_item_t *item) {
 
     //XXX if the test aborts before we add this, will that cock things up?
     /* schedule the watchdog to kill it if it takes too long */
-    add_test_watchdog(ev_hdl, pid, test->max_duration, test->name);
+    add_test_watchdog(ev_hdl, pid, test->max_duration, test->sigint,
+            test->name);
 }
 
 

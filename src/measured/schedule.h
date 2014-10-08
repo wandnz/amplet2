@@ -75,6 +75,7 @@ typedef struct test_schedule_item {
 typedef struct kill_schedule_item {
     pid_t pid;			    /* pid of test process to kill */
     char *testname;                 /* name of the test to kill */
+    uint8_t sigint;                 /* should we send a SIGINT warning shot */
 } kill_schedule_item_t;
 
 

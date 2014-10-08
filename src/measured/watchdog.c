@@ -19,13 +19,14 @@
  * and passed in as a maximum number of seconds.
  */
 void add_test_watchdog(wand_event_handler_t *ev_hdl, pid_t pid, uint16_t max,
-        char *testname) {
+        int sigint, char *testname) {
     schedule_item_t *item;
     kill_schedule_item_t *kill;
 
     /* store information about the test so we can kill it later */
     kill = (kill_schedule_item_t *)malloc(sizeof(kill_schedule_item_t));
     kill->pid = pid;
+    kill->sigint = sigint;
     kill->testname = testname;
     item = (schedule_item_t *)malloc(sizeof(schedule_item_t));
     item->type = EVENT_CANCEL_TEST;
@@ -124,8 +125,7 @@ void child_reaper(wand_event_handler_t *ev_hdl,
  * Kill a test process that has run for too long. The SIGCHLD handler will
  * take care of tidying everything up.
  */
-void kill_running_test(__attribute__((unused))wand_event_handler_t *ev_hdl,
-        void *data) {
+void kill_running_test(wand_event_handler_t *ev_hdl, void *data) {
     schedule_item_t *item = (schedule_item_t *)data;
 
     assert(item);
@@ -140,10 +140,25 @@ void kill_running_test(__attribute__((unused))wand_event_handler_t *ev_hdl,
     Log(LOG_WARNING, "Watchdog killed %s test that ran too long",
             item->data.kill->testname);
 
-    /* TODO send SIGINT first like amp1 did? killpg() vs kill() */
-    /* kill the test */
-    if ( kill(item->data.kill->pid, SIGKILL) < 0 ) {
-	perror("kill");
+    /* TODO killpg() vs kill() */
+    /*
+     * Send the process a warning shot so that it can tidy up and maybe return
+     * a subset of the full result set. If this takes too long then it will
+     * still be more forcefully killed shortly.
+     */
+    if ( item->data.kill->sigint ) {
+        if ( kill(item->data.kill->pid, SIGINT) < 0 ) {
+            perror("kill");
+        }
+
+        /* schedule the SIGKILL for a short interval */
+        add_test_watchdog(ev_hdl, item->data.kill->pid, WATCHDOG_GRACE_PERIOD,
+                0, item->data.kill->testname);
+    } else {
+        /* kill the test */
+        if ( kill(item->data.kill->pid, SIGKILL) < 0 ) {
+            perror("kill");
+        }
     }
 
     /* tidy up the watchdog timer that just fired, it is no longer needed */

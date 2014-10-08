@@ -1270,5 +1270,8 @@ test_t *register_test() {
     /* the http test doesn't require us to run a custom server */
     new_test->server_callback = NULL;
 
+    /* don't give the http test a SIGINT warning */
+    new_test->sigint = 0;
+
     return new_test;
 }

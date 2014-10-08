@@ -176,6 +176,7 @@ struct probe_list_t {
     struct stopset_t *stopset;
     struct wand_timer_t *timeout;
     uint32_t count;
+    uint32_t done_count;
     uint16_t ident;
     struct opt_t *opts;
     int window;

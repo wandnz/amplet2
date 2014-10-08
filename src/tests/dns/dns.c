@@ -1093,6 +1093,9 @@ test_t *register_test() {
     /* the dns test doesn't require us to run a custom server */
     new_test->server_callback = NULL;
 
+    /* don't give the DNS test a SIGINT warning, it should not take long! */
+    new_test->sigint = 0;
+
     return new_test;
 }
 

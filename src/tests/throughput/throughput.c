@@ -176,5 +176,8 @@ test_t *register_test() {
     /* function to call to start the throughput server */
     new_test->server_callback = run_throughput_server;
 
+    /* don't give the throughput test a SIGINT warning */
+    new_test->sigint = 0;
+
     return new_test;
 }

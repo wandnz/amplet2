@@ -153,5 +153,8 @@ test_t *register_test() {
     /* function to run on the remote end to assist with the test */
     new_test->server_callback = server_remoteskeleton;
 
+    /* don't give the skeleton test a SIGINT warning */
+    new_test->sigint = 0;
+
     return new_test;
 }

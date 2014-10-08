@@ -16,6 +16,7 @@
 #include <arpa/inet.h>
 #include <malloc.h>
 #include <string.h>
+#include <signal.h>
 
 //TODO rename files and headers better?
 #include "config.h"
@@ -707,6 +708,7 @@ static int process_packet(int family, struct sockaddr *addr, char *packet,
             item->path_length = 0;
             item->next = probelist->done;
             probelist->done = item;
+            probelist->done_count++;
             return enqueue_next_pending(probelist);
         }
 
@@ -757,6 +759,7 @@ static int process_packet(int family, struct sockaddr *addr, char *packet,
             item->done_backward = 1;
             item->next = probelist->done;
             probelist->done = item;
+            probelist->done_count++;
             return enqueue_next_pending(probelist);
         }
         item->attempts = 0;
@@ -795,6 +798,7 @@ static int process_packet(int family, struct sockaddr *addr, char *packet,
         item->done_backward = 1;
         item->next = probelist->done;
         probelist->done = item;
+        probelist->done_count++;
         return enqueue_next_pending(probelist);
     }
 
@@ -910,6 +914,7 @@ static int process_packet(int family, struct sockaddr *addr, char *packet,
         item->done_backward = 1;
         item->next = probelist->done;
         probelist->done = item;
+        probelist->done_count++;
         return enqueue_next_pending(probelist);
     }
 
@@ -943,6 +948,7 @@ static int process_packet(int family, struct sockaddr *addr, char *packet,
             item->done_backward = 1;
             item->next = probelist->done;
             probelist->done = item;
+            probelist->done_count++;
             return enqueue_next_pending(probelist);
         }
         item->attempts = 0;
@@ -964,6 +970,7 @@ static int process_packet(int family, struct sockaddr *addr, char *packet,
             item->done_backward = 1;
             item->next = probelist->done;
             probelist->done = item;
+            probelist->done_count++;
             return enqueue_next_pending(probelist);
         }
         return append_ready_item(probelist, item);
@@ -1214,6 +1221,7 @@ static void send_probe_callback(wand_event_handler_t *ev_hdl, void *data) {
                 probelist->opts->packet_size, item) < 0 ) {
         item->next = probelist->done;
         probelist->done = item;
+        probelist->done_count++;
         enqueue_next_pending(probelist);
         if ( probelist->outstanding == NULL && probelist->ready == NULL ) {
             ev_hdl->running = 0;
@@ -1350,6 +1358,7 @@ static void probe_timeout_callback(wand_event_handler_t *ev_hdl, void *data) {
         item->done_backward = 1;
         item->next = probelist->done;
         probelist->done = item;
+        probelist->done_count++;
 
         if ( enqueue_next_pending(probelist) ) {
             wand_add_timer(ev_hdl, 0, MIN_INTER_PACKET_DELAY, data,
@@ -1386,6 +1395,58 @@ static void probe_timeout_callback(wand_event_handler_t *ev_hdl, void *data) {
         }
     }
 }
+
+
+
+/*
+ * Free a list of destinations, including all the address and path info if
+ * any of that has been created.
+ */
+static void free_dest_info(struct dest_info_t *list) {
+    struct dest_info_t *item, *tmp;
+    int i;
+
+    for ( item = list; item != NULL; /* nothing */ ) {
+        tmp = item;
+        for ( i = 0; i < MAX_HOPS_IN_PATH; i++ ) {
+            /* if we've allocated ai_addr ourselves, we have to free it */
+            if ( item->hop[i].reply == REPLY_OK ) {
+                if ( item->hop[i].addr->ai_addr != NULL ) {
+                    free(item->hop[i].addr->ai_addr);
+                    item->hop[i].addr->ai_addr = NULL;
+                }
+            }
+
+            /* and need to free the addrinfo struct too if we got a result */
+            if ( item->hop[i].reply == REPLY_OK ||
+                    item->hop[i].reply == REPLY_ASSUMED_STOPSET ) {
+                if ( item->hop[i].addr != NULL ) {
+                    freeaddrinfo(item->hop[i].addr);
+                    item->hop[i].addr = NULL;
+                }
+            }
+        }
+        item = item->next;
+        free(tmp);
+    }
+}
+
+
+
+/*
+ * Halt the event loop in the event of a SIGINT (either sent from the terminal
+ * if running standalone, or sent by the watchdog if running as part of
+ * measured) and report the results that have been collected so far.
+ */
+static void interrupt_test(wand_event_handler_t *ev_hdl,
+        __attribute__((unused))int signum,
+        __attribute__((unused))void *data) {
+
+    Log(LOG_INFO, "Received SIGINT, halting traceroute test");
+    ev_hdl->running = false;
+}
+
+
 
 /* XXX don't need to pass around family? it's already in a sockaddr? */
 
@@ -1517,6 +1578,7 @@ int run_traceroute(int argc, char *argv[], int count, struct addrinfo **dests) {
     probelist.window = INITIAL_WINDOW;
     probelist.opts = &options;
     probelist.total_probes = 0;
+    probelist.done_count = 0;
 
     /* create all info blocks and place them in the send queue */
     for ( i = 0; i < count; i++ ) {
@@ -1538,6 +1600,9 @@ int run_traceroute(int argc, char *argv[], int count, struct addrinfo **dests) {
     wand_event_init();
     ev_hdl = wand_create_event_handler();
 
+    /* catch a SIGINT and end the test early */
+    wand_add_signal(SIGINT, NULL, interrupt_test);
+
     /* set up callbacks for receiving packets */
     wand_add_fd(ev_hdl, icmp_sockets.socket, EV_READ, &probelist,
             recv_probe4_callback);
@@ -1551,12 +1616,15 @@ int run_traceroute(int argc, char *argv[], int count, struct addrinfo **dests) {
 
     wand_event_run(ev_hdl);
 
+    /* these are no longer true, if the test can be interrupted */
+#if 0
     assert(probelist.pending == NULL);
     assert(probelist.ready == NULL);
     assert(probelist.ready_end == NULL);
     assert(probelist.outstanding == NULL);
     assert(probelist.outstanding_end == NULL);
     assert(probelist.done);
+#endif
 
     wand_destroy_event_handler(ev_hdl);
 
@@ -1586,8 +1654,11 @@ int run_traceroute(int argc, char *argv[], int count, struct addrinfo **dests) {
         }
     }
 
-    /* send report */
-    report_results(&start_time, count, probelist.done, &options);
+    /* Send report, only reporting about completed paths. For now, we'll
+     * quietly ignore any that didn't finish as it doesn't really make
+     * sense to report an incomplete path.
+     */
+    report_results(&start_time, probelist.done_count, probelist.done, &options);
 
     /* XXX temporary debug */
 #if 0
@@ -1629,32 +1700,16 @@ int run_traceroute(int argc, char *argv[], int count, struct addrinfo **dests) {
 */
 #endif
 
-    /* tidy up all the address structures we have as results */
-    for ( item = probelist.done; item != NULL; /* nothing */ ) {
-        struct dest_info_t *tmp = item;
-        for ( i = 0; i < MAX_HOPS_IN_PATH; i++ ) {
-            if ( item->hop[i].reply == REPLY_OK ) {
-                /* we've allocated ai_addr ourselves, so have to free it */
-                if ( item->hop[i].addr->ai_addr != NULL ) {
-                    free(item->hop[i].addr->ai_addr);
-                    item->hop[i].addr->ai_addr = NULL;
-                }
-            }
-
-            if ( item->hop[i].reply == REPLY_OK ||
-                    item->hop[i].reply == REPLY_ASSUMED_STOPSET ) {
-                if ( item->hop[i].addr != NULL ) {
-                    freeaddrinfo(item->hop[i].addr);
-                    item->hop[i].addr = NULL;
-                }
-            }
-        }
-        item = item->next;
-        free(tmp);
-    }
+    /*
+     * If we were interrupted, the pending and outstanding lists might still
+     * have data to free. If we completed any paths then the done list will
+     * also need freeing.
+     */
+    free_dest_info(probelist.pending);
+    free_dest_info(probelist.outstanding);
+    free_dest_info(probelist.done);
 
     /* tidy up the stopset if it was used */
-    i = 0;
     for ( stop = probelist.stopset, i = 0; stop != NULL; i++) {
         struct stopset_t *tmp = stop;
         stop = stop->next;
@@ -1766,6 +1821,12 @@ test_t *register_test() {
 
     /* the traceroute test doesn't require us to run a custom server */
     new_test->server_callback = NULL;
+
+    /*
+     * traceroute test could theoretically take too long, lets accept a SIGINT
+     * to end it gracefully and return what results we have.
+     */
+    new_test->sigint = 1;
 
     return new_test;
 }
