@@ -995,11 +995,30 @@ int update_remote_schedule(char *dir, char *url, char *cacert, char *cert,
                 REMOTE_SCHEDULE_FILE);
         sched_file[MAX_PATH_LENGTH-1] = '\0';
 
+        /* make sure the schedule directory exists */
+        stat_result = stat(dir, &statbuf);
+
+        if ( stat_result < 0 && errno == ENOENT) {
+            Log(LOG_DEBUG, "Schedule dir doesn't exist, creating %s", dir);
+            /* doesn't exist, try to create it */
+            if ( mkdir(dir, 0x755) < 0 ) {
+                Log(LOG_WARNING, "Failed to create schedule directory %s: %s",
+                        dir, strerror(errno));
+                curl_easy_cleanup(curl);
+                return -1;
+            }
+        } else if ( stat_result < 0 ) {
+            /* error calling stat, report it and return */
+            Log(LOG_WARNING, "Failed to stat schedule directory %s: %s",
+                    dir, strerror(errno));
+            curl_easy_cleanup(curl);
+            return -1;
+        }
+
         /* Open the temporary file we read the remote schedule into */
-        /* TODO make dir structure if required */
         if ( (tmpfile = fopen(tmp_sched_file, "w")) == NULL ) {
-            Log(LOG_WARNING, "Failed to open temporary schedule %s",
-                    tmp_sched_file);
+            Log(LOG_WARNING, "Failed to open temporary schedule %s: %s",
+                    tmp_sched_file, strerror(errno));
             curl_easy_cleanup(curl);
             return -1;
         }
