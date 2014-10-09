@@ -11,66 +11,130 @@
 # it receives a SIGHUP signal. Using the "reload" option to the init script
 # will send a SIGHUP to a running measured.
 #
-# The schedule format is similar to that of the previous AMP schedule. A
-# test is usually repeated at some frequency during a particular period,
-# with controls over which part of the period it is run. Each test is
-# described by a single line, in this format:
+# The schedule file is a YAML document with two main elements - the first of
+# which contains lists of test targets (for easily testing to multiple
+# destinations at once), the second being a list of the individual tests that
+# should be run. Each test is described by a block with information about the
+# frequency at which it should be performed, where it should test to, and what
+# options should be set.
 #
-# <target>,<test>,<repeat-period>,<start-ms>,<end-ms>,<freq-ms>,<args>
+# The list of test targets is formatted as follows:
 #
-# target:
-#       The name of the destination to test to. If this name is in the AMP
-#       nametable file then the listed address will be used, otherwise the
-#       name will be resolved using whatever DNS servers are configured for
-#       the host. The maximum number of resolved addresses returned can be
-#       controlled by appending a colon with the maximum number, e.g.
+# targets:
+#   <name1>: &<alias1> [<target1>, <target2>, ... <targetN>]
+#   <name2>: &<alias2> [<target1>, <target2>, ... <targetN>]
+#   ...
+#   <nameN>: &<aliasN> [<target1>, <target2>, ... <targetN>]
+#
+# The list of tests to perform looks like:
+#
+# tests:
+# - test: <testname1>
+#   target: <targetname1>
+#   start: <start-seconds1>
+#   end: <end-seconds1>
+#   period: <repeat-period1>
+#   frequency: <frequency-seconds1>
+#   args: <test-arguments1>
+# - test: <testname2>
+#   target: <targetname2>
+#   start: <start-seconds2>
+#   end: <end-seconds2>
+#   period: <repeat-period2>
+#   frequency: <frequency-seconds2>
+#   args: <test-arguments2>
+#   ...
+# - test: <testnameN>
+#   target: <targetnameN>
+#   start: <start-secondsN>
+#   end: <end-secondsN>
+#   period: <repeat-periodN>
+#   frequency: <frequency-secondsN>
+#   args: <test-argumentsN>
+#
+# Where the following values are expected:
+#
+# testname:
+#   The name of the test to run. Examples of tests currently included in AMP
+#   are: icmp, traceroute, dns, http, throughput, tcpping
+#
+# targetname:
+#   The name/address of the destination to test to, the alias of a target
+#   group, or a list of any combination of these. If a name is given and it
+#   exists in the AMP nametable then the address in that file will be used,
+#   otherwise the name will be resolved using DNS. By default all the resolved
+#   addresses will be tested to (though some tests will only accept one
+#   address), unless there are qualifiers added, e.g.:
 #       www.example.org:1 - test to a single resolved address for the site
-#       www.example.org:* - test to all resolved addresses for the site
-#
-# test:
-#       The name of the test to run. Examples of tests currently included
-#       in AMP are: icmp, traceroute, dns, http, throughput
+#       www.example.org:v4 - test to all resolved IPv4 addresses for the site
+#       www.example.org:1:v4 - test to one resolved IPv4 addresses for the site
+#       www.example.org:v6 - test to all resolved IPv6 addresses for the site
+#       www.example.org:1:v6 - test to one resolved IPv6 addresses for the site
 #
 # repeat-period:
-#       A single letter describing the frequency at which the schedule
-#       should be repeated. H=hourly, D=daily, W=weekly
+#   The frequency at which the schedule should be repeated. Should be one of
+#   "hour", "day" or "week". Will default to "day" if not specified.
 #
-# start-ms:
-#       The time in milliseconds after the start of the repeat period that
-#       the first run of this test should be scheduled.
+# start-seconds:
+#   The time in seconds after the start of the repeat period that the first
+#   run of this test should be scheduled. Will default to 0 if not specified.
 #
-# end-ms:
-#       The time in milliseconds after the start of the repeat period that
-#       the test should stop being scheduled.
+# end-seconds:
+#   The time in seconds after the start of the repeat period that the test
+#   should stop being scheduled. Will default to the end of the period if not
+#   specified.
 #
-# freq-ms:
-#       The frequency in milliseconds at which the test should be repeated
-#       within this repeat period. A value of zero means to run the test
-#       only once within the period (don't repeat).
+# frequency-seconds:
+#   The frequency in seconds at which the test should be repeated within this
+#   repeat period. A value of zero means to run the test only once within the
+#   period (don't repeat). If not specified it will default to 60 (every
+#   minute)for an hourly schedule, 600 (every 10 minutes) for a daily schedule
+#   and 3600 (every hour) for a weekly schedule.
 #
-# args:
-#       Any fields after the first 6 are treated as parameters to the test.
-#       If no parameters are given then the test will run with the default
-#       values, which (depending on what the particular test expects) may or
-#       may not be enough to properly run the test.
+# test-arguments:
+#   Parameters to the test, exactly the same as if the test was being run
+#   standalone on the command line. If no parameters are given then the test
+#   will run with the default values, which (depending on what the particular
+#   test expects) may or may not be enough to properly run the test.
 #
 #
 # EXAMPLES:
 #
+# Declare a few target groups for use in the examples:
+# targets:
+#   dns: &dnsservers [ ns1.example.org, ns2.example.org, ns3.example.org ]
+#   baz: &baz [ foo.example.org, bar.example.org, 192.0.2.1, 2001:DB8::1 ]
+#
 # Run an icmp test to amp-foo every 10 seconds, starting at midnight:
-#       amp-foo,icmp,D,0,86400000,10000
+# - test: icmp
+#   target: amp-foo
+#   frequency: 10
 #
-# Run an icmp test to amp-foo every 10 minutes, starting at midnight and
-# using random packet sizes:
-#       amp-foo,icmp,D,0,86400000,600000, -r
+# Run an icmp test to amp-foo and amp-bar every 10 minutes, starting at
+# midnight and using random packet sizes:
+# - test: icmp
+#   target: [amp-foo, amp-bar]
+#   frequency: 10
+#   args: -r
 #
-# Run a dns test to amp-foo every 10 minutes, starting at midnight,
-# querying for www.example.org IN AAAA:
-#       amp-foo,dns,D,86400000,600000, -q www.example.org -c IN -t AAAA
+# Run a dns test to a target group called "dnsservers" every 10 minutes,
+# starting at midnight, querying for www.example.org IN AAAA:
+# - test: dns
+#   target: *dnsservers
+#   frequency: 600
+#   args: -q www.example.org -c IN -t AAAA
 #
 # Run a traceroute test to amp-foo every 15 minutes, starting at noon and
 # stopping 3 hours later:
-#       amp-foo,traceroute,D,43200000,54000000,900000
+# - test: traceroute
+#   target: amp-foo
+#   frequency: 900
+#   start: 43200
+#   end: 54000
 #
-# Run a traceroute test to amp-foo once a week on Sunday morning:
-#       amp-foo,traceroute,W,0,604800000,0
+# Run a traceroute test to amp-foo and a target group called "baz" once a week
+# on Sunday morning:
+# - test: traceroute
+#   target: [amp-foo, *baz]
+#   frequency: 0
+#   period: week
