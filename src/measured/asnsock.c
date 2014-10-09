@@ -116,6 +116,7 @@ static void *amp_asn_worker_thread(void *thread_data) {
     int length = 0;
     int asn;
     int outstanding;
+    struct timeval timeout;
 
     Log(LOG_DEBUG, "Starting new asn resolution thread");
 
@@ -148,10 +149,13 @@ static void *amp_asn_worker_thread(void *thread_data) {
             //FD_SET(whois_fd, &writeset);
         }
 
+        /* it should never take 30s and we don't want to wait forever */
+        timeout.tv_sec = 30;
+        timeout.tv_usec = 0;
         max_fd = (info->fd > whois_fd) ? info->fd : whois_fd;
-        ready = select(max_fd + 1, &readset, &writeset, NULL, NULL);
+        ready = select(max_fd + 1, &readset, &writeset, NULL, &timeout);
 
-        if ( ready < 0 && errno != EINTR ) {
+        if ( ready == 0 || (ready < 0 && errno != EINTR) ) {
             break;
         }
 
@@ -168,7 +172,12 @@ static void *amp_asn_worker_thread(void *thread_data) {
                 /* no more ASNs need to be resolved */
                 Log(LOG_DEBUG, "Got all requests, waiting for responses");
                 if ( whois_fd != -1 ) {
-                    send(whois_fd, "end\n", strlen("end\n"), 0);
+                    if ( send(whois_fd, "end\n", strlen("end\n"), 0) < 0 ) {
+                        Log(LOG_WARNING,
+                                "Failed to send end message to ASN socket:%s",
+                                strerror(errno));
+                        break;
+                    }
                 }
                 if ( outstanding == 0 ) {
                     break;
@@ -233,7 +242,9 @@ static void *amp_asn_worker_thread(void *thread_data) {
             }
 
             if ( send(whois_fd, addrstr, strlen(addrstr), 0) < 0 ) {
-                printf("error writing to whois socket\n");
+                Log(LOG_WARNING, "Error writing to whois socket: %s",
+                        strerror(errno));
+                break;
             }
             outstanding++;
         }
