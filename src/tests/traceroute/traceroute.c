@@ -942,6 +942,12 @@ static int process_packet(int family, struct sockaddr *addr, char *packet,
             item->done_forward = 1;
             /* next probe should be one less than the first responding hop */
             item->ttl = item->first_response - 1;
+
+            /* it's a terminal error, but not a port unreachable, record it */
+            if ( terminal_error(family, type, code) == 2 ) {
+                item->err_type = type;
+                item->err_code = code;
+            }
         }
 
         if ( item->ttl == 0 ) {
