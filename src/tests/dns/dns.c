@@ -621,21 +621,21 @@ static void report_results(struct timeval *start_time, int count,
 static uint16_t get_query_type(char *query_type) {
     uint16_t value;
 
-    if(strcmp(query_type, "A") == 0)
+    if(strcasecmp(query_type, "A") == 0)
 	return 0x01;
-    if(strcmp(query_type, "NS") == 0)
+    if(strcasecmp(query_type, "NS") == 0)
 	return 0x02;
-    if(strcmp(query_type, "AAAA") == 0)
+    if(strcasecmp(query_type, "AAAA") == 0)
 	return 0x1c;
-    if(strcmp(query_type, "PTR") == 0)
+    if(strcasecmp(query_type, "PTR") == 0)
 	return 0x0c;
-    if(strcmp(query_type, "MX") == 0)
+    if(strcasecmp(query_type, "MX") == 0)
 	return 0x0f;
-    if(strcmp(query_type, "SOA") == 0)
+    if(strcasecmp(query_type, "SOA") == 0)
 	return 0x06;
-    if(strcmp(query_type, "TXT") == 0)
+    if(strcasecmp(query_type, "TXT") == 0)
         return 0x10;
-    if(strcmp(query_type, "ANY") == 0)
+    if(strcasecmp(query_type, "ANY") == 0)
 	return 0xff;
 
     if ( (value = atoi(query_type)) > 0 ) {
@@ -672,7 +672,7 @@ static char *get_query_type_string(uint16_t query_type) {
 static uint16_t get_query_class(char *query_class) {
     uint16_t value;
 
-    if ( strcmp(query_class, "IN") == 0 )
+    if ( strcasecmp(query_class, "IN") == 0 )
 	return 0x01;
 
     if ( (value = atoi(query_class)) > 0 ) {
