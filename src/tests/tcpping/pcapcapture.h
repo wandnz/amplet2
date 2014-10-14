@@ -7,6 +7,12 @@
 #include <sys/socket.h>
 #include <netdb.h>
 
+
+/* lenny doesn't include this, so do it ourselves if needed */
+#ifndef PCAP_NETMASK_UNKNOWN
+#define PCAP_NETMASK_UNKNOWN    0xffffffff
+#endif
+
 struct pcapdevice {
     pcap_t *pcap;
     int pcap_fd;

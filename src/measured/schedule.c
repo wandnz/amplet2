@@ -1098,7 +1098,11 @@ int update_remote_schedule(char *dir, char *url, char *cacert, char *cert,
         curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &code);
         curl_easy_getinfo(curl, CURLINFO_FILETIME, &filetime);
         curl_easy_getinfo(curl, CURLINFO_CONTENT_LENGTH_DOWNLOAD, &length);
+#if LIBCURL_VERSION_NUM >= 0x071309
         curl_easy_getinfo(curl, CURLINFO_CONDITION_UNMET, &cond_unmet);
+#else
+        cond_unmet = 0;
+#endif
         curl_easy_cleanup(curl);
 
         Log(LOG_DEBUG, "HTTP %ld Last-Modified:%d Length:%.0f",
