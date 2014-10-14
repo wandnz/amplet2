@@ -43,6 +43,11 @@ if test "$pthread_found" = 0; then
     AC_MSG_ERROR(Required library libpthread not found; use LDFLAGS to specify library location)
 fi
 
+AC_CHECK_LIB([yaml], [yaml_parser_initialize],yaml_found=1,yaml_found=0)
+if test "$yaml_found" = 0; then
+    AC_MSG_ERROR(Required library libyaml not found; use LDFLAGS to specify library location)
+fi
+
 #AC_CHECK_LIB([unbound], [ub_ctx_create],unbound_found=1,unbound_found=0)
 #if test "$unbound_found" = 0; then
 #    AC_MSG_ERROR(Required library libunbound not found; use LDFLAGS to specify library location)
