@@ -633,6 +633,8 @@ static uint16_t get_query_type(char *query_type) {
 	return 0x0f;
     if(strcmp(query_type, "SOA") == 0)
 	return 0x06;
+    if(strcmp(query_type, "TXT") == 0)
+        return 0x10;
     if(strcmp(query_type, "ANY") == 0)
 	return 0xff;
 
@@ -656,6 +658,7 @@ static char *get_query_type_string(uint16_t query_type) {
 	case 0x0c: return "PTR";
 	case 0x0f: return "MX";
 	case 0x06: return "SOA";
+	case 0x10: return "TXT";
 	case 0xff: return "ANY";
 	default: return "unknown";
     };
