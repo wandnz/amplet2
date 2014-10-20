@@ -111,7 +111,9 @@ void child_reaper(wand_event_handler_t *ev_hdl,
 	assert(infop.si_pid > 0);
 
 	/* if the task ended normally then remove the scheduled kill */
-	if ( infop.si_pid > 0 && infop.si_code == CLD_EXITED ) {
+	if ( infop.si_pid > 0 &&
+                ((infop.si_code == CLD_KILLED && infop.si_status != SIGKILL) ||
+                infop.si_code == CLD_EXITED) ) {
 	    cancel_test_watchdog(ev_hdl, infop.si_pid);
 	} else {
 	    /* TODO do we want to report on killed tests? */
