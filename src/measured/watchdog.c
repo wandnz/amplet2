@@ -134,12 +134,6 @@ void kill_running_test(wand_event_handler_t *ev_hdl, void *data) {
     assert(item->data.kill->pid > 0);
     assert(item->data.kill->testname);
 
-    /* TODO is this enough information? We could track the actual test schedule
-     * item and then print all sorts of information about the destinations etc
-     */
-    Log(LOG_WARNING, "Watchdog killed %s test that ran too long",
-            item->data.kill->testname);
-
     /* TODO killpg() vs kill() */
     /*
      * Send the process a warning shot so that it can tidy up and maybe return
@@ -147,6 +141,9 @@ void kill_running_test(wand_event_handler_t *ev_hdl, void *data) {
      * still be more forcefully killed shortly.
      */
     if ( item->data.kill->sigint ) {
+        Log(LOG_WARNING, "Watchdog warning %s test that is running too long",
+                item->data.kill->testname);
+
         if ( kill(item->data.kill->pid, SIGINT) < 0 ) {
             perror("kill");
         }
@@ -155,6 +152,13 @@ void kill_running_test(wand_event_handler_t *ev_hdl, void *data) {
         add_test_watchdog(ev_hdl, item->data.kill->pid, WATCHDOG_GRACE_PERIOD,
                 0, item->data.kill->testname);
     } else {
+        /* TODO is this enough information? We could track the actual test
+         * schedule item and then print all sorts of information about the
+         * destinations etc
+         */
+        Log(LOG_WARNING, "Watchdog killing %s test that ran too long",
+                item->data.kill->testname);
+
         /* kill the test */
         if ( kill(item->data.kill->pid, SIGKILL) < 0 ) {
             perror("kill");
