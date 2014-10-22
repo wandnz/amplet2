@@ -71,7 +71,7 @@ static void add_parsed_line(struct iptrie *result, char *line) {
 static int amp_asn_flag_done_local(int fd) {
     uint16_t flag = AF_UNSPEC;
 
-    if ( send(fd, &flag, sizeof(flag), 0) < 0 ) {
+    if ( send(fd, &flag, sizeof(flag), MSG_NOSIGNAL) < 0 ) {
         Log(LOG_WARNING, "Failed to send asn end flag: %s", strerror(errno));
         return -1;
     }
@@ -166,14 +166,14 @@ static int amp_asn_add_query_local(int fd, struct sockaddr *address) {
         default: return -1;
     };
 
-    if ( send(fd, &address->sa_family, sizeof(uint16_t), 0) < 0 ) {
+    if ( send(fd, &address->sa_family, sizeof(uint16_t), MSG_NOSIGNAL) < 0 ) {
         Log(LOG_WARNING, "Failed to send asn address family: %s",
                 strerror(errno));
         return -1;
     }
 
     /* send the address to lookup the asn for */
-    if ( send(fd, addr, length, 0) < 0 ) {
+    if ( send(fd, addr, length, MSG_NOSIGNAL) < 0 ) {
         Log(LOG_WARNING, "Failed to send asn address: %s", strerror(errno));
         return -1;
     }
@@ -187,7 +187,7 @@ static int amp_asn_add_query_local(int fd, struct sockaddr *address) {
  * Add an ASN query across a TCP connection to the whois server - send a
  * plaintext string containing the IP address, ending with a newline.
  */
-static void amp_asn_add_query_direct(int fd, struct sockaddr *address) {
+static int amp_asn_add_query_direct(int fd, struct sockaddr *address) {
     char addrstr[INET6_ADDRSTRLEN];
 
     /* convert to a string for the query */
@@ -200,7 +200,7 @@ static void amp_asn_add_query_direct(int fd, struct sockaddr *address) {
                                &((struct sockaddr_in6*)address)->sin6_addr,
                                addrstr, INET6_ADDRSTRLEN);
                        break;
-        default: return;
+        default: return -1;
     };
 
     /* need a newline between addresses, null terminate too to be good */
@@ -210,7 +210,10 @@ static void amp_asn_add_query_direct(int fd, struct sockaddr *address) {
     /* write this query and go back for more */
     if ( send(fd, addrstr, strlen(addrstr), 0) < 0 ) {
         Log(LOG_WARNING, "Error writing to whois socket: %s\n",strerror(errno));
+        return -1;
     }
+
+    return 0;
 }
 
 
@@ -349,31 +352,41 @@ int connect_to_whois_server(void) {
 
 
 
-void amp_asn_add_query(iptrie_node_t *root, void *data) {
+int amp_asn_add_query(iptrie_node_t *root, void *data) {
     int fd = *(int*)data;
     struct sockaddr_storage addr;
     socklen_t socklen;
 
+    if ( fd < 0 ) {
+        Log(LOG_WARNING, "Invalid file descriptor, not adding query");
+        return -1;
+    }
+
     socklen = sizeof(struct sockaddr_storage);
 
     if ( getsockname(fd, (struct sockaddr*)&addr, &socklen) < 0 ) {
-        return;
+        return -1;
     }
 
     if ( addr.ss_family == AF_UNIX ) {
         /* local socket, send the query as a sockaddr to the cache process */
-        amp_asn_add_query_local(fd, root->address);
+        return amp_asn_add_query_local(fd, root->address);
     } else {
         /* TCP whois connection, send the query as a string to whois server */
-        amp_asn_add_query_direct(fd, root->address);
+        return amp_asn_add_query_direct(fd, root->address);
     }
 }
 
 
 
-void amp_asn_flag_done(int fd) {
+int amp_asn_flag_done(int fd) {
     struct sockaddr_storage addr;
     socklen_t socklen;
+
+    if ( fd < 0 ) {
+        Log(LOG_WARNING, "Invalid file descriptor, not sending done flag");
+        return;
+    }
 
     socklen = sizeof(struct sockaddr_storage);
 
@@ -383,10 +396,10 @@ void amp_asn_flag_done(int fd) {
 
     if ( addr.ss_family == AF_UNIX ) {
         /* local socket, need to send a family == AF_UNSPEC */
-        amp_asn_flag_done_local(fd);
+        return amp_asn_flag_done_local(fd);
     } else {
         /* TCP whois connection, need to send the "end" flag */
-        amp_asn_flag_done_direct(fd);
+        return amp_asn_flag_done_direct(fd);
     }
 }
 

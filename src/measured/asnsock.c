@@ -67,7 +67,7 @@ static void add_parsed_line(struct amp_asn_info *info, struct iptrie *result,
 
 
 /* send back all the results of ASN resolution */
-static void return_asn_list(iptrie_node_t *root, void *data) {
+static int return_asn_list(iptrie_node_t *root, void *data) {
 
     int addrlen;
     int fd = *(int*)data;
@@ -75,25 +75,31 @@ static void return_asn_list(iptrie_node_t *root, void *data) {
     switch ( root->address->sa_family ) {
         case AF_INET: addrlen = sizeof(struct sockaddr_in); break;
         case AF_INET6: addrlen = sizeof(struct sockaddr_in6); break;
-        default: return;
+        default: return -1;
     };
 
     if ( send(fd, &root->as, sizeof(root->as), MSG_NOSIGNAL) < 0 ) {
         //XXX better not leave these empty without proper error handling!
+        return -1;
     }
 
     if ( send(fd, &root->prefix, sizeof(root->prefix), MSG_NOSIGNAL) < 0 ) {
         //XXX
+        return -1;
     }
 
     if ( send(fd, &root->address->sa_family, sizeof(uint16_t),
                 MSG_NOSIGNAL) < 0 ) {
         //XXX
+        return -1;
     }
 
     if ( send(fd, root->address, addrlen, MSG_NOSIGNAL) < 0 ) {
         //XXX
+        return -1;
     }
+
+    return 0;
 }
 
 
