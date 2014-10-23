@@ -41,50 +41,49 @@ size_t parse_headers(void *ptr, size_t size, size_t nmemb, void *data) {
     buf[size * nmemb] = '\0';
 
     /* check normal caching headers, they are usually all listed on one line */
-    if ( strncmp(buf, "Cache-Control: ", strlen("Cache-Control: ")) == 0 ) {
+    if ( strncasecmp(buf, "Cache-Control: ", strlen("Cache-Control: ")) == 0 ) {
         char *directives = buf + strlen("Cache-Control: ");
-        char *end;
-        int done = 0;
+        char *dirptr, *token;
 
-        while ( !done ) {
-            /*
-             * no more commas mean this is the last directive - process it
-             * and then finish up
-             */
-            if ( (end = strstr(directives, ", ")) == NULL ) {
-                done = 1;
-            }
+        /*
+         * Directives should be "each separated by one or more commas (",")
+         * and OPTIONAL linear white space (LWS)". Some stupid implementations
+         * have also been observed using semicolons, so I guess we look for
+         * them too.
+         * http://www.w3.org/Protocols/rfc2616/rfc2616-sec2.html
+         */
+        if ( (token = strtok_r(directives, " \t,;", &dirptr)) == NULL ) {
+            return size * nmemb;
+        }
 
+        do {
             /*
              * This is hideous but I can't think of a nicer way to do it.
              * strlen() should be used rather than a fixed value but the
              * added length turns it into an (even more) unreadable mess.
              */
-            if ( strncmp(directives, "public", 6) == 0 ) {
+            if ( strncmp(token, "public", 6) == 0 ) {
                 cache->flags.pub = 1;
-            } else if ( strncmp(directives, "private", 7) == 0 ) {
+            } else if ( strncmp(token, "private", 7) == 0 ) {
                 cache->flags.priv = 1;
-            } else if ( strncmp(directives, "no-cache", 8) == 0 ) {
+            } else if ( strncmp(token, "no-cache", 8) == 0 ) {
                 cache->flags.no_cache = 1;
-            } else if ( strncmp(directives, "no-store", 8) == 0 ) {
+            } else if ( strncmp(token, "no-store", 8) == 0 ) {
                 cache->flags.no_store = 1;
-            } else if ( strncmp(directives, "no-transform", 12) == 0 ) {
+            } else if ( strncmp(token, "no-transform", 12) == 0 ) {
                 cache->flags.no_transform = 1;
-            } else if ( strncmp(directives, "must-revalidate", 15) == 0 ) {
+            } else if ( strncmp(token, "must-revalidate", 15) == 0 ) {
                 cache->flags.must_revalidate = 1;
-            } else if ( strncmp(directives, "proxy-revalidate", 16) == 0 ) {
+            } else if ( strncmp(token, "proxy-revalidate", 16) == 0 ) {
                 cache->flags.proxy_revalidate = 1;
-            } else if ( strncmp(directives, "max-age", 7) == 0 ) {
-                sscanf(directives, "max-age= %d", &cache->max_age);
-            } else if ( strncmp(directives, "s-maxage", 8) == 0 ) {
-                sscanf(directives, "s-maxage= %d", &cache->s_maxage);
+            } else if ( strncmp(token, "max-age", 7) == 0 ) {
+                sscanf(token, "max-age=%d", &cache->max_age);
+            } else if ( strncmp(token, "s-maxage", 8) == 0 ) {
+                sscanf(token, "s-maxage=%d", &cache->s_maxage);
             } else {
-                Log(LOG_DEBUG, "skipping unknown directive: '%s'\n",directives);
+                Log(LOG_DEBUG, "skipping unknown directive: '%s'\n", token);
             }
-
-            /* skip the comma and the space to get the next directive */
-            directives = end + 2;
-        }
+        } while ( (token = strtok_r(NULL, " ,", &dirptr)) != NULL );
 
     } else if ( strncmp(buf, "X-Cache: ", strlen("X-Cache: ")) == 0 ) {
         char *directives = buf + strlen("X-Cache: ");
