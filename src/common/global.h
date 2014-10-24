@@ -38,6 +38,8 @@ struct amp_global_t {
     struct ub_ctx *ctx;
     char *nssock;
     char *asnsock;
+    int nssock_fd;
+    int asnsock_fd;
     char **argv;
     int argc;
 };

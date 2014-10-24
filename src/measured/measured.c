@@ -491,8 +491,6 @@ int main(int argc, char *argv[]) {
     int fetch_remote = 1;
     int backgrounded = 0;
     int configure_rabbit = 0;
-    int nssock_fd;
-    int asnsock_fd;
     struct amp_asn_info asn_info;
 
     while ( 1 ) {
@@ -735,15 +733,15 @@ int main(int argc, char *argv[]) {
     wand_add_signal(SIGCHLD, NULL, child_reaper);
 
     /* create the resolver/cache unix socket and add event listener for it */
-    if ( (nssock_fd = initialise_local_socket(vars.nssock)) < 0 ) {
+    if ( (vars.nssock_fd = initialise_local_socket(vars.nssock)) < 0 ) {
         Log(LOG_ALERT, "Failed to initialise local resolver, aborting");
         return -1;
     }
-    wand_add_fd(ev_hdl, nssock_fd, EV_READ, vars.ctx,
+    wand_add_fd(ev_hdl, vars.nssock_fd, EV_READ, vars.ctx,
             resolver_socket_event_callback);
 
     /* create the asn lookup unix socket and add event listener for it */
-    if ( (asnsock_fd = initialise_local_socket(vars.asnsock)) < 0 ) {
+    if ( (vars.asnsock_fd = initialise_local_socket(vars.asnsock)) < 0 ) {
         Log(LOG_ALERT, "Failed to initialise local asn resolver, aborting");
         return -1;
     }
@@ -759,7 +757,7 @@ int main(int argc, char *argv[]) {
 
     Log(LOG_DEBUG, "Creating local socket for ASN lookups");
     Log(LOG_DEBUG, "ASN cache will be refreshed at %d", *asn_info.refresh);
-    wand_add_fd(ev_hdl, asnsock_fd, EV_READ, &asn_info,
+    wand_add_fd(ev_hdl, vars.asnsock_fd, EV_READ, &asn_info,
             asn_socket_event_callback);
 
     /* create the control socket and add an event listener for it */
@@ -822,6 +820,7 @@ int main(int argc, char *argv[]) {
     free(vars.asnsock);
 
     /* clean up the ASN socket, mutex, storage */
+    close(vars.asnsock_fd);
     pthread_mutex_lock(asn_info.mutex);
     iptrie_clear(asn_info.trie);
     pthread_mutex_unlock(asn_info.mutex);
@@ -830,6 +829,7 @@ int main(int argc, char *argv[]) {
     free(asn_info.refresh);
     free(asn_info.trie);
 
+    close(vars.nssock_fd);
     amp_resolver_context_delete(vars.ctx);
 
     ssl_cleanup();

@@ -297,6 +297,14 @@ static void fork_test(wand_event_handler_t *ev_hdl,test_schedule_item_t *item) {
 
         /* update process name so we can tell what is running */
         set_proc_name(test->name);
+
+        /*
+         * close the unix domain sockets the parent had, if we keep them open
+         * then things can get confusing (test threads end up holding the
+         * socket open when it should be closed).
+         */
+        close(vars.asnsock_fd);
+        close(vars.nssock_fd);
 	run_test(item);
 	Log(LOG_WARNING, "%s test failed to run", test->name);//XXX required?
 	exit(1);
