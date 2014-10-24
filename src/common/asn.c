@@ -385,13 +385,13 @@ int amp_asn_flag_done(int fd) {
 
     if ( fd < 0 ) {
         Log(LOG_WARNING, "Invalid file descriptor, not sending done flag");
-        return;
+        return -1;
     }
 
     socklen = sizeof(struct sockaddr_storage);
 
     if ( getsockname(fd, (struct sockaddr*)&addr, &socklen) < 0 ) {
-        return;
+        return -1;
     }
 
     if ( addr.ss_family == AF_UNIX ) {
