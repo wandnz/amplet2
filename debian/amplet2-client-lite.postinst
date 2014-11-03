@@ -26,15 +26,11 @@ case "$1" in
         chmod 700 /etc/${PACKAGE}/keys
         # TODO fetch the keys somehow and save them here
 
-
-        # TODO install rsyslog config here? mark as conffile somewhere/how?
-        if [ ! -f "/etc/rsyslog.d/90-amplet2.conf" ]; then
-            cp /usr/share/${PACKAGE}/rsyslog/amplet2.conf /etc/rsyslog.d/90-amplet2.conf
-            if [ -x "`which invoke-rc.d 2>/dev/null`" ]; then
-                invoke-rc.d rsyslog restart || exit $?
-            else
-                /etc/init.d/rsyslog restart || exit $?
-            fi
+        # restart rsyslog, we've installed a new config file for it
+        if [ -x "`which invoke-rc.d 2>/dev/null`" ]; then
+            invoke-rc.d rsyslog restart || exit $?
+        else
+            /etc/init.d/rsyslog restart || exit $?
         fi
     ;;
 
