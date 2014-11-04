@@ -1,3 +1,16 @@
+amplet2 (0.3.7-1) unstable; urgency=low
+
+  * Bring the schedule parser in line with the generated schedules.
+  * Fix buffer management when fetching large amounts of ASN data.
+  * Fix HTTP test to record and follow 3XX redirects.
+  * Fix HTTP test to better deal with headers using weird separators/caps.
+  * Fix traceroute test when low TTL responses incorrectly decrement TTL.
+  * Allow tests to be warned before the watchdog attempts to kill them.
+  * Properly close local unix sockets (ASN, DNS) when forking for a test.
+  * Enabled Debian compile-time options to harden binaries.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Mon,  3 Nov 2014 16:40:42 +1300
+
 amplet2 (0.3.6-1) unstable; urgency=low
 
   * Updated schedule file format to new testing YAML format.
