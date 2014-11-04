@@ -6,7 +6,7 @@ except ImportError:
 setup(name="ampsave",
     version="1.0",
     description="AMP xferd data storage package",
-    author="Brendon 'Fuckface' Jones",
+    author="Brendon Jones",
     author_email='contact@wand.net.nz',
     url='http://www.wand.net.nz',
     packages=['ampsave', 'ampsave.tests'],
