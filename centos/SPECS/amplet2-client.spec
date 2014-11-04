@@ -1,18 +1,19 @@
 Name: amplet2
-Version: 0.3.6
+Version: 0.3.7
 Release: 1%{?dist}
 Summary: AMP Network Performance Measurement Suite - Client Tools
 
 Group: Applications/Internet
 License: AMP
 URL: http://research.wand.net.nz/software/amp.php
-Source0: http://research.wand.net.nz/software/amp/amplet2-0.3.6.tar.gz	
+Source0: http://research.wand.net.nz/software/amp/amplet2-0.3.7.tar.gz
 Patch0: amplet2-client-init.patch
 Patch1: amplet2-client-default.patch
+Patch2: amplet2-client-makefile.patch
 BuildRoot:	%(mktemp -ud %{_tmppath}/%{name}-%{version}-%{release}-XXXXXX)
 
 BuildRequires: openssl-devel libconfuse-devel libwandevent-devel >= 3.0.1 libcurl-devel unbound-devel libpcap-devel
-Requires: rabbitmq-server >= 3.1.5 librabbitmq-amp >= 0.4.0 libwandevent >= 3.0.1 unbound-libs
+Requires: rabbitmq-server >= 3.1.5 librabbitmq-amp >= 0.4.0 libwandevent >= 3.0.1 libcurl unbound-libs libpcap rsyslog
 
 %description
 This package contains the client tools for the AMP Measurement Suite.
@@ -24,7 +25,7 @@ one or more rabbitmq brokers via the AMQP protocol.
 %package lite
 Summary: AMP client tools without a local rabbitmq broker
 Group: Applications/Internet
-Requires: librabbitmq-amp >= 0.4.0 libwandevent >= 3.0.1
+Requires: librabbitmq-amp >= 0.4.0 libwandevent >= 3.0.1 libcurl unbound-libs libpcap rsyslog
 
 %description lite
 AMP client tools without a local rabbitmq broker
@@ -35,13 +36,13 @@ AMP client tools without a local rabbitmq broker
 %setup -q
 %patch0 -p1
 %patch1 -p1
+%patch2 -p1
 
 
 %build
-%configure --disable-http CFLAGS="-I/home/vagrant/librabbitmq-amp-0.4.0/librabbitmq/ \
-			     -I/home/vagrant/libwandevent/trunk/" \
-		     LDFLAGS="-L/home/vagrant/libwandevent/trunk/.libs/ \
-			      -L/home/vagrant/librabbitmq-amp-0.4.0/librabbitmq/.libs"
+%configure
+sed -i 's|^hardcode_libdir_flag_spec=.*|hardcode_libdir_flag_spec=""|g' libtool
+sed -i 's|^runpath_var=LD_RUN_PATH|runpath_var=DIE_RPATH_DIE|g' libtool
 
 make %{?_smp_mflags} 
 %install
@@ -49,12 +50,14 @@ rm -rf %{buildroot}
 make install DESTDIR=%{buildroot}
 install -D amplet2-client.init %{buildroot}%{_initrddir}/%{name}-client
 install -D amplet2-client.default %{buildroot}%{_sysconfdir}/default/%{name}-client
+install -D src/measured/rsyslog/amplet2.conf %{buildroot}%{_sysconfdir}/rsyslog.d/amplet2.conf
 # XXX this is hax, should amplet2 be in sbin or bin?
 mkdir %{buildroot}%{_sbindir}/
 mv %{buildroot}%{_bindir}/amplet2 %{buildroot}%{_sbindir}/
 rm -rf %{buildroot}/usr/lib/python2.6/
 rm -rf %{buildroot}%{_libdir}/*a
 rm -rf %{buildroot}%{_libdir}/%{name}/tests/*a
+rm -rf %{buildroot}/usr/share/amplet2/rsyslog/
 
 %clean
 rm -rf %{buildroot}
@@ -64,12 +67,11 @@ rm -rf %{buildroot}
 %defattr(-,root,root,-)
 %doc
 %{_bindir}/*
-%{_sbindir}/amplet2
 %attr(4755, root, root) %{_sbindir}/amplet2
 %{_libdir}/*so
 %{_libdir}/amplet2/tests/*so
 %{_sysconfdir}/%{name}/*
-%{_datadir}/%{name}/rsyslog/amplet2.conf
+%{_sysconfdir}/rsyslog.d/amplet2.conf
 %config %{_initrddir}/*
 %config %{_sysconfdir}/default/*
 %dir %{_localstatedir}/run/%{name}/
@@ -78,12 +80,11 @@ rm -rf %{buildroot}
 %defattr(-,root,root,-)
 %doc
 %{_bindir}/*
-%{_sbindir}/amplet2
 %attr(4755, root, root) %{_sbindir}/amplet2
 %{_libdir}/*so
 %{_libdir}/amplet2/tests/*so
 %{_sysconfdir}/%{name}/*
-%{_datadir}/%{name}/rsyslog/amplet2.conf
+%{_sysconfdir}/rsyslog.d/amplet2.conf
 %config %{_initrddir}/*
 %config %{_sysconfdir}/default/*
 %dir %{_localstatedir}/run/%{name}/
@@ -109,14 +110,10 @@ exit 0
 
 
 %post
-# update rsyslog
-if [ ! -f "/etc/rsyslog.d/90-amplet2.conf" ]; then
-	cp /usr/share/amplet2/rsyslog/amplet2.conf /etc/rsyslog.d/90-amplet2.conf
-	if [ -x "`which invoke-rc.d 2>/dev/null`" ]; then
-		invoke-rc.d rsyslog restart || exit $?
-	else
-                /etc/init.d/rsyslog restart || exit $?
-	fi
+if [ -x "`which invoke-rc.d 2>/dev/null`" ]; then
+	invoke-rc.d rsyslog restart || exit $?
+else
+	/etc/init.d/rsyslog restart || exit $?
 fi
 
 # Create directory for SSL keys
@@ -148,14 +145,10 @@ else
 fi
 
 %post lite
-# update rsyslog
-if [ ! -f "/etc/rsyslog.d/90-amplet2.conf" ]; then
-	cp /usr/share/amplet2/rsyslog/amplet2.conf /etc/rsyslog.d/90-amplet2.conf
-	if [ -x "`which invoke-rc.d 2>/dev/null`" ]; then
-		invoke-rc.d rsyslog restart || exit $?
-	else
-                /etc/init.d/rsyslog restart || exit $?
-	fi
+if [ -x "`which invoke-rc.d 2>/dev/null`" ]; then
+	invoke-rc.d rsyslog restart || exit $?
+else
+	/etc/init.d/rsyslog restart || exit $?
 fi
 
 # Create directory for SSL keys
@@ -200,6 +193,15 @@ fi
 
 
 %changelog
+* Mon Nov  3 2014 Brendon Jones <brendonj@waikato.ac.nz> 0.3.7-1
+- Bring the schedule parser in line with the generated schedules.
+- Fix buffer management when fetching large amounts of ASN data.
+- Fix HTTP test to record and follow 3XX redirects.
+- Fix HTTP test to better deal with headers using weird separators/caps.
+- Fix traceroute test when low TTL responses incorrectly decrement TTL.
+- Allow tests to be warned before the watchdog attempts to kill them.
+- Properly close local unix sockets (ASN, DNS) when forking for a test.
+
 * Tue Sep 30 2014 Brendon Jones <brendonj@waikato.ac.nz> 0.3.6-1
 - Updated schedule file format to new testing YAML format.
 - Updated ASN fetching for traceroute test to use TCP bulk whois interface.

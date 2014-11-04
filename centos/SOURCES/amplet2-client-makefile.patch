@@ -1,0 +1,24 @@
+--- a/src/tests/python/Makefile.am      2014-11-04 13:40:15.861999804 +1300
++++ b/src/tests/python/Makefile.am      2014-11-04 13:40:44.658001757 +1300
+@@ -4,7 +4,8 @@
+	python setup.py build
+ 
+ install-exec-hook:
+-	python setup.py install --prefix=$(DESTDIR)/$(prefix)
++	mkdir -p $(DESTDIR)/$(prefix)/lib/python2.6/site-packages
++	PYTHONPATH=$(DESTDIR)/$(prefix)/lib/python2.6/site-packages python setup.py install --prefix=$(DESTDIR)/$(prefix)
+ 
+ clean-local:
+	-rm -rf build
+--- a/src/tests/python/Makefile.in	2014-11-04 14:04:22.500999984 +1300
++++ b/src/tests/python/Makefile.in	2014-11-04 14:05:02.975000006 +1300
+@@ -365,7 +365,8 @@
+	python setup.py build
+ 
+ install-exec-hook:
+-	python setup.py install --prefix=$(DESTDIR)/$(prefix)
++	mkdir -p $(DESTDIR)/$(prefix)/lib/python2.6/site-packages
++	PYTHONPATH=$(DESTDIR)/$(prefix)/lib/python2.6/site-packages python setup.py install --prefix=$(DESTDIR)/$(prefix)
+ 
+ clean-local:
+ 	-rm -rf build
