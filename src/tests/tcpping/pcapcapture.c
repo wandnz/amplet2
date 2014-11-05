@@ -136,7 +136,8 @@ static int create_pcap_filter(struct pcapdevice *p, uint16_t srcportv4,
 
 }
 
-int find_source_address(struct addrinfo *dest, struct sockaddr *saddr) {
+int find_source_address(char *device, struct addrinfo *dest,
+        struct sockaddr *saddr) {
 
     int s;
     socklen_t size;
@@ -150,6 +151,14 @@ int find_source_address(struct addrinfo *dest, struct sockaddr *saddr) {
     if ((s = socket(dest->ai_family, SOCK_DGRAM, IPPROTO_UDP)) < 0) {
         Log(LOG_ERR, "Failed to create socket in find_source_address");
         return 0;
+    }
+
+    /* bind to device if given, limits the source addresses available to us */
+    if ( device ) {
+        if ( bind_socket_to_device(s, device) < 0 ) {
+            Log(LOG_ERR, "Failed binding to device in find_source_address");
+            return 0;
+        }
     }
 
     if (dest->ai_family == AF_INET) {

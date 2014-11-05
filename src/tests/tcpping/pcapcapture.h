@@ -37,7 +37,8 @@ int pcap_listen(struct sockaddr *address, uint16_t srcportv4,
         void (*callback)(wand_event_handler_t *ev_hdl,
             int fd, void *data, enum wand_eventtype_t ev));
 
-int find_source_address(struct addrinfo *dest, struct sockaddr *saddr);
+int find_source_address(char *device, struct addrinfo *dest,
+        struct sockaddr *saddr);
 struct pcaptransport pcap_transport_header(struct pcapdevice *p);
 
 #endif

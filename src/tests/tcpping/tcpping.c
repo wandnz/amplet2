@@ -585,7 +585,7 @@ static void send_packet(wand_event_handler_t *ev_hdl,
         goto nextdest;
     }
 
-    if (find_source_address(dest, srcaddr) == 0) {
+    if (find_source_address(tp->device, dest, srcaddr) == 0) {
         Log(LOG_WARNING, "Failed to find source address for TCPPing test");
         goto nextdest;
     }
