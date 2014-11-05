@@ -565,6 +565,14 @@ static void send_packet(wand_event_handler_t *ev_hdl,
     dest = tp->dests[tp->destindex];
     srcaddr = (struct sockaddr *)&(tp->info[tp->destindex].source);
 
+    tp->info[tp->destindex].addr = dest;
+    tp->info[tp->destindex].seqno = tp->seqindex + (tp->destindex * 100);
+    tp->info[tp->destindex].delay = 0;
+    tp->info[tp->destindex].reply = 0;
+    tp->info[tp->destindex].replyflags = 0;
+    tp->info[tp->destindex].icmptype = 0;
+    tp->info[tp->destindex].icmpcode = 0;
+
     if (dest->ai_family == AF_INET) {
         srcport = tp->sourceportv4;
         sock = tp->raw_sockets.socket;
@@ -612,14 +620,8 @@ static void send_packet(wand_event_handler_t *ev_hdl,
         goto nextdest;
     }
 
-    tp->info[tp->destindex].addr = dest;
+    /* record time just before sending the packet */
     tp->info[tp->destindex].time_sent = tv;
-    tp->info[tp->destindex].seqno = tp->seqindex + (tp->destindex * 100);
-    tp->info[tp->destindex].delay = 0;
-    tp->info[tp->destindex].reply = 0;
-    tp->info[tp->destindex].replyflags = 0;
-    tp->info[tp->destindex].icmptype = 0;
-    tp->info[tp->destindex].icmpcode = 0;
 
     /* Send the packet */
     bytes_sent = sendto(sock, packet, packet_size, 0, dest->ai_addr,
