@@ -37,7 +37,7 @@ static struct option long_options[] = {
 };
 
 /* Open the raw TCP sockets needed for this test and bind them to
- * the requested device or addresses 
+ * the requested device or addresses
  */
 static int open_sockets(struct tcppingglobals *tcpping) {
     if ( (tcpping->raw_sockets.socket =
@@ -49,7 +49,7 @@ static int open_sockets(struct tcppingglobals *tcpping) {
             socket(AF_INET6, SOCK_RAW, IPPROTO_TCP)) < 0) {
         Log(LOG_WARNING, "Failed to open raw socket for IPv6 TCPPing");
     }
-    
+
     if ( (tcpping->tcp_sockets.socket =
             socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0) {
         Log(LOG_WARNING, "Failed to open TCP socket for IPv4 TCPPing");
@@ -60,38 +60,38 @@ static int open_sockets(struct tcppingglobals *tcpping) {
         Log(LOG_WARNING, "Failed to open TCP socket for IPv6 TCPPing");
     }
 
-    if ( tcpping->raw_sockets.socket < 0 && 
+    if ( tcpping->raw_sockets.socket < 0 &&
                 tcpping->raw_sockets.socket6 < 0 ) {
         Log(LOG_ERR, "Unable to open raw sockets, aborting test");
         return 0;
     }
-    
-    if ( tcpping->tcp_sockets.socket < 0 && 
+
+    if ( tcpping->tcp_sockets.socket < 0 &&
                 tcpping->tcp_sockets.socket6 < 0 ) {
         Log(LOG_ERR, "Unable to open TCP sockets, aborting test");
         return 0;
     }
-    
+
     if ( tcpping->device ) {
-        if (bind_sockets_to_device(&tcpping->raw_sockets, 
+        if (bind_sockets_to_device(&tcpping->raw_sockets,
                 tcpping->device) < 0 ) {
             Log(LOG_ERR, "Unable to bind raw sockets to device, aborting test");
             return 0;
         }
-    
-        if ( bind_sockets_to_device(&tcpping->tcp_sockets, 
+
+        if ( bind_sockets_to_device(&tcpping->tcp_sockets,
                     tcpping->device) < 0 ) {
             Log(LOG_ERR, "Unable to bind TCP sockets to device, aborting test");
             return 0;
         }
     } else if (tcpping->sourcev4 || tcpping->sourcev6) {
-        if (bind_sockets_to_address(&tcpping->raw_sockets, tcpping->sourcev4, 
+        if (bind_sockets_to_address(&tcpping->raw_sockets, tcpping->sourcev4,
                     tcpping->sourcev6) < 0 ) {
             Log(LOG_ERR,"Unable to bind raw sockets to address, aborting test");
             return 0;
         }
-    
-        if (bind_sockets_to_address(&tcpping->tcp_sockets, tcpping->sourcev4, 
+
+        if (bind_sockets_to_address(&tcpping->tcp_sockets, tcpping->sourcev4,
                     tcpping->sourcev6) < 0 ) {
             Log(LOG_ERR,"Unable to bind TCP sockets to address, aborting test");
             return 0;
@@ -126,12 +126,10 @@ static void close_sockets(struct tcppingglobals *tcpping) {
     if ( tcpping->sourcev6 ) {
         freeaddrinfo(tcpping->sourcev6);
     }
-
-
 }
 
 /* Listen on our TCP sockets, which will implicitly cause them to be bound
- * and assigned random available port numbers. 
+ * and assigned random available port numbers.
  *
  * Use getsockname to find which port number each socket is bound to, so
  * we can set the correct source port in our outgoing packets and create
@@ -147,14 +145,14 @@ static int listen_source_ports(struct tcppingglobals *tcpping) {
     if (sockets->socket >= 0) {
         struct sockaddr_in addr;
         socklen_t addrsize = sizeof(struct sockaddr_in);
-        
+
         if (listen(sockets->socket, 10) < 0) {
-            Log(LOG_ERR, "Failed to listen on TCP IPv4 socket: %s", 
+            Log(LOG_ERR, "Failed to listen on TCP IPv4 socket: %s",
                     strerror(errno));
             return 0;
         }
-        
-        if (getsockname(sockets->socket, (struct sockaddr *)&addr, 
+
+        if (getsockname(sockets->socket, (struct sockaddr *)&addr,
                     &addrsize) < 0) {
             Log(LOG_ERR, "Failed to get port number for TCP IPv4 socket: %s",
                     strerror(errno));
@@ -163,18 +161,18 @@ static int listen_source_ports(struct tcppingglobals *tcpping) {
 
         tcpping->sourceportv4 = ntohs(addr.sin_port);
     }
-                     
+
     if (sockets->socket6 >= 0) {
         struct sockaddr_in6 addr;
         socklen_t addrsize = sizeof(struct sockaddr_in6);
-        
+
         if (listen(sockets->socket6, 10) < 0) {
-            Log(LOG_ERR, "Failed to listen on TCP IPv6 socket: %s", 
+            Log(LOG_ERR, "Failed to listen on TCP IPv6 socket: %s",
                     strerror(errno));
             return 0;
         }
-        
-        if (getsockname(sockets->socket6, (struct sockaddr *)&addr, 
+
+        if (getsockname(sockets->socket6, (struct sockaddr *)&addr,
                     &addrsize) < 0) {
             Log(LOG_ERR, "Failed to get port number for TCP IPv6 socket: %s",
                     strerror(errno));
@@ -183,16 +181,15 @@ static int listen_source_ports(struct tcppingglobals *tcpping) {
 
         tcpping->sourceportv6 = ntohs(addr.sin6_port);
     }
-                     
-    return 1;
 
+    return 1;
 }
 
 static void process_options(struct tcppingglobals *tcpping) {
 
     /* pick a random packet size within allowable boundaries */
     if ( tcpping->options.random ) {
-        tcpping->options.packet_size = 
+        tcpping->options.packet_size =
             (int)(1400 * (random()/(RAND_MAX+1.0)));
         Log(LOG_DEBUG, "Setting packetsize to random value: %d",
                 tcpping->options.packet_size);
@@ -211,7 +208,6 @@ static void process_options(struct tcppingglobals *tcpping) {
                 tcpping->options.perturbate, delay);
         usleep(delay);
     }
-
 }
 
 /* Note that I could have combined the pseudo header and the packet
@@ -219,7 +215,7 @@ static void process_options(struct tcppingglobals *tcpping) {
  * the whole lot, but this seemed easier than having to dynamically allocate
  * memory for the packet each time.
  */
-static uint16_t tcp_checksum(uint16_t *packet, uint16_t *pseudo, 
+static uint16_t tcp_checksum(uint16_t *packet, uint16_t *pseudo,
         int pseudolen, int size) {
 
     register uint16_t answer;
@@ -289,18 +285,18 @@ static int set_tcp_checksum(struct tcphdr *tcp, int packet_size,
         pseudo = (char *)&pseudov6;
         pseudolen = sizeof(pseudov6);
     } else {
-        Log(LOG_ERR, "Unexpected family for source address: %d", 
+        Log(LOG_ERR, "Unexpected family for source address: %d",
                 srcaddr->sa_family);
         return 0;
     }
 
-    tcp->check = tcp_checksum((uint16_t *)tcp, (uint16_t *)pseudo, 
+    tcp->check = tcp_checksum((uint16_t *)tcp, (uint16_t *)pseudo,
             pseudolen, packet_size);
 
     return 1;
 }
 
-static int craft_tcp_syn(struct tcppingglobals *tp, char *packet, 
+static int craft_tcp_syn(struct tcppingglobals *tp, char *packet,
         uint16_t srcport, int packet_size, struct sockaddr *srcaddr,
         struct addrinfo *destaddr) {
 
@@ -314,7 +310,7 @@ static int craft_tcp_syn(struct tcppingglobals *tp, char *packet,
     tcp->dest = htons(tp->options.port);
     tcp->seq = htonl(tp->seqindex + (tp->destindex * 100));
     tcp->ack_seq = 0;
-    
+
     /* Pad IPv4 packets out to match the length of a IPv6 packet with
      * the same amount of payload.
      */
@@ -341,7 +337,7 @@ static int craft_tcp_syn(struct tcppingglobals *tp, char *packet,
     mss->mssvalue = htons(536);
 
     /* Fill any remaining header space with NOOP options */
-    noop = (uint32_t *)(packet + sizeof(struct tcphdr) + 
+    noop = (uint32_t *)(packet + sizeof(struct tcphdr) +
             sizeof(struct tcpmssoption));
     while (headerremaining > 0) {
         *noop = 0x01010101;
@@ -355,7 +351,7 @@ static int craft_tcp_syn(struct tcppingglobals *tp, char *packet,
 /* Given a TCP header from a response packet, find the index of the
  * test target that generated the response.
  */
-static inline int match_response(struct tcppingglobals *tp, 
+static inline int match_response(struct tcppingglobals *tp,
         struct tcphdr *tcp, uint8_t istcp) {
     /* TODO: should we be checking if the response came from our intended
      * target vs, say, an intermediate host in the path? It will be a bit
@@ -390,7 +386,7 @@ static inline int match_response(struct tcppingglobals *tp,
 
 static void process_tcp_response(struct tcppingglobals *tp, struct tcphdr *tcp,
         int remaining, struct timeval ts) {
-    
+
     int destid;
 
     if (tcp == NULL || remaining < (int)sizeof(struct tcphdr)) {
@@ -422,7 +418,7 @@ static void process_tcp_response(struct tcppingglobals *tp, struct tcphdr *tcp,
 }
 
 
-static void process_icmp4_response(struct tcppingglobals *tp, 
+static void process_icmp4_response(struct tcppingglobals *tp,
         struct icmphdr *icmp, int remaining, struct timeval ts) {
 
     /* Have to find the original TCP header to try and match this response
@@ -467,7 +463,6 @@ static void process_icmp4_response(struct tcppingglobals *tp,
         tp->info[destid].delay = DIFF_TV_US(ts, tp->info[destid].time_sent);
         tp->outstanding --;
     }
-
 }
 
 static void process_icmp6_response(struct tcppingglobals *tp,
@@ -511,7 +506,7 @@ static void process_icmp6_response(struct tcppingglobals *tp,
     }
 }
 
-static void receive_packet(wand_event_handler_t *ev_hdl, 
+static void receive_packet(wand_event_handler_t *ev_hdl,
         int fd, void *evdata, enum wand_eventtype_t ev) {
 
     struct pcapdevice *p = (struct pcapdevice *)evdata;
@@ -536,7 +531,7 @@ static void receive_packet(wand_event_handler_t *ev_hdl,
         process_icmp4_response(tp, (struct icmphdr *)transport.header,
                 transport.remaining, transport.ts);
     }
-    
+
     if (transport.protocol == 58) {
         process_icmp6_response(tp, (struct icmp6_hdr *)transport.header,
                 transport.remaining, transport.ts);
@@ -552,7 +547,7 @@ static void receive_packet(wand_event_handler_t *ev_hdl,
 
 }
 
-static void send_packet(wand_event_handler_t *ev_hdl, 
+static void send_packet(wand_event_handler_t *ev_hdl,
         void *evdata) {
 
     struct tcppingglobals *tp = (struct tcppingglobals *)evdata;
@@ -564,7 +559,6 @@ static void send_packet(wand_event_handler_t *ev_hdl,
     int sock;
     struct timeval tv;
     struct sockaddr *srcaddr;
-
 
     /* Grab the next available destination */
     assert(tp->destindex < tp->destcount);
@@ -596,13 +590,13 @@ static void send_packet(wand_event_handler_t *ev_hdl,
     }
 
     /* Create a listening pcap fd for the interface */
-    if (pcap_listen(srcaddr, tp->sourceportv4, tp->sourceportv6, 
+    if (pcap_listen(srcaddr, tp->sourceportv4, tp->sourceportv6,
             tp->options.port, tp->device,
             ev_hdl, tp, receive_packet) == -1) {
-        Log(LOG_WARNING, "Failed to create pcap device for dest %s:%d", 
+        Log(LOG_WARNING, "Failed to create pcap device for dest %s:%d",
                 dest->ai_canonname, tp->options.port);
 
-        goto nextdest;        
+        goto nextdest;
     }
 
     packet = calloc(packet_size, 1);
@@ -630,10 +624,10 @@ static void send_packet(wand_event_handler_t *ev_hdl,
     /* Send the packet */
     bytes_sent = sendto(sock, packet, packet_size, 0, dest->ai_addr,
             dest->ai_addrlen);
-    
+
     /* TODO Handle partial sends and error cases better */
     if ( bytes_sent != packet_size ) {
-        Log(LOG_DEBUG, "TCPPing: only sent %d of %d bytes", bytes_sent, 
+        Log(LOG_DEBUG, "TCPPing: only sent %d of %d bytes", bytes_sent,
                 packet_size);
     } else {
         tp->outstanding ++;
@@ -642,12 +636,12 @@ static void send_packet(wand_event_handler_t *ev_hdl,
 nextdest:
     /* Create a timer for sending the next packet */
     tp->destindex ++;
-  
+
     if (tp->destindex == tp->destcount) {
         Log(LOG_DEBUG, "Reached final target: %d", tp->destindex);
         tp->nextpackettimer = NULL;
     } else {
-        tp->nextpackettimer = wand_add_timer(ev_hdl, 
+        tp->nextpackettimer = wand_add_timer(ev_hdl,
                 (int) (MIN_INTER_PACKET_DELAY / 1000000),
                 (MIN_INTER_PACKET_DELAY % 1000000),
                 tp, send_packet);
@@ -656,7 +650,6 @@ nextdest:
     if (packet) {
         free(packet);
     }
-
 }
 
 
@@ -670,7 +663,7 @@ static void report_results(struct timeval *start_time, int count,
     int i;
     int padding = 0;
 
-    maxlen = (sizeof(struct tcpping_report_header_t)) + 
+    maxlen = (sizeof(struct tcpping_report_header_t)) +
             (count * sizeof(struct tcpping_report_item_t)) +
             (count * MAX_STRING_FIELD);
     buffer = malloc(maxlen);
@@ -690,7 +683,7 @@ static void report_results(struct timeval *start_time, int count,
         assert(strlen(ampname) < MAX_STRING_FIELD);
 
         item = (struct tcpping_report_item_t *)(buffer + len);
-        
+
         if (info[i].reply == 1) {
             item->rtt = htonl(info[i].delay);
         } else {
@@ -734,18 +727,17 @@ static void report_results(struct timeval *start_time, int count,
         item->packet_size = htons(item->packet_size);
         item->namelen = strlen(ampname) + 1;
         len += sizeof(struct tcpping_report_item_t);
-        
+
         strncpy(buffer + len, ampname, MAX_STRING_FIELD);
         len += item->namelen;
 
         Log(LOG_DEBUG, "tcpping result %d: %dus, %d,%d,%d,%d", i,
-                htonl(item->rtt), item->reply, item->replyflags, 
+                htonl(item->rtt), item->reply, item->replyflags,
                 item->icmptype, item->icmpcode);
 
     }
     report(AMP_TEST_TCPPING, (uint64_t)start_time->tv_sec, (void*)buffer, len);
     free(buffer);
-
 }
 
 /*
@@ -766,11 +758,10 @@ static void interrupt_test(wand_event_handler_t *ev_hdl,
  */
 static void halt_test(wand_event_handler_t *ev_hdl, void *evdata) {
     struct tcppingglobals *tp = (struct tcppingglobals *)evdata;
-   
-    Log(LOG_WARNING, "Halting TCPPing test due to timeout"); 
+
+    Log(LOG_WARNING, "Halting TCPPing test due to timeout");
     tp->losstimer = NULL;
     ev_hdl->running = false;
-
 }
 
 static void usage(char *prog) {
@@ -816,9 +807,9 @@ int run_tcpping(int argc, char *argv[], int count, struct addrinfo **dests) {
     while ( (opt = getopt_long(argc, argv, "hvI:p:P:rs:S:4:6:",
                 long_options, NULL)) != -1 ) {
         switch (opt) {
-            case '4': 
+            case '4':
                 globals->sourcev4 = get_numeric_address(optarg, NULL); break;
-            case '6': 
+            case '6':
                 globals->sourcev6 = get_numeric_address(optarg, NULL); break;
             case 'I': globals->device = strdup(optarg); break;
             case 'p': globals->options.perturbate = atoi(optarg); break;
@@ -843,7 +834,7 @@ int run_tcpping(int argc, char *argv[], int count, struct addrinfo **dests) {
         Log(LOG_ERR, "Could not gettimeofday(), aborting test");
         exit(-1);
     }
-    
+
     /* Get the source ports for our sockets */
     if (!listen_source_ports(globals)) {
         exit(-1);
@@ -886,7 +877,7 @@ int run_tcpping(int argc, char *argv[], int count, struct addrinfo **dests) {
     close_sockets(globals);
 
     /* send report */
-    report_results(&start_time, globals->destcount, globals->info, 
+    report_results(&start_time, globals->destcount, globals->info,
             &globals->options);
 
     free(globals->device);
@@ -909,7 +900,7 @@ void print_tcpping(void *data, uint32_t len) {
 
     assert(data);
     assert(len >= sizeof(struct tcpping_report_header_t));
-    assert(len >= sizeof(struct tcpping_report_header_t) + 
+    assert(len >= sizeof(struct tcpping_report_header_t) +
             header->count * sizeof(struct tcpping_report_item_t));
     assert(ntohl(header->version) == AMP_TCPPING_TEST_VERSION);
 
@@ -946,17 +937,17 @@ void print_tcpping(void *data, uint32_t len) {
             printf(" %dus ", ntohl(item->rtt));
 
             if (item->reply == 1) {
-                if (item->replyflags & 0x02) 
+                if (item->replyflags & 0x02)
                     printf("SYN ");
-                if (item->replyflags & 0x01) 
+                if (item->replyflags & 0x01)
                     printf("FIN ");
-                if (item->replyflags & 0x20) 
+                if (item->replyflags & 0x20)
                     printf("URG ");
-                if (item->replyflags & 0x08) 
+                if (item->replyflags & 0x08)
                     printf("PSH ");
-                if (item->replyflags & 0x04) 
+                if (item->replyflags & 0x04)
                     printf("RST ");
-                if (item->replyflags & 0x10) 
+                if (item->replyflags & 0x10)
                     printf("ACK ");
             }
 
@@ -964,7 +955,7 @@ void print_tcpping(void *data, uint32_t len) {
                 printf("ICMP (%u/%u) ", item->icmptype, item->icmpcode);
             }
         }
-        printf("%d bytes\n", ntohs(item->packet_size)); 
+        printf("%d bytes\n", ntohs(item->packet_size));
     }
 
     printf("\n");

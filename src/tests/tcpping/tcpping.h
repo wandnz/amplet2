@@ -82,7 +82,7 @@ struct tcpmssoption {
     uint16_t mssvalue;
 };
 
-/* 
+/*
  * Describes each SYN packet that was sent and the response that was
  * received.
  */
@@ -92,7 +92,7 @@ struct info_t {
     struct timeval time_sent;   /* Time when the SYN was sent */
     uint32_t seqno;             /* Sequence number of the sent SYN */
     uint32_t delay;             /* Delay in receiving response */
-    uint8_t reply;              /* Set to 1 if the reply was a TCP packet, 
+    uint8_t reply;              /* Set to 1 if the reply was a TCP packet,
                                  * 2 if the reply was an ICMP packet */
     uint8_t replyflags;         /* TCP control bits set in the reply */
     uint8_t icmptype;           /* ICMP type of the reply */
