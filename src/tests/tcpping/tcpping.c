@@ -593,7 +593,7 @@ static void send_packet(wand_event_handler_t *ev_hdl,
     } else if ( dest->ai_family == AF_INET6 && tp->sourcev6 ) {
         memcpy(srcaddr, tp->sourcev6->ai_addr, sizeof(struct sockaddr_in6));
     } else if (find_source_address(tp->device, dest, srcaddr) == 0) {
-        Log(LOG_WARNING, "Failed to find source address for TCPPing test");
+        Log(LOG_DEBUG, "Failed to find source address for TCPPing test");
         goto nextdest;
     }
 

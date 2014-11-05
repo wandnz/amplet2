@@ -12,6 +12,7 @@
 #include <string.h>
 #include <pcap.h>
 #include <unistd.h>
+#include <errno.h>
 
 #include "config.h"
 #include "testlib.h"
@@ -196,7 +197,9 @@ int find_source_address(char *device, struct addrinfo *dest,
      * data.
      */
     if (connect(s, gendest, size) < 0) {
-        Log(LOG_ERR, "Failed to connect to destination in find_source_address");
+        Log(LOG_DEBUG,
+                "Failed to connect to destination in find_source_address: %s",
+                strerror(errno));
         return 0;
     }
 
