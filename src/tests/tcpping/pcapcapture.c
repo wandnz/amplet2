@@ -144,8 +144,6 @@ int find_source_address(char *device, struct addrinfo *dest,
     struct sockaddr *gendest = NULL;
     struct sockaddr_in6 sin6dest;
     struct sockaddr_in sin4dest;
-    char bogusmsg[4];
-
 
     /* Find the source address that we should use to test to our dest */
     if ((s = socket(dest->ai_family, SOCK_DGRAM, IPPROTO_UDP)) < 0) {
@@ -192,14 +190,13 @@ int find_source_address(char *device, struct addrinfo *dest,
         return 0;
     }
 
+    /*
+     * Connecting the datagram socket is enough to determine which source
+     * address will be used, testing shows we don't need to actually send any
+     * data.
+     */
     if (connect(s, gendest, size) < 0) {
         Log(LOG_ERR, "Failed to connect to destination in find_source_address");
-        return 0;
-    }
-
-    memset(bogusmsg, 0, sizeof(bogusmsg));
-    if (send(s, bogusmsg, sizeof(bogusmsg), 0) < 0) {
-        Log(LOG_ERR, "Failed to send test UDP packet");
         return 0;
     }
 
