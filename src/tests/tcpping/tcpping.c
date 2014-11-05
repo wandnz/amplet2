@@ -761,7 +761,7 @@ static void interrupt_test(wand_event_handler_t *ev_hdl,
 static void halt_test(wand_event_handler_t *ev_hdl, void *evdata) {
     struct tcppingglobals *tp = (struct tcppingglobals *)evdata;
 
-    Log(LOG_WARNING, "Halting TCPPing test due to timeout");
+    Log(LOG_DEBUG, "Halting TCPPing test due to timeout");
     tp->losstimer = NULL;
     ev_hdl->running = false;
 }
