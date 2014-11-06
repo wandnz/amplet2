@@ -130,7 +130,7 @@ def parse_data(data):
         offset += path_len
 
         # again, if there isn't enough data, return all complete paths so far
-        if len(data[offset:] < namelen:
+        if len(data[offset:]) < namelen:
             print "%s: not enough data to unpack target name", __file__
             return results
         (name,) = struct.unpack_from("!%ds" % namelen, data, offset)

@@ -90,7 +90,7 @@ def data_2014020300(data):
                 "!16siBBBBB", data, offset)
         assert(namelen > 0 and namelen < 255)
         offset += item_len
-        if len(data[offset:]) < name_len:
+        if len(data[offset:]) < namelen:
             print "%s: not enough data to unpack name", __file__
             return results
         (name,) = struct.unpack_from("!%ds" % namelen, data, offset)
