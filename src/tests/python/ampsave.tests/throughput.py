@@ -51,6 +51,9 @@ def get_data(data):
     web10g_len = struct.calcsize("!480s")
 
     # check the version number first before looking at anything else
+    if len(data) < header_len:
+        print "%s: not enough data to unpack header", __file__
+        return None
     version, = struct.unpack_from("!I", data, 0)
     if version != AMP_THROUGHPUT_TEST_VERSION:
         raise VersionMismatch(version, AMP_THROUGHPUT_TEST_VERSION)
@@ -62,11 +65,17 @@ def get_data(data):
 
     # read the variable length schedule from the end of the header
     assert(sched_len > 0)
+    if len(data[offset:]) < sched_len:
+        print "%s: not enough data to unpack schedule", __file__
+        return None
     (schedule,) = struct.unpack_from("!%ds" % sched_len, data, offset)
     offset += sched_len
     assert(sched_len == len(schedule))
 
     assert(namelen > 0 and namelen < 255)
+    if len(data[offset:]) < namelen:
+        print "%s: not enough data to unpack name", __file__
+        return None
     (name,) = struct.unpack_from("!%ds" % namelen, data, offset)
     offset += namelen
     assert(namelen == len(name))
@@ -90,6 +99,9 @@ def get_data(data):
     assert(len(params) == count)
     # extract every server in the data portion of the message
     while count > 0:
+        if len(data[offset:]) < result_len:
+            print "%s: not enough data to unpack result", __file__
+            return results
         duration,byte,packets,write,direction,webc,webs = struct.unpack_from("!QQIIBBB", data, offset)
         offset += result_len
 

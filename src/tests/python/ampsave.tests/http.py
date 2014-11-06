@@ -31,6 +31,9 @@ def get_data(data):
     cache_len = struct.calcsize("=ii5sbbB")
 
     # check the version number first before looking at anything else
+    if len(data) < header_len:
+        print "%s: not enough data to unpack header", __file__
+        return None
     version, = struct.unpack_from("=I", data, 0)
     if version != AMP_HTTP_TEST_VERSION:
         raise VersionMismatch(version, AMP_HTTP_TEST_VERSION)
@@ -58,6 +61,9 @@ def get_data(data):
 
     # extract every server in the data portion of the message
     while servers > 0:
+        if len(data[offset:]) < server_len:
+            print "%s: not enough data to unpack server", __file__
+            return None
 	# "p" pascal string could be useful here, length byte before string
         host,start_s,start_us,end_s,end_us,addr,pad1,size,pad2,obj,pad3 = struct.unpack_from("=256sQQQQ46sHiHBB", data, offset)
         offset += server_len
@@ -75,9 +81,15 @@ def get_data(data):
         # extract each object from this server
         object_count = obj
         while object_count > 0:
+            if len(data[offset:]) < object_len:
+                print "%s: not enough data to unpack object", __file__
+                return None
             path,start_s,start_us,end_s,end_us,dns_s,dns_us,con_s,con_us,trans_s,trans_us,total_s,total_us,code,size,pad,con_count,pipe = struct.unpack_from("=256sQQQQQQQQQQQQII6sBB", data, offset)
             offset += object_len
 
+            if len(data[offset:]) < cache_len:
+                print "%s: not enough data to unpack cache info", __file__
+                return None
             max_age,s_maxage,pad,x_cache,x_cache_lu,flags = struct.unpack_from("=ii5sbbB", data, offset)
             offset += cache_len
 
