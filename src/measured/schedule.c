@@ -1001,7 +1001,7 @@ int update_remote_schedule(char *dir, char *url, char *cacert, char *cert,
         if ( stat_result < 0 && errno == ENOENT) {
             Log(LOG_DEBUG, "Schedule dir doesn't exist, creating %s", dir);
             /* doesn't exist, try to create it */
-            if ( mkdir(dir, 0x755) < 0 ) {
+            if ( mkdir(dir, 0755) < 0 ) {
                 Log(LOG_WARNING, "Failed to create schedule directory %s: %s",
                         dir, strerror(errno));
                 curl_easy_cleanup(curl);
