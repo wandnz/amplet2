@@ -93,16 +93,8 @@ int matches_common_name(const char *hostname, const X509 *cert) {
  *
  * Initialise the SSL context and load all the keys that we will be using.
  */
-SSL_CTX* initialise_ssl(void) {
-    SSL_CTX *ssl_ctx = NULL;
-
+int initialise_ssl(void) {
     Log(LOG_DEBUG, "Initialising SSL");
-
-    if ( vars.amqp_ssl.cacert == NULL || vars.amqp_ssl.cert == NULL ||
-            vars.amqp_ssl.key == NULL ) {
-        Log(LOG_WARNING, "Can't initialise SSL, certs and keys aren't set");
-        return NULL;
-    }
 
     SSL_library_init();
     SSL_load_error_strings();
@@ -110,6 +102,25 @@ SSL_CTX* initialise_ssl(void) {
     if(RAND_status() != 1) {
         Log(LOG_WARNING, "OpenSSL PRNG not seeded with enough data.");
         ssl_cleanup();
+        return -1;
+    }
+
+    return 0;
+}
+
+
+
+/*
+ *
+ */
+SSL_CTX* initialise_ssl_context(void) {
+    SSL_CTX *ssl_ctx = NULL;
+
+    Log(LOG_DEBUG, "Initialising SSL context");
+
+    if ( vars.amqp_ssl.cacert == NULL || vars.amqp_ssl.cert == NULL ||
+            vars.amqp_ssl.key == NULL ) {
+        Log(LOG_WARNING, "Can't initialise SSL, certs and keys aren't set");
         return NULL;
     }
 

@@ -18,6 +18,9 @@
 /* 128KB, recommended default */
 #define AMQP_FRAME_MAX 131072
 
+/* XXX is this the best place to define these? */
+#define AMP_KEYS_DIR AMP_CONFIG_DIR "/keys"
+
 /* default locations for the SSL certs/keys/etc to connect upstream */
 #define AMQP_CACERT_FILE AMP_CONFIG_DIR "/keys/cacert.pem"
 #define AMQP_CERT_FILE AMP_CONFIG_DIR "/keys/cert.pem"

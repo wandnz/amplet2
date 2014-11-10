@@ -45,6 +45,7 @@
 #include "asnsock.h"
 #include "iptrie.h"
 #include "localsock.h"
+#include "certs.h"
 
 #define AMP_CLIENT_CONFIG_DIR AMP_CONFIG_DIR "/clients"
 
@@ -263,9 +264,9 @@ static int parse_config(char *filename, struct amp_global_t *vars) {
         CFG_STR("exchange", "amp_exchange", CFGF_NONE),
         CFG_STR("routingkey", "test", CFGF_NONE),
         CFG_BOOL("ssl", cfg_false, CFGF_NONE),
-        CFG_STR("cacert", AMQP_CACERT_FILE, CFGF_NONE),
-        CFG_STR("key", AMQP_KEY_FILE, CFGF_NONE),
-        CFG_STR("cert", AMQP_CERT_FILE, CFGF_NONE),
+        CFG_STR("cacert", NULL, CFGF_NONE),
+        CFG_STR("key", NULL, CFGF_NONE),
+        CFG_STR("cert", NULL, CFGF_NONE),
         CFG_END()
     };
 
@@ -386,9 +387,25 @@ static int parse_config(char *filename, struct amp_global_t *vars) {
         vars->exchange = strdup(cfg_getstr(cfg_sub, "exchange"));
         vars->routingkey = strdup(cfg_getstr(cfg_sub, "routingkey"));
         vars->ssl = cfg_getbool(cfg_sub, "ssl");
-        vars->amqp_ssl.cacert = strdup(cfg_getstr(cfg_sub, "cacert"));
-        vars->amqp_ssl.key = strdup(cfg_getstr(cfg_sub, "key"));
-        vars->amqp_ssl.cert = strdup(cfg_getstr(cfg_sub, "cert"));
+
+        /* if these aren't set, then they will be generated later if required */
+        if ( cfg_getstr(cfg_sub, "cacert") ) {
+            vars->amqp_ssl.cacert = strdup(cfg_getstr(cfg_sub, "cacert"));
+        } else {
+            vars->amqp_ssl.cacert = NULL;
+        }
+
+        if ( cfg_getstr(cfg_sub, "key") ) {
+            vars->amqp_ssl.key = strdup(cfg_getstr(cfg_sub, "key"));
+        } else {
+            vars->amqp_ssl.key = NULL;
+        }
+
+        if ( cfg_getstr(cfg_sub, "cert") ) {
+            vars->amqp_ssl.cert = strdup(cfg_getstr(cfg_sub, "cert"));
+        } else {
+            vars->amqp_ssl.cert = NULL;
+        }
     }
 
     /* parse the config for remote fetching of schedule files */
@@ -582,6 +599,7 @@ int main(int argc, char *argv[]) {
      * needs to have all the configuration parsing performed so it knows what
      * to do.
      */
+    //XXX move this after SSL initialisation and certificate fetching? */
     if ( configure_rabbit ) {
         Log(LOG_INFO, "Configuring rabbitmq for amplet2 client %s",
                 vars.ampname);
@@ -648,13 +666,31 @@ int main(int argc, char *argv[]) {
 	return -1;
     }
 
+    if ( asprintf(&vars.keys_dir, "%s/%s", AMP_KEYS_DIR, vars.ampname) < 0 ) {
+        Log(LOG_ALERT, "Failed to build custom keys directory path");
+        return -1;
+    }
     /*
      * Set up SSL certificates etc. This has to go before curl_global_init()
      * because if we fail then we clean up a whole lot of openssl stuff.
      * TODO determine which bits we can clean up and which bits we can't.
      */
-    if ( (ssl_ctx = initialise_ssl()) == NULL ) {
-        Log(LOG_WARNING, "Failed to initialise SSL, disabling control socket");
+    if ( initialise_ssl() < 0 ) {
+        Log(LOG_WARNING, "Failed to initialise SSL, aborting");
+        return -1;
+    } else {
+        /*
+         * Try to make sure certs are valid and loaded, but for now we will
+         * allow things to continue even if this fails - lots of stuff won't
+         * work though, but maybe those things aren't needed.
+         * TODO get timeout value from config
+         */
+        if ( vars.ssl && (get_certificate(-1) < 0 ||
+                (ssl_ctx = initialise_ssl_context()) == NULL) ) {
+            Log(LOG_WARNING, "Failed to load and verify SSL keys/certificates");
+            Log(LOG_WARNING,
+                    "Control socket and other functionality will be disabled");
+        }
     }
 
     /* set up curl while we are still the only measured process running */
@@ -816,6 +852,7 @@ int main(int argc, char *argv[]) {
     }
     free(vars.schedule_dir);
     free(vars.nametable_dir);
+    free(vars.keys_dir);
     free(vars.nssock);
     free(vars.asnsock);
 

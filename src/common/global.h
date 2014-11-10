@@ -27,6 +27,7 @@ struct amp_global_t {
     char *schedule_url;
     char *schedule_dir;
     char *nametable_dir;
+    char *keys_dir;
     int fetch_freq;
     int control_enabled;
     char *control_port;

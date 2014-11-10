@@ -11,7 +11,8 @@
 
 SSL_CTX *ssl_ctx;
 
-SSL_CTX *initialise_ssl(void);
+int initialise_ssl(void);
+SSL_CTX *initialise_ssl_context(void);
 SSL* ssl_accept(SSL_CTX *ssl_ctx, int fd);
 SSL* ssl_connect(SSL_CTX *ssl_ctx, int fd);
 void ssl_shutdown(SSL *ssl);
