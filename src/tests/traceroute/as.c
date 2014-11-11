@@ -142,6 +142,7 @@ int set_as_numbers(struct dest_info_t *donelist) {
     }
 
 end:
+    close(asn_fd);
     iptrie_clear(&trie);
 
     return 0;

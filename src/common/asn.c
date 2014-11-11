@@ -141,8 +141,6 @@ static struct iptrie *amp_asn_fetch_results_local(int fd,
         iptrie_add(result, (struct sockaddr *)&addr, prefix, asn);
     }
 
-    close(fd); //XXX do this here or at next level up in the test?
-
     return result;
 }
 
@@ -312,6 +310,7 @@ int connect_to_whois_server(void) {
     }
 
     if ( connect(fd, result->ai_addr, result->ai_addrlen) < 0 ) {
+        close(fd);
         freeaddrinfo(result);
         return -1;
     }
@@ -322,6 +321,7 @@ int connect_to_whois_server(void) {
     if ( send(fd, "begin\n", strlen("begin\n"), 0) < 0 ) {
         Log(LOG_WARNING, "Failed to send header to whois server: %s",
                 strerror(errno));
+        close(fd);
         return -1;
     }
 
@@ -329,6 +329,7 @@ int connect_to_whois_server(void) {
     if ( send(fd, "noheader\n", strlen("noheader\n"), 0) < 0 ) {
         Log(LOG_WARNING, "Failed to send header to whois server: %s",
                 strerror(errno));
+        close(fd);
         return -1;
     }
 
@@ -336,6 +337,7 @@ int connect_to_whois_server(void) {
     if ( send(fd, "noasname\n", strlen("noasname\n"), 0) < 0 ) {
         Log(LOG_WARNING, "Failed to send header to whois server: %s",
                 strerror(errno));
+        close(fd);
         return -1;
     }
 
