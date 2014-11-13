@@ -678,23 +678,23 @@ int main(int argc, char *argv[]) {
     if ( initialise_ssl() < 0 ) {
         Log(LOG_WARNING, "Failed to initialise SSL, aborting");
         return -1;
-    } else {
-        /*
-         * Try to make sure certs are valid and loaded, but for now we will
-         * allow things to continue even if this fails - lots of stuff won't
-         * work though, but maybe those things aren't needed.
-         * TODO get timeout value from config
-         */
-        if ( vars.ssl && (get_certificate(-1) < 0 ||
-                (ssl_ctx = initialise_ssl_context()) == NULL) ) {
-            Log(LOG_WARNING, "Failed to load and verify SSL keys/certificates");
-            Log(LOG_WARNING,
-                    "Control socket and other functionality will be disabled");
-        }
     }
 
     /* set up curl while we are still the only measured process running */
     curl_global_init(CURL_GLOBAL_ALL);
+
+    /*
+     * Try to make sure certs are valid and loaded, but for now we will
+     * allow things to continue even if this fails - lots of stuff won't
+     * work though, but maybe those things aren't needed.
+     * TODO get timeout value from config
+     */
+    if ( vars.ssl && (get_certificate(-1) != 0 ||
+                (ssl_ctx = initialise_ssl_context()) == NULL) ) {
+        Log(LOG_WARNING, "Failed to load and verify SSL keys/certificates");
+        Log(LOG_WARNING,
+                "Control socket and other functionality will be disabled");
+    }
 
     /* set up event handlers */
     wand_event_init();

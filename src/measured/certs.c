@@ -8,6 +8,7 @@
 #include <sys/stat.h>
 #include <string.h>
 #include <errno.h>
+#include <curl/curl.h>
 
 #include "debug.h"
 #include "messaging.h"
@@ -62,6 +63,21 @@ static int check_exists(char *path, int strict) {
 
     /* file doesn't exist, but that's ok as strict isn't set */
     return 1;
+}
+
+
+
+/*
+ *
+ */
+static int stat_filesize(char *path) {
+    struct stat statbuf;
+
+    if ( stat(path, &statbuf) < 0 ) {
+        return -1;
+    }
+
+    return statbuf.st_size;
 }
 
 
@@ -148,7 +164,7 @@ static RSA *get_key_file(void) {
  * Check if a certificate signing request already exists, and if so return it.
  * If it doesn't exist then try to create one.
  */
-static X509_REQ *get_csr(void) {
+static char *get_csr(void) {
     X509_REQ *request;
     EVP_PKEY *pkey;
     X509_NAME *name;
@@ -168,24 +184,32 @@ static X509_REQ *get_csr(void) {
     exists = check_exists(filename, 0);
 
     if ( exists < 0 ) {
+        free(filename);
+        return NULL;
+    }
+
+    if ( (request = X509_REQ_new()) == NULL ) {
+        free(filename);
         return NULL;
     }
 
     if ( exists == 0 ) {
         if ( (csrfile = fopen(filename, "r")) == NULL ) {
+            free(filename);
             return NULL;
         }
 
         /* open it so we can use it to create a CSR */
         if ( PEM_read_X509_REQ(csrfile, &request, NULL, NULL) == NULL ) {
+            fclose(csrfile);
+            free(filename);
             return NULL;
         }
 
         Log(LOG_DEBUG, "Using existing csr %s", filename);
 
         fclose(csrfile);
-        free(filename);
-        return request;
+        return filename;
     }
 
     Log(LOG_DEBUG, "CSR doesn't exist, will create %s", filename);
@@ -208,11 +232,6 @@ static X509_REQ *get_csr(void) {
 
     Log(LOG_DEBUG, "Creating new CSR request");
 
-    if ( (request = X509_REQ_new()) == NULL ) {
-        free(filename);
-        return NULL;
-    }
-
     //XXX do these have error checking?
     X509_REQ_set_pubkey(request, pkey);
     name = X509_REQ_get_subject_name(request);
@@ -228,9 +247,189 @@ static X509_REQ *get_csr(void) {
     PEM_write_X509_REQ(csrfile, request);
 
     fclose(csrfile);
-    free(filename);
 
-    return request;
+    return filename;
+}
+
+
+
+/*
+ *
+ */
+static int get_cacert(void) {
+    int specified = 1;
+    int exists;
+    CURL *curl;
+    CURLcode res;
+    FILE *cacertfile;
+    double size;
+    long code;
+    char *url;
+
+    Log(LOG_DEBUG, "Get CA certificate");
+
+    /* if key isn't set, then figure out where it should be */
+    if ( vars.amqp_ssl.cacert == NULL ) {
+
+        specified = 0;
+
+        /* set the cacert to be the default location for this collector */
+        if ( asprintf(&vars.amqp_ssl.cacert, "%s/%s.pem", AMP_KEYS_DIR,
+                    vars.collector) < 0 ) {
+            Log(LOG_ALERT, "Failed to build custom cacert file path");
+            return -1;
+        }
+    }
+
+    /* check if the keyfile exists */
+    if ( (exists = check_exists(vars.amqp_ssl.cacert, specified)) != 1 ) {
+        return exists;
+    }
+
+    if ( (cacertfile = fopen(vars.amqp_ssl.cacert, "w")) == NULL ) {
+        return -1;
+    }
+
+    if ( asprintf(&url, "http://%s:%d/cacert", vars.collector,
+                AMP_PKI_PORT) < 0 ) {
+        Log(LOG_ALERT, "Failed to build cacert fetch url");
+        fclose(cacertfile);
+        return -1;
+    }
+
+    Log(LOG_INFO, "Fetching CA certificate from %s", url);
+
+    /* fetch the CA cert from the collector */
+    curl = curl_easy_init();
+    curl_easy_setopt(curl, CURLOPT_URL, url);
+    curl_easy_setopt(curl, CURLOPT_USERAGENT, PACKAGE_STRING);
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, cacertfile);
+
+    res = curl_easy_perform(curl);
+
+    fclose(cacertfile);
+    free(url);
+
+    if ( res != CURLE_OK ) {
+        Log(LOG_WARNING, "Failed to fetch cacert: %s", curl_easy_strerror(res));
+        curl_easy_cleanup(curl);
+        return -1;
+    }
+
+    /* check return code and that data was received */
+    curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &code);
+    curl_easy_getinfo(curl, CURLINFO_SIZE_DOWNLOAD, &size);
+    curl_easy_cleanup(curl);
+
+    if ( code != 200 || size <= 0 ) {
+        Log(LOG_WARNING,
+                "Response code %d, file size %sB, deleting invalid CA cert",
+                code, size);
+        if ( unlink(cacertfile) < 0 ) {
+            Log(LOG_WARNING, "Failed to remove CA cert '%s': %s", cacertfile,
+                    strerror(errno));
+        }
+        return -1;
+    }
+
+    Log(LOG_INFO, "CA certificate stored in %s", vars.amqp_ssl.cacert);
+
+    return 0;
+}
+
+
+
+static int send_csr(char *request) {
+    CURL *curl;
+    CURLcode res;
+    FILE *certfile, *csr;
+    double size;
+    long code;
+    char *url;
+    int csr_size;
+
+    Log(LOG_DEBUG, "Send CSR");
+
+    if ( (certfile = fopen(vars.amqp_ssl.cert, "w")) == NULL ) {
+        return -1;
+    }
+
+    if ( (csr_size = stat_filesize(request)) < 0 ) {
+        fclose(certfile);
+        return -1;
+    }
+
+    if ( (csr = fopen(request, "r")) == NULL ) {
+        fclose(certfile);
+        return -1;
+    }
+
+    //XXX should be https to verify cert
+    if ( asprintf(&url, "https://%s:%d/sign", vars.collector,
+                AMP_PKI_PORT) < 0 ) {
+        Log(LOG_ALERT, "Failed to build cert signing url");
+        fclose(certfile);
+        fclose(csr);
+        return -1;
+    }
+
+    Log(LOG_INFO, "Sending CSR found in %s to %s", request, url);
+
+    curl = curl_easy_init();
+    curl_easy_setopt(curl, CURLOPT_URL, url);
+    curl_easy_setopt(curl, CURLOPT_USERAGENT, PACKAGE_STRING);
+    curl_easy_setopt(curl, CURLOPT_POST, 1);
+    curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, csr_size);
+    curl_easy_setopt(curl, CURLOPT_READDATA, csr);
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, certfile);
+
+    //XXX may need to remove Expect header to actually work?
+    //XXX what content type do i want?
+
+    curl_easy_setopt(curl, CURLOPT_CAINFO, vars.amqp_ssl.cacert);
+    /* Try to verify the server certificate */
+    curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 1);
+    /* Try to verify the server hostname/commonname */
+    curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 2);
+
+    res = curl_easy_perform(curl);
+
+    fclose(certfile);
+    fclose(csr);
+    free(url);
+
+    if ( res != CURLE_OK ) {
+        Log(LOG_WARNING, "Failed to send CSR: %s", curl_easy_strerror(res));
+        curl_easy_cleanup(curl);
+        return -1;
+    }
+
+    /* check return code and that data was received */
+    curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &code);
+    curl_easy_getinfo(curl, CURLINFO_SIZE_DOWNLOAD, &size);
+    curl_easy_cleanup(curl);
+
+    /* if no cert, return failure and we might try again later */
+    if ( code != 200 || size <= 0 ) {
+        if ( unlink(vars.amqp_ssl.cert) < 0 ) {
+            Log(LOG_WARNING, "Failed to remove cert '%s': %s",
+                    vars.amqp_ssl.cert, strerror(errno));
+        }
+
+        /* CSR was accepted but has not yet been signed, wait and try again */
+        if ( code == 202 ) {
+            Log(LOG_DEBUG, "CSR was accepted but has not yet been signed");
+            return 1;
+        }
+
+        Log(LOG_WARNING, "Error fetching signed cert, code:%d, size:%sB",
+                code, size);
+        return -1;
+    }
+
+    Log(LOG_INFO, "Signed certificate stored in %s", vars.amqp_ssl.cert);
+
+    return 0;
 }
 
 
@@ -242,9 +441,10 @@ static X509_REQ *get_csr(void) {
  * TODO function needs a better name
  */
 int get_certificate(int timeout) {
-    X509_REQ *request;
+    char *request;
     int exists;
     int specified = 1;
+    int res;
 
     /*
      * If anything is unspecified, we're probably going to create files,
@@ -310,10 +510,9 @@ int get_certificate(int timeout) {
     }
 
     /* check if the keyfile exists */
-    if ( (exists = check_exists(vars.amqp_ssl.cert, specified)) < 1 ) {
+    if ( (exists = check_exists(vars.amqp_ssl.cert, specified)) != 1 ) {
         /* XXX should check that the cert and key and ca all match? */
         /* -1 is error, 0 is a good existing file, neither need any more work */
-        Log(LOG_DEBUG, "Certificate is specified and already exists, good");
         return exists;
     }
 
@@ -322,10 +521,29 @@ int get_certificate(int timeout) {
         return -1;
     }
 
-    // TODO send CSR and wait for cert
-    printf("NOW SEND CSR\n");
+    /* get the cacert if we don't already have one for this server */
+    if ( get_cacert() < 0 ) {
+        free(request);
+        return -1;
+    }
 
-    return 0;
+    /* send CSR and wait for cert */
+    while( (res = send_csr(request)) == 1 && timeout > 0 ) {
+        if ( timeout < AMP_PKI_QUERY_INTERVAL ) {
+            Log(LOG_DEBUG, "Sleeping for %d seconds before sending CSR again",
+                    timeout);
+            sleep(timeout);
+            timeout = 0;
+        } else {
+            Log(LOG_DEBUG, "Sleeping for %d seconds before sending CSR again",
+                    AMP_PKI_QUERY_INTERVAL);
+            sleep(AMP_PKI_QUERY_INTERVAL);
+            timeout -= AMP_PKI_QUERY_INTERVAL;
+        }
+    }
+
+    free(request);
+    return res;
 }
 
 
