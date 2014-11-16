@@ -30,6 +30,7 @@
 #define S_FROM_MS(x)  ((int)((x)/1000))
 
 #define MS_FROM_TV(tv) ((tv).tv_sec * 1000 + ((int)((tv).tv_usec / 1000)))
+#define US_FROM_TV(tv) ((tv).tv_sec * 1000000 + ((int)((tv).tv_usec)))
 
 #define ADD_TV_PARTS(res, opa, opsec, opus) {\
     (res).tv_sec  = (opa).tv_sec  + (opsec); \
