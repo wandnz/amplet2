@@ -307,7 +307,7 @@ static char **parse_param_string(char *param_string) {
  */
 struct timeval get_next_schedule_time(wand_event_handler_t *ev_hdl,
 	schedule_period_t period, uint64_t start, uint64_t end,
-        uint64_t frequency) {
+        uint64_t frequency, int run, struct timeval *abstime) {
 
     static struct timeval walltime_offset = {0,0};
     time_t period_start, period_end;
@@ -332,10 +332,28 @@ struct timeval get_next_schedule_time(wand_event_handler_t *ev_hdl,
     diff -= start;
 
     if ( diff < 0 ) {
-	/* the start time hasn't been reached yet, so schedule for then */
-	next.tv_sec = abs(diff) / 1000000;
-	next.tv_usec = abs(diff) % 1000000;
-	return next;
+        /*
+         * Make sure that if we just ran the test, we aren't running it again
+         * almost immediately (maybe the clock that gettimeofday uses is slow).
+         * Try to jump ahead to the next scheduled repeat, or the start of the
+         * next period if there are no repeats.
+         */
+        if ( run && abs(diff) < SCHEDULE_CLOCK_FUDGE ) {
+            /* skip over the time we are early and find the next repeat */
+            if ( frequency > 0 ) {
+                diff = abs(diff) + frequency;
+            }
+        }
+
+        /* the start time hasn't been reached yet, so schedule for then */
+        next.tv_sec = abs(diff) / 1000000;
+        next.tv_usec = abs(diff) % 1000000;
+
+        /* save the absolute time this test was meant to be run */
+        if ( abstime ) {
+            timeradd(&now, &next, abstime);
+        }
+        return next;
     }
 
     if ( frequency == 0 ) {
@@ -346,6 +364,16 @@ struct timeval get_next_schedule_time(wand_event_handler_t *ev_hdl,
 	next_repeat = 0;
 	diff %= frequency;
 	diff = frequency - diff;
+
+        /*
+         * Make sure that if we just ran the test, we aren't running it again
+         * almost immediately (maybe the clock that gettimeofday uses is slow).
+         * Jump ahead to the next scheduled repeat.
+         */
+        if ( run && diff < SCHEDULE_CLOCK_FUDGE ) {
+            diff += frequency;
+        }
+
 	next.tv_sec = diff / 1000000;
 	next.tv_usec = diff % 1000000;
     }
@@ -364,6 +392,12 @@ struct timeval get_next_schedule_time(wand_event_handler_t *ev_hdl,
         }
 	ADD_TV_PARTS(next, next, start / 1000000, start % 1000000);
     }
+
+    /* save the absolute time this test was meant to be run */
+    if ( abstime ) {
+        timeradd(&now, &next, abstime);
+    }
+
     Log(LOG_DEBUG, "next test run scheduled at: %d.%d\n", (int)next.tv_sec,
 	    (int)next.tv_usec);
     return next;
@@ -431,7 +465,7 @@ static int merge_scheduled_tests(struct wand_event_handler_t *ev_hdl,
 
     /* find the time that the timer for this test should expire */
     when = get_next_schedule_time(ev_hdl, item->period, item->start, item->end,
-	    US_FROM_TV(item->interval));
+	    US_FROM_TV(item->interval), 0, NULL);
     expire = wand_calc_expire(ev_hdl, when.tv_sec, when.tv_usec);
 
     /* search all existing scheduled test timers for a test that matches */
@@ -785,7 +819,7 @@ static test_schedule_item_t *create_and_schedule_test(
 
         /* create the timer event for this test */
         next = get_next_schedule_time(ev_hdl, test->period, test->start,
-                test->end, US_FROM_TV(test->interval));
+                test->end, US_FROM_TV(test->interval), 0, &test->abstime);
         wand_add_timer(ev_hdl, next.tv_sec, next.tv_usec, sched,
                 run_scheduled_test);
 

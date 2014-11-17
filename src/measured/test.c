@@ -264,13 +264,31 @@ static void set_proc_name(char *testname) {
  * execution timers etc.
  * TODO maybe just move the contents of this into run_scheduled_test()?
  */
-static void fork_test(wand_event_handler_t *ev_hdl,test_schedule_item_t *item) {
+static int fork_test(wand_event_handler_t *ev_hdl, test_schedule_item_t *item) {
+    struct timeval now;
     pid_t pid;
     test_t *test;
 
     assert(item);
     assert(item->test_id < AMP_TEST_LAST);
     assert(amp_tests[item->test_id]);
+
+    /*
+     * Make sure this isn't being run too soon - the monotonic clock and
+     * the system time don't generally keep in sync very well (and the system
+     * time can get updated from other sources). If we are too early, return
+     * without running the test (which will be rescheduled).
+     */
+    gettimeofday(&now, NULL);
+    if ( timercmp(&now, &item->abstime, <) ) {
+        timersub(&item->abstime, &now, &now);
+        /* run too soon, don't run it now - let it get rescheduled */
+        if ( now.tv_sec != 0 || now.tv_usec > SCHEDULE_CLOCK_FUDGE ) {
+            Log(LOG_DEBUG,
+                    "Test triggered early by current clock, will reschedule");
+            return 0;
+        }
+    }
 
     test = amp_tests[item->test_id];
 
@@ -283,7 +301,7 @@ static void fork_test(wand_event_handler_t *ev_hdl,test_schedule_item_t *item) {
      */
     if ( (pid = fork()) < 0 ) {
 	perror("fork");
-	return;
+	return 0;
     } else if ( pid == 0 ) {
 	/* child, prepare the environment and run the test functions */
 	//struct rlimit cpu_limits;
@@ -314,6 +332,8 @@ static void fork_test(wand_event_handler_t *ev_hdl,test_schedule_item_t *item) {
     /* schedule the watchdog to kill it if it takes too long */
     add_test_watchdog(ev_hdl, pid, test->max_duration, test->sigint,
             test->name);
+
+    return 1;
 }
 
 
@@ -325,23 +345,25 @@ void run_scheduled_test(wand_event_handler_t *ev_hdl, void *data) {
     schedule_item_t *item = (schedule_item_t *)data;
     test_schedule_item_t *test_item;
     struct timeval next;
+    int run;
 
     assert(item->type == EVENT_RUN_TEST);
 
     test_item = (test_schedule_item_t *)item->data.test;
 
-    Log(LOG_DEBUG, "Running a %s test", amp_tests[test_item->test_id]->name);
-    printf("running a %s test at %d\n", amp_tests[test_item->test_id]->name,
-	    (int)time(NULL));
+    Log(LOG_DEBUG, "Running %s test", amp_tests[test_item->test_id]->name);
+    printf("running %s test at %d\n", amp_tests[test_item->test_id]->name,
+            (int)time(NULL));
 
     /*
      * run the test as soon as we know what it is, so it happens as close to
      * the right time as we can get it.
      */
-    fork_test(item->ev_hdl, test_item);
+    run = fork_test(item->ev_hdl, test_item);
 
     /* while the test runs, reschedule it again */
     next = get_next_schedule_time(item->ev_hdl, test_item->period,
-            test_item->start, test_item->end, US_FROM_TV(test_item->interval));
+            test_item->start, test_item->end, US_FROM_TV(test_item->interval),
+            run, &test_item->abstime);
     wand_add_timer(ev_hdl, next.tv_sec, next.tv_usec, data, run_scheduled_test);
 }

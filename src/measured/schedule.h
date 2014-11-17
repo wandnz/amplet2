@@ -24,6 +24,9 @@
 //#define AMP_TEST_DIRECTORY AMP_CONFIG_DIR "/tests/"
 #define MAX_TEST_ARGS 128
 
+/* tests can start at most 5ms early, otherwise reschedule them */
+#define SCHEDULE_CLOCK_FUDGE ( 5 * 1000 )
+
 /* convenience time conversions */
 #define US_FROM_MS(x) (((x) % 1000)*1000)
 #define MS_TRUNC(x)   (((int)(x)/1000)*1000)
@@ -54,6 +57,7 @@ typedef enum schedule_period {
  * Data block for scheduled test events.
  */
 typedef struct test_schedule_item {
+    struct timeval abstime;         /* time the next test is inteded to run */
     struct timeval interval;	    /* time between test runs */
     uint64_t start;		    /* first time in period test can run (ms) */
     uint64_t end;		    /* last time in period test can run (ms) */
@@ -121,7 +125,7 @@ void read_schedule_dir(wand_event_handler_t *ev_hdl, char *directory);
 void setup_schedule_refresh(wand_event_handler_t *ev_hdl);
 struct timeval get_next_schedule_time(wand_event_handler_t *ev_hdl,
         schedule_period_t period, uint64_t start, uint64_t end,
-        uint64_t frequency);
+        uint64_t frequency, int run, struct timeval *abstime);
 int update_remote_schedule(char *dir, char *server, char *cacert, char *cert,
         char *key);
 void remote_schedule_callback(wand_event_handler_t *ev_hdl, void *data);
