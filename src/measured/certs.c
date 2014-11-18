@@ -291,7 +291,7 @@ static int get_cacert(void) {
     }
 
     if ( asprintf(&url, "http://%s:%d/cacert", vars.collector,
-                AMP_PKI_PORT) < 0 ) {
+                AMP_PKI_NONSSL_PORT) < 0 ) {
         Log(LOG_ALERT, "Failed to build cacert fetch url");
         fclose(cacertfile);
         return -1;
@@ -364,9 +364,9 @@ static int send_csr(char *request) {
         return -1;
     }
 
-    //XXX should be https to verify cert
+    /* we need to use an https url to get curl to use the cert/ssl options */
     if ( asprintf(&url, "https://%s:%d/sign", vars.collector,
-                AMP_PKI_PORT) < 0 ) {
+                AMP_PKI_SSL_PORT) < 0 ) {
         Log(LOG_ALERT, "Failed to build cert signing url");
         fclose(certfile);
         fclose(csr);
