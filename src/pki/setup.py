@@ -9,6 +9,7 @@ here = os.path.abspath(os.path.dirname(__file__))
 requires = [
     'pyasn1',
     'pyasn1_modules',
+    'pycrypto',
     'pyramid_chameleon',
     'pyramid',
     'pyramid_debugtoolbar',
