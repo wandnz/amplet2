@@ -2,7 +2,7 @@
 
 #include <stdlib.h>
 #include <stdio.h>
-//#include <assert.h>
+#include <assert.h>
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -92,26 +92,13 @@ static int stat_filesize(char *path) {
  */
 static RSA *get_key_file(void) {
     int exists;
-    int specified = 1;
     FILE *privfile;
-    RSA *keypair;
+    RSA *key;
 
     Log(LOG_DEBUG, "Get private key");
 
-    /* if key isn't set, then figure out where it should be */
-    if ( vars.amqp_ssl.key == NULL ) {
-
-        specified = 0;
-
-        /* set the keyfile to be the default location for this ampname */
-        if ( asprintf(&vars.amqp_ssl.key, "%s/key.pem", vars.keys_dir) < 0 ) {
-            Log(LOG_ALERT, "Failed to build custom keyfile path");
-            return NULL;
-        }
-    }
-
     /* check if the keyfile exists */
-    exists = check_exists(vars.amqp_ssl.key, specified);
+    exists = check_exists(vars.amqp_ssl.key, 0);
 
     if ( exists < 0 ) {
         return NULL;
@@ -123,39 +110,41 @@ static RSA *get_key_file(void) {
         }
 
         /* open it so we can use it to create a CSR */
-        if ( PEM_read_RSAPrivateKey(privfile, &keypair, NULL, NULL) == NULL ) {
+        if ( (key = PEM_read_RSAPrivateKey(privfile, NULL, NULL,
+                        NULL)) == NULL ) {
+            fclose(privfile);
             return NULL;
         }
 
         Log(LOG_DEBUG, "Using existing private key %s", vars.amqp_ssl.key);
 
         fclose(privfile);
-        return keypair;
+        return key;
     }
 
     /* keyfile wasn't manually specified, try to create it if we can */
     Log(LOG_DEBUG, "Key file doesn't exist, creating %s", vars.amqp_ssl.key);
 
-    if ( (keypair = RSA_generate_key(2048, RSA_F4, NULL, NULL)) == NULL ) {
+    if ( (key = RSA_generate_key(2048, RSA_F4, NULL, NULL)) == NULL ) {
         Log(LOG_ALERT, "Failed to generate RSA key");
         return NULL;
     }
 
     /* write the private key to disk */
     if ( (privfile = fopen(vars.amqp_ssl.key, "w")) == NULL ) {
-        RSA_free(keypair);
+        RSA_free(key);
         return NULL;
     }
 
-    if ( PEM_write_RSAPrivateKey(privfile, keypair,
-                NULL, NULL, 0, NULL, NULL) != 1 ) {
-        RSA_free(keypair);
+    if ( PEM_write_RSAPrivateKey(privfile, key, NULL, NULL, 0, NULL,
+                NULL) != 1 ) {
+        RSA_free(key);
         fclose(privfile);
         return NULL;
     }
 
     fclose(privfile);
-    return keypair;
+    return key;
 }
 
 
@@ -168,7 +157,7 @@ static char *get_csr(void) {
     X509_REQ *request;
     EVP_PKEY *pkey;
     X509_NAME *name;
-    RSA *keypair;
+    RSA *key;
     FILE *csrfile;
     char *filename;
     int exists;
@@ -215,7 +204,7 @@ static char *get_csr(void) {
     Log(LOG_DEBUG, "CSR doesn't exist, will create %s", filename);
 
     /* otherwise, need to create a new CSR, get the private key and do it */
-    if ( (keypair = get_key_file()) == NULL ) {
+    if ( (key = get_key_file()) == NULL ) {
         free(filename);
         return NULL;
     }
@@ -225,7 +214,7 @@ static char *get_csr(void) {
         return NULL;
     }
 
-    if ( !EVP_PKEY_assign_RSA(pkey, keypair) ) {
+    if ( !EVP_PKEY_assign_RSA(pkey, key) ) {
         free(filename);
         return NULL;
     }
@@ -237,6 +226,11 @@ static char *get_csr(void) {
     name = X509_REQ_get_subject_name(request);
     X509_NAME_add_entry_by_txt(name,"CN",MBSTRING_ASC, vars.ampname, -1, -1, 0);
     X509_NAME_add_entry_by_txt(name,"O", MBSTRING_ASC, "client", -1, -1, 0);
+
+    if ( !X509_REQ_sign(request, pkey, EVP_sha256()) ) {
+        free(filename);
+        return NULL;
+    }
 
     /* write CSR to disk */
     if ( (csrfile = fopen(filename, "w") ) == NULL ) {
@@ -257,7 +251,6 @@ static char *get_csr(void) {
  *
  */
 static int get_cacert(void) {
-    int specified = 1;
     int exists;
     CURL *curl;
     CURLcode res;
@@ -268,21 +261,8 @@ static int get_cacert(void) {
 
     Log(LOG_DEBUG, "Get CA certificate");
 
-    /* if key isn't set, then figure out where it should be */
-    if ( vars.amqp_ssl.cacert == NULL ) {
-
-        specified = 0;
-
-        /* set the cacert to be the default location for this collector */
-        if ( asprintf(&vars.amqp_ssl.cacert, "%s/%s.pem", AMP_KEYS_DIR,
-                    vars.collector) < 0 ) {
-            Log(LOG_ALERT, "Failed to build custom cacert file path");
-            return -1;
-        }
-    }
-
     /* check if the keyfile exists */
-    if ( (exists = check_exists(vars.amqp_ssl.cacert, specified)) != 1 ) {
+    if ( (exists = check_exists(vars.amqp_ssl.cacert, 0)) != 1 ) {
         return exists;
     }
 
@@ -323,11 +303,11 @@ static int get_cacert(void) {
 
     if ( code != 200 || size <= 0 ) {
         Log(LOG_WARNING,
-                "Response code %d, file size %sB, deleting invalid CA cert",
+                "Response code %d, file size %fB, deleting invalid CA cert",
                 code, size);
-        if ( unlink(cacertfile) < 0 ) {
-            Log(LOG_WARNING, "Failed to remove CA cert '%s': %s", cacertfile,
-                    strerror(errno));
+        if ( unlink(vars.amqp_ssl.cacert) < 0 ) {
+            Log(LOG_WARNING, "Failed to remove CA cert '%s': %s",
+                    vars.amqp_ssl.cacert, strerror(errno));
         }
         return -1;
     }
@@ -342,25 +322,18 @@ static int get_cacert(void) {
 static int send_csr(char *request) {
     CURL *curl;
     CURLcode res;
-    FILE *certfile, *csr;
-    double size;
+    FILE *csr;
     long code;
     char *url;
     int csr_size;
 
     Log(LOG_DEBUG, "Send CSR");
 
-    if ( (certfile = fopen(vars.amqp_ssl.cert, "w")) == NULL ) {
-        return -1;
-    }
-
     if ( (csr_size = stat_filesize(request)) < 0 ) {
-        fclose(certfile);
         return -1;
     }
 
     if ( (csr = fopen(request, "r")) == NULL ) {
-        fclose(certfile);
         return -1;
     }
 
@@ -368,7 +341,6 @@ static int send_csr(char *request) {
     if ( asprintf(&url, "https://%s:%d/sign", vars.collector,
                 AMP_PKI_SSL_PORT) < 0 ) {
         Log(LOG_ALERT, "Failed to build cert signing url");
-        fclose(certfile);
         fclose(csr);
         return -1;
     }
@@ -381,7 +353,6 @@ static int send_csr(char *request) {
     curl_easy_setopt(curl, CURLOPT_POST, 1);
     curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, csr_size);
     curl_easy_setopt(curl, CURLOPT_READDATA, csr);
-    curl_easy_setopt(curl, CURLOPT_WRITEDATA, certfile);
 
     //XXX may need to remove Expect header to actually work?
     //XXX what content type do i want?
@@ -394,12 +365,212 @@ static int send_csr(char *request) {
 
     res = curl_easy_perform(curl);
 
-    fclose(certfile);
     fclose(csr);
     free(url);
 
     if ( res != CURLE_OK ) {
         Log(LOG_WARNING, "Failed to send CSR: %s", curl_easy_strerror(res));
+        curl_easy_cleanup(curl);
+        return -1;
+    }
+
+    /* check return code and that data was received */
+    curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &code);
+    curl_easy_cleanup(curl);
+
+    /* we should get a 202, meaning the server has accepted the CSR */
+    if ( code != 202 ) {
+        Log(LOG_WARNING, "Error sending CSR, code:%d", code);
+        return -1;
+    }
+
+    Log(LOG_DEBUG, "CSR was accepted but has yet to be signed");
+
+    return 0;
+}
+
+
+
+/*
+ * Generate the sha256 hash of the given string. Expects the length field to
+ * initially describe the length of the string, and will be overwritten with
+ * the length of the resulting hash.
+ *
+ * https://www.openssl.org/docs/crypto/EVP_DigestInit.html
+ */
+static char *hash(char *str, int *length) {
+    EVP_MD_CTX *mdctx;
+    char *hashstr = calloc(1, EVP_MAX_MD_SIZE);
+
+    assert(str);
+    assert(hashstr);
+    assert(length);
+
+    if ( (mdctx = EVP_MD_CTX_create()) == NULL ) {
+        free(hashstr);
+        *length = 0;
+        return NULL;
+    }
+
+    if ( EVP_DigestInit_ex(mdctx, EVP_sha256(), NULL) != 1 ) {
+        free(hashstr);
+        *length = 0;
+        return NULL;
+    }
+
+    if ( EVP_DigestUpdate(mdctx, str, *length) != 1 ) {
+        free(hashstr);
+        *length = 0;
+        return NULL;
+    }
+
+    if ( EVP_DigestFinal_ex(mdctx, hashstr, length) != 1 ) {
+        free(hashstr);
+        *length = 0;
+        return NULL;
+    }
+
+    EVP_MD_CTX_destroy(mdctx);
+
+    return hashstr;
+}
+
+
+
+/*
+ * https://www.openssl.org/docs/crypto/RSA_sign.html
+ */
+static char *sign(char *hashstr, int *length) {
+    char *signature;
+    FILE *privfile;
+    RSA *key;
+    int siglen;
+
+    assert(hashstr);
+    assert(length);
+
+    if ( (privfile = fopen(vars.amqp_ssl.key, "r")) == NULL ) {
+        *length = 0;
+        return NULL;
+    }
+
+    //if ( PEM_read_RSAPrivateKey(privfile, &key, NULL, NULL) == NULL ) {
+    if ( (key = PEM_read_RSAPrivateKey(privfile, NULL, NULL, NULL)) == NULL ) {
+        fclose(privfile);
+        *length = 0;
+        return NULL;
+    }
+
+    fclose(privfile);
+
+    if ( (signature = calloc(1, RSA_size(key))) == NULL ) {
+        *length = 0;
+        return NULL;
+    }
+
+    if ( RSA_sign(NID_sha256, hashstr, *length, signature, &siglen, key) != 1 ){
+        *length = 0;
+        return NULL;
+    }
+
+    RSA_free(key);
+    *length = siglen;
+
+    return signature;
+}
+
+
+
+/*
+ *
+ */
+static int fetch_certificate(void) {
+    CURL *curl;
+    CURLcode res;
+    FILE *certfile;
+    double size;
+    long code;
+    char *url, *hashstr, *signature, *urlsig;
+    int length;
+    int i;
+    BIO *bio;
+
+    Log(LOG_DEBUG, "Fetch signed certificate");
+
+    /* hash the data that we are about to sign */
+    length = strlen(vars.ampname);
+    if ( (hashstr = hash(vars.ampname, &length)) == NULL || length <= 0 ) {
+        return -1;
+    }
+
+    /*
+     * sign the ampname, so the server can confirm we sent the CSR and should
+     * have access to the signed certificate
+     */
+    if ( (signature = sign(hashstr, &length)) == NULL || length <= 0 ) {
+        free(hashstr);
+        return -1;
+    }
+
+    free(hashstr);
+
+    /*
+     * base64 encode the signature so we can transmit it as printable chars
+     * https://gist.github.com/barrysteyn/7308212
+     */
+    bio = BIO_push(BIO_new(BIO_f_base64()), BIO_new(BIO_s_mem()));
+    BIO_set_flags(bio, BIO_FLAGS_BASE64_NO_NL);
+    BIO_write(bio, signature, length);
+    BIO_flush(bio);
+    length = BIO_get_mem_data(bio, &urlsig);
+
+    /* modify the encoding slightly, as we can't use these chars in a url */
+    for ( i = 0; i < length; i++ ) {
+        switch ( urlsig[i] ) {
+            case '+': urlsig[i] = '-'; break;
+            case '/': urlsig[i] = '_'; break;
+            default: /* do nothing */ break;
+        };
+    }
+
+    free(signature);
+
+    if ( (certfile = fopen(vars.amqp_ssl.cert, "w")) == NULL ) {
+        BIO_free_all(bio);
+        return -1;
+    }
+
+    /* we need to use an https url to get curl to use the cert/ssl options */
+    if ( asprintf(&url, "https://%s:%d/cert/%s/%.*s", vars.collector,
+                AMP_PKI_SSL_PORT, vars.ampname, length, urlsig) < 0 ) {
+        Log(LOG_ALERT, "Failed to build cert fetching url");
+        fclose(certfile);
+        BIO_free_all(bio);
+        return -1;
+    }
+
+    Log(LOG_INFO, "Checking for signed certificate at %s", url);
+
+    curl = curl_easy_init();
+    curl_easy_setopt(curl, CURLOPT_URL, url);
+    curl_easy_setopt(curl, CURLOPT_USERAGENT, PACKAGE_STRING);
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, certfile);
+
+    curl_easy_setopt(curl, CURLOPT_CAINFO, vars.amqp_ssl.cacert);
+    /* Try to verify the server certificate */
+    curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 1);
+    /* Try to verify the server hostname/commonname */
+    curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 2);
+
+    res = curl_easy_perform(curl);
+
+    fclose(certfile);
+    free(url);
+    BIO_free_all(bio);
+
+    if ( res != CURLE_OK ) {
+        Log(LOG_WARNING, "Failed to fetch signed certificate: %s",
+                curl_easy_strerror(res));
         curl_easy_cleanup(curl);
         return -1;
     }
@@ -416,18 +587,59 @@ static int send_csr(char *request) {
                     vars.amqp_ssl.cert, strerror(errno));
         }
 
-        /* CSR was accepted but has not yet been signed, wait and try again */
-        if ( code == 202 ) {
-            Log(LOG_DEBUG, "CSR was accepted but has not yet been signed");
+        /* certificate has not yet been signed, wait and try again */
+        if ( code == 403 ) {
+            Log(LOG_DEBUG, "Certificate has not yet been signed");
             return 1;
         }
 
-        Log(LOG_WARNING, "Error fetching signed cert, code:%d, size:%sB",
+        Log(LOG_WARNING, "Error fetching signed cert, code:%d, size:%fB",
                 code, size);
         return -1;
     }
 
     Log(LOG_INFO, "Signed certificate stored in %s", vars.amqp_ssl.cert);
+
+    return 0;
+}
+
+
+
+/*
+ * Make sure that the locations of all keys have been set. If they were
+ * manually specified then the files need to exist, otherwise we don't
+ * care either way, they will get created if they need to be.
+ */
+static int check_key_locations(void) {
+
+    if ( vars.amqp_ssl.cert == NULL ) {
+        if ( asprintf(&vars.amqp_ssl.cert, "%s/%s.cert",
+                    vars.keys_dir, vars.collector) < 0 ) {
+            Log(LOG_ALERT, "Failed to build custom certfile path");
+            return -1;
+        }
+    } else if ( check_exists(vars.amqp_ssl.cert, 1) < 0 ) {
+        return -1;
+    }
+
+    if ( vars.amqp_ssl.key == NULL ) {
+        if ( asprintf(&vars.amqp_ssl.key, "%s/key.pem", vars.keys_dir) < 0 ) {
+            Log(LOG_ALERT, "Failed to build custom keyfile path");
+            return -1;
+        }
+    } else if ( check_exists(vars.amqp_ssl.key, 1) < 0 ) {
+        return -1;
+    }
+
+    if ( vars.amqp_ssl.cacert == NULL ) {
+        if ( asprintf(&vars.amqp_ssl.cacert, "%s/%s.pem", AMP_KEYS_DIR,
+                    vars.collector) < 0 ) {
+            Log(LOG_ALERT, "Failed to build custom cacert file path");
+            return -1;
+        }
+    } else if ( check_exists(vars.amqp_ssl.cacert, 1) < 0 ) {
+        return -1;
+    }
 
     return 0;
 }
@@ -497,23 +709,8 @@ int get_certificate(int timeout) {
         }
     }
 
-    if ( vars.amqp_ssl.cert == NULL ) {
-
-        specified = 0;
-
-        /* set the certfile to be the default location for this ampname */
-        if ( asprintf(&vars.amqp_ssl.cert, "%s/%s.cert",
-                    vars.keys_dir, vars.collector) < 0 ) {
-            Log(LOG_ALERT, "Failed to build custom certfile path");
-            return -1;
-        }
-    }
-
-    /* check if the keyfile exists */
-    if ( (exists = check_exists(vars.amqp_ssl.cert, specified)) != 1 ) {
-        /* XXX should check that the cert and key and ca all match? */
-        /* -1 is error, 0 is a good existing file, neither need any more work */
-        return exists;
+    if ( check_key_locations() < 0 ) {
+        return -1;
     }
 
     /* certfile doesn't exist and wasn't manually specified, need to create */
@@ -528,14 +725,19 @@ int get_certificate(int timeout) {
     }
 
     /* send CSR and wait for cert */
-    while( (res = send_csr(request)) == 1 && timeout > 0 ) {
+    if ( send_csr(request) < 0 ) {
+        free(request);
+        return -1;
+    }
+
+    while ( (res = fetch_certificate()) == 1 && timeout > 0 ) {
         if ( timeout < AMP_PKI_QUERY_INTERVAL ) {
-            Log(LOG_DEBUG, "Sleeping for %d seconds before sending CSR again",
+            Log(LOG_DEBUG, "Sleeping for %d seconds before checking for cert",
                     timeout);
             sleep(timeout);
             timeout = 0;
         } else {
-            Log(LOG_DEBUG, "Sleeping for %d seconds before sending CSR again",
+            Log(LOG_DEBUG, "Sleeping for %d seconds before checking for cert",
                     AMP_PKI_QUERY_INTERVAL);
             sleep(AMP_PKI_QUERY_INTERVAL);
             timeout -= AMP_PKI_QUERY_INTERVAL;
