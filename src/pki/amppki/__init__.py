@@ -9,7 +9,7 @@ def main(global_config, **settings):
 
     config.add_route("cacert", "cacert")
     config.add_route("sign", "sign")
-    config.add_route("cert", "cert/{certname}")
+    config.add_route("cert", "cert/{ampname}/{signature}")
 
     config.add_route("default", "/*args")
 

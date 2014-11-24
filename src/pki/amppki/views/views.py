@@ -60,19 +60,17 @@ def sign(request):
     return Response(status_code=202)
 
 
-# TODO PKCS1_PSS vs PKCS1_v1_5
 @view_config(route_name="cert", renderer="string")
 def cert(request):
     # TODO can we make sure this is done over SSL? don't accept this otherwise
     # check that the named cert exists
     print request.matchdict
-    certname = request.matchdict["certname"]
-    certname = "cert.pem" # XXX
+    ampname = request.matchdict["ampname"]
+    certname = "%s.cert" % ampname
+    signature = (urlsafe_b64decode(str(request.matchdict["signature"])), None)
     print "got request for cert", certname
 
-    print "headers:", request.headers
-    print "environ:", request.environ
-    print "body:", request.body
+    open("test.sig", "w").write(signature[0])
 
     # TODO sanitise certname so that they can't load arbitrary files
 
@@ -83,9 +81,8 @@ def cert(request):
         # the user doesn't need to know what went wrong, just tell them that
         # they can't get whatever cert they asked for
         print "failed to open certificate:", e
-        return HTTPForbidden()
-
-    print certstr
+        #return HTTPForbidden()
+        return Response(status_code=403)
 
     # Crypto.RSA.importKey() doesn't like X509 certificates, so we have to
     # extract the public key from the certificate before we can use it
@@ -101,20 +98,25 @@ def cert(request):
         key = RSA.importKey(subjectPublicKeyInfo)
     except (ValueError, IndexError, TypeError) as e:
         print "importing key failed:", e
-        return HTTPForbidden()
+        #return HTTPForbidden()
+        return Response(status_code=403)
 
     if key is None:
         print "key is none"
-        return HTTPForbidden()
+        #return HTTPForbidden()
+        return Response(status_code=403)
 
-    # read the signature and verify it against the public key in the cert
+    print key.exportKey()
+
+    # verify the signature using the public key in the cert
     # https://www.dlitz.net/software/pycrypto/api/2.6/Crypto.PublicKey.RSA._RSAobj-class.html#verify
-    signature = (1234567890, None) # TODO get from body
-    shahash = SHA256.new(certname)
+    shahash = SHA256.new(ampname)
+    print shahash.hexdigest()
     verifier = PKCS1_v1_5.new(key)
-    if not verifier.verify(shahash, signature):
+    if not verifier.verify(shahash, signature[0]):
         print "verification failed"
-        return HTTPForbidden()
+        #return HTTPForbidden()
+        return Response(status_code=403)
 
     # return the signed cert
     print "all ok"
