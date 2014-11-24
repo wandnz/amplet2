@@ -21,17 +21,21 @@ def get_data(data):
     by a number of tcpping_report_item_t structures with the individual test
     results. Both of these are described in src/tests/tcpping/tcpping.h
     """
+
+    header_len = struct.calcsize("!IhBB")
+    item_len = struct.calcsize("!16sihBBBBBB")
+
     # Check the version number first before looking at anything else.
     # Using the "!" format will automatically convert from network to host
     # byte order, which is pretty cool.
+    if len(data) < header_len:
+        print "%s: not enough data to unpack header", __file__
+        return None
     version, = struct.unpack_from("!I", data, 0)
 
     # deal with the current version, which is what we should be using
     if version != AMP_TCPPING_TEST_VERSION:
         raise VersionMismatch(version, AMP_TCPPING_TEST_VERSION)
-    
-    header_len = struct.calcsize("!IhBB")
-    item_len = struct.calcsize("!16sihBBBBBB")
 
     # offset past the version number which has already been read
     offset = struct.calcsize("!I")
@@ -44,6 +48,9 @@ def get_data(data):
 
     # extract every item in the data portion of the message
     while count > 0:
+        if len(data[offset:]) < item_len:
+            print "%s: not enough data to unpack item", __file__
+            return results
         # "p" pascal string could be useful here, length byte before string
         # except that they don't appear to work in any useful fashion
         # http://bugs.python.org/issue2981
@@ -52,6 +59,9 @@ def get_data(data):
 
         assert(namelen > 0 and namelen < 255)
         offset += item_len
+        if len(data[offset:]) < namelen:
+            print "%s: not enough data to unpack name", __file__
+            return results
         (name,) = struct.unpack_from("!%ds" % namelen, data, offset)
         offset += namelen
 
