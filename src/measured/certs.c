@@ -74,13 +74,15 @@ static RSA *load_existing_key_file(void) {
     FILE *privfile;
     RSA *key;
 
-    Log(LOG_DEBUG, "Using existing private key %s", vars.amqp_ssl.key);
+    Log(LOG_INFO, "Using existing private key %s", vars.amqp_ssl.key);
 
     if ( (privfile = fopen(vars.amqp_ssl.key, "r")) == NULL ) {
+        Log(LOG_WARNING, "Failed to open key file: %s", strerror(errno));
         return NULL;
     }
 
     if ( (key = PEM_read_RSAPrivateKey(privfile, NULL, NULL, NULL)) == NULL ) {
+        Log(LOG_WARNING, "Failed to read private key");
         fclose(privfile);
         return NULL;
     }
@@ -98,20 +100,22 @@ static RSA *create_new_key_file(void) {
     FILE *privfile;
     RSA *key;
 
-    Log(LOG_DEBUG, "Key file doesn't exist, creating %s", vars.amqp_ssl.key);
+    Log(LOG_INFO, "Private key doesn't exist, creating %s", vars.amqp_ssl.key);
 
     if ( (key = RSA_generate_key(2048, RSA_F4, NULL, NULL)) == NULL ) {
-        Log(LOG_ALERT, "Failed to generate RSA key");
+        Log(LOG_WARNING, "Failed to generate RSA key");
         return NULL;
     }
 
     if ( (privfile = fopen(vars.amqp_ssl.key, "w")) == NULL ) {
+        Log(LOG_WARNING, "Failed to open key file: %s", strerror(errno));
         RSA_free(key);
         return NULL;
     }
 
     if ( PEM_write_RSAPrivateKey(privfile, key, NULL, NULL, 0, NULL,
                 NULL) != 1 ) {
+        Log(LOG_WARNING, "Failed to write private key");
         RSA_free(key);
         fclose(privfile);
         return NULL;
@@ -155,19 +159,22 @@ static X509_REQ *load_existing_csr_file(char *filename) {
     X509_REQ *request;
     FILE *csrfile;
 
-    Log(LOG_DEBUG, "Using existing CSR %s", filename);
+    Log(LOG_INFO, "Using existing CSR %s", filename);
 
     if ( (request = X509_REQ_new()) == NULL ) {
+        Log(LOG_WARNING, "Failed to create X509 signing request");
         return NULL;
     }
 
     if ( (csrfile = fopen(filename, "r")) == NULL ) {
+        Log(LOG_WARNING, "Failed to open CSR file: %s", strerror(errno));
         X509_REQ_free(request);
         return NULL;
     }
 
     /* open it so we can use it to create a CSR */
     if ( PEM_read_X509_REQ(csrfile, &request, NULL, NULL) == NULL ) {
+        Log(LOG_WARNING, "Failed to read X509 signing request");
         X509_REQ_free(request);
         request = NULL;
     }
@@ -188,18 +195,20 @@ static X509_REQ *create_new_csr_file(char *filename) {
     RSA *key;
     FILE *csrfile;
 
-    Log(LOG_DEBUG, "CSR doesn't exist, creating %s", filename);
+    Log(LOG_INFO, "CSR doesn't exist, creating %s", filename);
 
     if ( (key = get_key_file()) == NULL ) {
         return NULL;
     }
 
     if ( (request = X509_REQ_new()) == NULL ) {
+        Log(LOG_WARNING, "Failed to create X509 signing request");
         RSA_free(key);
         return NULL;
     }
 
     if ( (pkey = EVP_PKEY_new()) == NULL ) {
+        Log(LOG_WARNING, "Failed to create PKEY");
         RSA_free(key);
         X509_REQ_free(request);
         return NULL;
@@ -207,6 +216,7 @@ static X509_REQ *create_new_csr_file(char *filename) {
 
     /* after assigning to the pkey, the key is the reponsibility of the pkey */
     if ( !EVP_PKEY_assign_RSA(pkey, key) ) {
+        Log(LOG_WARNING, "Failed to assign private key");
         RSA_free(key);
         EVP_PKEY_free(pkey);
         X509_REQ_free(request);
@@ -222,6 +232,7 @@ static X509_REQ *create_new_csr_file(char *filename) {
 
     /* sign the request */
     if ( !X509_REQ_sign(request, pkey, EVP_sha256()) ) {
+        Log(LOG_WARNING, "Failed to sign the CSR");
         EVP_PKEY_free(pkey);
         X509_REQ_free(request);
         return NULL;
@@ -232,12 +243,14 @@ static X509_REQ *create_new_csr_file(char *filename) {
 
     /* write CSR to disk */
     if ( (csrfile = fopen(filename, "w") ) == NULL ) {
+        Log(LOG_WARNING, "Failed to open CSR file: %s", strerror(errno));
         X509_REQ_free(request);
         return NULL;
     }
 
     /* XXX do we actually need to save the CSR? or just flag it has been sent */
     if ( !PEM_write_X509_REQ(csrfile, request) ) {
+        Log(LOG_WARNING, "Failed to write X509 signing request");
         X509_REQ_free(request);
         request = NULL;
     }
@@ -259,7 +272,7 @@ static X509_REQ *get_csr(void) {
     Log(LOG_DEBUG, "Get certificate signing request");
 
     if ( asprintf(&filename, "%s/%s.csr", vars.keys_dir, vars.collector) < 0 ) {
-        Log(LOG_ALERT, "Failed to build custom CSR path");
+        Log(LOG_WARNING, "Failed to build custom CSR path");
         return NULL;
     }
 
@@ -355,11 +368,15 @@ static char *get_csr_string(X509_REQ *request) {
     char *csrstr;
     size_t size;
 
+    Log(LOG_DEBUG, "Writing X509_REQ to string");
+
     if ( (out = open_memstream(&csrstr, &size)) == NULL ) {
+        Log(LOG_WARNING, "Failed to open memory stream: %s", strerror(errno));
         return NULL;
     }
 
     if ( !PEM_write_X509_REQ(out, request) ) {
+        Log(LOG_WARNING, "Failed to write X509_REQ");
         return NULL;
     }
 
@@ -378,8 +395,6 @@ static int send_csr(X509_REQ *request) {
     char *csrstr;
     char *csrpost;
 
-    Log(LOG_DEBUG, "Send CSR");
-
     /* try to read the CSR into a string so we can urlencode it later */
     if ( (csrstr = get_csr_string(request)) == NULL ) {
         return -1;
@@ -388,12 +403,12 @@ static int send_csr(X509_REQ *request) {
     /* we need to use an https url to get curl to use the cert/ssl options */
     if ( asprintf(&url, "https://%s:%d/sign", vars.collector,
                 AMP_PKI_SSL_PORT) < 0 ) {
-        Log(LOG_ALERT, "Failed to build cert signing url");
+        Log(LOG_WARNING, "Failed to build cert signing url");
         free(csrstr);
         return -1;
     }
 
-    Log(LOG_INFO, "Sending certificate request to %s", url);
+    Log(LOG_INFO, "Sending certificate signing request to %s", url);
 
     curl = curl_easy_init();
 
