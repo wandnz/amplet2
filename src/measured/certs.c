@@ -775,14 +775,13 @@ int get_certificate(int timeout) {
         return -1;
     }
 
-    /* certfile doesn't exist and wasn't manually specified, need to create */
-    if ( (request = get_csr()) == NULL ) {
+    /* get the cacert if we don't already have one for this server */
+    if ( get_cacert() < 0 ) {
         return -1;
     }
 
-    /* get the cacert if we don't already have one for this server */
-    if ( get_cacert() < 0 ) {
-        X509_REQ_free(request);
+    /* certfile doesn't exist and wasn't manually specified, need to create */
+    if ( (request = get_csr()) == NULL ) {
         return -1;
     }
 
