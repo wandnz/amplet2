@@ -188,36 +188,31 @@ static X509_REQ *load_existing_csr_file(char *filename) {
 /*
  *
  */
-static X509_REQ *create_new_csr_file(char *filename) {
+static X509_REQ *create_new_csr_file(RSA *key, char *filename) {
     X509_REQ *request;
     X509_NAME *name;
     EVP_PKEY *pkey;
-    RSA *key;
     FILE *csrfile;
 
     Log(LOG_INFO, "CSR doesn't exist, creating %s", filename);
 
-    if ( (key = get_key_file()) == NULL ) {
-        return NULL;
-    }
-
     if ( (request = X509_REQ_new()) == NULL ) {
         Log(LOG_WARNING, "Failed to create X509 signing request");
-        RSA_free(key);
         return NULL;
     }
 
     if ( (pkey = EVP_PKEY_new()) == NULL ) {
         Log(LOG_WARNING, "Failed to create PKEY");
-        RSA_free(key);
         X509_REQ_free(request);
         return NULL;
     }
 
-    /* after assigning to the pkey, the key is the reponsibility of the pkey */
-    if ( !EVP_PKEY_assign_RSA(pkey, key) ) {
+    /*
+     * Using EVP_PKEY_set1_RSA() rather than EVP_PKEY_assign_RSA() means we
+     * keep control of the key structure, and can free it ourselves later.
+     */
+    if ( !EVP_PKEY_set1_RSA(pkey, key) ) {
         Log(LOG_WARNING, "Failed to assign private key");
-        RSA_free(key);
         EVP_PKEY_free(pkey);
         X509_REQ_free(request);
         return NULL;
@@ -238,7 +233,6 @@ static X509_REQ *create_new_csr_file(char *filename) {
         return NULL;
     }
 
-    /* this will also free key, don't need to call RSA_free() */
     EVP_PKEY_free(pkey);
 
     /* write CSR to disk */
@@ -265,7 +259,7 @@ static X509_REQ *create_new_csr_file(char *filename) {
  * Check if a certificate signing request already exists, and if so return it.
  * If it doesn't exist then try to create one.
  */
-static X509_REQ *get_csr(void) {
+static X509_REQ *get_csr(RSA *key) {
     X509_REQ *request;
     char *filename;
 
@@ -278,7 +272,7 @@ static X509_REQ *get_csr(void) {
 
     switch ( check_exists(filename, 0) ) {
         case 0: request = load_existing_csr_file(filename); break;
-        case 1: request = create_new_csr_file(filename); break;
+        case 1: request = create_new_csr_file(key, filename); break;
         default: request = NULL; break;
     };
 
@@ -733,6 +727,7 @@ static int check_key_locations(void) {
  */
 int get_certificate(int timeout) {
     X509_REQ *request;
+    RSA *key;
     int res;
 
     /*
@@ -792,13 +787,16 @@ int get_certificate(int timeout) {
 
     /* get the cacert if we don't already have one for this server */
     if ( get_cacert() < 0 ) {
+    if ( (key = get_key_file()) == NULL ) {
         return -1;
     }
 
-    /* certfile doesn't exist and wasn't manually specified, need to create */
-    if ( (request = get_csr()) == NULL ) {
+    if ( (request = get_csr(key)) == NULL ) {
+        RSA_free(key);
         return -1;
     }
+
+    RSA_free(key);
 
     /* send CSR and wait for cert */
     if ( send_csr(request) < 0 ) {
