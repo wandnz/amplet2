@@ -319,21 +319,47 @@ static int get_cacert(void) {
 
 
 
+/*
+ * Try to read in the CSR into a string so we can urlencode it later.
+ */
+static char *read_csr_file(char *filename) {
+    FILE *csrfile;
+    char *csrstr = calloc(1, 4096);
+
+    if ( (csrfile = fopen(filename, "r")) == NULL ) {
+        free(csrstr);
+        Log(LOG_ALERT, "Failed to open CSR file %s", filename);
+        return NULL;
+    }
+
+    /* TODO deal with longer CSR files */
+    if ( fread(csrstr, 4096, 1, csrfile) < 0 ) {
+        free(csrstr);
+        fclose(csrfile);
+        Log(LOG_ALERT, "Failed to read CSR from %s", filename);
+        return NULL;
+    }
+
+    fclose(csrfile);
+
+    return csrstr;
+}
+
+
+
 static int send_csr(char *request) {
     CURL *curl;
     CURLcode res;
-    FILE *csr;
+    FILE *csrfile;
     long code;
     char *url;
-    int csr_size;
+    char *csrstr;
+    char *csrpost;
 
     Log(LOG_DEBUG, "Send CSR");
 
-    if ( (csr_size = stat_filesize(request)) < 0 ) {
-        return -1;
-    }
-
-    if ( (csr = fopen(request, "r")) == NULL ) {
+    /* try to read in the CSR into a string so we can urlencode it later */
+    if ( (csrstr = read_csr_file(request)) == NULL ) {
         return -1;
     }
 
@@ -341,18 +367,32 @@ static int send_csr(char *request) {
     if ( asprintf(&url, "https://%s:%d/sign", vars.collector,
                 AMP_PKI_SSL_PORT) < 0 ) {
         Log(LOG_ALERT, "Failed to build cert signing url");
-        fclose(csr);
+        free(csrstr);
         return -1;
     }
 
     Log(LOG_INFO, "Sending CSR found in %s to %s", request, url);
 
     curl = curl_easy_init();
+
+    /* escape the CSR, it has lots of characters in it that we can't use */
+    csrpost = curl_easy_escape(curl, csrstr, 0);
+
+    /* open the string as a file pointer to give to curl */
+    if ( (csrfile = fmemopen(csrpost, strlen(csrpost), "r")) == NULL ) {
+        Log(LOG_ALERT, "Failed to open urlencoded CSR as a stream");
+        free(url);
+        free(csrstr);
+        curl_free(csrpost);
+        curl_easy_cleanup(curl);
+        return -1;
+    }
+
     curl_easy_setopt(curl, CURLOPT_URL, url);
     curl_easy_setopt(curl, CURLOPT_USERAGENT, PACKAGE_STRING);
     curl_easy_setopt(curl, CURLOPT_POST, 1);
-    curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, csr_size);
-    curl_easy_setopt(curl, CURLOPT_READDATA, csr);
+    curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, strlen(csrpost));
+    curl_easy_setopt(curl, CURLOPT_READDATA, csrfile);
 
     //XXX may need to remove Expect header to actually work?
     //XXX what content type do i want?
@@ -365,8 +405,10 @@ static int send_csr(char *request) {
 
     res = curl_easy_perform(curl);
 
-    fclose(csr);
     free(url);
+    free(csrstr);
+    curl_free(csrpost);
+    fclose(csrfile);
 
     if ( res != CURLE_OK ) {
         Log(LOG_WARNING, "Failed to send CSR: %s", curl_easy_strerror(res));
