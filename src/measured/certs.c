@@ -68,21 +68,6 @@ static int check_exists(char *path, int strict) {
 
 
 /*
- *
- */
-static int stat_filesize(char *path) {
-    struct stat statbuf;
-
-    if ( stat(path, &statbuf) < 0 ) {
-        return -1;
-    }
-
-    return statbuf.st_size;
-}
-
-
-
-/*
  * XXX can we pass in all the things that are referenced globally? not heaps?
  */
 /*
