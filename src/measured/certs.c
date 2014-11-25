@@ -212,18 +212,37 @@ static X509_REQ *create_new_csr_file(RSA *key, char *filename) {
      * keep control of the key structure, and can free it ourselves later.
      */
     if ( !EVP_PKEY_set1_RSA(pkey, key) ) {
-        Log(LOG_WARNING, "Failed to assign private key");
+        Log(LOG_WARNING, "Failed to assign private key to PKEY");
         EVP_PKEY_free(pkey);
         X509_REQ_free(request);
         return NULL;
     }
 
-    //XXX do these have error checking?
-    X509_REQ_set_pubkey(request, pkey);
+    if ( !X509_REQ_set_pubkey(request, pkey) ) {
+        Log(LOG_WARNING, "Failed to set public key for CSR");
+        EVP_PKEY_free(pkey);
+        X509_REQ_free(request);
+        return NULL;
+    }
+
     name = X509_REQ_get_subject_name(request);
-    //XXX any other options we want to set? server will just add what it wants
-    X509_NAME_add_entry_by_txt(name,"CN",MBSTRING_ASC, vars.ampname, -1, -1, 0);
-    X509_NAME_add_entry_by_txt(name,"O", MBSTRING_ASC, "client", -1, -1, 0);
+
+    /*XXX any other options we want to set? server will just add whatever? */
+    if ( !X509_NAME_add_entry_by_txt(name, "CN", MBSTRING_ASC, vars.ampname,
+                -1, -1, 0) ) {
+        Log(LOG_WARNING, "Failed to set Common Name in CSR");
+        EVP_PKEY_free(pkey);
+        X509_REQ_free(request);
+        return NULL;
+    }
+
+    if ( !X509_NAME_add_entry_by_txt(name,"O", MBSTRING_ASC, "client",
+                -1, -1, 0) ) {
+        Log(LOG_WARNING, "Failed to set Organisation in CSR");
+        EVP_PKEY_free(pkey);
+        X509_REQ_free(request);
+        return NULL;
+    }
 
     /* sign the request */
     if ( !X509_REQ_sign(request, pkey, EVP_sha256()) ) {
