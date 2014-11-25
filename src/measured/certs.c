@@ -149,99 +149,128 @@ static RSA *get_key_file(void) {
 
 
 /*
+ *
+ */
+static X509_REQ *load_existing_csr_file(char *filename) {
+    X509_REQ *request;
+    FILE *csrfile;
+
+    Log(LOG_DEBUG, "Using existing CSR %s", filename);
+
+    if ( (request = X509_REQ_new()) == NULL ) {
+        return NULL;
+    }
+
+    if ( (csrfile = fopen(filename, "r")) == NULL ) {
+        X509_REQ_free(request);
+        return NULL;
+    }
+
+    /* open it so we can use it to create a CSR */
+    if ( PEM_read_X509_REQ(csrfile, &request, NULL, NULL) == NULL ) {
+        X509_REQ_free(request);
+        request = NULL;
+    }
+
+    fclose(csrfile);
+    return request;
+}
+
+
+
+/*
+ *
+ */
+static X509_REQ *create_new_csr_file(char *filename) {
+    X509_REQ *request;
+    X509_NAME *name;
+    EVP_PKEY *pkey;
+    RSA *key;
+    FILE *csrfile;
+
+    Log(LOG_DEBUG, "CSR doesn't exist, creating %s", filename);
+
+    if ( (key = get_key_file()) == NULL ) {
+        return NULL;
+    }
+
+    if ( (request = X509_REQ_new()) == NULL ) {
+        RSA_free(key);
+        return NULL;
+    }
+
+    if ( (pkey = EVP_PKEY_new()) == NULL ) {
+        RSA_free(key);
+        X509_REQ_free(request);
+        return NULL;
+    }
+
+    /* after assigning to the pkey, the key is the reponsibility of the pkey */
+    if ( !EVP_PKEY_assign_RSA(pkey, key) ) {
+        RSA_free(key);
+        EVP_PKEY_free(pkey);
+        X509_REQ_free(request);
+        return NULL;
+    }
+
+    //XXX do these have error checking?
+    X509_REQ_set_pubkey(request, pkey);
+    name = X509_REQ_get_subject_name(request);
+    //XXX any other options we want to set? server will just add what it wants
+    X509_NAME_add_entry_by_txt(name,"CN",MBSTRING_ASC, vars.ampname, -1, -1, 0);
+    X509_NAME_add_entry_by_txt(name,"O", MBSTRING_ASC, "client", -1, -1, 0);
+
+    /* sign the request */
+    if ( !X509_REQ_sign(request, pkey, EVP_sha256()) ) {
+        EVP_PKEY_free(pkey);
+        X509_REQ_free(request);
+        return NULL;
+    }
+
+    /* this will also free key, don't need to call RSA_free() */
+    EVP_PKEY_free(pkey);
+
+    /* write CSR to disk */
+    if ( (csrfile = fopen(filename, "w") ) == NULL ) {
+        X509_REQ_free(request);
+        return NULL;
+    }
+
+    /* XXX do we actually need to save the CSR? or just flag it has been sent */
+    if ( !PEM_write_X509_REQ(csrfile, request) ) {
+        X509_REQ_free(request);
+        request = NULL;
+    }
+
+    fclose(csrfile);
+    return request;
+}
+
+
+
+/*
  * Check if a certificate signing request already exists, and if so return it.
  * If it doesn't exist then try to create one.
  */
-static char *get_csr(void) {
+static X509_REQ *get_csr(void) {
     X509_REQ *request;
-    EVP_PKEY *pkey;
-    X509_NAME *name;
-    RSA *key;
-    FILE *csrfile;
     char *filename;
-    int exists;
 
     Log(LOG_DEBUG, "Get certificate signing request");
 
-    /* TODO check if CSR already exists, and if so open and return it */
     if ( asprintf(&filename, "%s/%s.csr", vars.keys_dir, vars.collector) < 0 ) {
         Log(LOG_ALERT, "Failed to build custom CSR path");
         return NULL;
     }
 
-    exists = check_exists(filename, 0);
+    switch ( check_exists(filename, 0) ) {
+        case 0: request = load_existing_csr_file(filename); break;
+        case 1: request = create_new_csr_file(filename); break;
+        default: request = NULL; break;
+    };
 
-    if ( exists < 0 ) {
-        free(filename);
-        return NULL;
-    }
-
-    if ( (request = X509_REQ_new()) == NULL ) {
-        free(filename);
-        return NULL;
-    }
-
-    if ( exists == 0 ) {
-        if ( (csrfile = fopen(filename, "r")) == NULL ) {
-            free(filename);
-            return NULL;
-        }
-
-        /* open it so we can use it to create a CSR */
-        if ( PEM_read_X509_REQ(csrfile, &request, NULL, NULL) == NULL ) {
-            fclose(csrfile);
-            free(filename);
-            return NULL;
-        }
-
-        Log(LOG_DEBUG, "Using existing csr %s", filename);
-
-        fclose(csrfile);
-        return filename;
-    }
-
-    Log(LOG_DEBUG, "CSR doesn't exist, will create %s", filename);
-
-    /* otherwise, need to create a new CSR, get the private key and do it */
-    if ( (key = get_key_file()) == NULL ) {
-        free(filename);
-        return NULL;
-    }
-
-    if ( (pkey = EVP_PKEY_new()) == NULL ) {
-        free(filename);
-        return NULL;
-    }
-
-    if ( !EVP_PKEY_assign_RSA(pkey, key) ) {
-        free(filename);
-        return NULL;
-    }
-
-    Log(LOG_DEBUG, "Creating new CSR request");
-
-    //XXX do these have error checking?
-    X509_REQ_set_pubkey(request, pkey);
-    name = X509_REQ_get_subject_name(request);
-    X509_NAME_add_entry_by_txt(name,"CN",MBSTRING_ASC, vars.ampname, -1, -1, 0);
-    X509_NAME_add_entry_by_txt(name,"O", MBSTRING_ASC, "client", -1, -1, 0);
-
-    if ( !X509_REQ_sign(request, pkey, EVP_sha256()) ) {
-        free(filename);
-        return NULL;
-    }
-
-    /* write CSR to disk */
-    if ( (csrfile = fopen(filename, "w") ) == NULL ) {
-        free(filename);
-        return NULL;
-    }
-
-    PEM_write_X509_REQ(csrfile, request);
-
-    fclose(csrfile);
-
-    return filename;
+    free(filename);
+    return request;
 }
 
 
@@ -319,34 +348,28 @@ static int get_cacert(void) {
 
 
 /*
- * Try to read in the CSR into a string so we can urlencode it later.
+ * Try to write the CSR into a string so we can urlencode it later.
  */
-static char *read_csr_file(char *filename) {
-    FILE *csrfile;
-    char *csrstr = calloc(1, 4096);
+static char *get_csr_string(X509_REQ *request) {
+    FILE *out;
+    char *csrstr;
+    size_t size;
 
-    if ( (csrfile = fopen(filename, "r")) == NULL ) {
-        free(csrstr);
-        Log(LOG_ALERT, "Failed to open CSR file %s", filename);
+    if ( (out = open_memstream(&csrstr, &size)) == NULL ) {
         return NULL;
     }
 
-    /* TODO deal with longer CSR files */
-    if ( fread(csrstr, 4096, 1, csrfile) < 0 ) {
-        free(csrstr);
-        fclose(csrfile);
-        Log(LOG_ALERT, "Failed to read CSR from %s", filename);
+    if ( !PEM_write_X509_REQ(out, request) ) {
         return NULL;
     }
 
-    fclose(csrfile);
-
+    fclose(out);
     return csrstr;
 }
 
 
 
-static int send_csr(char *request) {
+static int send_csr(X509_REQ *request) {
     CURL *curl;
     CURLcode res;
     FILE *csrfile;
@@ -357,8 +380,8 @@ static int send_csr(char *request) {
 
     Log(LOG_DEBUG, "Send CSR");
 
-    /* try to read in the CSR into a string so we can urlencode it later */
-    if ( (csrstr = read_csr_file(request)) == NULL ) {
+    /* try to read the CSR into a string so we can urlencode it later */
+    if ( (csrstr = get_csr_string(request)) == NULL ) {
         return -1;
     }
 
@@ -370,7 +393,7 @@ static int send_csr(char *request) {
         return -1;
     }
 
-    Log(LOG_INFO, "Sending CSR found in %s to %s", request, url);
+    Log(LOG_INFO, "Sending certificate request to %s", url);
 
     curl = curl_easy_init();
 
@@ -694,9 +717,7 @@ static int check_key_locations(void) {
  * TODO function needs a better name
  */
 int get_certificate(int timeout) {
-    char *request;
-    int exists;
-    int specified = 1;
+    X509_REQ *request;
     int res;
 
     /*
@@ -761,13 +782,13 @@ int get_certificate(int timeout) {
 
     /* get the cacert if we don't already have one for this server */
     if ( get_cacert() < 0 ) {
-        free(request);
+        X509_REQ_free(request);
         return -1;
     }
 
     /* send CSR and wait for cert */
     if ( send_csr(request) < 0 ) {
-        free(request);
+        X509_REQ_free(request);
         return -1;
     }
 
@@ -785,7 +806,7 @@ int get_certificate(int timeout) {
         }
     }
 
-    free(request);
+    X509_REQ_free(request);
     return res;
 }
 
