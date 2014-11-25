@@ -296,11 +296,6 @@ static int get_cacert(void) {
 
     Log(LOG_DEBUG, "Get CA certificate");
 
-    /* check if the keyfile exists */
-    if ( (exists = check_exists(vars.amqp_ssl.cacert, 0)) != 1 ) {
-        return exists;
-    }
-
     if ( (cacertfile = fopen(vars.amqp_ssl.cacert, "w")) == NULL ) {
         return -1;
     }
@@ -781,12 +776,34 @@ int get_certificate(int timeout) {
         }
     }
 
+    /* TODO fix the ordering of this section, it seems like I check for the
+     * files existing way too many times
+     */
     if ( check_key_locations() < 0 ) {
         return -1;
     }
 
     /* get the cacert if we don't already have one for this server */
-    if ( get_cacert() < 0 ) {
+    if ( check_exists(vars.amqp_ssl.cacert, 0) == 0 ) {
+        Log(LOG_DEBUG, "Server certificate exists");
+    } else {
+        if ( get_cacert() < 0 ) {
+            return -1;
+        }
+    }
+
+    /* if the private key and certificate exist then thats all we need */
+    if ( check_exists(vars.amqp_ssl.key, 0) == 0 &&
+            check_exists(vars.amqp_ssl.cert, 0) == 0 ) {
+        Log(LOG_DEBUG, "Private key and certificate both exist");
+        return 0;
+    }
+
+    /*
+     * The certfile doesn't exist and wasn't manually specified, so it needs
+     * to be created by generating a certificate signing request and sending it
+     * off to be signed.
+     */
     if ( (key = get_key_file()) == NULL ) {
         return -1;
     }
