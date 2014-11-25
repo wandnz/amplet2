@@ -7,6 +7,7 @@ from Crypto.Hash import SHA256
 from Crypto.Signature import PKCS1_v1_5
 from ssl import PEM_cert_to_DER_cert
 from base64 import urlsafe_b64decode
+from os.path import isfile
 
 @view_config(route_name="default", renderer="string")
 def default(request):
@@ -26,7 +27,7 @@ def cacert(request):
 @view_config(route_name="sign", renderer="string")
 def sign(request):
     # TODO can we make sure this is done over SSL? don't accept this otherwise
-    print "signing a cert"
+    print "accepting cert signing request"
 
     if len(request.POST.keys()) != 1:
         print "no csr in message"
@@ -39,16 +40,24 @@ def sign(request):
     # first check if we have already signed this one, and send it if so (maybe
     # the client went away before it was signed).
     # TODO verify this is actually a CSR
-    # TODO use a regex, or stop it being modified in the first place!
     print csr
+    shahash = SHA256.new(csr).hexdigest()
+    print shahash
 
-    # if there isn't one we've prepared earlier, check if we can auto-sign
-    # this one right now (maybe it matches a known host config).
+    if not isfile(shahash):
+        # if there isn't one we've prepared earlier, check if we can auto-sign
+        # this one right now (maybe it matches a known host config).
+        # otherwise we add it to the queue and wait for a human to check it and
+        # decide if it should be signed or not
+        print "saving csr"
+        # XXX are CSRs being deleted once dealt with? could this cause a race?
+        try:
+            open(shahash, "w").write(csr)
+        except IOError:
+            # XXX is this giving away any useful information?
+            print "error saving csr"
+            return Response(status_code=500)
 
-    # otherwise we add it to the queue and wait for a human to check it and
-    # decide if it should be signed or not
-    print "saving csr"
-    open("test.csr", "w").write(csr)
     #return HTTPAccepted()
     return Response(status_code=202)
 
