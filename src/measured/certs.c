@@ -68,46 +68,36 @@ static int check_exists(char *path, int strict) {
 
 
 /*
- * XXX can we pass in all the things that are referenced globally? not heaps?
+ * Load an existing private RSA key from a file.
  */
-/*
- * If the private key file is specified, try to load it (not existing is an
- * error). If it is not specified, try to guess the filename and load that,
- * or create it if it doesn't exist.
- */
-static RSA *get_key_file(void) {
-    int exists;
+static RSA *load_existing_key_file(void) {
     FILE *privfile;
     RSA *key;
 
-    Log(LOG_DEBUG, "Get private key");
+    Log(LOG_DEBUG, "Using existing private key %s", vars.amqp_ssl.key);
 
-    /* check if the keyfile exists */
-    exists = check_exists(vars.amqp_ssl.key, 0);
-
-    if ( exists < 0 ) {
+    if ( (privfile = fopen(vars.amqp_ssl.key, "r")) == NULL ) {
         return NULL;
     }
 
-    if ( exists == 0 ) {
-        if ( (privfile = fopen(vars.amqp_ssl.key, "r")) == NULL ) {
-            return NULL;
-        }
-
-        /* open it so we can use it to create a CSR */
-        if ( (key = PEM_read_RSAPrivateKey(privfile, NULL, NULL,
-                        NULL)) == NULL ) {
-            fclose(privfile);
-            return NULL;
-        }
-
-        Log(LOG_DEBUG, "Using existing private key %s", vars.amqp_ssl.key);
-
+    if ( (key = PEM_read_RSAPrivateKey(privfile, NULL, NULL, NULL)) == NULL ) {
         fclose(privfile);
-        return key;
+        return NULL;
     }
 
-    /* keyfile wasn't manually specified, try to create it if we can */
+    fclose(privfile);
+    return key;
+}
+
+
+
+/*
+ * Create a new private RSA key file.
+ */
+static RSA *create_new_key_file(void) {
+    FILE *privfile;
+    RSA *key;
+
     Log(LOG_DEBUG, "Key file doesn't exist, creating %s", vars.amqp_ssl.key);
 
     if ( (key = RSA_generate_key(2048, RSA_F4, NULL, NULL)) == NULL ) {
@@ -115,7 +105,6 @@ static RSA *get_key_file(void) {
         return NULL;
     }
 
-    /* write the private key to disk */
     if ( (privfile = fopen(vars.amqp_ssl.key, "w")) == NULL ) {
         RSA_free(key);
         return NULL;
@@ -129,6 +118,31 @@ static RSA *get_key_file(void) {
     }
 
     fclose(privfile);
+    return key;
+}
+
+
+
+/*
+ * XXX can we pass in all the things that are referenced globally? not heaps?
+ */
+/*
+ * If the private key file is specified, try to load it (not existing is an
+ * error). If it is not specified, try to guess the filename and load that,
+ * or create it if it doesn't exist.
+ */
+static RSA *get_key_file(void) {
+    RSA *key;
+
+    Log(LOG_DEBUG, "Get private key");
+
+    /* check if the keyfile exists, creating it if it doesn't */
+    switch ( check_exists(vars.amqp_ssl.key, 0) ) {
+        case 0: key = load_existing_key_file(); break;
+        case 1: key = create_new_key_file(); break;
+        default: key = NULL; break;
+    };
+
     return key;
 }
 
