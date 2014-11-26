@@ -22,13 +22,13 @@ def sign(request):
     # TODO can we make sure this is done over SSL? don't accept this otherwise
     print "accepting cert signing request"
 
-    if len(request.POST.keys()) != 1:
+    if len(request.body) <= 0:
         print "no csr in message"
         #return HTTPBadRequest()
         return Response(status_code=400)
 
     # this is already url decoded for us, so use it as is
-    csr = request.POST.keys()[0]
+    csr = request.body
 
     # first check if we have already signed this one, and send it if so (maybe
     # the client went away before it was signed).

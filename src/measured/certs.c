@@ -302,7 +302,8 @@ static X509_REQ *get_csr(RSA *key) {
 
 
 /*
- * Try to write the CSR into a string so we can urlencode it later.
+ * The CSR needs to be in the same format as if it was written to disk,
+ * so we need to convert it from the X509_REQ struct.
  */
 static char *get_csr_string(X509_REQ *request) {
     FILE *out;
@@ -334,9 +335,9 @@ static int send_csr(X509_REQ *request) {
     long code;
     char *url;
     char *csrstr;
-    char *csrpost;
+    struct curl_slist *slist = NULL;
 
-    /* try to read the CSR into a string so we can urlencode it later */
+    /* try to read the CSR into a string so we have it in textual form */
     if ( (csrstr = get_csr_string(request)) == NULL ) {
         return -1;
     }
@@ -351,29 +352,25 @@ static int send_csr(X509_REQ *request) {
 
     Log(LOG_INFO, "Sending certificate signing request to %s", url);
 
-    curl = curl_easy_init();
-
-    /* escape the CSR, it has lots of characters in it that we can't use */
-    csrpost = curl_easy_escape(curl, csrstr, 0);
-
     /* open the string as a file pointer to give to curl */
-    if ( (csrfile = fmemopen(csrpost, strlen(csrpost), "r")) == NULL ) {
-        Log(LOG_ALERT, "Failed to open urlencoded CSR as a stream");
+    if ( (csrfile = fmemopen(csrstr, strlen(csrstr), "r")) == NULL ) {
+        Log(LOG_ALERT, "Failed to open CSR as a stream");
         free(url);
         free(csrstr);
-        curl_free(csrpost);
         curl_easy_cleanup(curl);
         return -1;
     }
 
+    curl = curl_easy_init();
     curl_easy_setopt(curl, CURLOPT_URL, url);
     curl_easy_setopt(curl, CURLOPT_USERAGENT, PACKAGE_STRING);
     curl_easy_setopt(curl, CURLOPT_POST, 1);
-    curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, strlen(csrpost));
+    curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, strlen(csrstr));
     curl_easy_setopt(curl, CURLOPT_READDATA, csrfile);
 
-    //XXX may need to remove Expect header to actually work?
-    //XXX what content type do i want?
+    /* make it a binary data stream so there is no encoding */
+    slist = curl_slist_append(slist, "Content-Type: application/octet-stream");
+    curl_easy_setopt(curl, CURLOPT_HTTPHEADER, slist);
 
     curl_easy_setopt(curl, CURLOPT_CAINFO, vars.amqp_ssl.cacert);
     /* Try to verify the server certificate */
@@ -383,9 +380,9 @@ static int send_csr(X509_REQ *request) {
 
     res = curl_easy_perform(curl);
 
+    curl_slist_free_all(slist);
     free(url);
     free(csrstr);
-    curl_free(csrpost);
     fclose(csrfile);
 
     if ( res != CURLE_OK ) {
