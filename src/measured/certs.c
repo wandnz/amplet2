@@ -99,6 +99,7 @@ static RSA *load_existing_key_file(void) {
 static RSA *create_new_key_file(void) {
     FILE *privfile;
     RSA *key;
+    mode_t oldmask;
 
     Log(LOG_INFO, "Private key doesn't exist, creating %s", vars.amqp_ssl.key);
 
@@ -107,11 +108,14 @@ static RSA *create_new_key_file(void) {
         return NULL;
     }
 
+    oldmask = umask(0077);
     if ( (privfile = fopen(vars.amqp_ssl.key, "w")) == NULL ) {
         Log(LOG_WARNING, "Failed to open key file: %s", strerror(errno));
         RSA_free(key);
+        umask(oldmask);
         return NULL;
     }
+    umask(oldmask);
 
     if ( PEM_write_RSAPrivateKey(privfile, key, NULL, NULL, 0, NULL,
                 NULL) != 1 ) {
