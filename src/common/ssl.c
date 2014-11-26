@@ -97,7 +97,7 @@ int initialise_ssl(void) {
     Log(LOG_DEBUG, "Initialising SSL");
 
     /*
-     * "OpenSSL OpenSSL will attempt to seed the random number generator
+     * "OpenSSL will attempt to seed the random number generator
      * automatically upon instantiation by calling RAND_poll. If the generator
      * is not initialized and RAND_bytes is called, then the generator will
      * also call RAND_poll"
@@ -119,6 +119,19 @@ int initialise_ssl(void) {
         ssl_cleanup();
         return -1;
     }
+
+    /*
+     * OpenSSL 1.0.1-beta1 to 1.0.1e will apparently use RDRAND as the source
+     * of all randomness, entropy, etc in an unsafe way. Disabling RDRAND is
+     * the recommended approach, which Debian did in version 1.0.1e-2+deb7u1
+     * on 23 December 2013.
+     *
+     * TODO Do we actually need to disable it ourselves in code as well? Do
+     * we trust all the distributions that we are running on?
+     *
+     * http://wiki.openssl.org/index.php/Library_Initialization
+     * http://seclists.org/fulldisclosure/2013/Dec/99
+     */
 
     return 0;
 }
