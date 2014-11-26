@@ -62,7 +62,15 @@ def cert(request):
     print request.matchdict
     ampname = request.matchdict["ampname"]
     certname = "%s.cert" % ampname
-    signature = (urlsafe_b64decode(str(request.matchdict["signature"])), None)
+    try:
+        signature = (urlsafe_b64decode(str(request.matchdict["signature"])),
+                None)
+    except TypeError as e:
+        # in this case we'll give the user a slightly more useful response
+        # code - they messed up their signature, nothing of ours is exposed
+        print "failed to base64 decode, invalid data"
+        return Response(status_code=400)
+
     print "got request for cert", certname
 
     open("test.sig", "w").write(signature[0])
