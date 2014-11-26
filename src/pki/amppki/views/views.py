@@ -63,8 +63,7 @@ def cert(request):
     ampname = request.matchdict["ampname"]
     certname = "%s.cert" % ampname
     try:
-        signature = (urlsafe_b64decode(str(request.matchdict["signature"])),
-                None)
+        signature = urlsafe_b64decode(str(request.matchdict["signature"]))
     except TypeError as e:
         # in this case we'll give the user a slightly more useful response
         # code - they messed up their signature, nothing of ours is exposed
@@ -73,7 +72,7 @@ def cert(request):
 
     print "got request for cert", certname
 
-    open("test.sig", "w").write(signature[0])
+    open("test.sig", "w").write(signature)
 
     # TODO sanitise certname so that they can't load arbitrary files
 
@@ -116,7 +115,7 @@ def cert(request):
     shahash = SHA256.new(ampname)
     print shahash.hexdigest()
     verifier = PKCS1_v1_5.new(key)
-    if not verifier.verify(shahash, signature[0]):
+    if not verifier.verify(shahash, signature):
         print "verification failed"
         #return HTTPForbidden()
         return Response(status_code=403)
