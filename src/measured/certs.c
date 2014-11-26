@@ -155,46 +155,12 @@ static RSA *get_key_file(void) {
 /*
  *
  */
-static X509_REQ *load_existing_csr_file(char *filename) {
-    X509_REQ *request;
-    FILE *csrfile;
-
-    Log(LOG_INFO, "Using existing CSR %s", filename);
-
-    if ( (request = X509_REQ_new()) == NULL ) {
-        Log(LOG_WARNING, "Failed to create X509 signing request");
-        return NULL;
-    }
-
-    if ( (csrfile = fopen(filename, "r")) == NULL ) {
-        Log(LOG_WARNING, "Failed to open CSR file: %s", strerror(errno));
-        X509_REQ_free(request);
-        return NULL;
-    }
-
-    /* open it so we can use it to create a CSR */
-    if ( PEM_read_X509_REQ(csrfile, &request, NULL, NULL) == NULL ) {
-        Log(LOG_WARNING, "Failed to read X509 signing request");
-        X509_REQ_free(request);
-        request = NULL;
-    }
-
-    fclose(csrfile);
-    return request;
-}
-
-
-
-/*
- *
- */
-static X509_REQ *create_new_csr_file(RSA *key, char *filename) {
+static X509_REQ *create_new_csr(RSA *key) {
     X509_REQ *request;
     X509_NAME *name;
     EVP_PKEY *pkey;
-    FILE *csrfile;
 
-    Log(LOG_INFO, "CSR doesn't exist, creating %s", filename);
+    Log(LOG_DEBUG, "Creating certificate signing request");
 
     if ( (request = X509_REQ_new()) == NULL ) {
         Log(LOG_WARNING, "Failed to create X509 signing request");
@@ -254,48 +220,6 @@ static X509_REQ *create_new_csr_file(RSA *key, char *filename) {
 
     EVP_PKEY_free(pkey);
 
-    /* write CSR to disk */
-    if ( (csrfile = fopen(filename, "w") ) == NULL ) {
-        Log(LOG_WARNING, "Failed to open CSR file: %s", strerror(errno));
-        X509_REQ_free(request);
-        return NULL;
-    }
-
-    /* XXX do we actually need to save the CSR? or just flag it has been sent */
-    if ( !PEM_write_X509_REQ(csrfile, request) ) {
-        Log(LOG_WARNING, "Failed to write X509 signing request");
-        X509_REQ_free(request);
-        request = NULL;
-    }
-
-    fclose(csrfile);
-    return request;
-}
-
-
-
-/*
- * Check if a certificate signing request already exists, and if so return it.
- * If it doesn't exist then try to create one.
- */
-static X509_REQ *get_csr(RSA *key) {
-    X509_REQ *request;
-    char *filename;
-
-    Log(LOG_DEBUG, "Get certificate signing request");
-
-    if ( asprintf(&filename, "%s/%s.csr", vars.keys_dir, vars.collector) < 0 ) {
-        Log(LOG_WARNING, "Failed to build custom CSR path");
-        return NULL;
-    }
-
-    switch ( check_exists(filename, 0) ) {
-        case 0: request = load_existing_csr_file(filename); break;
-        case 1: request = create_new_csr_file(key, filename); break;
-        default: request = NULL; break;
-    };
-
-    free(filename);
     return request;
 }
 
@@ -756,7 +680,7 @@ int get_certificate(int timeout) {
         return -1;
     }
 
-    if ( (request = get_csr(key)) == NULL ) {
+    if ( (request = create_new_csr(key)) == NULL ) {
         RSA_free(key);
         return -1;
     }
