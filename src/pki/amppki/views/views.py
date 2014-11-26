@@ -16,13 +16,6 @@ def default(request):
     return
 
 
-@view_config(route_name="cacert", renderer="string")
-def cacert(request):
-    # load the cacert from disk and send it to the user, it's public info
-    print "this is a cacert"
-    return open("cacert.pem").read()
-
-
 # XXX merge this with /cert and do different things on POST vs GET?
 @view_config(route_name="sign", renderer="string")
 def sign(request):

@@ -7,7 +7,6 @@ def main(global_config, **settings):
 
     config.add_asset_views('amppki:static', filenames=['robots.txt'], http_cache=3600)
 
-    config.add_route("cacert", "cacert")
     config.add_route("sign", "sign")
     config.add_route("cert", "cert/{ampname}/{signature}")
 

@@ -302,73 +302,6 @@ static X509_REQ *get_csr(RSA *key) {
 
 
 /*
- *
- */
-static int get_cacert(void) {
-    int exists;
-    CURL *curl;
-    CURLcode res;
-    FILE *cacertfile;
-    double size;
-    long code;
-    char *url;
-
-    Log(LOG_DEBUG, "Get CA certificate");
-
-    if ( (cacertfile = fopen(vars.amqp_ssl.cacert, "w")) == NULL ) {
-        return -1;
-    }
-
-    if ( asprintf(&url, "http://%s:%d/cacert", vars.collector,
-                AMP_PKI_NONSSL_PORT) < 0 ) {
-        Log(LOG_ALERT, "Failed to build cacert fetch url");
-        fclose(cacertfile);
-        return -1;
-    }
-
-    Log(LOG_INFO, "Fetching CA certificate from %s", url);
-
-    /* fetch the CA cert from the collector */
-    curl = curl_easy_init();
-    curl_easy_setopt(curl, CURLOPT_URL, url);
-    curl_easy_setopt(curl, CURLOPT_USERAGENT, PACKAGE_STRING);
-    curl_easy_setopt(curl, CURLOPT_WRITEDATA, cacertfile);
-
-    res = curl_easy_perform(curl);
-
-    fclose(cacertfile);
-    free(url);
-
-    if ( res != CURLE_OK ) {
-        Log(LOG_WARNING, "Failed to fetch cacert: %s", curl_easy_strerror(res));
-        curl_easy_cleanup(curl);
-        return -1;
-    }
-
-    /* check return code and that data was received */
-    curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &code);
-    curl_easy_getinfo(curl, CURLINFO_SIZE_DOWNLOAD, &size);
-    curl_easy_cleanup(curl);
-
-    if ( code != 200 || size <= 0 ) {
-        Log(LOG_WARNING,
-                "Response code %d, file size %fB, deleting invalid CA cert",
-                code, size);
-        if ( unlink(vars.amqp_ssl.cacert) < 0 ) {
-            Log(LOG_WARNING, "Failed to remove CA cert '%s': %s",
-                    vars.amqp_ssl.cacert, strerror(errno));
-        }
-        return -1;
-    }
-
-    Log(LOG_INFO, "CA certificate stored in %s", vars.amqp_ssl.cacert);
-
-    return 0;
-}
-
-
-
-/*
  * Try to write the CSR into a string so we can urlencode it later.
  */
 static char *get_csr_string(X509_REQ *request) {
@@ -724,7 +657,15 @@ static int check_key_locations(void) {
             Log(LOG_ALERT, "Failed to build custom cacert file path");
             return -1;
         }
-    } else if ( check_exists(vars.amqp_ssl.cacert, 1) < 0 ) {
+    }
+
+    /*
+     * The cacert should be distributed through some trusted means, it must
+     * exist here for us to continue.
+     */
+    if ( check_exists(vars.amqp_ssl.cacert, 1) < 0 ) {
+        Log(LOG_WARNING, "Server certificate %s doesn't exist!",
+                vars.amqp_ssl.cacert);
         return -1;
     }
 
@@ -802,15 +743,6 @@ int get_certificate(int timeout) {
         return -1;
     }
 
-    /* get the cacert if we don't already have one for this server */
-    if ( check_exists(vars.amqp_ssl.cacert, 0) == 0 ) {
-        Log(LOG_DEBUG, "Server certificate exists");
-    } else {
-        if ( get_cacert() < 0 ) {
-            return -1;
-        }
-    }
-
     /* if the private key and certificate exist then thats all we need */
     if ( check_exists(vars.amqp_ssl.key, 0) == 0 &&
             check_exists(vars.amqp_ssl.cert, 0) == 0 ) {
@@ -840,6 +772,7 @@ int get_certificate(int timeout) {
         return -1;
     }
 
+    /* TODO test the retry loop */
     while ( (res = fetch_certificate()) == 1 && timeout > 0 ) {
         if ( timeout < AMP_PKI_QUERY_INTERVAL ) {
             Log(LOG_DEBUG, "Sleeping for %d seconds before checking for cert",
