@@ -7,7 +7,7 @@ from Crypto.Hash import SHA256
 from Crypto.Signature import PKCS1_v1_5
 from ssl import PEM_cert_to_DER_cert
 from base64 import urlsafe_b64decode
-from os.path import isfile
+from os.path import isfile, basename
 
 @view_config(route_name="default", renderer="string")
 def default(request):
@@ -60,7 +60,13 @@ def cert(request):
     # TODO can we make sure this is done over SSL? don't accept this otherwise
     # check that the named cert exists
     print request.matchdict
-    ampname = request.matchdict["ampname"]
+
+    # XXX how much validation of the ampname do we need? Coming through the
+    # pyramid route it already can't contain slashes, which basename (perhaps
+    # redundantly) confirms. Also, to get sent a file, the file will have to
+    # look like a certificate containing the public key that will verify the
+    # signature.
+    ampname = basename(request.matchdict["ampname"])
     certname = "%s.cert" % ampname
     try:
         signature = urlsafe_b64decode(str(request.matchdict["signature"]))
@@ -73,8 +79,6 @@ def cert(request):
     print "got request for cert", certname
 
     open("test.sig", "w").write(signature)
-
-    # TODO sanitise certname so that they can't load arbitrary files
 
     # check that the certificate exists on disk
     try:
