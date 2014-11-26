@@ -96,9 +96,24 @@ int matches_common_name(const char *hostname, const X509 *cert) {
 int initialise_ssl(void) {
     Log(LOG_DEBUG, "Initialising SSL");
 
+    /*
+     * "OpenSSL OpenSSL will attempt to seed the random number generator
+     * automatically upon instantiation by calling RAND_poll. If the generator
+     * is not initialized and RAND_bytes is called, then the generator will
+     * also call RAND_poll"
+     *
+     * Looks like this works fine unless we are running AMP on VxWorks, which
+     * sounds unlikely at this stage!
+     *
+     * http://wiki.openssl.org/index.php/Random_Numbers
+     */
     SSL_library_init();
     SSL_load_error_strings();
 
+    /*
+     * TODO we might want to loop on this and add more entropy if it fails,
+     * but I have yet to see it fail (on either physical and virtual machines).
+     */
     if(RAND_status() != 1) {
         Log(LOG_WARNING, "OpenSSL PRNG not seeded with enough data.");
         ssl_cleanup();
