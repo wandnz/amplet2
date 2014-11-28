@@ -13,7 +13,7 @@
 #include "debug.h"
 #include "messaging.h"
 #include "global.h"
-//#include "ssl.h"
+#include "ssl.h"
 #include "certs.h"
 
 
@@ -85,6 +85,9 @@ static void set_curl_ssl_opts(CURL *curl) {
     //curl_easy_setopt(curl, CURLOPT_SSLVERSION, CURL_SSLVERSION_TLSv1);
 #endif
 #endif
+
+    /* limit ciphers to those we believe are secure */
+    curl_easy_setopt(curl, CURLOPT_SSL_CIPHER_LIST, SECURE_CIPHER_LIST);
 
     /* use the cacert we've been given */
     curl_easy_setopt(curl, CURLOPT_CAINFO, vars.amqp_ssl.cacert);
