@@ -187,7 +187,7 @@ SSL_CTX* initialise_ssl_context(void) {
         return NULL;
     }
 
-    /* Only support secure cipher suites (according to ssl-conservatory code) */
+    /* Only support ciphers we believe are secure */
     if (SSL_CTX_set_cipher_list(ssl_ctx, SECURE_CIPHER_LIST) != 1) {
         ssl_cleanup();
         return NULL;
