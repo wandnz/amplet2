@@ -285,7 +285,6 @@ static int send_csr(X509_REQ *request) {
         Log(LOG_ALERT, "Failed to open CSR as a stream");
         free(url);
         free(csrstr);
-        curl_easy_cleanup(curl);
         return -1;
     }
 
