@@ -68,6 +68,37 @@ static int check_exists(char *path, int strict) {
 
 
 /*
+ *
+ */
+static void set_curl_ssl_opts(CURL *curl) {
+    /*
+     * Setting CURL_SSLVERSION_TLSv1 seems to negotiate V1.0 rather than the
+     * best 1.X version, so none of our ciphers work if we use an old version
+     * of libcurl. Don't bother even trying to set this for now and instead
+     * rely on the cipher selection to keep things sensible.
+     */
+#if 0
+    /* force only TLSv1.2 or better (if we can, otherwise >= TLSv1.X) */
+#if LIBCURL_VERSION_NUM >= 0x072200
+    curl_easy_setopt(curl, CURLOPT_SSLVERSION, CURL_SSLVERSION_TLSv1_2);
+#else
+    //curl_easy_setopt(curl, CURLOPT_SSLVERSION, CURL_SSLVERSION_TLSv1);
+#endif
+#endif
+
+    /* use the cacert we've been given */
+    curl_easy_setopt(curl, CURLOPT_CAINFO, vars.amqp_ssl.cacert);
+
+    /* Try to verify the server certificate */
+    curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 1);
+
+    /* Try to verify the server hostname/commonname */
+    curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 2);
+}
+
+
+
+/*
  * Load an existing private RSA key from a file.
  */
 static RSA *load_existing_key_file(void) {
@@ -294,16 +325,11 @@ static int send_csr(X509_REQ *request) {
     curl_easy_setopt(curl, CURLOPT_POST, 1);
     curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, strlen(csrstr));
     curl_easy_setopt(curl, CURLOPT_READDATA, csrfile);
+    set_curl_ssl_opts(curl);
 
     /* make it a binary data stream so there is no encoding */
     slist = curl_slist_append(slist, "Content-Type: application/octet-stream");
     curl_easy_setopt(curl, CURLOPT_HTTPHEADER, slist);
-
-    curl_easy_setopt(curl, CURLOPT_CAINFO, vars.amqp_ssl.cacert);
-    /* Try to verify the server certificate */
-    curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 1);
-    /* Try to verify the server hostname/commonname */
-    curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 2);
 
     res = curl_easy_perform(curl);
 
@@ -499,12 +525,7 @@ static int fetch_certificate(void) {
     curl_easy_setopt(curl, CURLOPT_URL, url);
     curl_easy_setopt(curl, CURLOPT_USERAGENT, PACKAGE_STRING);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, certfile);
-
-    curl_easy_setopt(curl, CURLOPT_CAINFO, vars.amqp_ssl.cacert);
-    /* Try to verify the server certificate */
-    curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 1);
-    /* Try to verify the server hostname/commonname */
-    curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 2);
+    set_curl_ssl_opts(curl);
 
     res = curl_easy_perform(curl);
 
