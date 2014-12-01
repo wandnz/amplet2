@@ -31,6 +31,22 @@ static void log_ssl(char *msg) {
 
 
 /*
+ * The openssl random number generator also needs reseeding after a fork.
+ * Newer versions of the library do this, but debian hasn't picked those
+ * up yet. In the meantime, mix in the time and pid (but not the 2 bytes of
+ * random stack data recommended, valgrind really hates that) as based on:
+ * http://wiki.openssl.org/index.php/Random_fork-safety
+ */
+void reseed_openssl_rng(void) {
+    long long seed[2];
+    seed[0] = (long long)time(NULL);
+    seed[1] = (long long)getpid();
+    RAND_seed(seed, sizeof(seed));
+}
+
+
+
+/*
  * See: https://github.com/iSECPartners/ssl-conservatory/
  *
  * Make sure that the hostname of the machine we are connecting to/from matches

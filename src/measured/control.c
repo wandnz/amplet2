@@ -283,19 +283,7 @@ static void control_read_callback(wand_event_handler_t *ev_hdl, int fd,
                 strerror(errno));
         return;
     } else if ( pid == 0 ) {
-        long long seed[2];
-        /*
-         * The openssl random number generator also needs reseeding after a
-         * fork. Newer versions of the library do this, but debian hasn't
-         * picked those up yet. In the meantime, mix in the time and pid (but
-         * not the 2 bytes of random stack data recommended, valgrind really
-         * hates that) as based on:
-         * http://wiki.openssl.org/index.php/Random_fork-safety
-         */
-        seed[0] = (long long)time(NULL);
-        seed[1] = (long long)getpid();
-        RAND_seed(seed, sizeof(seed));
-
+        reseed_openssl_rng();
         process_control_message(fd, test);
         assert(0);
     }

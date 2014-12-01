@@ -21,6 +21,7 @@
 
 SSL_CTX *ssl_ctx;
 
+void reseed_openssl_rng(void);
 int initialise_ssl(void);
 SSL_CTX *initialise_ssl_context(void);
 SSL* ssl_accept(SSL_CTX *ssl_ctx, int fd);

@@ -17,6 +17,7 @@
 #include "modules.h"
 #include "global.h" /* hopefully temporary, just to get source iface/address */
 #include "ampresolv.h"
+#include "ssl.h"
 
 
 
@@ -34,7 +35,6 @@ static void run_test(const test_schedule_item_t * const item) {
     struct addrinfo *addrlist = NULL;
     struct addrinfo **destinations = NULL;
     int total_resolve_count = 0;
-    long long seed[2];
 
     assert(item);
     assert(item->test_id < AMP_TEST_LAST);
@@ -47,17 +47,7 @@ static void run_test(const test_schedule_item_t * const item) {
      * element in the sequence
      */
     srandom(time(NULL) + getpid());
-
-    /*
-     * The openssl random number generator also needs reseeding after a fork.
-     * Newer versions of the library do this, but debian hasn't picked those
-     * up yet. In the meantime, mix in the time and pid (but not the 2 bytes of
-     * random stack data recommended, valgrind really hates that) as based on:
-     * http://wiki.openssl.org/index.php/Random_fork-safety
-     */
-    seed[0] = (long long)time(NULL);
-    seed[1] = (long long)getpid();
-    RAND_seed(seed, sizeof(seed));
+    reseed_openssl_rng();
 
     test = amp_tests[item->test_id];
     argv[argc++] = test->name;
