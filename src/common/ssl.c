@@ -143,6 +143,8 @@ int initialise_ssl(void) {
  */
 SSL_CTX* initialise_ssl_context(void) {
     SSL_CTX *ssl_ctx = NULL;
+    EC_KEY *ecdh;
+    DH *dh;
 
     Log(LOG_DEBUG, "Initialising SSL context");
 
@@ -192,6 +194,46 @@ SSL_CTX* initialise_ssl_context(void) {
         ssl_cleanup();
         return NULL;
     }
+
+    /*
+     * To use Diffie-Hellman ciphers for PFS, we need to set up the parameters
+     * or our cipher choices will forever be silently ignored.
+     * TODO confirm these are good parameters choices
+     * TODO this takes ~30 on startup, use the static approach (see dhparam).
+     */
+    if ( (dh = DH_generate_parameters(1024, 5, NULL, NULL)) == NULL ) {
+        log_ssl("Failed to generate Diffie-Hellman parameters");
+        ssl_cleanup();
+        return NULL;
+    }
+
+    if ( SSL_CTX_set_tmp_dh(ssl_ctx, dh) != 1 ) {
+        log_ssl("Failed to set Diffie-Hellman keys");
+        DH_free(dh);
+        ssl_cleanup();
+        return NULL;
+    }
+
+    DH_free(dh);
+
+    /*
+     * To use elliptic curve Diffie-Hellman ciphers for PFS, we need to set up
+     * the parameters or our cipher choices will forever be silently ignored.
+     */
+    if ( (ecdh = EC_KEY_new_by_curve_name(NID_X9_62_prime256v1)) == NULL ) {
+        Log(LOG_WARNING, "Failed to create elliptic curve");
+        ssl_cleanup();
+        return NULL;
+    }
+
+    if ( SSL_CTX_set_tmp_ecdh(ssl_ctx, ecdh) != 1 ) {
+        Log(LOG_WARNING, "Failed to set elliptic curve");
+        EC_KEY_free (ecdh);
+        ssl_cleanup();
+        return NULL;
+    }
+
+    EC_KEY_free (ecdh);
 
     return ssl_ctx;
 }
