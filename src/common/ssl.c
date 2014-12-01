@@ -154,7 +154,12 @@ SSL_CTX* initialise_ssl_context(void) {
         return NULL;
     }
 
-    ssl_ctx = SSL_CTX_new(TLSv1_method());
+    /*
+     * limit connections to using TLSv1.2 and above, we don't care about
+     * backwards compatability with old clients as we control them all
+     */
+    ssl_ctx = SSL_CTX_new(SSLv23_method());
+    SSL_CTX_set_options(ssl_ctx, SSL_OP_MIN_TLSv1_2);
 
     /* Make sure all clients provide a certificate, and that it is valid */
     SSL_CTX_set_verify(ssl_ctx,
