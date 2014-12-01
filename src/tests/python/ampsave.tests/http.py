@@ -1,14 +1,7 @@
 import struct
 import socket
 
-# TODO move to another file
-class VersionMismatch(Exception):
-    def __init__(self, got, expected):
-        self.got = got
-        self.expected = expected
-    def __str__(self):
-        return "%d != %d" % (self.got, self.expected)
-
+from ampsave.exceptions import AmpTestVersionMismatch
 
 # TODO fix stupidly long lines
 
@@ -36,7 +29,7 @@ def get_data(data):
         return None
     version, = struct.unpack_from("=I", data, 0)
     if version != AMP_HTTP_TEST_VERSION:
-        raise VersionMismatch(version, AMP_HTTP_TEST_VERSION)
+        raise AmpTestVersionMismatch(version, AMP_HTTP_TEST_VERSION)
     offset = struct.calcsize("=II")
 
     # read the rest of the header that records test options

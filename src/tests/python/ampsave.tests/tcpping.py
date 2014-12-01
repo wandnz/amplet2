@@ -1,14 +1,6 @@
 import struct
 import socket
-
-# TODO move to another file
-class VersionMismatch(Exception):
-    def __init__(self, got, expected):
-        self.got = got
-        self.expected = expected
-    def __str__(self):
-        return "%d != %d" % (self.got, self.expected)
-
+from ampsave.exceptions import AmpTestVersionMismatch
 
 # version needs to match the version number in src/tests/tcpping/tcpping.h
 AMP_TCPPING_TEST_VERSION = 2014072100
@@ -35,7 +27,7 @@ def get_data(data):
 
     # deal with the current version, which is what we should be using
     if version != AMP_TCPPING_TEST_VERSION:
-        raise VersionMismatch(version, AMP_TCPPING_TEST_VERSION)
+        raise AmpTestVersionMismatch(version, AMP_TCPPING_TEST_VERSION)
 
     # offset past the version number which has already been read
     offset = struct.calcsize("!I")

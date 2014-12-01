@@ -1,14 +1,7 @@
 import struct
 import socket
 
-# TODO move to another file
-class VersionMismatch(Exception):
-    def __init__(self, got, expected):
-        self.got = got
-        self.expected = expected
-    def __str__(self):
-        return "%d != %d" % (self.got, self.expected)
-
+from ampsave.exceptions import AmpTestVersionMismatch
 
 # TODO move to another file
 def get_printable_address(family, addr):
@@ -211,4 +204,4 @@ def get_data(data):
     if version == 2014020300 or version == 2014080700:
         return parse_data(data)
 
-    raise VersionMismatch(version, AMP_TRACEROUTE_TEST_VERSION)
+    raise AmpTestVersionMismatch(version, AMP_TRACEROUTE_TEST_VERSION)

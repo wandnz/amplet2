@@ -1,14 +1,7 @@
 import struct
 import socket
 
-# TODO move to another file
-class VersionMismatch(Exception):
-    def __init__(self, got, expected):
-        self.got = got
-        self.expected = expected
-    def __str__(self):
-        return "%d != %d" % (self.got, self.expected)
-
+from ampsave.exceptions import AmpTestVersionMismatch
 
 # version needs to keep up with the version number in src/tests/icmp/icmp.h
 AMP_ICMP_TEST_VERSION = 2014020300
@@ -153,5 +146,5 @@ def get_data(data):
     if version == 2014020300:
         return data_2014020300(data)
 
-    raise VersionMismatch(version, AMP_ICMP_TEST_VERSION)
+    raise AmpTestVersionMismatch(version, AMP_ICMP_TEST_VERSION)
 
