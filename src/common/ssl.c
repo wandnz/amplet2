@@ -1,6 +1,7 @@
 #include <openssl/ssl.h>
 #include <openssl/err.h>
 #include <openssl/rand.h>
+#include <openssl/dh.h>
 #include <assert.h>
 #include <sys/types.h>
 #include <unistd.h>
