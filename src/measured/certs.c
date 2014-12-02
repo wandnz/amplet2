@@ -15,6 +15,7 @@
 #include "global.h"
 #include "ssl.h"
 #include "certs.h"
+#include "testlib.h" /* XXX just for check_exists(), is that the best place? */
 
 
 /* XXX cert/csr files are currently named after the server they are for */
@@ -26,44 +27,6 @@
  * - send csr, get cert
  * - load certs and keys into ctx
  */
-
-
-/*
- * Check if a given directory exists, failure to exist is only an error if
- * the strict flag is set.
- */
-static int check_exists(char *path, int strict) {
-    struct stat statbuf;
-    int stat_result;
-
-    stat_result = stat(path, &statbuf);
-
-    /* error calling stat, report it and return and error */
-    if ( stat_result < 0 && errno != ENOENT ) {
-        Log(LOG_WARNING, "Failed to stat file %s: %s", path, strerror(errno));
-        return -1;
-    }
-
-    /* file exists */
-    if ( stat_result == 0 ) {
-        /* check it's a normal file or a symbolic link */
-        if ( S_ISREG(statbuf.st_mode) || S_ISLNK(statbuf.st_mode) ) {
-            return 0;
-        }
-
-        Log(LOG_WARNING, "File %s exists, but is not a regular file", path);
-        return -1;
-    }
-
-    /* file was manually specified, but doesn't exist, that's an error */
-    if ( strict ) {
-        Log(LOG_WARNING, "Manually specified file %s not found", path);
-        return -1;
-    }
-
-    /* file doesn't exist, but that's ok as strict isn't set */
-    return 1;
-}
 
 
 

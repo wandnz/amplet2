@@ -8,6 +8,8 @@
 #include <assert.h>
 #include <string.h>
 #include <sys/ioctl.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 
 #include <amqp.h>
 #include <amqp_framing.h>
@@ -772,4 +774,43 @@ int set_default_socket_options(struct socket_t *sockets) {
     }
 
     return 0;
+}
+
+
+
+/*
+ * Check if a given file exists, failure to exist is only an error if
+ * the strict flag is set.
+ */
+int check_exists(char *path, int strict) {
+    struct stat statbuf;
+    int stat_result;
+
+    stat_result = stat(path, &statbuf);
+
+    /* error calling stat, report it and return and error */
+    if ( stat_result < 0 && errno != ENOENT ) {
+        Log(LOG_WARNING, "Failed to stat file %s: %s", path, strerror(errno));
+        return -1;
+    }
+
+    /* file exists */
+    if ( stat_result == 0 ) {
+        /* check it's a normal file or a symbolic link */
+        if ( S_ISREG(statbuf.st_mode) || S_ISLNK(statbuf.st_mode) ) {
+            return 0;
+        }
+
+        Log(LOG_WARNING, "File %s exists, but is not a regular file", path);
+        return -1;
+    }
+
+    /* file was manually specified, but doesn't exist, that's an error */
+    if ( strict ) {
+        Log(LOG_WARNING, "Manually specified file %s not found", path);
+        return -1;
+    }
+
+    /* file doesn't exist, but that's ok as strict isn't set */
+    return 1;
 }
