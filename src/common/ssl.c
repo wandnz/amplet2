@@ -237,7 +237,7 @@ SSL_CTX* initialise_ssl_context(void) {
 
     /* Load our certificate */
     if ( SSL_CTX_use_certificate_chain_file(ssl_ctx,vars.amqp_ssl.cert) != 1 ) {
-        Log(LOG_WARNING, "Couldn't load certificate.\n");
+        Log(LOG_WARNING, "Couldn't load certificate %s", vars.amqp_ssl.cert);
         ssl_cleanup();
         return NULL;
     }
@@ -245,21 +245,22 @@ SSL_CTX* initialise_ssl_context(void) {
     /* Load our private key */
     if ( SSL_CTX_use_PrivateKey_file(ssl_ctx, vars.amqp_ssl.key,
                 SSL_FILETYPE_PEM) != 1 ) {
-        Log(LOG_WARNING, "Couldn't load private key.\n");
+        Log(LOG_WARNING, "Couldn't load private key %s", vars.amqp_ssl.key);
         ssl_cleanup();
         return NULL;
     }
 
     /* Check that the certificate and key agree */
     if ( SSL_CTX_check_private_key(ssl_ctx) != 1 ) {
-        Log(LOG_WARNING, "Private key does not match certificate.\n");
+        Log(LOG_WARNING, "Private key does not match certificate");
         ssl_cleanup();
         return NULL;
     }
 
     /* Load our cacert we will validate others against */
     if (SSL_CTX_load_verify_locations(ssl_ctx,vars.amqp_ssl.cacert,NULL) != 1) {
-        Log(LOG_WARNING, "Couldn't load certificate trust store.\n");
+        Log(LOG_WARNING, "Couldn't load certificate trust store",
+                vars.amqp_ssl.cacert);
         ssl_cleanup();
         return NULL;
     }
