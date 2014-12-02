@@ -537,55 +537,6 @@ static int fetch_certificate(void) {
 
 
 /*
- * Make sure that the locations of all keys have been set. If they were
- * manually specified then the files need to exist, otherwise we don't
- * care either way, they will get created if they need to be.
- */
-static int check_key_locations(void) {
-
-    if ( vars.amqp_ssl.cert == NULL ) {
-        if ( asprintf(&vars.amqp_ssl.cert, "%s/%s.cert",
-                    vars.keys_dir, vars.collector) < 0 ) {
-            Log(LOG_ALERT, "Failed to build custom certfile path");
-            return -1;
-        }
-    } else if ( check_exists(vars.amqp_ssl.cert, 1) < 0 ) {
-        return -1;
-    }
-
-    if ( vars.amqp_ssl.key == NULL ) {
-        if ( asprintf(&vars.amqp_ssl.key, "%s/key.pem", vars.keys_dir) < 0 ) {
-            Log(LOG_ALERT, "Failed to build custom keyfile path");
-            return -1;
-        }
-    } else if ( check_exists(vars.amqp_ssl.key, 1) < 0 ) {
-        return -1;
-    }
-
-    if ( vars.amqp_ssl.cacert == NULL ) {
-        if ( asprintf(&vars.amqp_ssl.cacert, "%s/%s.pem", AMP_KEYS_DIR,
-                    vars.collector) < 0 ) {
-            Log(LOG_ALERT, "Failed to build custom cacert file path");
-            return -1;
-        }
-    }
-
-    /*
-     * The cacert should be distributed through some trusted means, it must
-     * exist here for us to continue.
-     */
-    if ( check_exists(vars.amqp_ssl.cacert, 1) < 0 ) {
-        Log(LOG_WARNING, "Server certificate %s doesn't exist!",
-                vars.amqp_ssl.cacert);
-        return -1;
-    }
-
-    return 0;
-}
-
-
-
-/*
  * Make sure that all the SSL variables are pointing to certificates, keys,
  * etc that exist. If they don't exist then we try to create them as best
  * as we can.
@@ -595,70 +546,50 @@ int get_certificate(int timeout) {
     X509_REQ *request;
     RSA *key;
     int res;
-
-    /*
-     * If anything is unspecified, we're probably going to create files,
-     * so make sure that the keys directory exists for this ampname
-     */
-    /* XXX this comment isn't entirely true, can we move this code?
-     * we don't always need to create these directories if they are missing,
-     * because the user might have specified all the files we need.
-     */
-    if ( vars.amqp_ssl.cert == NULL || vars.amqp_ssl.key == NULL ||
-            vars.amqp_ssl.cacert == NULL ) {
-
-        struct stat statbuf;
-        int stat_result;
-
-        /* make sure top level keys directory exists */
-        stat_result = stat(AMP_KEYS_DIR, &statbuf);
-        if ( stat_result < 0 && errno == ENOENT) {
-            Log(LOG_DEBUG, "Top level key directory doesn't exist, creating %s",
-                    AMP_KEYS_DIR);
-            /* doesn't exist, try to create it */
-            if ( mkdir(AMP_KEYS_DIR, 0700) < 0 ) {
-                Log(LOG_WARNING, "Failed to create key directory %s: %s",
-                        AMP_KEYS_DIR, strerror(errno));
-                return -1;
-            }
-        } else if ( stat_result < 0 ) {
-            /* error calling stat, report it and return */
-            Log(LOG_WARNING, "Failed to stat key directory %s: %s",
-                    AMP_KEYS_DIR, strerror(errno));
-            return -1;
-        }
-
-        /* make sure ampname specific keys directory exists inside that */
-        stat_result = stat(vars.keys_dir, &statbuf);
-        if ( stat_result < 0 && errno == ENOENT) {
-            Log(LOG_DEBUG, "Key directory doesn't exist, creating %s",
-                    vars.keys_dir);
-            /* doesn't exist, try to create it */
-            if ( mkdir(vars.keys_dir, 0700) < 0 ) {
-                Log(LOG_WARNING, "Failed to create key directory %s: %s",
-                        vars.keys_dir, strerror(errno));
-                return -1;
-            }
-        } else if ( stat_result < 0 ) {
-            /* error calling stat, report it and return */
-            Log(LOG_WARNING, "Failed to stat key directory %s: %s",
-                    vars.keys_dir, strerror(errno));
-            return -1;
-        }
-    }
-
-    /* TODO fix the ordering of this section, it seems like I check for the
-     * files existing way too many times
-     */
-    if ( check_key_locations() < 0 ) {
-        return -1;
-    }
+    struct stat statbuf;
+    int stat_result;
 
     /* if the private key and certificate exist then thats all we need */
     if ( check_exists(vars.amqp_ssl.key, 0) == 0 &&
             check_exists(vars.amqp_ssl.cert, 0) == 0 ) {
         Log(LOG_DEBUG, "Private key and certificate both exist");
         return 0;
+    }
+
+    /* make sure top level keys directory exists */
+    stat_result = stat(AMP_KEYS_DIR, &statbuf);
+    if ( stat_result < 0 && errno == ENOENT) {
+        Log(LOG_DEBUG, "Top level key directory doesn't exist, creating %s",
+                AMP_KEYS_DIR);
+        /* doesn't exist, try to create it */
+        if ( mkdir(AMP_KEYS_DIR, 0700) < 0 ) {
+            Log(LOG_WARNING, "Failed to create key directory %s: %s",
+                    AMP_KEYS_DIR, strerror(errno));
+            return -1;
+        }
+    } else if ( stat_result < 0 ) {
+        /* error calling stat, report it and return */
+        Log(LOG_WARNING, "Failed to stat key directory %s: %s",
+                AMP_KEYS_DIR, strerror(errno));
+        return -1;
+    }
+
+    /* make sure ampname specific keys directory exists inside that */
+    stat_result = stat(vars.keys_dir, &statbuf);
+    if ( stat_result < 0 && errno == ENOENT) {
+        Log(LOG_DEBUG, "Key directory doesn't exist, creating %s",
+                vars.keys_dir);
+        /* doesn't exist, try to create it */
+        if ( mkdir(vars.keys_dir, 0700) < 0 ) {
+            Log(LOG_WARNING, "Failed to create key directory %s: %s",
+                    vars.keys_dir, strerror(errno));
+            return -1;
+        }
+    } else if ( stat_result < 0 ) {
+        /* error calling stat, report it and return */
+        Log(LOG_WARNING, "Failed to stat key directory %s: %s",
+                vars.keys_dir, strerror(errno));
+        return -1;
     }
 
     /*

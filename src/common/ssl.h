@@ -19,8 +19,13 @@
 #define SSL_OP_MIN_TLSv1_2 (SSL_OP_NO_SSLv2 | SSL_OP_NO_SSLv3 | \
                             SSL_OP_NO_TLSv1 | SSL_OP_NO_TLSv1_1)
 
+/* default location where all keys are stored */
+#define AMP_KEYS_DIR AMP_CONFIG_DIR "/keys"
+
+
 SSL_CTX *ssl_ctx;
 
+int check_key_locations(void);
 void reseed_openssl_rng(void);
 int initialise_ssl(void);
 SSL_CTX *initialise_ssl_context(void);

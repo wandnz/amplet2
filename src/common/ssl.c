@@ -5,6 +5,7 @@
 #include <assert.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <stdio.h>
 
 #include "global.h"
 #include "debug.h"
@@ -29,6 +30,55 @@ static void log_ssl(char *msg) {
     }
 
     Log(LOG_WARNING, "%s:%s", msg, buffer);
+}
+
+
+
+/*
+ * Make sure that the locations of all keys have been set. If they were
+ * manually specified then the files need to exist, otherwise we don't
+ * care either way, they will get created if they need to be.
+ */
+int check_key_locations(void) {
+
+    if ( vars.amqp_ssl.cert == NULL ) {
+        if ( asprintf(&vars.amqp_ssl.cert, "%s/%s.cert",
+                    vars.keys_dir, vars.collector) < 0 ) {
+            Log(LOG_ALERT, "Failed to build custom certfile path");
+            return -1;
+        }
+    } else if ( check_exists(vars.amqp_ssl.cert, 1) < 0 ) {
+        return -1;
+    }
+
+    if ( vars.amqp_ssl.key == NULL ) {
+        if ( asprintf(&vars.amqp_ssl.key, "%s/key.pem", vars.keys_dir) < 0 ) {
+            Log(LOG_ALERT, "Failed to build custom keyfile path");
+            return -1;
+        }
+    } else if ( check_exists(vars.amqp_ssl.key, 1) < 0 ) {
+        return -1;
+    }
+
+    if ( vars.amqp_ssl.cacert == NULL ) {
+        if ( asprintf(&vars.amqp_ssl.cacert, "%s/%s.pem", AMP_KEYS_DIR,
+                    vars.collector) < 0 ) {
+            Log(LOG_ALERT, "Failed to build custom cacert file path");
+            return -1;
+        }
+    }
+
+    /*
+     * The cacert should be distributed through some trusted means, it must
+     * exist here for us to continue.
+     */
+    if ( check_exists(vars.amqp_ssl.cacert, 1) < 0 ) {
+        Log(LOG_WARNING, "Server certificate %s doesn't exist!",
+                vars.amqp_ssl.cacert);
+        return -1;
+    }
+
+    return 0;
 }
 
 
@@ -186,6 +236,16 @@ int initialise_ssl(void) {
      */
     if(RAND_status() != 1) {
         Log(LOG_WARNING, "OpenSSL PRNG not seeded with enough data.");
+        ssl_cleanup();
+        return -1;
+    }
+
+    /*
+     * Make sure that key locations are valid. This will populate them all
+     * with default values if unset, and will make sure they exist if manually
+     * set.
+     */
+    if ( check_key_locations() < 0 ) {
         ssl_cleanup();
         return -1;
     }
