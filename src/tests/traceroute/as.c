@@ -121,7 +121,7 @@ int set_as_numbers(struct dest_info_t *donelist) {
     }
 
     /* fetch all the results into the same trie we queried from, setting ASNs */
-    if ( amp_asn_fetch_results(asn_fd, &trie) < 0 ) {
+    if ( amp_asn_fetch_results(asn_fd, &trie) == NULL ) {
         goto end;
     }
 
