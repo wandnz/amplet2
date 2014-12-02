@@ -218,6 +218,15 @@ SSL_CTX* initialise_ssl_context(void) {
         return NULL;
     }
 
+    Log(LOG_DEBUG, "Setting up Diffie-Hellman parameters");
+
+    /*
+     * Help prevent small subgroup attacks by always creating a new key when
+     * using Diffie-Hellman. Has a slight cost during connection negotiation,
+     * but improves forward secrecy.
+     */
+    SSL_CTX_set_options(ssl_ctx, SSL_OP_SINGLE_DH_USE);
+
     /*
      * To use Diffie-Hellman ciphers for PFS, we need to set up the parameters
      * or our cipher choices will forever be silently ignored.
@@ -243,6 +252,11 @@ SSL_CTX* initialise_ssl_context(void) {
      * To use elliptic curve Diffie-Hellman ciphers for PFS, we need to set up
      * the parameters or our cipher choices will forever be silently ignored.
      */
+    Log(LOG_DEBUG, "Setting up elliptic curve");
+
+    /* always generate a new key when using ECDH ciphers */
+    SSL_CTX_set_options(ssl_ctx, SSL_OP_SINGLE_ECDH_USE);
+
     if ( (ecdh = EC_KEY_new_by_curve_name(NID_X9_62_prime256v1)) == NULL ) {
         Log(LOG_WARNING, "Failed to create elliptic curve");
         ssl_cleanup();
