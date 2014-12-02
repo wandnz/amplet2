@@ -2,6 +2,8 @@
 #include <openssl/err.h>
 #include <openssl/rand.h>
 #include <assert.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 #include "global.h"
 #include "debug.h"
