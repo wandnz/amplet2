@@ -228,13 +228,13 @@ static time_t get_period_default_frequency(schedule_period_t period) {
 
 
 /*
- *
+ * Make sure that the value (in microseconds) fits within the period.
  */
 static int64_t check_time_range(int64_t value, schedule_period_t period) {
-    int max_interval;
+    int64_t max_interval;
 
     /* don't accept any value that would overflow the time period */
-    max_interval = (int64_t)get_period_max_value(period) * 1000;
+    max_interval = ((int64_t)get_period_max_value(period)) * 1000000;
 
     /* negative values are illegal, as are any outside of the repeat cycle */
     if ( max_interval < 0 || value < 0 || value > max_interval ) {
@@ -307,56 +307,89 @@ static char **parse_param_string(char *param_string) {
  */
 struct timeval get_next_schedule_time(wand_event_handler_t *ev_hdl,
 	schedule_period_t period, uint64_t start, uint64_t end,
-        uint64_t frequency) {
+        uint64_t frequency, int run, struct timeval *abstime) {
 
+    static struct timeval walltime_offset = {0,0};
     time_t period_start, period_end;
     struct timeval now, next = {0,0};
     int64_t diff, test_end;
     int next_repeat;
 
     period_start = get_period_start(period);
-    test_end = (period_start*1000) + end;
+    test_end = (period_start*1000000) + end;
 
     /*
-     * now using wand_get_walltime() because it agrees better with the
-     * monotonic clock. Using gettimeofday() was giving times a few
-     * milliseconds behind what libwandevent thought they were, which was
-     * causing tests to be rescheduled again in the same second.
+     * wand_get_walltime essentially just calls gettimeofday(), but it lets
+     * us write unit tests easier because we can cheat and set the time to
+     * anything we want
      */
-    //gettimeofday(&now, NULL);
     now = wand_get_walltime(ev_hdl);
-    /* truncate to get current time of day to the millisecond level */
-    now.tv_usec = MS_TRUNC(now.tv_usec);
 
-    /* get difference in ms between the first event of this period and now */
+    /* get difference in us between the first event of this period and now */
     diff = now.tv_sec - period_start;
-    diff *= 1000;
-    diff += now.tv_usec / 1000;
+    diff *= 1000000;
+    diff += now.tv_usec;
     diff -= start;
 
+    /* if the difference is negative, we are before the first scheduled run */
     if ( diff < 0 ) {
-	/* the start time hasn't been reached yet, so schedule for then */
-	next.tv_sec = S_FROM_MS(abs(diff));
-	next.tv_usec = US_FROM_MS(abs(diff));
-	return next;
+        /*
+         * Make sure that if we just ran the test, we aren't running it again
+         * almost immediately (maybe the clock that gettimeofday uses is slow).
+         * Try to jump ahead to the next scheduled repeat, or the start of the
+         * next period if there are no repeats.
+         */
+        if ( run && abs(diff) < SCHEDULE_CLOCK_FUDGE ) {
+            if ( frequency > 0 ) {
+                /* skip over the time we are early and find the next repeat */
+                diff = abs(diff) + frequency;
+            } else {
+                /* there is no repeat, find the start of next period */
+                diff = abs(diff) + get_period_max_value(period);
+            }
+        }
+
+        /* convert usec to a timeval */
+        next.tv_sec = abs(diff) / 1000000;
+        next.tv_usec = abs(diff) % 1000000;
+
+        /* save the absolute time this test was meant to be run */
+        if ( abstime ) {
+            timeradd(&now, &next, abstime);
+        }
+        return next;
     }
 
     if ( frequency == 0 ) {
-	/* if it's after the first and only event in the cycle, roll over */
+	/*
+         * If it's after the first and only event in the cycle, roll over.
+         * This has to be a test that ran on time, otherwise we would have
+         * had a negative difference at the earlier check.
+         */
 	next_repeat = 1;
     } else {
 	/* if it's after the first event but repeated, find the next repeat */
 	next_repeat = 0;
 	diff %= frequency;
 	diff = frequency - diff;
-	next.tv_sec = S_FROM_MS(diff);
-	next.tv_usec = US_FROM_MS(diff);
+
+        /*
+         * Make sure that if we just ran the test, we aren't running it again
+         * almost immediately (maybe the clock that gettimeofday uses is slow).
+         * Jump ahead to the next scheduled repeat.
+         */
+        if ( run && diff < SCHEDULE_CLOCK_FUDGE ) {
+            diff += frequency;
+        }
+
+	next.tv_sec = diff / 1000000;
+	next.tv_usec = diff % 1000000;
     }
 
     /* check that this next repeat is allowed at this time */
     period_end = period_start + get_period_max_value(period);
-    if ( next_repeat || now.tv_sec + S_FROM_MS(diff) > period_end ||
-	    MS_FROM_TV(now) + diff > test_end ) {
+    if ( next_repeat || now.tv_sec + (diff/1000000) > period_end ||
+	    US_FROM_TV(now) + diff > test_end ) {
 	/* next time is after the end time for test, advance to next start */
 	next.tv_sec = period_end - now.tv_sec;
         if ( now.tv_usec > 0 ) {
@@ -365,8 +398,14 @@ struct timeval get_next_schedule_time(wand_event_handler_t *ev_hdl,
         } else {
             next.tv_usec = 0;
         }
-	ADD_TV_PARTS(next, next, S_FROM_MS(start), US_FROM_MS(start));
+	ADD_TV_PARTS(next, next, start / 1000000, start % 1000000);
     }
+
+    /* save the absolute time this test was meant to be run */
+    if ( abstime ) {
+        timeradd(&now, &next, abstime);
+    }
+
     Log(LOG_DEBUG, "next test run scheduled at: %d.%d\n", (int)next.tv_sec,
 	    (int)next.tv_usec);
     return next;
@@ -434,7 +473,7 @@ static int merge_scheduled_tests(struct wand_event_handler_t *ev_hdl,
 
     /* find the time that the timer for this test should expire */
     when = get_next_schedule_time(ev_hdl, item->period, item->start, item->end,
-	    MS_FROM_TV(item->interval));
+	    US_FROM_TV(item->interval), 0, NULL);
     expire = wand_calc_expire(ev_hdl, when.tv_sec, when.tv_usec);
 
     /* search all existing scheduled test timers for a test that matches */
@@ -674,13 +713,16 @@ static test_schedule_item_t *create_and_schedule_test(
             testname = (char*)value->data.scalar.value;
         } else if ( strcmp((char*)key->data.scalar.value, "frequency") == 0 ) {
             assert(value->type == YAML_SCALAR_NODE);
-            frequency = atoi((char*)value->data.scalar.value) * 1000;
+            frequency = atoi((char*)value->data.scalar.value);
+            frequency *= 1000000;
         } else if ( strcmp((char*)key->data.scalar.value, "start") == 0 ) {
             assert(value->type == YAML_SCALAR_NODE);
-            start = atoi((char*)value->data.scalar.value) * 1000;
+            start = atoi((char*)value->data.scalar.value);
+            start *= 1000000;
         } else if ( strcmp((char*)key->data.scalar.value, "end") == 0 ) {
             assert(value->type == YAML_SCALAR_NODE);
-            end = atoi((char*)value->data.scalar.value) * 1000;
+            end = atoi((char*)value->data.scalar.value);
+            end *= 1000000;
         } else if ( strcmp((char*)key->data.scalar.value, "period") == 0 ) {
             assert(value->type == YAML_SCALAR_NODE);
             period_str = (char*)value->data.scalar.value;
@@ -723,7 +765,7 @@ static test_schedule_item_t *create_and_schedule_test(
 
     /* default to the end of the period if not set */
     if ( end < 0 ) {
-        end = get_period_max_value(period) * 1000;
+        end = ((int64_t)get_period_max_value(period)) * 1000000;
     } else if ( check_time_range(end, period) < 0 ) {
         Log(LOG_WARNING, "Invalid end value %d for period %s\n",
                 end, period_str);
@@ -748,8 +790,8 @@ static test_schedule_item_t *create_and_schedule_test(
         Log(LOG_DEBUG, "Creating test schedule instance for %s test", testname);
         /* if everything looks good, finally construct the test object */
         test = (test_schedule_item_t *)malloc(sizeof(test_schedule_item_t));
-        test->interval.tv_sec = S_FROM_MS(frequency);
-        test->interval.tv_usec = US_FROM_MS(frequency);
+        test->interval.tv_sec = frequency / 1000000;
+        test->interval.tv_usec = frequency % 1000000;
         test->period = period;
         test->start = start;
         test->end = end;
@@ -785,7 +827,7 @@ static test_schedule_item_t *create_and_schedule_test(
 
         /* create the timer event for this test */
         next = get_next_schedule_time(ev_hdl, test->period, test->start,
-                test->end, MS_FROM_TV(test->interval));
+                test->end, US_FROM_TV(test->interval), 0, &test->abstime);
         wand_add_timer(ev_hdl, next.tv_sec, next.tv_usec, sched,
                 run_scheduled_test);
 

@@ -39,51 +39,72 @@ static void check_period_time(void) {
 static void check_time_parsing(void) {
     /* check that hourly repeated times are correctly validated */
     assert(amp_test_check_time_range(0, SCHEDULE_PERIOD_HOURLY) == 0);
-    assert(amp_test_check_time_range(1000, SCHEDULE_PERIOD_HOURLY) == 1000);
-    assert(amp_test_check_time_range(60000, SCHEDULE_PERIOD_HOURLY) == 60000);
-    assert(amp_test_check_time_range(3600000,
-                SCHEDULE_PERIOD_HOURLY) == 3600000);
-    assert(amp_test_check_time_range(-1, SCHEDULE_PERIOD_HOURLY) == -1);
-    assert(amp_test_check_time_range(-12345, SCHEDULE_PERIOD_HOURLY) == -1);
-    assert(amp_test_check_time_range(3600001, SCHEDULE_PERIOD_HOURLY) == -1);
-    assert(amp_test_check_time_range(86400000, SCHEDULE_PERIOD_HOURLY) == -1);
-    assert(amp_test_check_time_range(86400001, SCHEDULE_PERIOD_HOURLY) == -1);
-    assert(amp_test_check_time_range(604800000, SCHEDULE_PERIOD_HOURLY) == -1);
-    assert(amp_test_check_time_range(604800001, SCHEDULE_PERIOD_HOURLY) == -1);
+    assert(amp_test_check_time_range(1000000,
+                SCHEDULE_PERIOD_HOURLY) == 1000000);
+    assert(amp_test_check_time_range(60000000,
+                SCHEDULE_PERIOD_HOURLY) == 60000000);
+    assert(amp_test_check_time_range(3600000000,
+                SCHEDULE_PERIOD_HOURLY) == 3600000000);
+    assert(amp_test_check_time_range(-1,
+                SCHEDULE_PERIOD_HOURLY) == -1);
+    assert(amp_test_check_time_range(-12345,
+                SCHEDULE_PERIOD_HOURLY) == -1);
+    assert(amp_test_check_time_range(3600000001,
+                SCHEDULE_PERIOD_HOURLY) == -1);
+    assert(amp_test_check_time_range(86400000000,
+                SCHEDULE_PERIOD_HOURLY) == -1);
+    assert(amp_test_check_time_range(86400000001,
+                SCHEDULE_PERIOD_HOURLY) == -1);
+    assert(amp_test_check_time_range(604800000000,
+                SCHEDULE_PERIOD_HOURLY) == -1);
+    assert(amp_test_check_time_range(604800000001,
+                SCHEDULE_PERIOD_HOURLY) == -1);
 
     /* check that daily repeated times are correctly validated */
     assert(amp_test_check_time_range(0, SCHEDULE_PERIOD_DAILY) == 0);
-    assert(amp_test_check_time_range(1000, SCHEDULE_PERIOD_DAILY) == 1000);
-    assert(amp_test_check_time_range(60000, SCHEDULE_PERIOD_DAILY) == 60000);
-    assert(amp_test_check_time_range(3600000,
-                SCHEDULE_PERIOD_DAILY) == 3600000);
-    assert(amp_test_check_time_range(3600001,
-                SCHEDULE_PERIOD_DAILY) == 3600001);
-    assert(amp_test_check_time_range(86400000,
-                SCHEDULE_PERIOD_DAILY) == 86400000);
-    assert(amp_test_check_time_range(-1, SCHEDULE_PERIOD_DAILY) == -1);
-    assert(amp_test_check_time_range(-12345, SCHEDULE_PERIOD_DAILY) == -1);
-    assert(amp_test_check_time_range(86400001, SCHEDULE_PERIOD_DAILY) == -1);
-    assert(amp_test_check_time_range(604800000, SCHEDULE_PERIOD_DAILY) == -1);
-    assert(amp_test_check_time_range(604800001, SCHEDULE_PERIOD_DAILY) == -1);
+    assert(amp_test_check_time_range(1000000,
+                SCHEDULE_PERIOD_DAILY) == 1000000);
+    assert(amp_test_check_time_range(60000000,
+                SCHEDULE_PERIOD_DAILY) == 60000000);
+    assert(amp_test_check_time_range(3600000000,
+                SCHEDULE_PERIOD_DAILY) == 3600000000);
+    assert(amp_test_check_time_range(3600000001,
+                SCHEDULE_PERIOD_DAILY) == 3600000001);
+    assert(amp_test_check_time_range(86400000000,
+                SCHEDULE_PERIOD_DAILY) == 86400000000);
+    assert(amp_test_check_time_range(-1,
+                SCHEDULE_PERIOD_DAILY) == -1);
+    assert(amp_test_check_time_range(-12345,
+                SCHEDULE_PERIOD_DAILY) == -1);
+    assert(amp_test_check_time_range(86400000001,
+                SCHEDULE_PERIOD_DAILY) == -1);
+    assert(amp_test_check_time_range(604800000000,
+                SCHEDULE_PERIOD_DAILY) == -1);
+    assert(amp_test_check_time_range(604800000001,
+                SCHEDULE_PERIOD_DAILY) == -1);
 
     /* check that weekly repeated times are correctly validated */
     assert(amp_test_check_time_range(0, SCHEDULE_PERIOD_WEEKLY) == 0);
-    assert(amp_test_check_time_range(1000, SCHEDULE_PERIOD_WEEKLY) == 1000);
-    assert(amp_test_check_time_range(60000, SCHEDULE_PERIOD_WEEKLY) == 60000);
-    assert(amp_test_check_time_range(3600000,
-                SCHEDULE_PERIOD_WEEKLY) == 3600000);
-    assert(amp_test_check_time_range(3600001,
-                SCHEDULE_PERIOD_WEEKLY) == 3600001);
-    assert(amp_test_check_time_range(86400000,
-                SCHEDULE_PERIOD_WEEKLY) == 86400000);
-    assert(amp_test_check_time_range(86400001,
-                SCHEDULE_PERIOD_WEEKLY) == 86400001);
-    assert(amp_test_check_time_range(604800000,
-                SCHEDULE_PERIOD_WEEKLY) == 604800000);
-    assert(amp_test_check_time_range(-1, SCHEDULE_PERIOD_WEEKLY) == -1);
-    assert(amp_test_check_time_range(-12345, SCHEDULE_PERIOD_WEEKLY) == -1);
-    assert(amp_test_check_time_range(604800001, SCHEDULE_PERIOD_WEEKLY) == -1);
+    assert(amp_test_check_time_range(1000000,
+                SCHEDULE_PERIOD_WEEKLY) == 1000000);
+    assert(amp_test_check_time_range(60000000,
+                SCHEDULE_PERIOD_WEEKLY) == 60000000);
+    assert(amp_test_check_time_range(3600000000,
+                SCHEDULE_PERIOD_WEEKLY) == 3600000000);
+    assert(amp_test_check_time_range(3600000001,
+                SCHEDULE_PERIOD_WEEKLY) == 3600000001);
+    assert(amp_test_check_time_range(86400000000,
+                SCHEDULE_PERIOD_WEEKLY) == 86400000000);
+    assert(amp_test_check_time_range(86400000001,
+                SCHEDULE_PERIOD_WEEKLY) == 86400000001);
+    assert(amp_test_check_time_range(604800000000,
+                SCHEDULE_PERIOD_WEEKLY) == 604800000000);
+    assert(amp_test_check_time_range(-1,
+                SCHEDULE_PERIOD_WEEKLY) == -1);
+    assert(amp_test_check_time_range(-12345,
+                SCHEDULE_PERIOD_WEEKLY) == -1);
+    assert(amp_test_check_time_range(604800000001,
+                SCHEDULE_PERIOD_WEEKLY) == -1);
 
 }
 
@@ -197,12 +218,17 @@ static void check_next_schedule_time(void) {
             schedule[i].offset.tv_sec;
         ev_hdl.walltime.tv_usec = schedule[i].offset.tv_usec;
 
+        /*
+         * start, end and freq are all now in usec rather than msec, easier to
+         * just change them here rather than add a heap of zeroes above
+         */
         /* get when the algorithm thinks the next scheduled test should be */
         offset = get_next_schedule_time(&ev_hdl, schedule[i].repeat,
-                schedule[i].start, schedule[i].end, schedule[i].freq);
+                schedule[i].start*1000, schedule[i].end*1000,
+                schedule[i].freq*1000);
 
         /*
-        printf("%d.%d vs %d.%d\n", offset.tv_sec, offset.tv_usec,
+        printf("%d\t%d.%d vs %d.%d\n", i, offset.tv_sec, offset.tv_usec,
                 expected[i].tv_sec, expected[i].tv_usec);
         */
 
