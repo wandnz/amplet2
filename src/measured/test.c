@@ -5,6 +5,8 @@
 #include <time.h>
 #include <sys/resource.h>
 #include <string.h>
+#include <sys/types.h>
+#include <ifaddrs.h>
 
 #include <libwandevent.h>
 
@@ -94,8 +96,42 @@ static void run_test(const test_schedule_item_t * const item) {
     if ( item->resolve != NULL ) {
 	struct addrinfo *tmp;
         int resolver_fd;
+        struct ifaddrs *ifaddrlist;
+        int seen_ipv4, seen_ipv6;
 
 	Log(LOG_DEBUG, "test has destinations to resolve!\n");
+
+        /*
+         * Check what address families we have available, as there is no
+         * point in asking for AAAA records if we can't do IPv6. This looks
+         * a lot like __check_pf() from libc that is used by getaddrinfo
+         * when AI_ADDRCONFIG is set. Might be nice to do this inside the
+         * amp_resolve_add() function, but then it's harder to keep state.
+         */
+        if ( getifaddrs(&ifaddrlist) < 0 ) {
+            /* error getting interfaces, assume we can do both IPv4 and 6 */
+            seen_ipv4 = 1;
+            seen_ipv6 = 1;
+        } else {
+            struct ifaddrs *ifa;
+            seen_ipv4 = 0;
+            seen_ipv6 = 0;
+            for ( ifa = ifaddrlist; ifa != NULL; ifa = ifa->ifa_next ) {
+                /* ignore other interfaces if the source interface is set */
+                if ( vars.interface != NULL &&
+                        strcmp(vars.interface, ifa->ifa_name) != 0 ) {
+                    continue;
+                }
+
+                /* otherwise, flag the family as one that we can use */
+                if ( ifa->ifa_addr->sa_family == AF_INET ) {
+                    seen_ipv4 = 1;
+                } else if ( ifa->ifa_addr->sa_family == AF_INET6 ) {
+                    seen_ipv6 = 1;
+                }
+            }
+            freeifaddrs(ifaddrlist);
+        }
 
         /* connect to the local amp resolver/cache */
         if ( (resolver_fd = amp_resolver_connect(vars.nssock)) < 0 ) {
@@ -105,6 +141,21 @@ static void run_test(const test_schedule_item_t * const item) {
 
         /* add all the names that we need to resolve */
         for ( resolve=item->resolve; resolve != NULL; resolve=resolve->next ) {
+            /* remove any address families that we can't use */
+            if ( seen_ipv4 == 0 && resolve->family != AF_INET6 ) {
+                if ( resolve->family == AF_INET ) {
+                    continue;
+                }
+                resolve->family = AF_INET6;
+            }
+
+            if ( seen_ipv6 == 0 && resolve->family != AF_INET ) {
+                if ( resolve->family == AF_INET6 ) {
+                    continue;
+                }
+                resolve->family = AF_INET;
+            }
+
             amp_resolve_add_new(resolver_fd, resolve);
         }
 

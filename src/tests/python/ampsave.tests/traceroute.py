@@ -1,14 +1,7 @@
 import struct
 import socket
 
-# TODO move to another file
-class VersionMismatch(Exception):
-    def __init__(self, got, expected):
-        self.got = got
-        self.expected = expected
-    def __str__(self):
-        return "%d != %d" % (self.got, self.expected)
-
+from ampsave.exceptions import AmpTestVersionMismatch
 
 # TODO move to another file
 def get_printable_address(family, addr):
@@ -96,11 +89,17 @@ def parse_data(data):
         header_len = struct.calcsize("!IhBB")
         path_len = struct.calcsize("!16sBBBBB")
         hop_len = struct.calcsize("!16si")
+        if len(data) < header_len:
+            print "%s: not enough data to unpack 2014020300 header", __file__
+            return None
         packet_size,random,count = struct.unpack_from("!hBB", data, offset)
     else:
         header_len = struct.calcsize("!IhBBBB")
         path_len = struct.calcsize("!16sBBBBB")
         hop_len = struct.calcsize("!16sqi")
+        if len(data) < header_len:
+            print "%s: not enough data to unpack header", __file__
+            return None
         packet_size,random,count,lookup_ip,lookup_as = struct.unpack_from(
                 "!hBBBB", data, offset)
 
@@ -113,10 +112,20 @@ def parse_data(data):
 
     # extract every path in the data portion of the message
     while count > 0:
+        # make sure there is at least enough data for the path header, if not
+        # then stop unpacking and report the paths we already have
+        if len(data[offset:]) < path_len:
+            print "%s: not enough data to unpack path header", __file__
+            return results
         addr,family,length,errtype,errcode,namelen = struct.unpack_from(
 		"!16sBBBBB", data, offset)
         assert(namelen > 0 and namelen < 255)
         offset += path_len
+
+        # again, if there isn't enough data, return all complete paths so far
+        if len(data[offset:]) < namelen:
+            print "%s: not enough data to unpack target name", __file__
+            return results
         (name,) = struct.unpack_from("!%ds" % namelen, data, offset)
         offset += namelen
 
@@ -138,6 +147,11 @@ def parse_data(data):
         # extract each hop in the path
         hopcount = length
         while hopcount > 0:
+            # if we only get a partial path then give up and return all the
+            # completed paths that we have
+            if len(data[offset:]) < hop_len:
+                print "%s: not enough data to unpack path item", __file__
+                return results
             if version == 2014020300:
                 hop_addr,rtt = struct.unpack_from("!16si", data, offset)
             else:
@@ -177,6 +191,9 @@ def get_data(data):
     """
 
     # check the version number first before looking at anything else
+    if len(data) < struct.calcsize("!I"):
+        print "%s: not enough data to unpack version number", __file__
+        return None
     version, = struct.unpack_from("!I", data, 0)
 
     # deal with the old version, which isn't byte swapped
@@ -187,4 +204,4 @@ def get_data(data):
     if version == 2014020300 or version == 2014080700:
         return parse_data(data)
 
-    raise VersionMismatch(version, AMP_TRACEROUTE_TEST_VERSION)
+    raise AmpTestVersionMismatch(version, AMP_TRACEROUTE_TEST_VERSION)
