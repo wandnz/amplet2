@@ -309,7 +309,6 @@ struct timeval get_next_schedule_time(wand_event_handler_t *ev_hdl,
 	schedule_period_t period, uint64_t start, uint64_t end,
         uint64_t frequency, int run, struct timeval *abstime) {
 
-    static struct timeval walltime_offset = {0,0};
     time_t period_start, period_end;
     struct timeval now, next = {0,0};
     int64_t diff, test_end;

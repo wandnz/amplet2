@@ -225,7 +225,7 @@ static void check_next_schedule_time(void) {
         /* get when the algorithm thinks the next scheduled test should be */
         offset = get_next_schedule_time(&ev_hdl, schedule[i].repeat,
                 schedule[i].start*1000, schedule[i].end*1000,
-                schedule[i].freq*1000);
+                schedule[i].freq*1000, 0, NULL);
 
         /*
         printf("%d\t%d.%d vs %d.%d\n", i, offset.tv_sec, offset.tv_usec,
