@@ -342,6 +342,9 @@ struct timeval get_next_schedule_time(wand_event_handler_t *ev_hdl,
             /* skip over the time we are early and find the next repeat */
             if ( frequency > 0 ) {
                 diff = abs(diff) + frequency;
+            } else {
+                /* there is no repeat, find the start of next period */
+                diff = abs(diff) + get_period_max_value(period);
             }
         }
 
