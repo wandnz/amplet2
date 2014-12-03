@@ -331,6 +331,7 @@ struct timeval get_next_schedule_time(wand_event_handler_t *ev_hdl,
     diff += now.tv_usec;
     diff -= start;
 
+    /* if the difference is negative, we are before the first scheduled run */
     if ( diff < 0 ) {
         /*
          * Make sure that if we just ran the test, we aren't running it again
@@ -339,8 +340,8 @@ struct timeval get_next_schedule_time(wand_event_handler_t *ev_hdl,
          * next period if there are no repeats.
          */
         if ( run && abs(diff) < SCHEDULE_CLOCK_FUDGE ) {
-            /* skip over the time we are early and find the next repeat */
             if ( frequency > 0 ) {
+                /* skip over the time we are early and find the next repeat */
                 diff = abs(diff) + frequency;
             } else {
                 /* there is no repeat, find the start of next period */
@@ -348,7 +349,7 @@ struct timeval get_next_schedule_time(wand_event_handler_t *ev_hdl,
             }
         }
 
-        /* the start time hasn't been reached yet, so schedule for then */
+        /* convert usec to a timeval */
         next.tv_sec = abs(diff) / 1000000;
         next.tv_usec = abs(diff) % 1000000;
 
@@ -360,7 +361,11 @@ struct timeval get_next_schedule_time(wand_event_handler_t *ev_hdl,
     }
 
     if ( frequency == 0 ) {
-	/* if it's after the first and only event in the cycle, roll over */
+	/*
+         * If it's after the first and only event in the cycle, roll over.
+         * This has to be a test that ran on time, otherwise we would have
+         * had a negative difference at the earlier check.
+         */
 	next_repeat = 1;
     } else {
 	/* if it's after the first event but repeated, find the next repeat */
