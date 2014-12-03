@@ -253,6 +253,7 @@ static int process_ipv6_packet(char *packet, uint32_t bytes, uint16_t ident,
     info[seq].reply = 1;
     info[seq].delay = DIFF_TV_US(now, info[seq].time_sent);
 
+    Log(LOG_DEBUG, "Good ICMP6 ECHOREPLY");
     return 0;
 }
 
