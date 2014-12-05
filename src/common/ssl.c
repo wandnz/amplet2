@@ -150,6 +150,7 @@ SSL_CTX* initialise_ssl(void) {
 
     /* Only support secure cipher suites (according to ssl-conservatory code) */
     if (SSL_CTX_set_cipher_list(ssl_ctx, SECURE_CIPHER_LIST) != 1) {
+        Log(LOG_WARNING, "Failed to set cipher list");
         ssl_cleanup();
         return NULL;
     }
