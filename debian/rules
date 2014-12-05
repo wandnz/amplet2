@@ -25,4 +25,4 @@ override_dh_installinit:
 	dh_installinit --name=amplet2-client
 
 override_dh_auto_configure:
-	dh_auto_configure -- $(shell dpkg-buildflags --export=configure)
+	dh_auto_configure -- --disable-python $(shell dpkg-buildflags --export=configure)
