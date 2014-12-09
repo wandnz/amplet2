@@ -7,6 +7,7 @@
 #include <string.h>
 #include <sys/types.h>
 #include <ifaddrs.h>
+#include <sys/time.h>
 
 #include <libwandevent.h>
 
