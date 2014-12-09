@@ -345,8 +345,12 @@ struct pcaptransport pcap_transport_header(struct pcapdevice *p) {
         tranny.protocol = ip6->ip6_nxt;
 
     } else {
-        Log(LOG_WARNING, "Captured a non IP packet: %u",
-                ntohs(eth->ether_type));
+        /*
+         * We can sometimes catch other, non-IP traffic before the filter gets
+         * applied (e.g. for some reason we are frequently seeing packets with
+         * ethertype 0x100 (vlans).
+         */
+        Log(LOG_DEBUG, "Captured a non IP packet: %u", ntohs(eth->ether_type));
         return tranny;
     }
 

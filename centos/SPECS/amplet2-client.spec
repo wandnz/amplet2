@@ -1,12 +1,12 @@
 Name: amplet2
-Version: 0.3.7
-Release: 1%{?dist}
+Version: 0.3.8
+Release: 2%{?dist}
 Summary: AMP Network Performance Measurement Suite - Client Tools
 
 Group: Applications/Internet
 License: AMP
 URL: http://research.wand.net.nz/software/amp.php
-Source0: http://research.wand.net.nz/software/amp/amplet2-0.3.7.tar.gz
+Source0: http://research.wand.net.nz/software/amp/amplet2-0.3.8.tar.gz
 Patch0: amplet2-client-init.patch
 Patch1: amplet2-client-default.patch
 Patch2: amplet2-client-makefile.patch
@@ -193,6 +193,12 @@ fi
 
 
 %changelog
+* Fri Dec  5 2014 Brendon Jones <brendonj@waikato.ac.nz> 0.3.8-2
+- Fix tcpping test when bound to a single interface.
+- Quieten some too common, unhelpful warning messages.
+- Fix tests being rescheduled immediately due to clock drift.
+- No longer attempts to resolve address families the test interface lacks.
+
 * Mon Nov  3 2014 Brendon Jones <brendonj@waikato.ac.nz> 0.3.7-1
 - Bring the schedule parser in line with the generated schedules.
 - Fix buffer management when fetching large amounts of ASN data.

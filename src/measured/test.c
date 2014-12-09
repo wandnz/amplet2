@@ -5,6 +5,9 @@
 #include <time.h>
 #include <sys/resource.h>
 #include <string.h>
+#include <sys/types.h>
+#include <ifaddrs.h>
+#include <sys/time.h>
 
 #include <libwandevent.h>
 
@@ -96,8 +99,42 @@ static void run_test(const test_schedule_item_t * const item) {
     if ( item->resolve != NULL ) {
 	struct addrinfo *tmp;
         int resolver_fd;
+        struct ifaddrs *ifaddrlist;
+        int seen_ipv4, seen_ipv6;
 
 	Log(LOG_DEBUG, "test has destinations to resolve!\n");
+
+        /*
+         * Check what address families we have available, as there is no
+         * point in asking for AAAA records if we can't do IPv6. This looks
+         * a lot like __check_pf() from libc that is used by getaddrinfo
+         * when AI_ADDRCONFIG is set. Might be nice to do this inside the
+         * amp_resolve_add() function, but then it's harder to keep state.
+         */
+        if ( getifaddrs(&ifaddrlist) < 0 ) {
+            /* error getting interfaces, assume we can do both IPv4 and 6 */
+            seen_ipv4 = 1;
+            seen_ipv6 = 1;
+        } else {
+            struct ifaddrs *ifa;
+            seen_ipv4 = 0;
+            seen_ipv6 = 0;
+            for ( ifa = ifaddrlist; ifa != NULL; ifa = ifa->ifa_next ) {
+                /* ignore other interfaces if the source interface is set */
+                if ( vars.interface != NULL &&
+                        strcmp(vars.interface, ifa->ifa_name) != 0 ) {
+                    continue;
+                }
+
+                /* otherwise, flag the family as one that we can use */
+                if ( ifa->ifa_addr->sa_family == AF_INET ) {
+                    seen_ipv4 = 1;
+                } else if ( ifa->ifa_addr->sa_family == AF_INET6 ) {
+                    seen_ipv6 = 1;
+                }
+            }
+            freeifaddrs(ifaddrlist);
+        }
 
         /* connect to the local amp resolver/cache */
         if ( (resolver_fd = amp_resolver_connect(vars.nssock)) < 0 ) {
@@ -107,6 +144,21 @@ static void run_test(const test_schedule_item_t * const item) {
 
         /* add all the names that we need to resolve */
         for ( resolve=item->resolve; resolve != NULL; resolve=resolve->next ) {
+            /* remove any address families that we can't use */
+            if ( seen_ipv4 == 0 && resolve->family != AF_INET6 ) {
+                if ( resolve->family == AF_INET ) {
+                    continue;
+                }
+                resolve->family = AF_INET6;
+            }
+
+            if ( seen_ipv6 == 0 && resolve->family != AF_INET ) {
+                if ( resolve->family == AF_INET6 ) {
+                    continue;
+                }
+                resolve->family = AF_INET;
+            }
+
             amp_resolve_add_new(resolver_fd, resolve);
         }
 
@@ -266,13 +318,31 @@ static void set_proc_name(char *testname) {
  * execution timers etc.
  * TODO maybe just move the contents of this into run_scheduled_test()?
  */
-static void fork_test(wand_event_handler_t *ev_hdl,test_schedule_item_t *item) {
+static int fork_test(wand_event_handler_t *ev_hdl, test_schedule_item_t *item) {
+    struct timeval now;
     pid_t pid;
     test_t *test;
 
     assert(item);
     assert(item->test_id < AMP_TEST_LAST);
     assert(amp_tests[item->test_id]);
+
+    /*
+     * Make sure this isn't being run too soon - the monotonic clock and
+     * the system time don't generally keep in sync very well (and the system
+     * time can get updated from other sources). If we are too early, return
+     * without running the test (which will be rescheduled).
+     */
+    gettimeofday(&now, NULL);
+    if ( timercmp(&now, &item->abstime, <) ) {
+        timersub(&item->abstime, &now, &now);
+        /* run too soon, don't run it now - let it get rescheduled */
+        if ( now.tv_sec != 0 || now.tv_usec > SCHEDULE_CLOCK_FUDGE ) {
+            Log(LOG_DEBUG,
+                    "Test triggered early by current clock, will reschedule");
+            return 0;
+        }
+    }
 
     test = amp_tests[item->test_id];
 
@@ -285,7 +355,7 @@ static void fork_test(wand_event_handler_t *ev_hdl,test_schedule_item_t *item) {
      */
     if ( (pid = fork()) < 0 ) {
 	perror("fork");
-	return;
+	return 0;
     } else if ( pid == 0 ) {
 	/* child, prepare the environment and run the test functions */
 	//struct rlimit cpu_limits;
@@ -316,6 +386,8 @@ static void fork_test(wand_event_handler_t *ev_hdl,test_schedule_item_t *item) {
     /* schedule the watchdog to kill it if it takes too long */
     add_test_watchdog(ev_hdl, pid, test->max_duration, test->sigint,
             test->name);
+
+    return 1;
 }
 
 
@@ -327,23 +399,25 @@ void run_scheduled_test(wand_event_handler_t *ev_hdl, void *data) {
     schedule_item_t *item = (schedule_item_t *)data;
     test_schedule_item_t *test_item;
     struct timeval next;
+    int run;
 
     assert(item->type == EVENT_RUN_TEST);
 
     test_item = (test_schedule_item_t *)item->data.test;
 
-    Log(LOG_DEBUG, "Running a %s test", amp_tests[test_item->test_id]->name);
-    printf("running a %s test at %d\n", amp_tests[test_item->test_id]->name,
-	    (int)time(NULL));
+    Log(LOG_DEBUG, "Running %s test", amp_tests[test_item->test_id]->name);
+    printf("running %s test at %d\n", amp_tests[test_item->test_id]->name,
+            (int)time(NULL));
 
     /*
      * run the test as soon as we know what it is, so it happens as close to
      * the right time as we can get it.
      */
-    fork_test(item->ev_hdl, test_item);
+    run = fork_test(item->ev_hdl, test_item);
 
     /* while the test runs, reschedule it again */
     next = get_next_schedule_time(item->ev_hdl, test_item->period,
-            test_item->start, test_item->end, MS_FROM_TV(test_item->interval));
+            test_item->start, test_item->end, US_FROM_TV(test_item->interval),
+            run, &test_item->abstime);
     wand_add_timer(ev_hdl, next.tv_sec, next.tv_usec, data, run_scheduled_test);
 }

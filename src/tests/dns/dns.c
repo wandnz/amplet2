@@ -606,7 +606,7 @@ static void report_results(struct timeval *start_time, int count,
             item->instancelen = 0;
 	}
 
-	Log(LOG_DEBUG, "dns result %d: %dus\n", i, item->rtt);
+	Log(LOG_DEBUG, "dns result %d: %dus\n", i, ntohl(item->rtt));
     }
 
     report(AMP_TEST_DNS, (uint64_t)start_time->tv_sec, (void*)buffer, len);

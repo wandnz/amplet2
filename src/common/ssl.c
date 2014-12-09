@@ -327,6 +327,7 @@ SSL_CTX* initialise_ssl_context(void) {
 
     /* Only support ciphers we believe are secure */
     if (SSL_CTX_set_cipher_list(ssl_ctx, SECURE_CIPHER_LIST) != 1) {
+        Log(LOG_WARNING, "Failed to set cipher list");
         ssl_cleanup();
         return NULL;
     }

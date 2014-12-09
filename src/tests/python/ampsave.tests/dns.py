@@ -1,14 +1,7 @@
 import struct
 import socket
 
-# TODO move to another file
-class VersionMismatch(Exception):
-    def __init__(self, got, expected):
-        self.got = got
-        self.expected = expected
-    def __str__(self):
-        return "%d != %d" % (self.got, self.expected)
-
+from ampsave.exceptions import AmpTestVersionMismatch
 
 # version needs to keep up with the version number in src/tests/icmp/icmp.h
 AMP_DNS_TEST_VERSION = 2014020400
@@ -92,6 +85,10 @@ def data_2014020400(data):
     header_len = struct.calcsize("!IHHHBBB")
     item_len = struct.calcsize("!16siIIHHHHBBBB")
 
+    if len(data) < header_len:
+        print "%s: not enough data to unpack header", __file__
+        return None
+
     # offset past the version number which has already been read
     offset = struct.calcsize("!I")
 
@@ -101,6 +98,9 @@ def data_2014020400(data):
     # get the variable length query string that follows the header
     assert(querylen > 0 and querylen < 255)
     offset = header_len
+    if len(data[offset:]) < querylen:
+        print "%s: not enough data to unpack query", __file__
+        return None
     (query,) = struct.unpack_from("!%ds" % querylen, data, offset)
     offset += querylen
     assert(querylen == len(query))
@@ -109,12 +109,18 @@ def data_2014020400(data):
 
     # extract every item in the data portion of the message
     while count > 0:
+        if len(data[offset:]) < item_len:
+            print "%s: not enough data to unpack item", __file__
+            return results
 	# "p" pascal string could be useful here, length byte before string
         addr,rtt,qlen,size,ans,aut,add,flags,family,ttl,namelen,instancelen = struct.unpack_from("!16siIIHHHHBBBB", data, offset)
 
         # get the variable length ampname string that follows the data
         assert(namelen > 0 and namelen < 255)
         offset += item_len
+        if len(data[offset:]) < namelen:
+            print "%s: not enough data to unpack name", __file__
+            return results
         (name,) = struct.unpack_from("!%ds" % namelen, data, offset)
         offset += namelen
         assert(namelen == len(name))
@@ -122,6 +128,9 @@ def data_2014020400(data):
         if instancelen > 0:
             # get the variable length instance string that follows the data
             assert(instancelen > 0 and instancelen < 255)
+            if len(data[offset:]) < instancelen:
+                print "%s: not enough data to unpack instance", __file__
+                return results
             (instance,) = struct.unpack_from("!%ds" % instancelen, data, offset)
             offset += instancelen
             assert(instancelen == len(instance))
@@ -185,6 +194,9 @@ def get_data(data):
     """
 
     # check the version number first before looking at anything else
+    if len(data) < struct.calcsize("!I"):
+        print "%s: not enough data to unpack version number", __file__
+        return None
     version, = struct.unpack_from("!I", data, 0)
 
     # deal with the old version, which isn't byte swapped
@@ -195,7 +207,7 @@ def get_data(data):
     if version == 2014020400:
         return data_2014020400(data)
 
-    raise VersionMismatch(version, AMP_DNS_TEST_VERSION)
+    raise AmpTestVersionMismatch(version, AMP_DNS_TEST_VERSION)
 
 def get_query_class(qclass):
     if qclass == 0x01:
