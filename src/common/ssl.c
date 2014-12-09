@@ -275,6 +275,7 @@ SSL_CTX* initialise_ssl_context(void) {
     SSL_CTX *ssl_ctx = NULL;
     EC_KEY *ecdh;
     DH *dh;
+    int codes = 0;
 
     Log(LOG_INFO, "Initialising SSL context");
 
@@ -346,9 +347,55 @@ SSL_CTX* initialise_ssl_context(void) {
      * or our cipher choices will forever be silently ignored.
      *
      * http://en.wikibooks.org/wiki/OpenSSL/Diffie-Hellman_parameters
+     * http://wiki.openssl.org/index.php/Diffie-Hellman_parameters
      */
     if ( (dh = get_dh1024()) == NULL ) {
         Log(LOG_WARNING, "Failed to generate Diffie-Hellman parameters");
+        ssl_cleanup();
+        return NULL;
+    }
+
+    /* make sure that we got sensible DH parameters */
+    if ( DH_check(dh, &codes) != 1 ) {
+        log_ssl("Failed to validate Diffie-Hellman parameters");
+        DH_free(dh);
+        ssl_cleanup();
+        return NULL;
+    }
+
+    /*
+     * As suggested by the openssl wiki page. Using IETF parameters (g = 2)
+     * will fail validation when it is actually fine.
+     * See also http://crypto.stackexchange.com/questions/12961/
+     */
+    if ( BN_is_word(dh->g, DH_GENERATOR_2) ) {
+        long residue = BN_mod_word(dh->p, 24);
+        if ( residue == 11 || residue == 23 ) {
+            codes &= ~DH_NOT_SUITABLE_GENERATOR;
+        }
+    }
+
+    /* the bit flags of codes will hopefully describe what was wrong */
+    if ( codes ) {
+        Log(LOG_WARNING, "DH parameters failed validation");
+
+        if ( codes & DH_UNABLE_TO_CHECK_GENERATOR ) {
+            Log(LOG_WARNING, "Unable to check DH generator");
+        }
+
+        if ( codes & DH_NOT_SUITABLE_GENERATOR ) {
+            Log(LOG_WARNING, "DH parameter g is not a suitable generator");
+        }
+
+        if ( codes & DH_CHECK_P_NOT_PRIME ) {
+            Log(LOG_WARNING, "DH parameter p is not a prime");
+        }
+
+        if ( codes & DH_CHECK_P_NOT_SAFE_PRIME ) {
+            Log(LOG_WARNING, "DH parameter p is not a safe prime");
+        }
+
+        DH_free(dh);
         ssl_cleanup();
         return NULL;
     }
