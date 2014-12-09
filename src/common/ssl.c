@@ -214,7 +214,7 @@ int matches_common_name(const char *hostname, const X509 *cert) {
  * Initialise the SSL context and load all the keys that we will be using.
  */
 int initialise_ssl(void) {
-    Log(LOG_DEBUG, "Initialising SSL");
+    Log(LOG_INFO, "Initialising global SSL options");
 
     /*
      * "OpenSSL will attempt to seed the random number generator
@@ -276,7 +276,7 @@ SSL_CTX* initialise_ssl_context(void) {
     EC_KEY *ecdh;
     DH *dh;
 
-    Log(LOG_DEBUG, "Initialising SSL context");
+    Log(LOG_INFO, "Initialising SSL context");
 
     if ( vars.amqp_ssl.cacert == NULL || vars.amqp_ssl.cert == NULL ||
             vars.amqp_ssl.key == NULL ) {
