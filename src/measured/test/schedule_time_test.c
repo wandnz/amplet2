@@ -37,74 +37,84 @@ static void check_period_time(void) {
  * Check that the time values are correctly parsed and fit within the period.
  */
 static void check_time_parsing(void) {
+    /*
+     * Need to use INT64_C(c) macros otherwise old compilers complain about
+     * integer constants being too large, or only being unsigned in ISO C90
+     * (despite the parameter being an int64_t). Maybe the function doesn't
+     * really need to operate in usec?
+     */
+
     /* check that hourly repeated times are correctly validated */
-    assert(amp_test_check_time_range(0, SCHEDULE_PERIOD_HOURLY) == 0);
-    assert(amp_test_check_time_range(1000000,
-                SCHEDULE_PERIOD_HOURLY) == 1000000);
-    assert(amp_test_check_time_range(60000000,
-                SCHEDULE_PERIOD_HOURLY) == 60000000);
-    assert(amp_test_check_time_range(3600000000,
-                SCHEDULE_PERIOD_HOURLY) == 3600000000);
-    assert(amp_test_check_time_range(-1,
-                SCHEDULE_PERIOD_HOURLY) == -1);
-    assert(amp_test_check_time_range(-12345,
-                SCHEDULE_PERIOD_HOURLY) == -1);
-    assert(amp_test_check_time_range(3600000001,
-                SCHEDULE_PERIOD_HOURLY) == -1);
-    assert(amp_test_check_time_range(86400000000,
-                SCHEDULE_PERIOD_HOURLY) == -1);
-    assert(amp_test_check_time_range(86400000001,
-                SCHEDULE_PERIOD_HOURLY) == -1);
-    assert(amp_test_check_time_range(604800000000,
-                SCHEDULE_PERIOD_HOURLY) == -1);
-    assert(amp_test_check_time_range(604800000001,
-                SCHEDULE_PERIOD_HOURLY) == -1);
+    assert(amp_test_check_time_range(INT64_C(0),
+                SCHEDULE_PERIOD_HOURLY) == INT64_C(0));
+    assert(amp_test_check_time_range(INT64_C(1000000),
+                SCHEDULE_PERIOD_HOURLY) == INT64_C(1000000));
+    assert(amp_test_check_time_range(INT64_C(60000000),
+                SCHEDULE_PERIOD_HOURLY) == INT64_C(60000000));
+    assert(amp_test_check_time_range(INT64_C(3600000000),
+                SCHEDULE_PERIOD_HOURLY) == INT64_C(3600000000));
+    assert(amp_test_check_time_range(INT64_C(-1),
+                SCHEDULE_PERIOD_HOURLY) == INT64_C(-1));
+    assert(amp_test_check_time_range(INT64_C(-12345),
+                SCHEDULE_PERIOD_HOURLY) == INT64_C(-1));
+    assert(amp_test_check_time_range(INT64_C(3600000001),
+                SCHEDULE_PERIOD_HOURLY) == INT64_C(-1));
+    assert(amp_test_check_time_range(INT64_C(86400000000),
+                SCHEDULE_PERIOD_HOURLY) == INT64_C(-1));
+    assert(amp_test_check_time_range(INT64_C(86400000001),
+                SCHEDULE_PERIOD_HOURLY) == INT64_C(-1));
+    assert(amp_test_check_time_range(INT64_C(604800000000),
+                SCHEDULE_PERIOD_HOURLY) == INT64_C(-1));
+    assert(amp_test_check_time_range(INT64_C(604800000001),
+                SCHEDULE_PERIOD_HOURLY) == INT64_C(-1));
 
     /* check that daily repeated times are correctly validated */
-    assert(amp_test_check_time_range(0, SCHEDULE_PERIOD_DAILY) == 0);
-    assert(amp_test_check_time_range(1000000,
-                SCHEDULE_PERIOD_DAILY) == 1000000);
-    assert(amp_test_check_time_range(60000000,
-                SCHEDULE_PERIOD_DAILY) == 60000000);
-    assert(amp_test_check_time_range(3600000000,
-                SCHEDULE_PERIOD_DAILY) == 3600000000);
-    assert(amp_test_check_time_range(3600000001,
-                SCHEDULE_PERIOD_DAILY) == 3600000001);
-    assert(amp_test_check_time_range(86400000000,
-                SCHEDULE_PERIOD_DAILY) == 86400000000);
-    assert(amp_test_check_time_range(-1,
-                SCHEDULE_PERIOD_DAILY) == -1);
-    assert(amp_test_check_time_range(-12345,
-                SCHEDULE_PERIOD_DAILY) == -1);
-    assert(amp_test_check_time_range(86400000001,
-                SCHEDULE_PERIOD_DAILY) == -1);
-    assert(amp_test_check_time_range(604800000000,
-                SCHEDULE_PERIOD_DAILY) == -1);
-    assert(amp_test_check_time_range(604800000001,
-                SCHEDULE_PERIOD_DAILY) == -1);
+    assert(amp_test_check_time_range(INT64_C(0),
+                SCHEDULE_PERIOD_DAILY) == INT64_C(0));
+    assert(amp_test_check_time_range(INT64_C(1000000),
+                SCHEDULE_PERIOD_DAILY) == INT64_C(1000000));
+    assert(amp_test_check_time_range(INT64_C(60000000),
+                SCHEDULE_PERIOD_DAILY) == INT64_C(60000000));
+    assert(amp_test_check_time_range(INT64_C(3600000000),
+                SCHEDULE_PERIOD_DAILY) == INT64_C(3600000000));
+    assert(amp_test_check_time_range(INT64_C(3600000001),
+                SCHEDULE_PERIOD_DAILY) == INT64_C(3600000001));
+    assert(amp_test_check_time_range(INT64_C(86400000000),
+                SCHEDULE_PERIOD_DAILY) == INT64_C(86400000000));
+    assert(amp_test_check_time_range(INT64_C(-1),
+                SCHEDULE_PERIOD_DAILY) == INT64_C(-1));
+    assert(amp_test_check_time_range(INT64_C(-12345),
+                SCHEDULE_PERIOD_DAILY) == INT64_C(-1));
+    assert(amp_test_check_time_range(INT64_C(86400000001),
+                SCHEDULE_PERIOD_DAILY) == INT64_C(-1));
+    assert(amp_test_check_time_range(INT64_C(604800000000),
+                SCHEDULE_PERIOD_DAILY) == INT64_C(-1));
+    assert(amp_test_check_time_range(INT64_C(604800000001),
+                SCHEDULE_PERIOD_DAILY) == INT64_C(-1));
 
     /* check that weekly repeated times are correctly validated */
-    assert(amp_test_check_time_range(0, SCHEDULE_PERIOD_WEEKLY) == 0);
-    assert(amp_test_check_time_range(1000000,
-                SCHEDULE_PERIOD_WEEKLY) == 1000000);
-    assert(amp_test_check_time_range(60000000,
-                SCHEDULE_PERIOD_WEEKLY) == 60000000);
-    assert(amp_test_check_time_range(3600000000,
-                SCHEDULE_PERIOD_WEEKLY) == 3600000000);
-    assert(amp_test_check_time_range(3600000001,
-                SCHEDULE_PERIOD_WEEKLY) == 3600000001);
-    assert(amp_test_check_time_range(86400000000,
-                SCHEDULE_PERIOD_WEEKLY) == 86400000000);
-    assert(amp_test_check_time_range(86400000001,
-                SCHEDULE_PERIOD_WEEKLY) == 86400000001);
-    assert(amp_test_check_time_range(604800000000,
-                SCHEDULE_PERIOD_WEEKLY) == 604800000000);
-    assert(amp_test_check_time_range(-1,
-                SCHEDULE_PERIOD_WEEKLY) == -1);
-    assert(amp_test_check_time_range(-12345,
-                SCHEDULE_PERIOD_WEEKLY) == -1);
-    assert(amp_test_check_time_range(604800000001,
-                SCHEDULE_PERIOD_WEEKLY) == -1);
+    assert(amp_test_check_time_range(INT64_C(0),
+                SCHEDULE_PERIOD_WEEKLY) == INT64_C(0));
+    assert(amp_test_check_time_range(INT64_C(1000000),
+                SCHEDULE_PERIOD_WEEKLY) == INT64_C(1000000));
+    assert(amp_test_check_time_range(INT64_C(60000000),
+                SCHEDULE_PERIOD_WEEKLY) == INT64_C(60000000));
+    assert(amp_test_check_time_range(INT64_C(3600000000),
+                SCHEDULE_PERIOD_WEEKLY) == INT64_C(3600000000));
+    assert(amp_test_check_time_range(INT64_C(3600000001),
+                SCHEDULE_PERIOD_WEEKLY) == INT64_C(3600000001));
+    assert(amp_test_check_time_range(INT64_C(86400000000),
+                SCHEDULE_PERIOD_WEEKLY) == INT64_C(86400000000));
+    assert(amp_test_check_time_range(INT64_C(86400000001),
+                SCHEDULE_PERIOD_WEEKLY) == INT64_C(86400000001));
+    assert(amp_test_check_time_range(INT64_C(604800000000),
+                SCHEDULE_PERIOD_WEEKLY) == INT64_C(604800000000));
+    assert(amp_test_check_time_range(INT64_C(-1),
+                SCHEDULE_PERIOD_WEEKLY) == INT64_C(-1));
+    assert(amp_test_check_time_range(INT64_C(-12345),
+                SCHEDULE_PERIOD_WEEKLY) == INT64_C(-1));
+    assert(amp_test_check_time_range(INT64_C(604800000001),
+                SCHEDULE_PERIOD_WEEKLY) == INT64_C(-1));
 
 }
 
