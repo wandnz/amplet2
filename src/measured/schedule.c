@@ -15,6 +15,7 @@
 #include <glob.h>
 #include <curl/curl.h>
 #include <yaml.h>
+#include <stdint.h>
 
 #include <libwandevent.h>
 #include "schedule.h"
@@ -315,7 +316,7 @@ struct timeval get_next_schedule_time(wand_event_handler_t *ev_hdl,
     int next_repeat;
 
     period_start = get_period_start(period);
-    test_end = (period_start*1000000) + end;
+    test_end = (period_start * INT64_C(1000000)) + end;
 
     /*
      * wand_get_walltime essentially just calls gettimeofday(), but it lets
