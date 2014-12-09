@@ -292,6 +292,9 @@ SSL_CTX* initialise_ssl_context(void) {
     ssl_ctx = SSL_CTX_new(SSLv23_method());
     SSL_CTX_set_options(ssl_ctx, SSL_OP_MIN_TLSv1_2);
 
+    /* disable compression to mitigate CRIME attack */
+    SSL_CTX_set_options(ssl_ctx, SSL_OP_NO_COMPRESSION);
+
     /* Make sure all clients provide a certificate, and that it is valid */
     SSL_CTX_set_verify(ssl_ctx,
             SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT, NULL);
