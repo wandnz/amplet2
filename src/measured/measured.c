@@ -267,6 +267,7 @@ static int parse_config(char *filename, struct amp_global_t *vars) {
         CFG_STR("cacert", NULL, CFGF_NONE),
         CFG_STR("key", NULL, CFGF_NONE),
         CFG_STR("cert", NULL, CFGF_NONE),
+        CFG_INT("waitforcert", -1, CFGF_NONE),
         CFG_END()
     };
 
@@ -387,6 +388,7 @@ static int parse_config(char *filename, struct amp_global_t *vars) {
         vars->exchange = strdup(cfg_getstr(cfg_sub, "exchange"));
         vars->routingkey = strdup(cfg_getstr(cfg_sub, "routingkey"));
         vars->ssl = cfg_getbool(cfg_sub, "ssl");
+        vars->waitforcert = cfg_getint(cfg_sub, "waitforcert");
 
         /* if these aren't set, then they will be generated later if required */
         if ( cfg_getstr(cfg_sub, "cacert") ) {
@@ -689,7 +691,7 @@ int main(int argc, char *argv[]) {
      * work though, but maybe those things aren't needed.
      * TODO get timeout value from config
      */
-    if ( vars.ssl && (get_certificate(-1) != 0 ||
+    if ( vars.ssl && (get_certificate(vars.waitforcert) != 0 ||
                 (ssl_ctx = initialise_ssl_context()) == NULL) ) {
         Log(LOG_WARNING, "Failed to load and verify SSL keys/certificates");
         Log(LOG_WARNING,

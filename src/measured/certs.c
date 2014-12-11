@@ -640,18 +640,25 @@ int get_certificate(int timeout) {
         return -1;
     }
 
-    /* TODO test the retry loop */
-    while ( (res = fetch_certificate()) == 1 && timeout > 0 ) {
-        if ( timeout < AMP_PKI_QUERY_INTERVAL ) {
+    /*
+     * A negative timeout of-1 will wait forever, 0 won't wait at all,
+     * any positive timeout will wait that many seconds. The timeout is the
+     * maximum time to wait, it will check periodically at the
+     * AMP_PKI_QUERY_INTERVAL to see if the certificate has been signed.
+     */
+    while ( (res = fetch_certificate()) == 1 && timeout != 0 ) {
+        if ( timeout < 0 || timeout > AMP_PKI_QUERY_INTERVAL ) {
+            Log(LOG_DEBUG, "Sleeping for %d seconds before checking for cert",
+                    AMP_PKI_QUERY_INTERVAL);
+            sleep(AMP_PKI_QUERY_INTERVAL);
+            if ( timeout > 0 ) {
+                timeout -= AMP_PKI_QUERY_INTERVAL;
+            }
+        } else {
             Log(LOG_DEBUG, "Sleeping for %d seconds before checking for cert",
                     timeout);
             sleep(timeout);
             timeout = 0;
-        } else {
-            Log(LOG_DEBUG, "Sleeping for %d seconds before checking for cert",
-                    AMP_PKI_QUERY_INTERVAL);
-            sleep(AMP_PKI_QUERY_INTERVAL);
-            timeout -= AMP_PKI_QUERY_INTERVAL;
         }
     }
 

@@ -43,6 +43,7 @@ struct amp_global_t {
     int asnsock_fd;
     char **argv;
     int argc;
+    int waitforcert;
 };
 
 struct amp_global_t vars;
