@@ -37,7 +37,7 @@
  *
  * https://www.openssl.org/docs/crypto/EVP_DigestInit.html
  */
-static char *hash(char *str, int *length, EVP_MD *type) {
+static char *hash(char *str, int *length, const EVP_MD *type) {
     EVP_MD_CTX *mdctx;
     char *hashstr = calloc(1, EVP_MAX_MD_SIZE);
 
@@ -483,7 +483,11 @@ static int fetch_certificate(void) {
     bio = BIO_push(BIO_new(BIO_f_base64()), BIO_new(BIO_s_mem()));
     BIO_set_flags(bio, BIO_FLAGS_BASE64_NO_NL);
     BIO_write(bio, signature, length);
-    BIO_flush(bio);
+    if ( BIO_flush(bio) != 1 ) {
+        free(signature);
+        BIO_free_all(bio);
+        return -1;
+    }
     length = BIO_get_mem_data(bio, &urlsig);
 
     /* modify the encoding slightly, as we can't use these chars in a url */
