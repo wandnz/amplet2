@@ -299,6 +299,7 @@ SSL_CTX* initialise_ssl_context(void) {
     SSL_CTX_set_verify(ssl_ctx,
             SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT, NULL);
 
+    Log(LOG_INFO, "Loading certificate from %s", vars.amqp_ssl.cert);
     /* Load our certificate */
     if ( SSL_CTX_use_certificate_chain_file(ssl_ctx,vars.amqp_ssl.cert) != 1 ) {
         Log(LOG_WARNING, "Couldn't load certificate %s", vars.amqp_ssl.cert);
@@ -306,6 +307,7 @@ SSL_CTX* initialise_ssl_context(void) {
         return NULL;
     }
 
+    Log(LOG_INFO, "Loading private key from %s", vars.amqp_ssl.key);
     /* Load our private key */
     if ( SSL_CTX_use_PrivateKey_file(ssl_ctx, vars.amqp_ssl.key,
                 SSL_FILETYPE_PEM) != 1 ) {
@@ -321,6 +323,7 @@ SSL_CTX* initialise_ssl_context(void) {
         return NULL;
     }
 
+    Log(LOG_INFO, "Loading CA certificate from %s", vars.amqp_ssl.cacert);
     /* Load our cacert we will validate others against */
     if (SSL_CTX_load_verify_locations(ssl_ctx,vars.amqp_ssl.cacert,NULL) != 1) {
         Log(LOG_WARNING, "Couldn't load certificate trust store",
