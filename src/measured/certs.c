@@ -31,6 +31,53 @@
 
 
 /*
+ * Generate the sha256 hash of the given string. Expects the length field to
+ * initially describe the length of the string, and will be overwritten with
+ * the length of the resulting hash.
+ *
+ * https://www.openssl.org/docs/crypto/EVP_DigestInit.html
+ */
+static char *hash(char *str, int *length, EVP_MD *type) {
+    EVP_MD_CTX *mdctx;
+    char *hashstr = calloc(1, EVP_MAX_MD_SIZE);
+
+    assert(str);
+    assert(hashstr);
+    assert(length);
+    assert(type);
+
+    if ( (mdctx = EVP_MD_CTX_create()) == NULL ) {
+        free(hashstr);
+        *length = 0;
+        return NULL;
+    }
+
+    if ( EVP_DigestInit_ex(mdctx, type, NULL) != 1 ) {
+        free(hashstr);
+        *length = 0;
+        return NULL;
+    }
+
+    if ( EVP_DigestUpdate(mdctx, str, *length) != 1 ) {
+        free(hashstr);
+        *length = 0;
+        return NULL;
+    }
+
+    if ( EVP_DigestFinal_ex(mdctx, hashstr, length) != 1 ) {
+        free(hashstr);
+        *length = 0;
+        return NULL;
+    }
+
+    EVP_MD_CTX_destroy(mdctx);
+
+    return hashstr;
+}
+
+
+
+/*
  *
  */
 static void set_curl_ssl_opts(CURL *curl) {
@@ -328,52 +375,6 @@ static int send_csr(X509_REQ *request) {
 
 
 /*
- * Generate the sha256 hash of the given string. Expects the length field to
- * initially describe the length of the string, and will be overwritten with
- * the length of the resulting hash.
- *
- * https://www.openssl.org/docs/crypto/EVP_DigestInit.html
- */
-static char *hash(char *str, int *length) {
-    EVP_MD_CTX *mdctx;
-    char *hashstr = calloc(1, EVP_MAX_MD_SIZE);
-
-    assert(str);
-    assert(hashstr);
-    assert(length);
-
-    if ( (mdctx = EVP_MD_CTX_create()) == NULL ) {
-        free(hashstr);
-        *length = 0;
-        return NULL;
-    }
-
-    if ( EVP_DigestInit_ex(mdctx, EVP_sha256(), NULL) != 1 ) {
-        free(hashstr);
-        *length = 0;
-        return NULL;
-    }
-
-    if ( EVP_DigestUpdate(mdctx, str, *length) != 1 ) {
-        free(hashstr);
-        *length = 0;
-        return NULL;
-    }
-
-    if ( EVP_DigestFinal_ex(mdctx, hashstr, length) != 1 ) {
-        free(hashstr);
-        *length = 0;
-        return NULL;
-    }
-
-    EVP_MD_CTX_destroy(mdctx);
-
-    return hashstr;
-}
-
-
-
-/*
  * https://www.openssl.org/docs/crypto/RSA_sign.html
  */
 static char *sign(char *hashstr, int *length) {
@@ -435,7 +436,8 @@ static int fetch_certificate(void) {
 
     /* hash the data that we are about to sign */
     length = strlen(vars.ampname);
-    if ( (hashstr = hash(vars.ampname, &length)) == NULL || length <= 0 ) {
+    if ( (hashstr = hash(vars.ampname, &length, EVP_sha256())) == NULL ||
+            length <= 0 ) {
         return -1;
     }
 
