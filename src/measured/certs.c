@@ -235,6 +235,10 @@ static X509_REQ *create_new_csr(RSA *key, char *ampname) {
         return NULL;
     }
 
+    /*
+     * TODO this might need to be a different/custom label, as amplets need
+     * to be both servers and clients
+     */
     if ( !X509_NAME_add_entry_by_txt(name, "O", MBSTRING_ASC, "client",
                 -1, -1, 0) ) {
         Log(LOG_WARNING, "Failed to set Organisation in CSR");
@@ -285,6 +289,9 @@ static char *get_csr_string(X509_REQ *request) {
 
 
 
+/*
+ * POST the CSR to the server over HTTPS on a custom port.
+ */
 static int send_csr(X509_REQ *request, char *collector, char *cacert) {
     CURL *curl;
     CURLcode res;
@@ -476,7 +483,10 @@ static int fetch_certificate(amp_ssl_opt_t *sslopts, char *ampname,
     }
     length = BIO_get_mem_data(bio, &urlsig);
 
-    /* modify the encoding slightly, as we can't use these chars in a url */
+    /*
+     * Modify the encoding slightly, as we can't use these chars in a url.
+     * This will be decoded fine by python base64.urlsafe_b64decode().
+     */
     for ( i = 0; i < length; i++ ) {
         switch ( urlsig[i] ) {
             case '+': urlsig[i] = '-'; break;
