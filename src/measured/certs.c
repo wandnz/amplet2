@@ -17,17 +17,6 @@
 #include "testlib.h" /* XXX just for check_exists(), is that the best place? */
 
 
-/* XXX cert/csr files are currently named after the server they are for */
-
-/*
- * how much can we do in this file, compared to things that need to be common?
- * - init ssl
- * - generate any keys
- * - send csr, get cert
- * - load certs and keys into ctx
- */
-
-
 
 /*
  * Generate the sha256 hash of the given string. Expects the length field to
@@ -411,7 +400,6 @@ static char *sign(char *keyname, char *hashstr, int *length) {
         return NULL;
     }
 
-    //if ( PEM_read_RSAPrivateKey(privfile, &key, NULL, NULL) == NULL ) {
     if ( (key = PEM_read_RSAPrivateKey(privfile, NULL, NULL, NULL)) == NULL ) {
         fclose(privfile);
         *length = 0;
@@ -615,7 +603,6 @@ static int check_key_directories(char *keydir) {
  * Make sure that all the SSL variables are pointing to certificates, keys,
  * etc that exist. If they don't exist then we try to create them as best
  * as we can.
- * TODO function needs a better name
  */
 int get_certificate(amp_ssl_opt_t *sslopts, char *ampname, char *collector,
         int timeout) {
