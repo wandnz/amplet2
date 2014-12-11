@@ -565,25 +565,11 @@ static int fetch_certificate(amp_ssl_opt_t *sslopts, char *ampname,
 
 
 /*
- * Make sure that all the SSL variables are pointing to certificates, keys,
- * etc that exist. If they don't exist then we try to create them as best
- * as we can.
- * TODO function needs a better name
+ *
  */
-int get_certificate(amp_ssl_opt_t *sslopts, char *ampname, char *collector,
-        int timeout) {
-    X509_REQ *request;
-    RSA *key;
-    int res;
+static int check_key_directories(char *keydir) {
     struct stat statbuf;
     int stat_result;
-
-    /* if the private key and certificate exist then thats all we need */
-    if ( check_exists(sslopts->key, 0) == 0 &&
-            check_exists(sslopts->cert, 0) == 0 ) {
-        Log(LOG_DEBUG, "Private key and certificate both exist");
-        return 0;
-    }
 
     /* make sure top level keys directory exists */
     stat_result = stat(AMP_KEYS_DIR, &statbuf);
@@ -604,20 +590,48 @@ int get_certificate(amp_ssl_opt_t *sslopts, char *ampname, char *collector,
     }
 
     /* make sure ampname specific keys directory exists inside that */
-    stat_result = stat(sslopts->keys_dir, &statbuf);
+    stat_result = stat(keydir, &statbuf);
     if ( stat_result < 0 && errno == ENOENT) {
-        Log(LOG_DEBUG, "Key directory doesn't exist, creating %s",
-                sslopts->keys_dir);
+        Log(LOG_DEBUG, "Key directory doesn't exist, creating %s", keydir);
         /* doesn't exist, try to create it */
-        if ( mkdir(sslopts->keys_dir, 0700) < 0 ) {
-            Log(LOG_WARNING, "Failed to create key directory %s: %s",
-                    sslopts->keys_dir, strerror(errno));
+        if ( mkdir(keydir, 0700) < 0 ) {
+            Log(LOG_WARNING, "Failed to create key directory %s: %s", keydir,
+                    strerror(errno));
             return -1;
         }
     } else if ( stat_result < 0 ) {
         /* error calling stat, report it and return */
-        Log(LOG_WARNING, "Failed to stat key directory %s: %s",
-                sslopts->keys_dir, strerror(errno));
+        Log(LOG_WARNING, "Failed to stat key directory %s: %s", keydir,
+                strerror(errno));
+        return -1;
+    }
+
+    return 0;
+}
+
+
+
+/*
+ * Make sure that all the SSL variables are pointing to certificates, keys,
+ * etc that exist. If they don't exist then we try to create them as best
+ * as we can.
+ * TODO function needs a better name
+ */
+int get_certificate(amp_ssl_opt_t *sslopts, char *ampname, char *collector,
+        int timeout) {
+    X509_REQ *request;
+    RSA *key;
+    int res;
+
+    /* if the private key and certificate exist then thats all we need */
+    if ( check_exists(sslopts->key, 0) == 0 &&
+            check_exists(sslopts->cert, 0) == 0 ) {
+        Log(LOG_DEBUG, "Private key and certificate both exist");
+        return 0;
+    }
+
+    /* make sure the proper directories exist, so we can put files in them */
+    if ( check_key_directories(sslopts->keys_dir) < 0 ) {
         return -1;
     }
 
