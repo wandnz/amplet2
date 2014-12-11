@@ -668,7 +668,8 @@ int main(int argc, char *argv[]) {
 	return -1;
     }
 
-    if ( asprintf(&vars.keys_dir, "%s/%s", AMP_KEYS_DIR, vars.ampname) < 0 ) {
+    if ( asprintf(&vars.amqp_ssl.keys_dir, "%s/%s", AMP_KEYS_DIR,
+                vars.ampname) < 0 ) {
         Log(LOG_ALERT, "Failed to build custom keys directory path");
         return -1;
     }
@@ -691,7 +692,8 @@ int main(int argc, char *argv[]) {
      * work though, but maybe those things aren't needed.
      * TODO get timeout value from config
      */
-    if ( vars.ssl && (get_certificate(vars.waitforcert) != 0 ||
+    if ( vars.ssl && (get_certificate(&vars.amqp_ssl, vars.ampname,
+                    vars.collector, vars.waitforcert) != 0 ||
                 (ssl_ctx = initialise_ssl_context()) == NULL) ) {
         Log(LOG_WARNING, "Failed to load and verify SSL keys/certificates");
         Log(LOG_WARNING,
@@ -854,7 +856,7 @@ int main(int argc, char *argv[]) {
     }
     free(vars.schedule_dir);
     free(vars.nametable_dir);
-    free(vars.keys_dir);
+    free(vars.amqp_ssl.keys_dir);
     free(vars.nssock);
     free(vars.asnsock);
 

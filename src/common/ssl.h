@@ -22,6 +22,13 @@
 /* default location where all keys are stored */
 #define AMP_KEYS_DIR AMP_CONFIG_DIR "/keys"
 
+typedef struct amp_ssl_opt {
+    char *cacert;
+    char *key;
+    char *cert;
+    char *keys_dir;
+} amp_ssl_opt_t;
+
 
 SSL_CTX *ssl_ctx;
 

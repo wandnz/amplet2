@@ -187,7 +187,7 @@ int main(int argc, char *argv[]) {
          * TODO either parse the config file, or require them to be set from
          * the command line?
          */
-        vars.keys_dir = AMP_KEYS_DIR "/default";
+        vars.amqp_ssl.keys_dir = AMP_KEYS_DIR "/default";
         vars.collector = "default";
         vars.control_port = "8869"; /* XXX */
 

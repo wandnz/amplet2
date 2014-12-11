@@ -4,11 +4,7 @@
 #include <stdint.h>
 #include <unbound.h>
 
-typedef struct amp_ssl_opt {
-    char *cacert;
-    char *key;
-    char *cert;
-} amp_ssl_opt_t;
+#include "ssl.h"
 
 struct amp_global_t {
     char *ampname;
@@ -27,7 +23,6 @@ struct amp_global_t {
     char *schedule_url;
     char *schedule_dir;
     char *nametable_dir;
-    char *keys_dir;
     int fetch_freq;
     int control_enabled;
     char *control_port;

@@ -12,7 +12,6 @@
 
 #include "debug.h"
 #include "messaging.h"
-#include "global.h"
 #include "ssl.h"
 #include "certs.h"
 #include "testlib.h" /* XXX just for check_exists(), is that the best place? */
@@ -80,7 +79,7 @@ static char *hash(char *str, int *length, const EVP_MD *type) {
 /*
  *
  */
-static void set_curl_ssl_opts(CURL *curl) {
+static void set_curl_ssl_opts(CURL *curl, char *cacert) {
     /*
      * Setting CURL_SSLVERSION_TLSv1 seems to negotiate V1.0 rather than the
      * best 1.X version, so none of our ciphers work if we use an old version
@@ -100,7 +99,7 @@ static void set_curl_ssl_opts(CURL *curl) {
     curl_easy_setopt(curl, CURLOPT_SSL_CIPHER_LIST, SECURE_CIPHER_LIST);
 
     /* use the cacert we've been given */
-    curl_easy_setopt(curl, CURLOPT_CAINFO, vars.amqp_ssl.cacert);
+    curl_easy_setopt(curl, CURLOPT_CAINFO, cacert);
 
     /* Try to verify the server certificate */
     curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 1);
@@ -114,13 +113,13 @@ static void set_curl_ssl_opts(CURL *curl) {
 /*
  * Load an existing private RSA key from a file.
  */
-static RSA *load_existing_key_file(void) {
+static RSA *load_existing_key_file(char *filename) {
     FILE *privfile;
     RSA *key;
 
-    Log(LOG_INFO, "Using existing private key %s", vars.amqp_ssl.key);
+    Log(LOG_INFO, "Using existing private key %s", filename);
 
-    if ( (privfile = fopen(vars.amqp_ssl.key, "r")) == NULL ) {
+    if ( (privfile = fopen(filename, "r")) == NULL ) {
         Log(LOG_WARNING, "Failed to open key file: %s", strerror(errno));
         return NULL;
     }
@@ -140,12 +139,12 @@ static RSA *load_existing_key_file(void) {
 /*
  * Create a new private RSA key file.
  */
-static RSA *create_new_key_file(void) {
+static RSA *create_new_key_file(char *filename) {
     FILE *privfile;
     RSA *key;
     mode_t oldmask;
 
-    Log(LOG_INFO, "Private key doesn't exist, creating %s", vars.amqp_ssl.key);
+    Log(LOG_INFO, "Private key doesn't exist, creating %s", filename);
 
     if ( (key = RSA_generate_key(2048, RSA_F4, NULL, NULL)) == NULL ) {
         Log(LOG_WARNING, "Failed to generate RSA key");
@@ -153,7 +152,7 @@ static RSA *create_new_key_file(void) {
     }
 
     oldmask = umask(0077);
-    if ( (privfile = fopen(vars.amqp_ssl.key, "w")) == NULL ) {
+    if ( (privfile = fopen(filename, "w")) == NULL ) {
         Log(LOG_WARNING, "Failed to open key file: %s", strerror(errno));
         RSA_free(key);
         umask(oldmask);
@@ -176,22 +175,19 @@ static RSA *create_new_key_file(void) {
 
 
 /*
- * XXX can we pass in all the things that are referenced globally? not heaps?
- */
-/*
  * If the private key file is specified, try to load it (not existing is an
  * error). If it is not specified, try to guess the filename and load that,
  * or create it if it doesn't exist.
  */
-static RSA *get_key_file(void) {
+static RSA *get_key_file(char *filename) {
     RSA *key;
 
     Log(LOG_DEBUG, "Get private key");
 
     /* check if the keyfile exists, creating it if it doesn't */
-    switch ( check_exists(vars.amqp_ssl.key, 0) ) {
-        case 0: key = load_existing_key_file(); break;
-        case 1: key = create_new_key_file(); break;
+    switch ( check_exists(filename, 0) ) {
+        case 0: key = load_existing_key_file(filename); break;
+        case 1: key = create_new_key_file(filename); break;
         default: key = NULL; break;
     };
 
@@ -203,7 +199,7 @@ static RSA *get_key_file(void) {
 /*
  *
  */
-static X509_REQ *create_new_csr(RSA *key) {
+static X509_REQ *create_new_csr(RSA *key, char *ampname) {
     X509_REQ *request;
     X509_NAME *name;
     EVP_PKEY *pkey;
@@ -242,7 +238,7 @@ static X509_REQ *create_new_csr(RSA *key) {
     name = X509_REQ_get_subject_name(request);
 
     /*XXX any other options we want to set? server will just add whatever? */
-    if ( !X509_NAME_add_entry_by_txt(name, "CN", MBSTRING_ASC, vars.ampname,
+    if ( !X509_NAME_add_entry_by_txt(name, "CN", MBSTRING_ASC, ampname,
                 -1, -1, 0) ) {
         Log(LOG_WARNING, "Failed to set Common Name in CSR");
         EVP_PKEY_free(pkey);
@@ -250,7 +246,7 @@ static X509_REQ *create_new_csr(RSA *key) {
         return NULL;
     }
 
-    if ( !X509_NAME_add_entry_by_txt(name,"O", MBSTRING_ASC, "client",
+    if ( !X509_NAME_add_entry_by_txt(name, "O", MBSTRING_ASC, "client",
                 -1, -1, 0) ) {
         Log(LOG_WARNING, "Failed to set Organisation in CSR");
         EVP_PKEY_free(pkey);
@@ -300,7 +296,7 @@ static char *get_csr_string(X509_REQ *request) {
 
 
 
-static int send_csr(X509_REQ *request) {
+static int send_csr(X509_REQ *request, char *collector, char *cacert) {
     CURL *curl;
     CURLcode res;
     FILE *csrfile;
@@ -319,7 +315,7 @@ static int send_csr(X509_REQ *request) {
     }
 
     /* we need to use an https url to get curl to use the cert/ssl options */
-    if ( asprintf(&url, "https://%s:%d/sign", vars.collector,
+    if ( asprintf(&url, "https://%s:%d/sign", collector,
                 AMP_PKI_SSL_PORT) < 0 ) {
         Log(LOG_WARNING, "Failed to build cert signing url");
         free(csrstr);
@@ -362,7 +358,7 @@ static int send_csr(X509_REQ *request) {
     curl_easy_setopt(curl, CURLOPT_POST, 1);
     curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, strlen(csrstr));
     curl_easy_setopt(curl, CURLOPT_READDATA, csrfile);
-    set_curl_ssl_opts(curl);
+    set_curl_ssl_opts(curl, cacert);
 
     /* make it a binary data stream so there is no encoding */
     slist = curl_slist_append(slist, "Content-Type: application/octet-stream");
@@ -401,7 +397,7 @@ static int send_csr(X509_REQ *request) {
 /*
  * https://www.openssl.org/docs/crypto/RSA_sign.html
  */
-static char *sign(char *hashstr, int *length) {
+static char *sign(char *keyname, char *hashstr, int *length) {
     char *signature;
     FILE *privfile;
     RSA *key;
@@ -410,7 +406,7 @@ static char *sign(char *hashstr, int *length) {
     assert(hashstr);
     assert(length);
 
-    if ( (privfile = fopen(vars.amqp_ssl.key, "r")) == NULL ) {
+    if ( (privfile = fopen(keyname, "r")) == NULL ) {
         *length = 0;
         return NULL;
     }
@@ -445,7 +441,8 @@ static char *sign(char *hashstr, int *length) {
 /*
  *
  */
-static int fetch_certificate(void) {
+static int fetch_certificate(amp_ssl_opt_t *sslopts, char *ampname,
+        char *collector) {
     CURL *curl;
     CURLcode res;
     FILE *certfile;
@@ -459,8 +456,8 @@ static int fetch_certificate(void) {
     Log(LOG_DEBUG, "Fetch signed certificate");
 
     /* hash the data that we are about to sign */
-    length = strlen(vars.ampname);
-    if ( (hashstr = hash(vars.ampname, &length, EVP_sha256())) == NULL ||
+    length = strlen(ampname);
+    if ( (hashstr = hash(ampname, &length, EVP_sha256())) == NULL ||
             length <= 0 ) {
         return -1;
     }
@@ -469,7 +466,8 @@ static int fetch_certificate(void) {
      * sign the ampname, so the server can confirm we sent the CSR and should
      * have access to the signed certificate
      */
-    if ( (signature = sign(hashstr, &length)) == NULL || length <= 0 ) {
+    if ( (signature = sign(sslopts->key, hashstr, &length)) == NULL ||
+            length <= 0 ) {
         free(hashstr);
         return -1;
     }
@@ -501,14 +499,14 @@ static int fetch_certificate(void) {
 
     free(signature);
 
-    if ( (certfile = fopen(vars.amqp_ssl.cert, "w")) == NULL ) {
+    if ( (certfile = fopen(sslopts->cert, "w")) == NULL ) {
         BIO_free_all(bio);
         return -1;
     }
 
     /* we need to use an https url to get curl to use the cert/ssl options */
-    if ( asprintf(&url, "https://%s:%d/cert/%s/%.*s", vars.collector,
-                AMP_PKI_SSL_PORT, vars.ampname, length, urlsig) < 0 ) {
+    if ( asprintf(&url, "https://%s:%d/cert/%s/%.*s", collector,
+                AMP_PKI_SSL_PORT, ampname, length, urlsig) < 0 ) {
         Log(LOG_ALERT, "Failed to build cert fetching url");
         fclose(certfile);
         BIO_free_all(bio);
@@ -521,7 +519,7 @@ static int fetch_certificate(void) {
     curl_easy_setopt(curl, CURLOPT_URL, url);
     curl_easy_setopt(curl, CURLOPT_USERAGENT, PACKAGE_STRING);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, certfile);
-    set_curl_ssl_opts(curl);
+    set_curl_ssl_opts(curl, sslopts->cacert);
 
     res = curl_easy_perform(curl);
 
@@ -543,9 +541,9 @@ static int fetch_certificate(void) {
 
     /* if no cert, return failure and we might try again later */
     if ( code != 200 || size <= 0 ) {
-        if ( unlink(vars.amqp_ssl.cert) < 0 ) {
+        if ( unlink(sslopts->cert) < 0 ) {
             Log(LOG_WARNING, "Failed to remove cert '%s': %s",
-                    vars.amqp_ssl.cert, strerror(errno));
+                    sslopts->cert, strerror(errno));
         }
 
         /* certificate has not yet been signed, wait and try again */
@@ -559,7 +557,7 @@ static int fetch_certificate(void) {
         return -1;
     }
 
-    Log(LOG_INFO, "Signed certificate stored in %s", vars.amqp_ssl.cert);
+    Log(LOG_INFO, "Signed certificate stored in %s", sslopts->cert);
 
     return 0;
 }
@@ -572,7 +570,8 @@ static int fetch_certificate(void) {
  * as we can.
  * TODO function needs a better name
  */
-int get_certificate(int timeout) {
+int get_certificate(amp_ssl_opt_t *sslopts, char *ampname, char *collector,
+        int timeout) {
     X509_REQ *request;
     RSA *key;
     int res;
@@ -580,8 +579,8 @@ int get_certificate(int timeout) {
     int stat_result;
 
     /* if the private key and certificate exist then thats all we need */
-    if ( check_exists(vars.amqp_ssl.key, 0) == 0 &&
-            check_exists(vars.amqp_ssl.cert, 0) == 0 ) {
+    if ( check_exists(sslopts->key, 0) == 0 &&
+            check_exists(sslopts->cert, 0) == 0 ) {
         Log(LOG_DEBUG, "Private key and certificate both exist");
         return 0;
     }
@@ -605,20 +604,20 @@ int get_certificate(int timeout) {
     }
 
     /* make sure ampname specific keys directory exists inside that */
-    stat_result = stat(vars.keys_dir, &statbuf);
+    stat_result = stat(sslopts->keys_dir, &statbuf);
     if ( stat_result < 0 && errno == ENOENT) {
         Log(LOG_DEBUG, "Key directory doesn't exist, creating %s",
-                vars.keys_dir);
+                sslopts->keys_dir);
         /* doesn't exist, try to create it */
-        if ( mkdir(vars.keys_dir, 0700) < 0 ) {
+        if ( mkdir(sslopts->keys_dir, 0700) < 0 ) {
             Log(LOG_WARNING, "Failed to create key directory %s: %s",
-                    vars.keys_dir, strerror(errno));
+                    sslopts->keys_dir, strerror(errno));
             return -1;
         }
     } else if ( stat_result < 0 ) {
         /* error calling stat, report it and return */
         Log(LOG_WARNING, "Failed to stat key directory %s: %s",
-                vars.keys_dir, strerror(errno));
+                sslopts->keys_dir, strerror(errno));
         return -1;
     }
 
@@ -627,11 +626,11 @@ int get_certificate(int timeout) {
      * to be created by generating a certificate signing request and sending it
      * off to be signed.
      */
-    if ( (key = get_key_file()) == NULL ) {
+    if ( (key = get_key_file(sslopts->key)) == NULL ) {
         return -1;
     }
 
-    if ( (request = create_new_csr(key)) == NULL ) {
+    if ( (request = create_new_csr(key, ampname)) == NULL ) {
         RSA_free(key);
         return -1;
     }
@@ -639,7 +638,7 @@ int get_certificate(int timeout) {
     RSA_free(key);
 
     /* send CSR and wait for cert */
-    if ( send_csr(request) < 0 ) {
+    if ( send_csr(request, collector, sslopts->cacert) < 0 ) {
         X509_REQ_free(request);
         return -1;
     }
@@ -650,7 +649,8 @@ int get_certificate(int timeout) {
      * maximum time to wait, it will check periodically at the
      * AMP_PKI_QUERY_INTERVAL to see if the certificate has been signed.
      */
-    while ( (res = fetch_certificate()) == 1 && timeout != 0 ) {
+    while ( (res = fetch_certificate(sslopts, ampname, collector)) == 1 &&
+            timeout != 0 ) {
         if ( timeout < 0 || timeout > AMP_PKI_QUERY_INTERVAL ) {
             Log(LOG_DEBUG, "Sleeping for %d seconds before checking for cert",
                     AMP_PKI_QUERY_INTERVAL);

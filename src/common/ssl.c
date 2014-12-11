@@ -43,7 +43,7 @@ int check_key_locations(void) {
 
     if ( vars.amqp_ssl.cert == NULL ) {
         if ( asprintf(&vars.amqp_ssl.cert, "%s/%s.cert",
-                    vars.keys_dir, vars.collector) < 0 ) {
+                    vars.amqp_ssl.keys_dir, vars.collector) < 0 ) {
             Log(LOG_ALERT, "Failed to build custom certfile path");
             return -1;
         }
@@ -52,7 +52,8 @@ int check_key_locations(void) {
     }
 
     if ( vars.amqp_ssl.key == NULL ) {
-        if ( asprintf(&vars.amqp_ssl.key, "%s/key.pem", vars.keys_dir) < 0 ) {
+        if ( asprintf(&vars.amqp_ssl.key, "%s/key.pem",
+                    vars.amqp_ssl.keys_dir) < 0 ) {
             Log(LOG_ALERT, "Failed to build custom keyfile path");
             return -1;
         }
