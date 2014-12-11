@@ -7,9 +7,9 @@
 #include <unistd.h>
 #include <stdio.h>
 
-#include "global.h"
 #include "debug.h"
 #include "ssl.h"
+#include "testlib.h"
 
 
 
@@ -39,31 +39,31 @@ static void log_ssl(char *msg) {
  * manually specified then the files need to exist, otherwise we don't
  * care either way, they will get created if they need to be.
  */
-int check_key_locations(void) {
+static int check_key_locations(amp_ssl_opt_t *sslopts, char *collector) {
 
-    if ( vars.amqp_ssl.cert == NULL ) {
-        if ( asprintf(&vars.amqp_ssl.cert, "%s/%s.cert",
-                    vars.amqp_ssl.keys_dir, vars.collector) < 0 ) {
+    if ( sslopts->cert == NULL ) {
+        if ( asprintf(&sslopts->cert, "%s/%s.cert",
+                    sslopts->keys_dir, collector) < 0 ) {
             Log(LOG_ALERT, "Failed to build custom certfile path");
             return -1;
         }
-    } else if ( check_exists(vars.amqp_ssl.cert, 1) < 0 ) {
+    } else if ( check_exists(sslopts->cert, 1) < 0 ) {
         return -1;
     }
 
-    if ( vars.amqp_ssl.key == NULL ) {
-        if ( asprintf(&vars.amqp_ssl.key, "%s/key.pem",
-                    vars.amqp_ssl.keys_dir) < 0 ) {
+    if ( sslopts->key == NULL ) {
+        if ( asprintf(&sslopts->key, "%s/key.pem",
+                    sslopts->keys_dir) < 0 ) {
             Log(LOG_ALERT, "Failed to build custom keyfile path");
             return -1;
         }
-    } else if ( check_exists(vars.amqp_ssl.key, 1) < 0 ) {
+    } else if ( check_exists(sslopts->key, 1) < 0 ) {
         return -1;
     }
 
-    if ( vars.amqp_ssl.cacert == NULL ) {
-        if ( asprintf(&vars.amqp_ssl.cacert, "%s/%s.pem", AMP_KEYS_DIR,
-                    vars.collector) < 0 ) {
+    if ( sslopts->cacert == NULL ) {
+        if ( asprintf(&sslopts->cacert, "%s/%s.pem", AMP_KEYS_DIR,
+                    collector) < 0 ) {
             Log(LOG_ALERT, "Failed to build custom cacert file path");
             return -1;
         }
@@ -73,9 +73,9 @@ int check_key_locations(void) {
      * The cacert should be distributed through some trusted means, it must
      * exist here for us to continue.
      */
-    if ( check_exists(vars.amqp_ssl.cacert, 1) < 0 ) {
+    if ( check_exists(sslopts->cacert, 1) < 0 ) {
         Log(LOG_WARNING, "Server certificate %s doesn't exist!",
-                vars.amqp_ssl.cacert);
+                sslopts->cacert);
         return -1;
     }
 
@@ -214,7 +214,7 @@ int matches_common_name(const char *hostname, const X509 *cert) {
  *
  * Initialise the SSL context and load all the keys that we will be using.
  */
-int initialise_ssl(void) {
+int initialise_ssl(amp_ssl_opt_t *sslopts, char *collector) {
     Log(LOG_INFO, "Initialising global SSL options");
 
     /*
@@ -246,7 +246,7 @@ int initialise_ssl(void) {
      * with default values if unset, and will make sure they exist if manually
      * set.
      */
-    if ( check_key_locations() < 0 ) {
+    if ( check_key_locations(sslopts, collector) < 0 ) {
         ssl_cleanup();
         return -1;
     }
@@ -272,7 +272,7 @@ int initialise_ssl(void) {
 /*
  *
  */
-SSL_CTX* initialise_ssl_context(void) {
+SSL_CTX* initialise_ssl_context(amp_ssl_opt_t *sslopts) {
     SSL_CTX *ssl_ctx = NULL;
     EC_KEY *ecdh;
     DH *dh;
@@ -280,8 +280,8 @@ SSL_CTX* initialise_ssl_context(void) {
 
     Log(LOG_INFO, "Initialising SSL context");
 
-    if ( vars.amqp_ssl.cacert == NULL || vars.amqp_ssl.cert == NULL ||
-            vars.amqp_ssl.key == NULL ) {
+    if ( sslopts->cacert == NULL || sslopts->cert == NULL ||
+            sslopts->key == NULL ) {
         Log(LOG_WARNING, "Can't initialise SSL, certs and keys aren't set");
         return NULL;
     }
@@ -300,19 +300,19 @@ SSL_CTX* initialise_ssl_context(void) {
     SSL_CTX_set_verify(ssl_ctx,
             SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT, NULL);
 
-    Log(LOG_INFO, "Loading certificate from %s", vars.amqp_ssl.cert);
+    Log(LOG_INFO, "Loading certificate from %s", sslopts->cert);
     /* Load our certificate */
-    if ( SSL_CTX_use_certificate_chain_file(ssl_ctx,vars.amqp_ssl.cert) != 1 ) {
-        Log(LOG_WARNING, "Couldn't load certificate %s", vars.amqp_ssl.cert);
+    if ( SSL_CTX_use_certificate_chain_file(ssl_ctx,sslopts->cert) != 1 ) {
+        Log(LOG_WARNING, "Couldn't load certificate %s", sslopts->cert);
         ssl_cleanup();
         return NULL;
     }
 
-    Log(LOG_INFO, "Loading private key from %s", vars.amqp_ssl.key);
+    Log(LOG_INFO, "Loading private key from %s", sslopts->key);
     /* Load our private key */
-    if ( SSL_CTX_use_PrivateKey_file(ssl_ctx, vars.amqp_ssl.key,
+    if ( SSL_CTX_use_PrivateKey_file(ssl_ctx, sslopts->key,
                 SSL_FILETYPE_PEM) != 1 ) {
-        Log(LOG_WARNING, "Couldn't load private key %s", vars.amqp_ssl.key);
+        Log(LOG_WARNING, "Couldn't load private key %s", sslopts->key);
         ssl_cleanup();
         return NULL;
     }
@@ -324,11 +324,11 @@ SSL_CTX* initialise_ssl_context(void) {
         return NULL;
     }
 
-    Log(LOG_INFO, "Loading CA certificate from %s", vars.amqp_ssl.cacert);
+    Log(LOG_INFO, "Loading CA certificate from %s", sslopts->cacert);
     /* Load our cacert we will validate others against */
-    if (SSL_CTX_load_verify_locations(ssl_ctx,vars.amqp_ssl.cacert,NULL) != 1) {
+    if (SSL_CTX_load_verify_locations(ssl_ctx,sslopts->cacert,NULL) != 1) {
         Log(LOG_WARNING, "Couldn't load certificate trust store",
-                vars.amqp_ssl.cacert);
+                sslopts->cacert);
         ssl_cleanup();
         return NULL;
     }

@@ -678,7 +678,7 @@ int main(int argc, char *argv[]) {
      * because if we fail then we clean up a whole lot of openssl stuff.
      * TODO determine which bits we can clean up and which bits we can't.
      */
-    if ( initialise_ssl() < 0 ) {
+    if ( initialise_ssl(&vars.amqp_ssl, vars.collector) < 0 ) {
         Log(LOG_WARNING, "Failed to initialise SSL, aborting");
         return -1;
     }
@@ -694,7 +694,7 @@ int main(int argc, char *argv[]) {
      */
     if ( vars.ssl && (get_certificate(&vars.amqp_ssl, vars.ampname,
                     vars.collector, vars.waitforcert) != 0 ||
-                (ssl_ctx = initialise_ssl_context()) == NULL) ) {
+                (ssl_ctx = initialise_ssl_context(&vars.amqp_ssl)) == NULL) ) {
         Log(LOG_WARNING, "Failed to load and verify SSL keys/certificates");
         Log(LOG_WARNING,
                 "Control socket and other functionality will be disabled");

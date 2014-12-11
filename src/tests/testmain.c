@@ -191,11 +191,11 @@ int main(int argc, char *argv[]) {
         vars.collector = "default";
         vars.control_port = "8869"; /* XXX */
 
-        if ( initialise_ssl() < 0 ) {
+        if ( initialise_ssl(&vars.amqp_ssl, vars.collector) < 0 ) {
             Log(LOG_ALERT, "Failed to initialise SSL, aborting");
             return -1;
         }
-        if ( (ssl_ctx = initialise_ssl_context()) == NULL ) {
+        if ( (ssl_ctx = initialise_ssl_context(&vars.amqp_ssl)) == NULL ) {
             Log(LOG_ALERT, "Failed to initialise SSL context, aborting");
             return -1;
         }

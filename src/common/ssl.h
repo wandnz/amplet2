@@ -32,10 +32,9 @@ typedef struct amp_ssl_opt {
 
 SSL_CTX *ssl_ctx;
 
-int check_key_locations(void);
 void reseed_openssl_rng(void);
-int initialise_ssl(void);
-SSL_CTX *initialise_ssl_context(void);
+int initialise_ssl(amp_ssl_opt_t *sslopts, char *collector);
+SSL_CTX *initialise_ssl_context(amp_ssl_opt_t *sslopts);
 SSL* ssl_accept(SSL_CTX *ssl_ctx, int fd);
 SSL* ssl_connect(SSL_CTX *ssl_ctx, int fd);
 void ssl_shutdown(SSL *ssl);
