@@ -22,7 +22,7 @@ def usage(progname):
 
 
 def load_csr():
-    result = {}
+    result = []
     # open each file in the CSR directory - any CSR here has yet to be signed
     for item in os.listdir(CSR_DIR):
         try:
@@ -32,51 +32,70 @@ def load_csr():
             #print csr.get_subject().commonName
             #print SHA256.new(csrstr).hexdigest()
             #print
-            item = {
-                "status": None,
-                "expires": None,
-                "revoked": None,
-                "serial": None,
+            result.append({
+                "host": csr.get_subject().commonName,
                 "subject": csr.get_subject(),
                 "md5": MD5.new(csrstr).hexdigest(),
                 "sha256": SHA256.new(csrstr).hexdigest(),
-            }
-            host = csr.get_subject().commonName
-            if host not in result:
-                result[host] = []
-            result[host].append(item)
+            })
         except crypto.Error as e:
             #print e
             pass
+
+    # sort alphabetically by hostname
+    result.sort(key=lambda x:x["host"])
     return result
 
 
-def list_certificates(certs):
-    keys = certs.keys()
+def get_padding(host):
+    return (42 - len(host)) * " "
+
+
+def list_pending(pending):
+    for item in pending:
+        print " %s %s %s" % (item["host"], get_padding(item["host"]),
+                item["md5"])
+
+
+def list_certificates(certs, which, hosts=None):
+    merged = {}
+    for item in certs:
+        # XXX extract hostname properly?
+        host = item["subject"].split("/")[1][3:]
+
+        # only show expired certs if listing "all"
+        if which == "all" and item["status"] == "E" or (
+                item["status"] == "V" and item["expires"] < time()):
+            status = "-"
+            when = "expired %s" % strftime("%y-%m-%d",
+                    gmtime(int(item["expires"][:-3])))
+        # only show valid signed certs if listing "all" or "signed"
+        elif ((which == "all" or which == "signed") and
+                item["status"] == "V" and item["expires"] > time()):
+            status = "+"
+            when = "until %s" % strftime("%y-%m-%d",
+                    gmtime(int(item["expires"][:-3])))
+        # only show revoked certs if listing "all"
+        elif which == "all" and item["status"] == "R":
+            status = "-"
+            when = "revoked %s" % strftime("%y-%m-%d",
+                    gmtime(int(item["expires"][:-3])))
+        #else if which == "hosts" and host in hosts:
+        # otherwise don't display this item
+        else:
+            continue
+
+        if host not in merged:
+            merged[host] = []
+        merged[host].append("%s %s %s %s" % (status, host, get_padding(host),
+                    when))
+
+    # sort all the output based on hostname, so we ge a nice alphabetical list
+    keys = merged.keys()
     keys.sort()
-
     for host in keys:
-        for cert in certs[host]:
-            if cert["status"] == "E" or (
-                    cert["status"] == "V" and cert["expires"] < time()):
-                status = "-"
-                when = "expired %s" % strftime("%y-%m-%d",
-                        gmtime(cert["expires"]))
-            elif cert["status"] == "V":
-                status = "+"
-                when = "until %s" % strftime("%Y-%m-%d",
-                        gmtime(cert["expires"]))
-            elif cert["status"] == "R":
-                status = "-"
-                when = "revoked %s" % strftime("%Y-%m-%d",
-                        gmtime(cert["revoked"]))
-            else:
-                status = " "
-                #when = "waiting"
-                when = cert["md5"]
-
-            padding = (42 - len(host)) * " "
-            print "%s %s %s %s" % (status, host, padding, when)
+        for cert in merged[host]:
+            print cert
 
 
 def revoke_certs():
@@ -113,49 +132,30 @@ def sign_cert(request):
     cert.set_pubkey(request.get_pubkey())
 
     cert.sign(issuer_key, digest)
+    # TODO update index, serial
     # TODO delete csr
     return cert
 
 
-def load_index(filename):
-    index = {
-        "valid": {},
-        "invalid": {}
-    }
+def save_index(index, filename):
+    #out = open(filename, "w")
+    for line in index:
+        print "%s\t%s\t%s\t%s\tunknown\t%s" % (line["status"], line["expires"],
+                line["revoked"], line["serial"], line["subject"])
 
+
+def load_index(filename):
+    index = []
     for line in open(filename).readlines():
         parts = line.split("\t")
-        item = {
+        index.append({
             "status": parts[0],
-            "expires": int(parts[1][:-3]),
-            "revoked": int(parts[2][:-3]) if len(parts[2]) > 0 else 0,
+            "expires": parts[1],
+            "revoked": parts[2] if len(parts[2]) > 0 else "",
             "serial": parts[3],
             "subject": parts[5]
-        }
-        # XXX extract CN properly!
-        host = item["subject"].split("/")[1][3:]
-
-        if item["status"] == "V":
-            if host not in index["valid"]:
-                index["valid"][host] = []
-            index["valid"][host].append(item)
-        elif item["status"] == "R" or item["status"] == "E":
-            if host not in index["invalid"]:
-                index["invalid"][host] = []
-            index["invalid"][host].append(item)
+        })
     return index
-
-
-# merge two certificate stores, merging the lists of certificates per hostname
-# rather than clobbering them
-def merge(a, b):
-    result = a.copy()
-    for k,v in b.iteritems():
-        if k in result:
-            result[k] += v
-        else:
-            result[k] = v
-    return result
 
 
 if __name__ == '__main__':
@@ -163,22 +163,23 @@ if __name__ == '__main__':
         usage(os.path.basename(sys.argv[0]))
         sys.exit(0)
 
-    csr = load_csr()
+    pending = load_csr()
     index = load_index(INDEX_FILE)
 
     if sys.argv[1] == "list":
         if len(sys.argv) == 2:
             # default is to just list outstanding requests
-            list_certificates(csr)
+            list_pending(pending)
         elif sys.argv[2] == "signed":
             # show only signed certificates
-            list_certificates(index["valid"])
+            list_certificates(index, "signed")
         elif sys.argv[2] == "all":
             # show all certificates
-            all_certs = merge(merge(index["valid"], index["invalid"]), csr)
-            list_certificates(all_certs)
+            list_certificates(index, "all")
+            list_pending(pending)
         else:
             # list just the hosts named
+            #list_certificates(index, "host", sys.argv[2:])
             pass
 
     if sys.argv[1] == "sign":
