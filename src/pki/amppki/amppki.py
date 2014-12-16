@@ -35,6 +35,7 @@ def load_csr():
             result.append({
                 "host": csr.get_subject().commonName,
                 "subject": csr.get_subject(),
+                "bits": csr.get_pubkey().bits(),
                 "md5": MD5.new(csrstr).hexdigest(),
                 "sha256": SHA256.new(csrstr).hexdigest(),
             })
@@ -48,13 +49,13 @@ def load_csr():
 
 
 def get_padding(host):
-    return (42 - len(host)) * " "
+    return (38 - len(host)) * " "
 
 
 def list_pending(pending):
     for item in pending:
-        print " %s %s %s" % (item["host"], get_padding(item["host"]),
-                item["md5"])
+        print "  %s %s %s %s" % (item["host"], get_padding(item["host"]),
+                item["bits"], item["md5"])
 
 
 def list_certificates(certs, which, hosts=None):
