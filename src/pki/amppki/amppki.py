@@ -1,5 +1,6 @@
 import os
 import sys
+import fcntl
 from time import strftime, gmtime, time
 from OpenSSL import crypto
 from Crypto.Hash import SHA256,MD5
@@ -9,6 +10,7 @@ CERT_DIR = "%s/certs" % CA_DIR
 KEY_DIR = "%s/private" % CA_DIR
 CSR_DIR = "%s/csr" % CA_DIR
 INDEX_FILE = "%s/index.txt" % CA_DIR
+LOCK_FILE = "%s/.lock" % CA_DIR
 
 def usage(progname):
     print "Usage:"
@@ -164,6 +166,19 @@ if __name__ == '__main__':
         usage(os.path.basename(sys.argv[0]))
         sys.exit(0)
 
+    # TODO use getopt or argparse
+    lock = None
+    action = sys.argv[1]
+
+    # lock the whole CA dir for any actions that will modify it
+    if action in ["sign", "revoke"]:
+        try:
+            lock = open(LOCK_FILE, "w")
+            fcntl.lockf(lock.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except IOError as e:
+            print "Failed to lock %s: %s" % (LOCK_FILE, e)
+            sys.exit(1)
+
     pending = load_csr()
     index = load_index(INDEX_FILE)
 
@@ -188,3 +203,9 @@ if __name__ == '__main__':
         # load CSR
         # sign CSR
         sign_cert()
+
+    # unlock now that the action is complete, and delete the lock file
+    if lock is not None:
+        fcntl.lockf(lock.fileno(), fcntl.LOCK_UN)
+        lock.close()
+        os.unlink(LOCK_FILE)
