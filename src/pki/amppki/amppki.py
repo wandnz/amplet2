@@ -67,18 +67,18 @@ def list_certificates(certs, which, hosts=None):
         if which == "all" and item["status"] == "E" or (
                 item["status"] == "V" and item["expires"] < time()):
             status = "-"
-            when = "expired %s" % strftime("%y-%m-%d",
+            when = "expired %s" % strftime("%Y-%m-%d",
                     gmtime(int(item["expires"][:-3])))
         # only show valid signed certs if listing "all" or "signed"
         elif ((which == "all" or which == "signed") and
                 item["status"] == "V" and item["expires"] > time()):
             status = "+"
-            when = "until %s" % strftime("%y-%m-%d",
+            when = "until %s" % strftime("%Y-%m-%d",
                     gmtime(int(item["expires"][:-3])))
         # only show revoked certs if listing "all"
         elif which == "all" and item["status"] == "R":
             status = "-"
-            when = "revoked %s" % strftime("%y-%m-%d",
+            when = "revoked %s" % strftime("%Y-%m-%d",
                     gmtime(int(item["expires"][:-3])))
         #else if which == "hosts" and host in hosts:
         # otherwise don't display this item
