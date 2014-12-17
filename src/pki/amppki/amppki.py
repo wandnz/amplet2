@@ -154,7 +154,10 @@ def list_certificates(certs, which, hosts=None):
 def revoke_certificates(index, hosts):
     count = 0
     for cert in index:
-        if cert["host"] in hosts:
+        # Loop over the cert list rather than the host list so we can be
+        # guaranteed to do it in a single pass. We can revoke on hostnames
+        # or serial numbers (hex, must be prefixed with "0x")
+        if cert["host"] in hosts or ("0x%s" % cert["serial"]) in hosts:
             # set the status to [R]evoked and the time that it happened
             cert["status"] = "R"
             cert["revoked"] = "%dZ" % (time() * 100)
