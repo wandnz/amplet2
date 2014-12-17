@@ -130,7 +130,7 @@ def list_certificates(certs, which, hosts=None):
         elif which == "all" and item["status"] == "R":
             status = "-"
             when = "revoked %s" % strftime("%Y-%m-%d",
-                    gmtime(int(item["expires"][:-3])))
+                    gmtime(int(item["revoked"][:-3])))
         #else if which == "hosts" and host in hosts:
         # otherwise don't display this item
         else:
