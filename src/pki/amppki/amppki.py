@@ -209,12 +209,13 @@ def sign_certificates(hosts):
             print "Invalid CSR for %s: %s" % (host, e)
             continue
 
+        # TODO reintroduce this check, but allow it to be skipped with a flag?
         # make sure we don't already have a certificate for this host
-        if os.path.exists("%s/%s.pem" % (
-                    CERT_DIR, request.get_subject().commonName)):
-            print "Cert %s already exists, skipping" % (
-                    request.get_subject().commonName)
-            continue
+        #if os.path.exists("%s/%s.pem" % (
+        #            CERT_DIR, request.get_subject().commonName)):
+        #    print "Cert %s already exists, skipping" % (
+        #            request.get_subject().commonName)
+        #    continue
 
         cert = crypto.X509()
         cert.gmtime_adj_notBefore(notbefore)
@@ -259,8 +260,8 @@ def sign_certificates(hosts):
 
         # write the cert out to a file
         try:
-            open("%s/%s.pem" % (
-                        CERT_DIR, request.get_subject().commonName), "w").write(
+            open("%s/%s.%s.pem" % (CERT_DIR,
+                        request.get_subject().commonName, serial), "w").write(
                     crypto.dump_certificate(crypto.FILETYPE_PEM, cert))
         except IOError as e:
             # TODO what should we do here?
