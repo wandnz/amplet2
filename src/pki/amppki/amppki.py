@@ -172,11 +172,11 @@ def generate_certs():
 # keyUsage = digitalSignature, keyEncipherment
 # extendedKeyUsage = 1.3.6.1.5.5.7.3.2, 1.3.6.1.5.5.7.3.1
 def sign_certificates(hosts):
-    newcerts = []
     notbefore = 0
     # XXX how long should they be valid for by default?
     notafter = int(time()) + (60 * 60 * 24 * 365 * 10)
     digest = "sha256"
+    count = 0
 
     try:
         issuer_cert = crypto.load_certificate(crypto.FILETYPE_PEM,
@@ -185,10 +185,10 @@ def sign_certificates(hosts):
                 open(CAKEY).read())
     except IOError as e:
         print "Couldn't load CA cert and private key: %s" % e
-        return []
+        return
     except crypto.Error as e:
         print "Invalid CA cert or key: %s" % e
-        return []
+        return
 
     # XXX hostnames or sha256?
     for host in hosts:
@@ -244,7 +244,8 @@ def sign_certificates(hosts):
             print "Can't get serial number, aborting"
             # it's possible we've already signed some certificates, and so
             # should probably return them (though this is not a good state)!
-            return newcerts
+            # TODO what should we do here?
+            break
 
         cert.set_serial_number(serial)
         cert.sign(issuer_key, digest)
@@ -255,10 +256,11 @@ def sign_certificates(hosts):
                         CERT_DIR, request.get_subject().commonName), "w").write(
                     crypto.dump_certificate(crypto.FILETYPE_PEM, cert))
         except IOError as e:
+            # TODO what should we do here?
             print "Failed to write certificate %s: %s" % (host, e)
-            return newcerts
+            break
 
-        newcerts.append({
+        index.append({
             "status": "V",
             "expires": "%s00Z" % notafter,
             "revoked": "",
@@ -266,9 +268,11 @@ def sign_certificates(hosts):
             "subject": "/CN=%s/O=%s" % (cert.get_subject().commonName,
                 cert.get_subject().organizationName),
         })
+        count += 1
 
-        # TODO delete csr
-    return newcerts
+    # TODO delete csr
+    if count > 0:
+        save_index(index, "%s.tmp" % INDEX_FILE)
 
 
 def save_index(index, filename):
@@ -320,7 +324,7 @@ if __name__ == '__main__':
     pending = load_csr()
     index = load_index(INDEX_FILE)
 
-    if sys.argv[1] == "list":
+    if action == "list":
         if len(sys.argv) == 2:
             # default is to just list outstanding requests
             list_pending(pending)
@@ -336,11 +340,8 @@ if __name__ == '__main__':
             #list_certificates(index, "host", sys.argv[2:])
             pass
 
-    elif sys.argv[1] == "sign":
-        newcerts = sign_certificates(sys.argv[2:])
-        if len(newcerts) > 0:
-            save_index(index + newcerts, "%s.tmp" % INDEX_FILE)
-
+    elif action == "sign":
+        sign_certificates(sys.argv[2:])
 
     elif action == "revoke":
         revoke_certificates(index, sys.argv[2:])
