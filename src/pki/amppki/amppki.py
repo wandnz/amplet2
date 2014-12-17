@@ -111,9 +111,6 @@ def list_pending(pending):
 def list_certificates(certs, which, hosts=None):
     merged = {}
     for item in certs:
-        # XXX extract hostname properly?
-        host = item["subject"].split("/")[1][3:]
-
         # only show expired certs if listing "all"
         if which == "all" and item["status"] == "E" or (
                 item["status"] == "V" and item["expires"] < time()):
@@ -136,6 +133,7 @@ def list_certificates(certs, which, hosts=None):
         else:
             continue
 
+        host = item["host"]
         if host not in merged:
             merged[host] = []
         merged[host].append("%s %s %s %s" % (status, host, get_padding(host),
@@ -285,7 +283,9 @@ def load_index(filename):
             "expires": parts[1],
             "revoked": parts[2] if len(parts[2]) > 0 else "",
             "serial": parts[3],
-            "subject": parts[5].strip()
+            "subject": parts[5].strip(),
+            # XXX extract hostname properly?
+            "host": parts[5].strip().split("/")[1][3:]
         })
     return index
 
