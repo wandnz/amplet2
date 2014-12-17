@@ -1,9 +1,10 @@
 import os
 import sys
 import fcntl
+import argparse
 from time import strftime, gmtime, time
 from OpenSSL import crypto
-from Crypto.Hash import SHA256,MD5
+from Crypto.Hash import SHA256, MD5
 
 CA_DIR = "/tmp/brendonj/ampca"
 CERT_DIR = "%s/certs" % CA_DIR
@@ -45,7 +46,6 @@ def get_and_increment_serial(filename):
     if serial is None:
         return None
 
-    # XXX assuming we pass it as a hex string to the signing function
     # write out the incremented serial to a temporary file
     if write_serial(filename, serial + 1) is False:
         return None
@@ -102,38 +102,37 @@ def get_padding(host):
     return (38 - len(host)) * " "
 
 
-def list_pending(pending, hosts=None):
+def list_pending(pending, hosts):
     for item in pending:
-        if hosts is not None and item["host"] not in hosts:
+        if len(hosts) > 0 and item["host"] not in hosts:
             continue
         print "  %s %s %s\t%s" % (item["host"], get_padding(item["host"]),
                 item["bits"], item["md5"])
 
 
-def list_certificates(certs, which, hosts=None):
+def list_certificates(certs, hosts):
     merged = {}
     for item in certs:
         host = item["host"]
-        if hosts is not None and host not in hosts:
+        if len(hosts) > 0 and host not in hosts:
             continue
+
         # only show expired certs if listing "all"
-        if which == "all" and item["status"] == "E" or (
+        if item["status"] == "E" or (
                 item["status"] == "V" and item["expires"] < time()):
             status = "-"
             when = "expired %s" % strftime("%Y-%m-%d",
                     gmtime(int(item["expires"][:-3])))
         # only show valid signed certs if listing "all" or "signed"
-        elif ((which == "all" or which == "signed") and
-                item["status"] == "V" and item["expires"] > time()):
+        elif item["status"] == "V" and item["expires"] > time():
             status = "+"
             when = "until %s" % strftime("%Y-%m-%d",
                     gmtime(int(item["expires"][:-3])))
         # only show revoked certs if listing "all"
-        elif which == "all" and item["status"] == "R":
+        elif item["status"] == "R":
             status = "-"
             when = "revoked %s" % strftime("%Y-%m-%d",
                     gmtime(int(item["revoked"][:-3])))
-        #else if which == "hosts" and host in hosts:
         # otherwise don't display this item
         else:
             continue
@@ -316,12 +315,23 @@ if __name__ == '__main__':
         usage(os.path.basename(sys.argv[0]))
         sys.exit(0)
 
-    # TODO use getopt or argparse
     lock = None
-    action = sys.argv[1]
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("action",
+            choices=["generate", "list", "revoke", "sign"])
+    parser.add_argument("-a", "--all", action="store_true")
+    parser.add_argument("hosts", nargs="*")
+
+    args = parser.parse_args()
+    print args
+
+    if len(args.hosts) > 0 and args.all:
+        print "Conflicting arguments: both --all and a host list are used"
+        sys.exit(2)
 
     # lock the whole CA dir for any actions that will modify it
-    if action in ["sign", "revoke"]:
+    if args.action in ["sign", "revoke"]:
         try:
             lock = open(LOCK_FILE, "w")
             fcntl.lockf(lock.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
@@ -332,27 +342,24 @@ if __name__ == '__main__':
     pending = load_csr()
     index = load_index(INDEX_FILE)
 
-    if action == "list":
-        if len(sys.argv) == 2:
-            # default is to just list outstanding requests
-            list_pending(pending)
-        elif sys.argv[2] == "signed":
-            # show only signed certificates
-            list_certificates(index, "signed")
-        elif sys.argv[2] == "all":
-            # show all certificates
-            list_certificates(index, "all")
-            list_pending(pending)
+    if args.action == "list":
+        if args.all:
+            # show all certificates (valid, expired, revoked)
+            list_certificates(index, args.hosts)
+        # list outstanding requests
+        list_pending(pending, args.hosts)
+
+    elif args.action == "sign":
+        if args.all:
+            # sign all outstanding requests
+            sign_certificates([x["host"] for x in pending])
         else:
-            # list just the hosts named
-            list_certificates(index, "all", sys.argv[2:])
-            list_pending(pending, sys.argv[2:])
+            # sign only the listed requests
+            sign_certificates(args.hosts)
 
-    elif action == "sign":
-        sign_certificates(sys.argv[2:])
-
-    elif action == "revoke":
-        revoke_certificates(index, sys.argv[2:])
+    elif args.action == "revoke":
+        # revoke only the listed certificates
+        revoke_certificates(index, args.hosts)
 
     # unlock now that the action is complete, and delete the lock file
     if lock is not None:
