@@ -102,8 +102,10 @@ def get_padding(host):
     return (38 - len(host)) * " "
 
 
-def list_pending(pending):
+def list_pending(pending, hosts=None):
     for item in pending:
+        if hosts is not None and item["host"] not in hosts:
+            continue
         print "  %s %s %s\t%s" % (item["host"], get_padding(item["host"]),
                 item["bits"], item["md5"])
 
@@ -111,6 +113,9 @@ def list_pending(pending):
 def list_certificates(certs, which, hosts=None):
     merged = {}
     for item in certs:
+        host = item["host"]
+        if hosts is not None and host not in hosts:
+            continue
         # only show expired certs if listing "all"
         if which == "all" and item["status"] == "E" or (
                 item["status"] == "V" and item["expires"] < time()):
@@ -133,7 +138,6 @@ def list_certificates(certs, which, hosts=None):
         else:
             continue
 
-        host = item["host"]
         if host not in merged:
             merged[host] = []
         merged[host].append("%s %s %s %s\t%s" % (status, host,
@@ -337,8 +341,8 @@ if __name__ == '__main__':
             list_pending(pending)
         else:
             # list just the hosts named
-            #list_certificates(index, "host", sys.argv[2:])
-            pass
+            list_certificates(index, "all", sys.argv[2:])
+            list_pending(pending, sys.argv[2:])
 
     elif action == "sign":
         sign_certificates(sys.argv[2:])
