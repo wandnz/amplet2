@@ -147,8 +147,17 @@ def list_certificates(certs, which, hosts=None):
             print cert
 
 
-def revoke_certs():
-    pass
+def revoke_certificates(index, hosts):
+    count = 0
+    for cert in index:
+        if cert["host"] in hosts:
+            # set the status to [R]evoked and the time that it happened
+            cert["status"] = "R"
+            cert["revoked"] = "%dZ" % (time() * 100)
+            count += 1
+    if count > 0:
+        save_index(index, "%s.tmp" % INDEX_FILE)
+    print "Revoked %d certificate(s)" % count
 
 
 def generate_certs():
@@ -332,12 +341,9 @@ if __name__ == '__main__':
         if len(newcerts) > 0:
             save_index(index + newcerts, "%s.tmp" % INDEX_FILE)
 
-    elif sys.argv[1] == "revoke":
-        # check certificate exists
-        # revoke it
-        # update index
-        #save_index(index, "%s.tmp" % INDEX_FILE)
-        pass
+
+    elif action == "revoke":
+        revoke_certificates(index, sys.argv[2:])
 
     # unlock now that the action is complete, and delete the lock file
     if lock is not None:
