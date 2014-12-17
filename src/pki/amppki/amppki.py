@@ -139,7 +139,7 @@ def list_certificates(certs, hosts):
 
         if host not in merged:
             merged[host] = []
-        merged[host].append("%s %s %s %s\t%s" % (status, host,
+        merged[host].append("%s %s %s 0x%s\t%s" % (status, host,
                     get_padding(host), item["serial"], when))
 
     # sort all the output based on hostname, so we ge a nice alphabetical list
