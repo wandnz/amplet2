@@ -104,7 +104,7 @@ def get_padding(host):
 
 def list_pending(pending):
     for item in pending:
-        print "  %s %s %s %s" % (item["host"], get_padding(item["host"]),
+        print "  %s %s %s\t%s" % (item["host"], get_padding(item["host"]),
                 item["bits"], item["md5"])
 
 
@@ -136,8 +136,8 @@ def list_certificates(certs, which, hosts=None):
         host = item["host"]
         if host not in merged:
             merged[host] = []
-        merged[host].append("%s %s %s %s" % (status, host, get_padding(host),
-                    when))
+        merged[host].append("%s %s %s %s\t%s" % (status, host,
+                    get_padding(host), item["serial"], when))
 
     # sort all the output based on hostname, so we ge a nice alphabetical list
     keys = merged.keys()
