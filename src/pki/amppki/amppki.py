@@ -212,20 +212,29 @@ def sign_certificates(index, pending, hosts, force):
     # get the CSR items that correspond to the hosts in the host list to sign
     tosign = []
     for host in hosts:
-        matches = [item for item in pending if item["host"] == host]
-        existing = [item for item in index
-                    if item["host"] == host and
-                       item["status"] == "V" and
-                       not is_expired(item)]
-        # by default don't sign anything where there are duplicate hostnames
-        if len(matches) > 1 and force is False:
-            print "Duplicate requests for %s, specify hash or --force" % host
-        # make sure we don't already have a certificate for this host, unless
-        # the user explicitly forces another one to be signed
-        elif len(existing) > 0 and force is False:
-            print "Cert already exists for %s, specify --force to sign" % host
+        if host.startswith("0x"):
+            # if they specify a hash, do whatever the user wants
+            matches = [item for item in pending if "0x%s" % item["md5"] == host]
         else:
-            tosign += matches
+            # otherwise do a bit more checking on possible duplicates
+            matches = [item for item in pending if item["host"] == host]
+            existing = [item for item in index
+                        if item["host"] == host and
+                           item["status"] == "V" and
+                           not is_expired(item)]
+
+            # by default don't sign anything where there are duplicate hostnames
+            if len(matches) > 1 and force is False:
+                print "Duplicate requests for %s, specify hash or --force" % (
+                        host)
+                continue
+            # make sure we don't already have a certificate for this host,
+            # unless the user explicitly forces another one to be signed
+            if len(existing) > 0 and force is False:
+                print "Cert already exists for %s, specify --force to sign" % (
+                        host)
+                continue
+        tosign += matches
 
     # load the CA cert and key that we need to sign certificates
     try:
