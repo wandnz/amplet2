@@ -130,14 +130,14 @@ def load_csr():
 
 
 def get_padding(host):
-    return (38 - len(host)) * " "
+    return (36 - len(host)) * " "
 
 
 def list_pending(pending, hosts):
     for item in pending:
         if len(hosts) > 0 and item["host"] not in hosts:
             continue
-        print "  %s %s %s\t%s" % (item["host"], get_padding(item["host"]),
+        print "  %s %s %s 0x%s" % (item["host"], get_padding(item["host"]),
                 item["bits"], item["md5"])
 
 
