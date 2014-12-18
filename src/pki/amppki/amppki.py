@@ -34,6 +34,12 @@ def is_expired(item):
     return False
 
 
+def filter_index(index, host):
+    return [item for item in index
+                if item["host"] == host and item["status"] == "V" and
+                    not is_expired(item)]
+
+
 def rotate_files(which):
     try:
         # move primary one into the old position
@@ -218,10 +224,7 @@ def sign_certificates(index, pending, hosts, force):
         else:
             # otherwise do a bit more checking on possible duplicates
             matches = [item for item in pending if item["host"] == host]
-            existing = [item for item in index
-                        if item["host"] == host and
-                           item["status"] == "V" and
-                           not is_expired(item)]
+            existing = filter_index(index, host)
 
             # by default don't sign anything where there are duplicate hostnames
             if len(matches) > 1 and force is False:
