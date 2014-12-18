@@ -77,6 +77,31 @@ def get_amplet_extension_list():
         ),
     ]
 
+
+def load_cacert():
+    try:
+        cert = crypto.load_certificate(crypto.FILETYPE_PEM, open(CACERT).read())
+    except IOError as e:
+        print "Couldn't load CA cert: %s" % e
+        return None
+    except crypto.Error as e:
+        print "Invalid CA cert: %s" % e
+        return None
+    return cert
+
+
+def load_cakey():
+    try:
+        key = crypto.load_privatekey(crypto.FILETYPE_PEM, open(CAKEY).read())
+    except IOError as e:
+        print "Couldn't load private key: %s" % e
+        return None
+    except crypto.Error as e:
+        print "Invalid key: %s" % e
+        return None
+    return key
+
+
 def get_and_increment_serial(filename):
     # read the next serial out of the serial file
     serial = read_serial(filename)
@@ -242,16 +267,10 @@ def sign_certificates(index, pending, hosts, force):
         tosign += matches
 
     # load the CA cert and key that we need to sign certificates
-    try:
-        issuer_cert = crypto.load_certificate(crypto.FILETYPE_PEM,
-                open(CACERT).read())
-        issuer_key = crypto.load_privatekey(crypto.FILETYPE_PEM,
-                open(CAKEY).read())
-    except IOError as e:
-        print "Couldn't load CA cert and private key: %s" % e
-        return
-    except crypto.Error as e:
-        print "Invalid CA cert or key: %s" % e
+    issuer_cert = load_cacert()
+    issuer_key = load_cakey()
+
+    if issuer_cert is None or issuer_key is None:
         return
 
     # sign all the CSRs that passed the filter
