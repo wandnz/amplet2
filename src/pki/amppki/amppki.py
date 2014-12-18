@@ -28,6 +28,12 @@ def usage(progname):
     print "    sign"
 
 
+def is_expired(item):
+    if int(item["expires"][:-3]) < time():
+        return True
+    return False
+
+
 def rotate_files(which):
     try:
         # move primary one into the old position
@@ -119,12 +125,12 @@ def list_certificates(certs, hosts):
 
         # only show expired certs if listing "all"
         if item["status"] == "E" or (
-                item["status"] == "V" and item["expires"] < time()):
+                item["status"] == "V" and is_expired(item)):
             status = "-"
             when = "expired %s" % strftime("%Y-%m-%d",
                     gmtime(int(item["expires"][:-3])))
         # only show valid signed certs if listing "all" or "signed"
-        elif item["status"] == "V" and item["expires"] > time():
+        elif item["status"] == "V" and not is_expired(item):
             status = "+"
             when = "until %s" % strftime("%Y-%m-%d",
                     gmtime(int(item["expires"][:-3])))
