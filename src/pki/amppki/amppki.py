@@ -283,8 +283,8 @@ def sign_certificates(index, pending, hosts, force):
 
         # write the cert out to a file
         try:
-            open("%s/%s.%s.pem" % (CERT_DIR,
-                        request.get_subject().commonName, serial), "w").write(
+            open("%s/%s.%02X.pem" % (CERT_DIR,
+                        request.get_subject().commonName, cert.get_serial_number()), "w").write(
                     crypto.dump_certificate(crypto.FILETYPE_PEM, cert))
         except IOError as e:
             # TODO what should we do here?
