@@ -2,7 +2,9 @@ import os
 import sys
 import fcntl
 import argparse
+from datetime import datetime
 from time import strftime, gmtime, time
+from calendar import timegm
 from OpenSSL import crypto
 from Crypto.Hash import SHA256, MD5
 
@@ -294,9 +296,11 @@ def sign_certificates(index, pending, hosts, force):
             print "Failed to write certificate %s: %s" % (host, e)
             break
 
+        expiry = datetime.strptime(cert.get_notAfter(), "%Y%m%d%H%M%SZ")
+
         index.append({
             "status": "V",
-            "expires": "%s00Z" % notafter,
+            "expires": "%s00Z" % timegm(expiry.utctimetuple()),
             "revoked": "",
             "serial": "%02X" % cert.get_serial_number(),
             "subject": "/CN=%s/O=%s" % (cert.get_subject().commonName,
