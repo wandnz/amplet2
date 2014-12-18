@@ -345,8 +345,10 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("action",
             choices=["generate", "list", "revoke", "sign"])
-    parser.add_argument("-a", "--all", action="store_true")
-    parser.add_argument("-f", "--force", action="store_true")
+    parser.add_argument("-a", "--all", action="store_true",
+            help="operate on all items")
+    parser.add_argument("-f", "--force", action="store_true",
+            help="force action on existing/duplicate certificates")
     parser.add_argument("hosts", nargs="*")
 
     args = parser.parse_args()
