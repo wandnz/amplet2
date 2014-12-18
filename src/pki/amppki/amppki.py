@@ -109,10 +109,12 @@ def load_csr():
     for item in os.listdir(CSR_DIR):
         try:
             # make sure it is a CSR
-            csrstr = open("%s/%s" % (CSR_DIR, item)).read()
+            filename = "%s/%s" % (CSR_DIR, item)
+            csrstr = open(filename).read()
             csr = crypto.load_certificate_request(crypto.FILETYPE_PEM, csrstr)
             result.append({
                 "host": csr.get_subject().commonName,
+                "filename": filename,
                 "subject": csr.get_subject(),
                 "bits": csr.get_pubkey().bits(),
                 "md5": MD5.new(csrstr).hexdigest(),
@@ -199,20 +201,33 @@ def generate_certs():
     pass
 
 
-# TODO how much should be exposed? serial numbers? notbefore, notafter?
-# openssl ca -config openssl.cnf -in ../$name/req.pem -out \
-#            ../$name/cert.pem -notext -batch -extensions amp_ca_extensions
-# [ amp_ca_extensions ]
-# basicConstraints = CA:false
-# keyUsage = digitalSignature, keyEncipherment
-# extendedKeyUsage = 1.3.6.1.5.5.7.3.2, 1.3.6.1.5.5.7.3.1
-def sign_certificates(hosts):
+# TODO how much should be exposed? notbefore, notafter?
+def sign_certificates(index, pending, hosts, force):
     notbefore = 0
     # XXX how long should they be valid for by default?
     notafter = int(time()) + (60 * 60 * 24 * 365 * 10)
     digest = "sha256"
     count = 0
 
+    # get the CSR items that correspond to the hosts in the host list to sign
+    tosign = []
+    for host in hosts:
+        matches = [item for item in pending if item["host"] == host]
+        existing = [item for item in index
+                    if item["host"] == host and
+                       item["status"] == "V" and
+                       not is_expired(item)]
+        # by default don't sign anything where there are duplicate hostnames
+        if len(matches) > 1 and force is False:
+            print "Duplicate requests for %s, specify hash or --force" % host
+        # make sure we don't already have a certificate for this host, unless
+        # the user explicitly forces another one to be signed
+        elif len(existing) > 0 and force is False:
+            print "Cert already exists for %s, specify --force to sign" % host
+        else:
+            tosign += matches
+
+    # load the CA cert and key that we need to sign certificates
     try:
         issuer_cert = crypto.load_certificate(crypto.FILETYPE_PEM,
                 open(CACERT).read())
@@ -225,25 +240,17 @@ def sign_certificates(hosts):
         print "Invalid CA cert or key: %s" % e
         return
 
-    # XXX hostnames or sha256?
-    for host in hosts:
+    # sign all the CSRs that passed the filter
+    for item in tosign:
         try:
             request = crypto.load_certificate_request(crypto.FILETYPE_PEM,
-                open("%s/%s" % (CSR_DIR, host)).read())
+                open(item["filename"]).read())
         except IOError as e:
-            print "Couldn't find CSR for %s: %s" % (host, e)
+            print "Couldn't find CSR for %s: %s" % (item["host"], e)
             continue
         except crypto.Error as e:
-            print "Invalid CSR for %s: %s" % (host, e)
+            print "Invalid CSR for %s: %s" % (item["host"], e)
             continue
-
-        # TODO reintroduce this check, but allow it to be skipped with a flag?
-        # make sure we don't already have a certificate for this host
-        #if os.path.exists("%s/%s.pem" % (
-        #            CERT_DIR, request.get_subject().commonName)):
-        #    print "Cert %s already exists, skipping" % (
-        #            request.get_subject().commonName)
-        #    continue
 
         cert = crypto.X509()
         cert.gmtime_adj_notBefore(notbefore)
@@ -288,6 +295,7 @@ def sign_certificates(hosts):
     # TODO delete csr
     if count > 0:
         save_index(index, "%s.tmp" % INDEX_FILE)
+    print "Signed %d certificate(s)" % count
 
 
 def save_index(index, filename):
@@ -329,10 +337,10 @@ if __name__ == '__main__':
     parser.add_argument("action",
             choices=["generate", "list", "revoke", "sign"])
     parser.add_argument("-a", "--all", action="store_true")
+    parser.add_argument("-f", "--force", action="store_true")
     parser.add_argument("hosts", nargs="*")
 
     args = parser.parse_args()
-    print args
 
     if len(args.hosts) > 0 and args.all:
         print "Conflicting arguments: both --all and a host list are used"
@@ -360,10 +368,11 @@ if __name__ == '__main__':
     elif args.action == "sign":
         if args.all:
             # sign all outstanding requests
-            sign_certificates([x["host"] for x in pending])
+            sign_certificates(index, pending, [x["host"] for x in pending],
+                    args.force)
         else:
             # sign only the listed requests
-            sign_certificates(args.hosts)
+            sign_certificates(index, pending, args.hosts, args.force)
 
     elif args.action == "revoke":
         # revoke only the listed certificates
