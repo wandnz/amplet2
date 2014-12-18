@@ -234,12 +234,38 @@ def generate_certs():
     pass
 
 
-# TODO how much should be exposed? notbefore, notafter?
-def sign_certificates(index, pending, hosts, force):
+
+
+def sign_request(request, issuer_cert, issuer_key):
     notbefore = 0
     # XXX how long should they be valid for by default?
-    notafter = int(time()) + (60 * 60 * 24 * 365 * 10)
+    notafter = 60 * 60 * 24 * 365 * 10
     digest = "sha256"
+
+    cert = crypto.X509()
+    cert.gmtime_adj_notBefore(notbefore)
+    cert.gmtime_adj_notAfter(notafter)
+    cert.set_issuer(issuer_cert.get_subject())
+    cert.set_subject(request.get_subject())
+    cert.set_pubkey(request.get_pubkey())
+    cert.add_extensions(get_amplet_extension_list())
+
+    serial = get_and_increment_serial(SERIAL_FILE)
+
+    if serial is None:
+        print "Can't get serial number, aborting"
+        # it's possible we've already signed some certificates, and so
+        # should probably return them (though this is not a good state)!
+        # TODO what should we do here?
+        return None
+
+    cert.set_serial_number(serial)
+    cert.sign(issuer_key, digest)
+    return cert
+
+
+# TODO how much should be exposed? notbefore, notafter?
+def sign_certificates(index, pending, hosts, force):
     count = 0
 
     # get the CSR items that correspond to the hosts in the host list to sign
@@ -285,25 +311,11 @@ def sign_certificates(index, pending, hosts, force):
             print "Invalid CSR for %s: %s" % (item["host"], e)
             continue
 
-        cert = crypto.X509()
-        cert.gmtime_adj_notBefore(notbefore)
-        cert.gmtime_adj_notAfter(notafter)
-        cert.set_issuer(issuer_cert.get_subject())
-        cert.set_subject(request.get_subject())
-        cert.set_pubkey(request.get_pubkey())
-        cert.add_extensions(get_amplet_extension_list())
+        cert = sign_request(request, issuer_cert, issuer_key)
 
-        serial = get_and_increment_serial(SERIAL_FILE)
-
-        if serial is None:
-            print "Can't get serial number, aborting"
-            # it's possible we've already signed some certificates, and so
-            # should probably return them (though this is not a good state)!
-            # TODO what should we do here?
-            break
-
-        cert.set_serial_number(serial)
-        cert.sign(issuer_key, digest)
+        if cert is None:
+            # XXX continue or break or exit?
+            continue
 
         # write the cert out to a file
         try:
