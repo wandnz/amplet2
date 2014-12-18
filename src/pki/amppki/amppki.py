@@ -46,6 +46,29 @@ def rotate_files(which):
     return True
 
 
+def get_amplet_extension_list():
+    # XXX should all the extensions be marked as critical?
+    return [
+        # this certificate is not a CA
+        crypto.X509Extension(
+            "basicConstraints",
+            True,
+            "CA:false"
+        ),
+        # this certificate can be used for signatures and encryption
+        crypto.X509Extension(
+            "keyUsage",
+            True,
+            "digitalSignature, keyEncipherment"
+        ),
+        # this certificate can be used for server auth and client auth
+        crypto.X509Extension(
+            "extendedKeyUsage",
+            True,
+            "1.3.6.1.5.5.7.3.1, 1.3.6.1.5.5.7.3.2",
+        ),
+    ]
+
 def get_and_increment_serial(filename):
     # read the next serial out of the serial file
     serial = read_serial(filename)
@@ -228,28 +251,7 @@ def sign_certificates(hosts):
         cert.set_issuer(issuer_cert.get_subject())
         cert.set_subject(request.get_subject())
         cert.set_pubkey(request.get_pubkey())
-
-        # XXX should all the extensions be marked as critical?
-        cert.add_extensions([
-            # this certificate is not a CA
-            crypto.X509Extension(
-                "basicConstraints",
-                True,
-                "CA:false"
-            ),
-            # this certificate can be used for signatures and encryption
-            crypto.X509Extension(
-                "keyUsage",
-                True,
-                "digitalSignature, keyEncipherment"
-            ),
-            # this certificate can be used for server auth and client auth
-            crypto.X509Extension(
-                "extendedKeyUsage",
-                True,
-                "1.3.6.1.5.5.7.3.1, 1.3.6.1.5.5.7.3.2",
-            ),
-        ])
+        cert.add_extensions(get_amplet_extension_list())
 
         serial = get_and_increment_serial(SERIAL_FILE)
 
