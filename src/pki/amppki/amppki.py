@@ -263,7 +263,7 @@ def generate_privkey(host):
         open("%s/%s.pem" % (KEY_DIR, host), "w").write(
                 crypto.dump_privatekey(crypto.FILETYPE_PEM, key))
     except IOError as e:
-        print "Failed to write private key %s: %s" % (filename, e)
+        print "Failed to write private key for %s: %s" % (host, e)
     return key
 
 
