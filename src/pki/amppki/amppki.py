@@ -78,6 +78,19 @@ def get_amplet_extension_list():
     ]
 
 
+def get_cert_metadata(cert):
+    expiry = datetime.strptime(cert.get_notAfter(), "%Y%m%d%H%M%SZ")
+
+    return {
+        "status": "V",
+        "expires": "%s00Z" % timegm(expiry.utctimetuple()),
+        "revoked": "",
+        "serial": "%02X" % cert.get_serial_number(),
+        "subject": "/CN=%s/O=%s" % (cert.get_subject().commonName,
+            cert.get_subject().organizationName),
+    }
+
+
 def load_cacert():
     try:
         cert = crypto.load_certificate(crypto.FILETYPE_PEM, open(CACERT).read())
@@ -303,16 +316,7 @@ def generate_certificates(index, hosts, force):
         if save_certificate(cert) is False:
             break
 
-        expiry = datetime.strptime(cert.get_notAfter(), "%Y%m%d%H%M%SZ")
-
-        index.append({
-            "status": "V",
-            "expires": "%s00Z" % timegm(expiry.utctimetuple()),
-            "revoked": "",
-            "serial": "%02X" % cert.get_serial_number(),
-            "subject": "/CN=%s/O=%s" % (cert.get_subject().commonName,
-                cert.get_subject().organizationName),
-        })
+        index.append(get_cert_metadata(cert))
         count += 1
 
     if count > 0:
@@ -405,16 +409,7 @@ def sign_certificates(index, pending, hosts, force):
         if save_certificate(cert) is False:
             break
 
-        expiry = datetime.strptime(cert.get_notAfter(), "%Y%m%d%H%M%SZ")
-
-        index.append({
-            "status": "V",
-            "expires": "%s00Z" % timegm(expiry.utctimetuple()),
-            "revoked": "",
-            "serial": "%02X" % cert.get_serial_number(),
-            "subject": "/CN=%s/O=%s" % (cert.get_subject().commonName,
-                cert.get_subject().organizationName),
-        })
+        index.append(get_cert_metadata(cert))
         count += 1
 
     # TODO delete csr
