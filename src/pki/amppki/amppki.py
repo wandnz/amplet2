@@ -10,7 +10,7 @@ from Crypto.Hash import SHA256, MD5
 
 CA_DIR = "/tmp/brendonj/ampca"
 CERT_DIR = "%s/certs" % CA_DIR
-#KEY_DIR = "%s/private" % CA_DIR
+KEY_DIR = "%s/private" % CA_DIR
 CSR_DIR = "%s/csr" % CA_DIR
 INDEX_FILE = "%s/index.txt" % CA_DIR
 SERIAL_FILE = "%s/serial" % CA_DIR
@@ -230,10 +230,87 @@ def revoke_certificates(index, hosts):
     print "Revoked %d certificate(s)" % count
 
 
-def generate_certs():
-    pass
+def generate_privkey(host):
+    key = crypto.PKey()
+    key.generate_key(crypto.TYPE_RSA, 2048)
+    try:
+        open("%s/%s.pem" % (KEY_DIR, host), "w").write(
+                crypto.dump_privatekey(crypto.FILETYPE_PEM, key))
+    except IOError as e:
+        print "Failed to write private key %s: %s" % (filename, e)
+    return key
 
 
+def generate_csr(key, host):
+    request = crypto.X509Req()
+    request.get_subject().CN = host
+    request.get_subject().O = "client"
+    request.set_pubkey(key)
+    request.sign(key, "sha256")
+    try:
+        open("%s/%s.csr" % (CSR_DIR, host), "w").write(
+                crypto.dump_certificate_request(crypto.FILETYPE_PEM, request))
+    except IOError as e:
+        # TODO what should we do here?
+        print "Failed to write certificate %s: %s" % (host, e)
+        return None
+    return request
+
+
+def generate_certificates(index, hosts, force):
+    # generate a key and cert for every named host in the list. Don't do it
+    # for duplicates unless force is set
+    count = 0
+    issuer_cert = load_cacert()
+    issuer_key = load_cakey()
+
+    if issuer_cert is None or issuer_key is None:
+        return
+
+    for host in hosts:
+        if force is False:
+            existing = filter_index(index, host)
+            if len(existing) > 0:
+                print "Cert already exists for %s, specify --force to sign" % (
+                        host)
+                continue
+        print "generate", host
+        # TODO don't ever clobber a private key
+        key = generate_privkey(host)
+        # make csr using this key and sign it
+        request = generate_csr(key, host)
+        if request is None:
+            continue
+        cert = sign_request(request, issuer_cert, issuer_key)
+        if cert is None:
+            # XXX continue or break or exit?
+            continue
+
+        # write the cert out to a file
+        try:
+            open("%s/%s.%02X.pem" % (CERT_DIR,
+                        request.get_subject().commonName, cert.get_serial_number()), "w").write(
+                    crypto.dump_certificate(crypto.FILETYPE_PEM, cert))
+        except IOError as e:
+            # TODO what should we do here?
+            print "Failed to write certificate %s: %s" % (host, e)
+            break
+
+        expiry = datetime.strptime(cert.get_notAfter(), "%Y%m%d%H%M%SZ")
+
+        index.append({
+            "status": "V",
+            "expires": "%s00Z" % timegm(expiry.utctimetuple()),
+            "revoked": "",
+            "serial": "%02X" % cert.get_serial_number(),
+            "subject": "/CN=%s/O=%s" % (cert.get_subject().commonName,
+                cert.get_subject().organizationName),
+        })
+        count += 1
+
+    if count > 0:
+        save_index(index, "%s.tmp" % INDEX_FILE)
+    print "Generated %d certificate/keypairs" % count
 
 
 def sign_request(request, issuer_cert, issuer_key):
@@ -426,6 +503,9 @@ if __name__ == '__main__':
     elif args.action == "revoke":
         # revoke only the listed certificates
         revoke_certificates(index, args.hosts)
+
+    elif args.action == "generate":
+        generate_certificates(index, args.hosts, args.force)
 
     # unlock now that the action is complete, and delete the lock file
     if lock is not None:
