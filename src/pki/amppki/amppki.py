@@ -122,7 +122,6 @@ def save_certificate(cert):
         open("%s/%s.%02X.pem" % (CERT_DIR, host, serial), "w").write(
                 crypto.dump_certificate(crypto.FILETYPE_PEM, cert))
     except IOError as e:
-        # TODO what should we do here?
         print "Failed to write certificate %s: %s" % (host, e)
         return False
     return True
@@ -162,7 +161,7 @@ def write_serial(filename, serial):
     return True
 
 
-def load_csr():
+def load_pending_requests():
     result = []
     # open each file in the CSR directory - any CSR here has yet to be signed
     for item in os.listdir(CSR_DIR):
@@ -213,7 +212,7 @@ def list_certificates(certs, hosts):
             status = "-"
             when = "expired %s" % strftime("%Y-%m-%d",
                     gmtime(int(item["expires"][:-3])))
-        # only show valid signed certs if listing "all" or "signed"
+        # only show valid signed certs if listing "all"
         elif item["status"] == "V" and not is_expired(item):
             status = "+"
             when = "until %s" % strftime("%Y-%m-%d",
@@ -277,8 +276,7 @@ def generate_csr(key, host):
         open("%s/%s.csr" % (CSR_DIR, host), "w").write(
                 crypto.dump_certificate_request(crypto.FILETYPE_PEM, request))
     except IOError as e:
-        # TODO what should we do here?
-        print "Failed to write certificate %s: %s" % (host, e)
+        print "Failed to write CSR %s: %s" % (host, e)
         return None
     return request
 
@@ -300,7 +298,7 @@ def generate_certificates(index, hosts, force):
                 print "Cert already exists for %s, specify --force to sign" % (
                         host)
                 continue
-        print "generate", host
+
         # TODO don't ever clobber a private key
         key = generate_privkey(host)
         # make csr using this key and sign it
@@ -308,6 +306,7 @@ def generate_certificates(index, hosts, force):
         if request is None:
             continue
         cert = sign_request(request, issuer_cert, issuer_key)
+
         if cert is None:
             # XXX continue or break or exit?
             continue
@@ -342,9 +341,6 @@ def sign_request(request, issuer_cert, issuer_key):
 
     if serial is None:
         print "Can't get serial number, aborting"
-        # it's possible we've already signed some certificates, and so
-        # should probably return them (though this is not a good state)!
-        # TODO what should we do here?
         return None
 
     cert.set_serial_number(serial)
@@ -477,7 +473,7 @@ if __name__ == '__main__':
             print "Failed to lock %s: %s" % (LOCK_FILE, e)
             sys.exit(1)
 
-    pending = load_csr()
+    pending = load_pending_requests()
     index = load_index(INDEX_FILE)
 
     if args.action == "list":
