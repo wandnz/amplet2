@@ -102,6 +102,19 @@ def load_cakey():
     return key
 
 
+def save_certificate(cert):
+    host = cert.get_subject().commonName
+    serial = cert.get_serial_number()
+    try:
+        open("%s/%s.%02X.pem" % (CERT_DIR, host, serial), "w").write(
+                crypto.dump_certificate(crypto.FILETYPE_PEM, cert))
+    except IOError as e:
+        # TODO what should we do here?
+        print "Failed to write certificate %s: %s" % (host, e)
+        return False
+    return True
+
+
 def get_and_increment_serial(filename):
     # read the next serial out of the serial file
     serial = read_serial(filename)
@@ -287,13 +300,7 @@ def generate_certificates(index, hosts, force):
             continue
 
         # write the cert out to a file
-        try:
-            open("%s/%s.%02X.pem" % (CERT_DIR,
-                        request.get_subject().commonName, cert.get_serial_number()), "w").write(
-                    crypto.dump_certificate(crypto.FILETYPE_PEM, cert))
-        except IOError as e:
-            # TODO what should we do here?
-            print "Failed to write certificate %s: %s" % (host, e)
+        if save_certificate(cert) is False:
             break
 
         expiry = datetime.strptime(cert.get_notAfter(), "%Y%m%d%H%M%SZ")
@@ -395,13 +402,7 @@ def sign_certificates(index, pending, hosts, force):
             continue
 
         # write the cert out to a file
-        try:
-            open("%s/%s.%02X.pem" % (CERT_DIR,
-                        request.get_subject().commonName, cert.get_serial_number()), "w").write(
-                    crypto.dump_certificate(crypto.FILETYPE_PEM, cert))
-        except IOError as e:
-            # TODO what should we do here?
-            print "Failed to write certificate %s: %s" % (host, e)
+        if save_certificate(cert) is False:
             break
 
         expiry = datetime.strptime(cert.get_notAfter(), "%Y%m%d%H%M%SZ")
