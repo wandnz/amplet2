@@ -414,6 +414,29 @@ def sign_certificates(index, pending, hosts, force):
     print "Signed %d certificate(s)" % count
 
 
+def deny_pending_requests(pending, hosts, force):
+    todeny = []
+    for host in hosts:
+        if host.startswith("0x"):
+            # if they specify a hash, do whatever the user wants
+            matches = [item for item in pending if "0x%s" % item["md5"] == host]
+        else:
+            # otherwise do a bit more checking on possible duplicates
+            matches = [item for item in pending if item["host"] == host]
+
+            # by default don't do anything where there are duplicate hostnames
+            if len(matches) > 1 and force is False:
+                print "Duplicate requests for %s, specify hash or --force" % (
+                        host)
+                continue
+        todeny += matches
+
+    for request in todeny:
+        os.unlink(request["filename"])
+
+    print "Denied %s signing request(s)" % len(todeny)
+
+
 def save_index(index, filename):
     out = open(filename, "w")
     for line in index:
@@ -451,7 +474,7 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
     parser.add_argument("action",
-            choices=["generate", "list", "revoke", "sign"])
+            choices=["deny", "generate", "list", "revoke", "sign"])
     parser.add_argument("-a", "--all", action="store_true",
             help="operate on all items")
     parser.add_argument("-f", "--force", action="store_true",
@@ -465,7 +488,7 @@ if __name__ == '__main__':
         sys.exit(2)
 
     # lock the whole CA dir for any actions that will modify it
-    if args.action in ["sign", "revoke"]:
+    if args.action in ["deny", "sign", "revoke"]:
         try:
             lock = open(LOCK_FILE, "w")
             fcntl.lockf(lock.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
@@ -498,6 +521,13 @@ if __name__ == '__main__':
 
     elif args.action == "generate":
         generate_certificates(index, args.hosts, args.force)
+
+    elif args.action == "deny":
+        if args.all:
+            deny_pending_requests(pending, [x["host"] for x in pending],
+                    args.force)
+        else:
+            deny_pending_requests(pending, args.hosts, args.force)
 
     # unlock now that the action is complete, and delete the lock file
     if lock is not None:
