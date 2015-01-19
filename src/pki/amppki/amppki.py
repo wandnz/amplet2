@@ -7,8 +7,11 @@ from time import strftime, gmtime, time
 from calendar import timegm
 from OpenSSL import crypto
 from Crypto.Hash import SHA256, MD5
+from shutil import rmtree
 
-CA_DIR = "/tmp/brendonj/ampca"
+# TODO should the cacert show up in cert lists? should it be able to be revoked?
+CA_NAME = "AMPCA"
+CA_DIR = "/tmp/brendonj/ampca2"
 CERT_DIR = "%s/certs" % CA_DIR
 KEY_DIR = "%s/private" % CA_DIR
 CSR_DIR = "%s/csr" % CA_DIR
@@ -30,6 +33,7 @@ def usage(progname):
     print
     print "Commands:"
     print "    generate"
+    print "    initialise"
     print "    list"
     print "    revoke"
     print "    sign"
@@ -57,6 +61,29 @@ def rotate_files(which):
         print "Failed to rotate %s" % e
         return None
     return True
+
+
+def get_ca_extension_list():
+    return [
+        # this certificate is not a CA
+        crypto.X509Extension(
+            "basicConstraints",
+            True,
+            "CA:true, pathlen:0"
+        ),
+        crypto.X509Extension(
+            "keyUsage",
+            True,
+            "keyCertSign, cRLSign"
+        ),
+        # subjectKeyIdentifier
+        # authorityKeyIdentifier
+        #crypto.X509Extension(
+        #    "authorityInfoAccess",
+        #    True,
+        #    "OCSP;URI:https://",
+        #),
+    ]
 
 
 def get_amplet_extension_list():
@@ -120,11 +147,15 @@ def load_cakey():
     return key
 
 
-def save_certificate(cert):
+#XXX the webserver can't easily find these files with serial numbers attached,
+# do something about it
+def save_certificate(cert, base, name=None):
     host = cert.get_subject().commonName
     serial = cert.get_serial_number()
     try:
-        open("%s/%s.%02X.pem" % (CERT_DIR, host, serial), "w").write(
+        if name is None:
+            name = "%s.%02X.pem" % (host, serial)
+        open("%s/%s" % (base, name), "w").write(
                 crypto.dump_certificate(crypto.FILETYPE_PEM, cert))
     except IOError as e:
         print "Failed to write certificate %s: %s" % (host, e)
@@ -271,10 +302,11 @@ def generate_privkey(host):
     return key
 
 
-def generate_csr(key, host):
+def generate_csr(key, host, org="client"):
     request = crypto.X509Req()
     request.get_subject().CN = host
-    request.get_subject().O = "client"
+    if org is not None:
+        request.get_subject().O = org
     request.set_pubkey(key)
     request.sign(key, "sha256")
     try:
@@ -310,14 +342,17 @@ def generate_certificates(index, hosts, force):
         request = generate_csr(key, host)
         if request is None:
             continue
-        cert = sign_request(request, issuer_cert, issuer_key)
+        # TODO pass the pending list off to the other signing function and
+        # remove this duplicated code
+        cert = sign_request(request, issuer_cert.get_subject(), issuer_key,
+                get_amplet_extension_list())
 
         if cert is None:
             # XXX continue or break or exit?
             continue
 
         # write the cert out to a file
-        if save_certificate(cert) is False:
+        if save_certificate(cert, CERT_DIR) is False:
             break
 
         index.append(get_cert_metadata(cert))
@@ -328,14 +363,14 @@ def generate_certificates(index, hosts, force):
     print "Generated %d certificate/keypairs" % count
 
 
-def sign_request(request, issuer_cert, issuer_key):
+def sign_request(request, issuer, issuer_key, extensions):
     cert = crypto.X509()
     cert.gmtime_adj_notBefore(NOTBEFORE)
     cert.gmtime_adj_notAfter(NOTAFTER)
-    cert.set_issuer(issuer_cert.get_subject())
+    cert.set_issuer(issuer)
     cert.set_subject(request.get_subject())
     cert.set_pubkey(request.get_pubkey())
-    cert.add_extensions(get_amplet_extension_list())
+    cert.add_extensions(extensions)
 
     serial = get_and_increment_serial(SERIAL_FILE)
 
@@ -394,14 +429,15 @@ def sign_certificates(index, pending, hosts, force):
             print "Invalid CSR for %s: %s" % (item["host"], e)
             continue
 
-        cert = sign_request(request, issuer_cert, issuer_key)
+        cert = sign_request(request, issuer_cert.get_subject(), issuer_key,
+                get_amplet_extension_list())
 
         if cert is None:
             # XXX continue or break or exit?
             continue
 
         # write the cert out to a file
-        if save_certificate(cert) is False:
+        if save_certificate(cert, CERT_DIR) is False:
             break
 
         index.append(get_cert_metadata(cert))
@@ -464,6 +500,56 @@ def load_index(filename):
     return index
 
 
+# TODO allow user configurable directories?
+# TODO make exit values consistent within the program
+def initialise(force):
+    # only initialise the directory if it doesn't exist or --force is used
+    if os.path.isdir(CA_DIR) and force:
+        rmtree(CA_DIR)
+    elif os.path.isdir(CA_DIR):
+        print "CA directory %s already exists, not initialising" % CA_DIR
+        return -1
+
+    # create required directories
+    try:
+        os.mkdir(CA_DIR)
+        os.mkdir(CERT_DIR)
+        os.mkdir(KEY_DIR, 0700)
+        os.mkdir(CSR_DIR)
+    except OSError as e:
+        print "Failed to initialise directory: %s" % (e)
+        return -1
+
+    # create required files
+    try:
+        open(SERIAL_FILE, "w").write("01")
+        open(INDEX_FILE, "w").close()
+    except IOError as e:
+        print "Failed to initialise files: %s" % (e)
+        return -1
+
+    # generate server keys
+    key = generate_privkey("cakey")
+    if key is None:
+        return -1
+    # make csr using this key
+    request = generate_csr(key, CA_NAME, None)
+    if request is None:
+        return -1
+    # create the self signed certificate
+    cert = sign_request(request, request.get_subject(), key,
+            get_ca_extension_list())
+    if cert is None:
+        return -1
+
+    # write the cert out to a file
+    if save_certificate(cert, CA_DIR, "cacert.pem") is False:
+        return -1
+
+    # TODO should we save our cert in the index?
+    return 0
+
+
 if __name__ == '__main__':
     if len(sys.argv) < 2:
         usage(os.path.basename(sys.argv[0]))
@@ -473,15 +559,19 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
     parser.add_argument("action",
-            choices=["deny", "generate", "list", "revoke", "sign"])
+            choices=["deny", "generate", "initialise", "list", "revoke", "sign"])
     parser.add_argument("-a", "--all", action="store_true",
             help="operate on all items")
     # nothing will ever happen when there are duplicates, unless --force is set
     parser.add_argument("-f", "--force", action="store_true",
-            help="force action on existing/duplicate certificates")
+            help="force action on existing/duplicate items")
     parser.add_argument("hosts", nargs="*")
 
     args = parser.parse_args()
+
+    if args.action == "initialise":
+        # create directory, subdirectories and default files
+        sys.exit(initialise(args.force))
 
     if len(args.hosts) > 0 and args.all:
         print "Conflicting arguments: both --all and a host list are used"
