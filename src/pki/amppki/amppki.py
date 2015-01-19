@@ -18,6 +18,11 @@ LOCK_FILE = "%s/.lock" % CA_DIR
 CACERT = "%s/cacert.pem" % CA_DIR
 CAKEY = "%s/private/cakey.pem" % CA_DIR
 
+NOTBEFORE = 0
+NOTAFTER = 60 * 60 * 24 * 365 * 10
+DIGEST = "sha256"
+
+
 
 def usage(progname):
     print "Usage:"
@@ -324,14 +329,9 @@ def generate_certificates(index, hosts, force):
 
 
 def sign_request(request, issuer_cert, issuer_key):
-    notbefore = 0
-    # XXX how long should they be valid for by default?
-    notafter = 60 * 60 * 24 * 365 * 10
-    digest = "sha256"
-
     cert = crypto.X509()
-    cert.gmtime_adj_notBefore(notbefore)
-    cert.gmtime_adj_notAfter(notafter)
+    cert.gmtime_adj_notBefore(NOTBEFORE)
+    cert.gmtime_adj_notAfter(NOTAFTER)
     cert.set_issuer(issuer_cert.get_subject())
     cert.set_subject(request.get_subject())
     cert.set_pubkey(request.get_pubkey())
@@ -344,7 +344,7 @@ def sign_request(request, issuer_cert, issuer_key):
         return None
 
     cert.set_serial_number(serial)
-    cert.sign(issuer_key, digest)
+    cert.sign(issuer_key, DIGEST)
     return cert
 
 
