@@ -297,6 +297,7 @@ def generate_certificates(index, hosts, force):
         return
 
     for host in hosts:
+        # only clobber an existing key/certificate pair if --force is set
         if force is False:
             existing = filter_index(index, host)
             if len(existing) > 0:
@@ -304,7 +305,6 @@ def generate_certificates(index, hosts, force):
                         host)
                 continue
 
-        # TODO don't ever clobber a private key
         key = generate_privkey(host)
         # make csr using this key and sign it
         request = generate_csr(key, host)
@@ -348,7 +348,6 @@ def sign_request(request, issuer_cert, issuer_key):
     return cert
 
 
-# TODO how much should be exposed? notbefore, notafter?
 def sign_certificates(index, pending, hosts, force):
     count = 0
 
