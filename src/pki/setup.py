@@ -8,6 +8,7 @@ here = os.path.abspath(os.path.dirname(__file__))
 
 requires = [
     'argparse',
+    'pyOpenSSL',
     'pyasn1',
     'pyasn1_modules',
     'pycrypto',

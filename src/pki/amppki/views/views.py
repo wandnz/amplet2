@@ -8,6 +8,7 @@ from Crypto.Signature import PKCS1_v1_5
 from ssl import PEM_cert_to_DER_cert
 from base64 import urlsafe_b64decode
 from os.path import isfile, basename
+from amppki.config import CA_DIR, CERT_DIR, CSR_DIR
 
 @view_config(route_name="default", renderer="string")
 def default(request):
@@ -45,7 +46,7 @@ def sign(request):
         print "saving csr"
         # XXX are CSRs being deleted once dealt with? could this cause a race?
         try:
-            open(shahash, "w").write(csr)
+            open("%s/%s" % (CSR_DIR, shahash), "w").write(csr)
         except IOError:
             # XXX is this giving away any useful information?
             print "error saving csr"
@@ -78,11 +79,11 @@ def cert(request):
 
     print "got request for cert", certname
 
-    open("test.sig", "w").write(signature)
+    #open("test.sig", "w").write(signature)
 
     # check that the certificate exists on disk
     try:
-        certstr = open(certname).read()
+        certstr = open("%s/%s" % (CERT_DIR, certname)).read()
     except IOError as e:
         # the user doesn't need to know what went wrong, just tell them that
         # they can't get whatever cert they asked for
@@ -126,4 +127,4 @@ def cert(request):
 
     # return the signed cert
     print "all ok"
-    return open(certname).read()
+    return certstr

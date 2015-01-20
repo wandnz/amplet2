@@ -8,12 +8,13 @@ from calendar import timegm
 from OpenSSL import crypto
 from Crypto.Hash import SHA256, MD5
 from shutil import rmtree
+from amppki.config import CA_DIR, CERT_DIR, CSR_DIR
 
 CA_NAME = "AMPCA"
-CA_DIR = "/tmp/brendonj/ampca2"
-CERT_DIR = "%s/certs" % CA_DIR
+#CA_DIR = "/tmp/brendonj/ampca2"
+#CERT_DIR = "%s/certs" % CA_DIR
 KEY_DIR = "%s/private" % CA_DIR
-CSR_DIR = "%s/csr" % CA_DIR
+#CSR_DIR = "%s/csr" % CA_DIR
 INDEX_FILE = "%s/index.txt" % CA_DIR
 SERIAL_FILE = "%s/serial" % CA_DIR
 LOCK_FILE = "%s/.lock" % CA_DIR
