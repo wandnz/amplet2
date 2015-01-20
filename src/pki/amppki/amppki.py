@@ -9,7 +9,6 @@ from OpenSSL import crypto
 from Crypto.Hash import SHA256, MD5
 from shutil import rmtree
 
-# TODO should the cacert show up in cert lists? should it be able to be revoked?
 CA_NAME = "AMPCA"
 CA_DIR = "/tmp/brendonj/ampca2"
 CERT_DIR = "%s/certs" % CA_DIR
@@ -302,19 +301,23 @@ def generate_privkey(host):
     return key
 
 
-def generate_csr(key, host, org="client"):
+def generate_csr(key, host, org="client", save=True):
     request = crypto.X509Req()
     request.get_subject().CN = host
     if org is not None:
         request.get_subject().O = org
     request.set_pubkey(key)
     request.sign(key, "sha256")
-    try:
-        open("%s/%s.csr" % (CSR_DIR, host), "w").write(
-                crypto.dump_certificate_request(crypto.FILETYPE_PEM, request))
-    except IOError as e:
-        print "Failed to write CSR %s: %s" % (host, e)
-        return None
+
+    if save:
+        try:
+            open("%s/%s.csr" % (CSR_DIR, host), "w").write(
+                    crypto.dump_certificate_request(crypto.FILETYPE_PEM,
+                        request))
+        except IOError as e:
+            print "Failed to write CSR %s: %s" % (host, e)
+            return None
+
     return request
 
 
@@ -339,7 +342,7 @@ def generate_certificates(index, hosts, force):
 
         key = generate_privkey(host)
         # make csr using this key and sign it
-        request = generate_csr(key, host)
+        request = generate_csr(key, host, save=False)
         if request is None:
             continue
         # TODO pass the pending list off to the other signing function and
@@ -533,7 +536,7 @@ def initialise(force):
     if key is None:
         return -1
     # make csr using this key
-    request = generate_csr(key, CA_NAME, None)
+    request = generate_csr(key, CA_NAME, None, False)
     if request is None:
         return -1
     # create the self signed certificate
