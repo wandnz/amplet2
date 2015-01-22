@@ -10,6 +10,9 @@ from base64 import urlsafe_b64decode
 from os.path import isfile, basename
 from glob import glob
 from amppki.config import CA_DIR, CERT_DIR, CSR_DIR
+from pyasn1.type import univ
+from pyasn1.codec.der import decoder
+from pyasn1.error import SubstrateUnderrunError, PyAsn1Error
 
 @view_config(route_name="default", renderer="string")
 def default(request):
@@ -57,6 +60,26 @@ def sign(request):
     return Response(status_code=202)
 
 
+def is_der_key(asn1):
+    try:
+        decoded = decoder.decode(asn1)
+        index = decoded[0]
+    except (SubstrateUnderrunError, PyAsn1Error) as e:
+        print "error decoding certificate:", e
+        return False
+
+    # look for a sequence tag with the RSA key object inside it
+    if index.isSameTypeWith(univ.Sequence()):
+        # if it is another sequence, look deeper
+        if index[0].isSameTypeWith(univ.Sequence()):
+            return is_der_key
+        # if it has the right object tag, we've probably found it
+        if index[0].isSameTypeWith(univ.ObjectIdentifier()):
+            if index[0].asTuple() == (1,2,840,113549,1,1,1):
+                return True
+    return False
+
+
 @view_config(route_name="cert", renderer="string")
 def cert(request):
     # TODO can we make sure this is done over SSL? don't accept this otherwise
@@ -101,10 +124,16 @@ def cert(request):
     cert.decode(der)
     tbsCertificate = DerSequence()
     tbsCertificate.decode(cert[0])
-    subjectPublicKeyInfo = tbsCertificate[6]
 
+    # we have to look through the certificate to find the right part that
+    # corresponds to the key - it can move around depending on how many other
+    # attributes there are
     try:
-        key = RSA.importKey(subjectPublicKeyInfo)
+        key = None
+        for item in tbsCertificate:
+            if is_der_key(item):
+                key = RSA.importKey(item)
+                break
     except (ValueError, IndexError, TypeError) as e:
         print "importing key failed:", e
         #return HTTPForbidden()
