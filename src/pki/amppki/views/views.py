@@ -8,6 +8,7 @@ from Crypto.Signature import PKCS1_v1_5
 from ssl import PEM_cert_to_DER_cert
 from base64 import urlsafe_b64decode
 from os.path import isfile, basename
+from glob import glob
 from amppki.config import CA_DIR, CERT_DIR, CSR_DIR
 
 @view_config(route_name="default", renderer="string")
@@ -68,7 +69,6 @@ def cert(request):
     # look like a certificate containing the public key that will verify the
     # signature.
     ampname = basename(request.matchdict["ampname"])
-    certname = "%s.cert" % ampname
     try:
         signature = urlsafe_b64decode(str(request.matchdict["signature"]))
     except TypeError as e:
@@ -77,14 +77,16 @@ def cert(request):
         print "failed to base64 decode, invalid data"
         return Response(status_code=400)
 
-    print "got request for cert", certname
-
-    #open("test.sig", "w").write(signature)
+    print "got request for cert", ampname
 
     # check that the certificate exists on disk
     try:
-        certstr = open("%s/%s" % (CERT_DIR, certname)).read()
-    except IOError as e:
+        # TODO do we just want to check the newest one?
+        # TODO can we accidentally expose other files by doing it this way?
+        # look at the matching certificate with the latest serial number
+        matches = sorted(glob("%s/%s.*.pem" % (CERT_DIR, ampname)))
+        certstr = open("%s" % matches[-1]).read()
+    except (IOError, IndexError) as e:
         # the user doesn't need to know what went wrong, just tell them that
         # they can't get whatever cert they asked for
         print "failed to open certificate:", e
