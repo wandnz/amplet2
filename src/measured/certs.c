@@ -497,21 +497,21 @@ static int fetch_certificate(amp_ssl_opt_t *sslopts, char *ampname,
 
     free(signature);
 
-    if ( (certfile = fopen(sslopts->cert, "w")) == NULL ) {
-        BIO_free_all(bio);
-        return -1;
-    }
-
     /* we need to use an https url to get curl to use the cert/ssl options */
     if ( asprintf(&url, "https://%s:%d/cert/%s/%.*s", collector,
                 AMP_PKI_SSL_PORT, ampname, length, urlsig) < 0 ) {
         Log(LOG_ALERT, "Failed to build cert fetching url");
-        fclose(certfile);
         BIO_free_all(bio);
         return -1;
     }
 
     Log(LOG_INFO, "Checking for signed certificate at %s", url);
+
+    /* open the file that the certificate will be written to */
+    if ( (certfile = fopen(sslopts->cert, "w")) == NULL ) {
+        BIO_free_all(bio);
+        return -1;
+    }
 
     curl = curl_easy_init();
     curl_easy_setopt(curl, CURLOPT_URL, url);
@@ -529,6 +529,12 @@ static int fetch_certificate(amp_ssl_opt_t *sslopts, char *ampname,
         Log(LOG_WARNING, "Failed to fetch signed certificate: %s",
                 curl_easy_strerror(res));
         curl_easy_cleanup(curl);
+
+        if ( unlink(sslopts->cert) < 0 ) {
+            Log(LOG_WARNING, "Failed to remove cert '%s': %s",
+                    sslopts->cert, strerror(errno));
+        }
+
         return -1;
     }
 
