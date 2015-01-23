@@ -6,6 +6,7 @@ from Crypto.Util.asn1 import DerSequence
 from Crypto.Hash import SHA256
 from Crypto.Signature import PKCS1_v1_5
 from ssl import PEM_cert_to_DER_cert
+from OpenSSL import crypto
 from base64 import urlsafe_b64decode
 from os.path import isfile, basename
 from glob import glob
@@ -35,10 +36,13 @@ def sign(request):
     # this is already url decoded for us, so use it as is
     csr = request.body
 
-    # first check if we have already signed this one, and send it if so (maybe
-    # the client went away before it was signed).
-    # TODO verify this is actually a CSR
-    print csr
+    try:
+        # make sure this is a valid request before we do anything with it
+        crypto.load_certificate_request(crypto.FILETYPE_PEM, csr)
+    except crypto.Error as e:
+        print "invalid csr"
+        return Response(status_code=400)
+
     shahash = SHA256.new(csr).hexdigest()
     print shahash
 
