@@ -11,10 +11,7 @@ from shutil import rmtree
 from amppki.config import CA_DIR, CERT_DIR, CSR_DIR
 
 CA_NAME = "AMPCA"
-#CA_DIR = "/tmp/brendonj/ampca2"
-#CERT_DIR = "%s/certs" % CA_DIR
 KEY_DIR = "%s/private" % CA_DIR
-#CSR_DIR = "%s/csr" % CA_DIR
 INDEX_FILE = "%s/index.txt" % CA_DIR
 SERIAL_FILE = "%s/serial" % CA_DIR
 LOCK_FILE = "%s/.lock" % CA_DIR
@@ -147,8 +144,6 @@ def load_cakey():
     return key
 
 
-#XXX the webserver can't easily find these files with serial numbers attached,
-# do something about it
 def save_certificate(cert, base, name=None):
     host = cert.get_subject().commonName
     serial = cert.get_serial_number()
