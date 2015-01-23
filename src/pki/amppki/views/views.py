@@ -69,7 +69,6 @@ def is_der_key(asn1):
         decoded = decoder.decode(asn1)
         index = decoded[0]
     except (SubstrateUnderrunError, PyAsn1Error) as e:
-        print "error decoding certificate:", e
         return False
 
     # look for a sequence tag with the RSA key object inside it
