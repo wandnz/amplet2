@@ -439,10 +439,12 @@ def sign_certificates(index, pending, hosts, force):
         if save_certificate(cert, CERT_DIR) is False:
             break
 
+        # delete the CSR now that it has been signed
+        os.unlink(item["filename"])
+
         index.append(get_cert_metadata(cert))
         count += 1
 
-    # TODO delete csr
     if count > 0:
         save_index(index, "%s.tmp" % INDEX_FILE)
     print "Signed %d certificate(s)" % count
