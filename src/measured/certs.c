@@ -647,6 +647,13 @@ int get_certificate(amp_ssl_opt_t *sslopts, char *ampname, char *collector,
         return -1;
     }
 
+    /* query for the certificate, a previous CSR might have been signed */
+    if ( fetch_certificate(sslopts, ampname, collector) == 0 ) {
+        RSA_free(key);
+        return 0;
+    }
+
+    /* no certificate is ready for us, send a CSR */
     if ( (request = create_new_csr(key, ampname)) == NULL ) {
         RSA_free(key);
         return -1;
