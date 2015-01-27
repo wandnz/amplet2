@@ -12,6 +12,11 @@
 #include "testlib.h"
 
 
+/*
+ * http://www.cypherpunks.to/~peter/06_random.pdf
+ * https://www.cs.auckland.ac.nz/~pgut001/pubs/book.pdf
+ */
+
 
 /*
  * XXX check that this is the right way to get errors, when should we use
