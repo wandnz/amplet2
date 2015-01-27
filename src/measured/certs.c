@@ -667,6 +667,8 @@ int get_certificate(amp_ssl_opt_t *sslopts, char *ampname, char *collector,
         return -1;
     }
 
+    X509_REQ_free(request);
+
     /*
      * A negative timeout of-1 will wait forever, 0 won't wait at all,
      * any positive timeout will wait that many seconds. The timeout is the
@@ -690,7 +692,6 @@ int get_certificate(amp_ssl_opt_t *sslopts, char *ampname, char *collector,
         }
     }
 
-    X509_REQ_free(request);
     return res;
 }
 
