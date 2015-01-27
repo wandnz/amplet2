@@ -670,7 +670,7 @@ int get_certificate(amp_ssl_opt_t *sslopts, char *ampname, char *collector,
     X509_REQ_free(request);
 
     /*
-     * A negative timeout of-1 will wait forever, 0 won't wait at all,
+     * A negative timeout will wait forever, 0 won't wait at all,
      * any positive timeout will wait that many seconds. The timeout is the
      * maximum time to wait, it will check periodically at the
      * AMP_PKI_QUERY_INTERVAL to see if the certificate has been signed.
