@@ -270,17 +270,34 @@ def list_certificates(certs, hosts):
             print cert
 
 
-def revoke_certificates(index, hosts):
+def revoke_certificates(index, hosts, force):
     count = 0
-    for cert in index:
-        # Loop over the cert list rather than the host list so we can be
-        # guaranteed to do it in a single pass. We can revoke on hostnames
-        # or serial numbers (hex, must be prefixed with "0x")
-        if cert["host"] in hosts or ("0x%s" % cert["serial"]) in hosts:
+    torevoke = []
+    for host in hosts:
+        # we can revoke on hostnames or serial numbers
+        if host.startswith("0x"):
+            # if they specify a serial, do whatever the user wants
+            match = [cert for cert in index if "0x%s" % cert["serial"] == host]
+        else:
+            # otherwise do a bit more checking on possible duplicates
+            match = [cert for cert in index if cert["host"] == host]
+
+            # by default don't do anything where there are duplicate hostnames
+            if len(match) > 1 and force is False:
+                print "Duplicate certs for %s, specify serial or --force" % (
+                        host)
+                continue
+        torevoke += match
+
+    for cert in torevoke:
+        # don't revoke an already revoked certificate, we don't want to change
+        # the already recorded revocation time
+        if cert["status"] != "R":
             # set the status to [R]evoked and the time that it happened
             cert["status"] = "R"
             cert["revoked"] = "%dZ" % (time() * 100)
             count += 1
+
     if count > 0:
         save_index(index, "%s.tmp" % INDEX_FILE)
     print "Revoked %d certificate(s)" % count
@@ -608,7 +625,7 @@ if __name__ == '__main__':
 
     elif args.action == "revoke":
         # revoke only the listed certificates
-        revoke_certificates(index, args.hosts)
+        revoke_certificates(index, args.hosts, args.force)
 
     elif args.action == "generate":
         generate_certificates(index, args.hosts, args.force)
