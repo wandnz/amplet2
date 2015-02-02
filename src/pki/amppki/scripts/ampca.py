@@ -8,7 +8,8 @@ from calendar import timegm
 from OpenSSL import crypto
 from Crypto.Hash import SHA256, MD5
 from shutil import rmtree
-from amppki.config import CA_DIR, CERT_DIR, CSR_DIR
+from amppki.config import CA_DIR, CERT_DIR, CSR_DIR, RABBITMQCTL
+from subprocess import call, STDOUT
 from amppki.common import verify_common_name
 
 CA_NAME = "AMPCA"
@@ -354,11 +355,18 @@ def generate_certificates(index, hosts, force):
                         host)
                 continue
 
+        # This seems most likely to fail, so do it before we sign and save
+        # the certificate for this host
+        if create_rabbit_account(host) is False:
+            print "Errors running rabbitmqctl, aborting"
+            break
+
         key = generate_privkey(host)
         # make csr using this key and sign it
         request = generate_csr(key, host, save=False)
         if request is None:
             continue
+
         # TODO pass the pending list off to the other signing function and
         # remove this duplicated code
         cert = sign_request(request, issuer_cert.get_subject(), issuer_key,
@@ -449,6 +457,12 @@ def sign_certificates(index, pending, hosts, force):
         except crypto.Error as e:
             print "Invalid CSR for %s: %s" % (item["host"], e)
             continue
+
+        # This seems most likely to fail, so do it before we sign and save
+        # the certificate for this host
+        if create_rabbit_account(item["host"]) is False:
+            print "Errors running rabbitmqctl, aborting"
+            break
 
         cert = sign_request(request, issuer_cert.get_subject(), issuer_key,
                 get_amplet_extension_list())
@@ -571,6 +585,46 @@ def initialise(force):
 
     # TODO should we save our cert in the index?
     return 0
+
+
+# TODO We are calling out to the shell with data that has been supplied by
+# the user, but verified as probably being safe. Check that we are indeed
+# verifying well enough. Also, maybe we want to use the HTTP API instead?
+def create_rabbit_account(name):
+    try:
+        # It might be nice to keep some of the output from rabbitmqctl, but
+        # it is way too verbose in places. If anything goes wrong it dumps
+        # multiple pages of usage information, which really doesn't help here.
+        status = call([RABBITMQCTL, "add_user", name, name],
+                stdout=open("/dev/null", "w"), stderr=STDOUT)
+    except OSError as e:
+        print "Failed to add new rabbit user '%s':" % name, e
+        return False
+
+    if status == 0:
+        # Added the user ok, now remove their password so they have to login
+        # using external auth
+        try:
+            status = call([RABBITMQCTL, "clear_password", name],
+                    stdout=open("/dev/null", "w"), stderr=STDOUT)
+        except OSError as e:
+            print "Failed to clear password for rabbit user '%s':" % name, e
+            return False
+    elif status == 1:
+        # Return code of 1 appears to mean we didn't have permission to run
+        # the command i.e. we aren't root or rabbitmq user
+        print "No permissions for rabbitmqctl, failed to add user '%s'" % name
+        return False
+    elif status == 2:
+        # I can trigger a return code of 2 if the user exists, or if I don't
+        # provide a password. We know that we have sent a properly formatted
+        # add user command, so assume any failure is because the user exists
+        # already. Also, assume that it isn't an error worth aborting over,
+        # as at the end of this process the user does exist, exactly what we
+        # wanted. The password will not be reset/cleared.
+        print "RabbitMQ user '%s' already exists, skipping" % name
+
+    return True
 
 
 if __name__ == '__main__':
