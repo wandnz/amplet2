@@ -595,14 +595,13 @@ if __name__ == '__main__':
         print "Conflicting arguments: both --all and a host list are used"
         sys.exit(2)
 
-    # lock the whole CA dir for any actions that will modify it
-    if args.action in ["deny", "sign", "revoke"]:
-        try:
-            lock = open(LOCK_FILE, "w")
-            fcntl.lockf(lock.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
-        except IOError as e:
-            print "Failed to lock %s: %s" % (LOCK_FILE, e)
-            sys.exit(1)
+    # lock the whole CA dir so it doesn't get modified while we use it
+    try:
+        lock = open(LOCK_FILE, "w")
+        fcntl.lockf(lock.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except IOError as e:
+        print "Failed to lock %s: %s" % (LOCK_FILE, e)
+        sys.exit(1)
 
     pending = load_pending_requests()
     index = load_index(INDEX_FILE)
