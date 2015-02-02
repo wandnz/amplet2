@@ -14,6 +14,7 @@ from amppki.config import CA_DIR, CERT_DIR, CSR_DIR
 from pyasn1.type import univ
 from pyasn1.codec.der import decoder
 from pyasn1.error import SubstrateUnderrunError, PyAsn1Error
+from amppki.common import verify_common_name
 
 @view_config(route_name="default", renderer="string")
 def default(request):
@@ -36,18 +37,21 @@ def sign(request):
         return Response(status_code=400)
 
     # this is already url decoded for us, so use it as is
-    csr = request.body
+    csrstr = request.body
 
     try:
         # make sure this is a valid request before we do anything with it
-        crypto.load_certificate_request(crypto.FILETYPE_PEM, csr)
+        csr = crypto.load_certificate_request(crypto.FILETYPE_PEM, csrstr)
+        if verify_common_name(csr.get_subject().commonName) is False:
+            print "invalid characters in common name"
+            return Response(status_code=400)
     except crypto.Error as e:
         print "invalid csr"
         return Response(status_code=400)
 
     # We use the sha256 hash as the unique filename for this request. Using
     # something like hostname/commonname can easily lead to collisions
-    shahash = SHA256.new(csr).hexdigest()
+    shahash = SHA256.new(csrstr).hexdigest()
 
     if not isfile(shahash):
         # if there isn't one we've prepared earlier, check if we can auto-sign
@@ -55,7 +59,7 @@ def sign(request):
         # otherwise we add it to the queue and wait for a human to check it and
         # decide if it should be signed or not
         try:
-            open("%s/%s" % (CSR_DIR, shahash), "w").write(csr)
+            open("%s/%s" % (CSR_DIR, shahash), "w").write(csrstr)
         except IOError:
             # XXX is this giving away any useful information?
             print "error saving csr"

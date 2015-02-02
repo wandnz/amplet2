@@ -9,6 +9,7 @@ from OpenSSL import crypto
 from Crypto.Hash import SHA256, MD5
 from shutil import rmtree
 from amppki.config import CA_DIR, CERT_DIR, CSR_DIR
+from amppki.common import verify_common_name
 
 CA_NAME = "AMPCA"
 KEY_DIR = "%s/private" % CA_DIR
@@ -438,6 +439,10 @@ def sign_certificates(index, pending, hosts, force):
         try:
             request = crypto.load_certificate_request(crypto.FILETYPE_PEM,
                 open(item["filename"]).read())
+            if verify_common_name(request.get_subject().commonName) is False:
+                print "Invalid common name '%s', skipping" % (
+                        request.get_subject().commonName)
+                continue
         except IOError as e:
             print "Couldn't find CSR for %s: %s" % (item["host"], e)
             continue
@@ -594,6 +599,11 @@ if __name__ == '__main__':
     if len(args.hosts) > 0 and args.all:
         print "Conflicting arguments: both --all and a host list are used"
         sys.exit(2)
+
+    for host in args.hosts:
+        if verify_common_name(host) is False:
+            print "Invalid hostname '%s', aborting" % host
+            sys.exit(2)
 
     # lock the whole CA dir so it doesn't get modified while we use it
     try:
