@@ -687,17 +687,14 @@ int main(int argc, char *argv[]) {
     curl_global_init(CURL_GLOBAL_ALL);
 
     /*
-     * Try to make sure certs are valid and loaded, but for now we will
-     * allow things to continue even if this fails - lots of stuff won't
-     * work though, but maybe those things aren't needed.
-     * TODO get timeout value from config
+     * Make sure certs are valid and loaded. Do not proceed if there are any
+     * problems with this.
      */
     if ( vars.ssl && (get_certificate(&vars.amqp_ssl, vars.ampname,
                     vars.collector, vars.waitforcert) != 0 ||
                 (ssl_ctx = initialise_ssl_context(&vars.amqp_ssl)) == NULL) ) {
-        Log(LOG_WARNING, "Failed to load and verify SSL keys/certificates");
-        Log(LOG_WARNING,
-                "Control socket and other functionality will be disabled");
+        Log(LOG_ALERT, "Failed to load SSL keys/certificates, aborting");
+        return -1;
     }
 
     /* set up event handlers */
