@@ -25,19 +25,6 @@ NOTAFTER = 60 * 60 * 24 * 365 * 10
 DIGEST = "sha256"
 
 
-
-def usage(progname):
-    print "Usage:"
-    print "    %s <command> <options>" % progname
-    print
-    print "Commands:"
-    print "    generate"
-    print "    initialise"
-    print "    list"
-    print "    revoke"
-    print "    sign"
-
-
 def is_expired(item):
     if int(item["expires"][:-3]) < time():
         return True
@@ -630,10 +617,6 @@ def create_rabbit_account(name):
 
 
 if __name__ == '__main__':
-    if len(sys.argv) < 2:
-        usage(os.path.basename(sys.argv[0]))
-        sys.exit(0)
-
     lock = None
 
     parser = argparse.ArgumentParser()
