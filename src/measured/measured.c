@@ -845,10 +845,13 @@ int main(int argc, char *argv[]) {
 
     /* if we get control back then it's time to tidy up */
     /* TODO what to do about scheduled tasks such as watchdogs? */
+    Log(LOG_DEBUG, "Clearing test schedules");
     clear_test_schedule(ev_hdl);
+    Log(LOG_DEBUG, "Clearing name table");
     clear_nametable();
 
     /* destroying event handler will also clear all signal handlers etc */
+    Log(LOG_DEBUG, "Clearing event handlers");
     wand_destroy_event_handler(ev_hdl);
 
     if ( vars.fetch_remote && vars.schedule_url ) {
@@ -861,6 +864,7 @@ int main(int argc, char *argv[]) {
     free(vars.asnsock);
 
     /* clean up the ASN socket, mutex, storage */
+    Log(LOG_DEBUG, "Shutting down ASN lookup");
     close(vars.asnsock_fd);
     pthread_mutex_lock(asn_info.mutex);
     iptrie_clear(asn_info.trie);
@@ -870,13 +874,16 @@ int main(int argc, char *argv[]) {
     free(asn_info.refresh);
     free(asn_info.trie);
 
+    Log(LOG_DEBUG, "Shutting down DNS resolver");
     close(vars.nssock_fd);
     amp_resolver_context_delete(vars.ctx);
 
+    Log(LOG_DEBUG, "Cleaning up SSL");
     ssl_cleanup();
 
     /* finish up with curl */
     /* TODO what if we are in the middle of updating remote schedule files? */
+    Log(LOG_DEBUG, "Cleaning up curl");
     curl_global_cleanup();
 
     /* clear out all the test modules that were registered */
