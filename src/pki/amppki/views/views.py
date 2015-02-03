@@ -113,6 +113,7 @@ def cert(request):
     try:
         # TODO do we just want to check the newest one?
         # TODO can we accidentally expose other files by doing it this way?
+        # TODO don't serve expired or revoked certificates
         # look at the matching certificate with the latest serial number
         matches = sorted(glob("%s/%s.*.pem" % (CERT_DIR, ampname)))
         certstr = open("%s" % matches[-1]).read()

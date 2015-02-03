@@ -525,6 +525,7 @@ def load_index(filename):
     index = []
     for line in open(filename).readlines():
         parts = line.split("\t")
+        # TODO update the status of expired certificates to 'E'?
         index.append({
             "status": parts[0],
             "expires": parts[1],
@@ -590,6 +591,7 @@ def initialise(force):
 # TODO We are calling out to the shell with data that has been supplied by
 # the user, but verified as probably being safe. Check that we are indeed
 # verifying well enough. Also, maybe we want to use the HTTP API instead?
+# TODO remove rabbit accounts at a sensible time too
 def create_rabbit_account(name):
     try:
         # It might be nice to keep some of the output from rabbitmqctl, but
