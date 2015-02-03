@@ -370,7 +370,7 @@ static int send_csr(X509_REQ *request, char *collector, char *cacert) {
     if ( res != CURLE_OK ) {
         Log(LOG_WARNING, "Failed to send CSR: %s", curl_easy_strerror(res));
         curl_easy_cleanup(curl);
-        return -1;
+        return 1;
     }
 
     /* check return code and that data was received */
@@ -380,7 +380,7 @@ static int send_csr(X509_REQ *request, char *collector, char *cacert) {
     /* we should get a 202, meaning the server has accepted the CSR */
     if ( code != 202 ) {
         Log(LOG_WARNING, "Error sending CSR, code:%d", code);
-        return -1;
+        return 1;
     }
 
     Log(LOG_DEBUG, "CSR was accepted but has yet to be signed");
@@ -434,7 +434,10 @@ static char *sign(char *keyname, char *hashstr, int *length) {
 
 
 /*
- *
+ * Return:  0 on success
+ *          -1 on permanent error
+ *          1 if query was ok, but no certificate available, try again later
+ *          2 if query failed non-permanently, try again later
  */
 static int fetch_certificate(amp_ssl_opt_t *sslopts, char *ampname,
         char *collector) {
@@ -537,7 +540,7 @@ static int fetch_certificate(amp_ssl_opt_t *sslopts, char *ampname,
                     sslopts->cert, strerror(errno));
         }
 
-        return -1;
+        return 2;
     }
 
     /* check return code and that data was received */
@@ -560,7 +563,7 @@ static int fetch_certificate(amp_ssl_opt_t *sslopts, char *ampname,
 
         Log(LOG_WARNING, "Error fetching signed cert, code:%d, size:%fB",
                 code, size);
-        return -1;
+        return 2;
     }
 
     Log(LOG_INFO, "Signed certificate stored in %s", sslopts->cert);
@@ -618,13 +621,45 @@ static int check_key_directories(char *keydir) {
 
 
 /*
+ * A negative timeout will wait forever, 0 won't wait at all,
+ * any positive timeout will wait that many seconds. The timeout is the
+ * maximum time to wait, it will check periodically at the
+ * AMP_PKI_QUERY_INTERVAL to see if the certificate has been signed.
+ */
+static int sleep_interval(int timeout) {
+    int duration;
+
+    /* no timeout, don't sleep at all and just return immediately */
+    if ( timeout == 0 ) {
+        return 0;
+    }
+
+    if ( timeout < 0 ) {
+        duration = AMP_PKI_QUERY_INTERVAL;
+    } else if ( timeout < AMP_PKI_QUERY_INTERVAL ) {
+        duration = timeout;
+        timeout = 0;
+    } else {
+        duration = AMP_PKI_QUERY_INTERVAL;
+        timeout -= AMP_PKI_QUERY_INTERVAL;
+    }
+
+    Log(LOG_INFO, "Sleeping for %d seconds before trying again", duration);
+    sleep(duration);
+
+    return timeout;
+}
+
+
+
+/*
  * Make sure that all the SSL variables are pointing to certificates, keys,
  * etc that exist. If they don't exist then we try to create them as best
  * as we can.
  */
 int get_certificate(amp_ssl_opt_t *sslopts, char *ampname, char *collector,
         int timeout) {
-    X509_REQ *request;
+    X509_REQ *request = NULL;
     RSA *key;
     int res;
 
@@ -641,9 +676,10 @@ int get_certificate(amp_ssl_opt_t *sslopts, char *ampname, char *collector,
     }
 
     /*
-     * The certfile doesn't exist and wasn't manually specified, so it needs
-     * to be created by generating a certificate signing request and sending it
-     * off to be signed.
+     * Make sure that the key file exists, generating it if needed.
+     * TODO maybe pass key into fetch certificate function for signing, at
+     * the moment the pointer we get back is only used if we need to create
+     * a new CSR.
      */
     if ( (key = get_key_file(sslopts->key)) == NULL ) {
         return -1;
@@ -655,46 +691,43 @@ int get_certificate(amp_ssl_opt_t *sslopts, char *ampname, char *collector,
         return 0;
     }
 
-    /* no certificate is ready for us, send a CSR */
-    if ( (request = create_new_csr(key, ampname)) == NULL ) {
-        RSA_free(key);
+    /* build certificate signing request */
+    request = create_new_csr(key, ampname);
+    RSA_free(key);
+
+    if ( request == NULL ) {
         return -1;
     }
 
-    RSA_free(key);
-
-    /* send CSR and wait for cert */
-    if ( send_csr(request, collector, sslopts->cacert) < 0 ) {
-        X509_REQ_free(request);
-        return -1;
+    /*
+     * If we didn't get a certificate then try to send a certificate signing
+     * request until the server accepts it or we run out of time.
+     * TODO if we fail to connect to the server above, maybe we should sleep
+     * instead of immediately sending the CSR to a server we know is down?
+     */
+    while ( (res = send_csr(request, collector, sslopts->cacert)) > 0 &&
+            timeout != 0 ) {
+        timeout = sleep_interval(timeout);
     }
 
     X509_REQ_free(request);
 
     /*
-     * A negative timeout will wait forever, 0 won't wait at all,
-     * any positive timeout will wait that many seconds. The timeout is the
-     * maximum time to wait, it will check periodically at the
-     * AMP_PKI_QUERY_INTERVAL to see if the certificate has been signed.
+     * We got an error that we can't easily recover from, or we are still
+     * getting soft failures and ran out of time, abort.
      */
-    while ( (res = fetch_certificate(sslopts, ampname, collector)) == 1 &&
+    if ( res != 0 ) {
+        return -1;
+    }
+
+    /*
+     * Now query for the signed certificate in response to our CSR until we
+     * get one or we run out of time
+     */
+    while ( (res = fetch_certificate(sslopts, ampname, collector)) > 0 &&
             timeout != 0 ) {
-        if ( timeout < 0 || timeout > AMP_PKI_QUERY_INTERVAL ) {
-            Log(LOG_DEBUG, "Sleeping for %d seconds before checking for cert",
-                    AMP_PKI_QUERY_INTERVAL);
-            sleep(AMP_PKI_QUERY_INTERVAL);
-            if ( timeout > 0 ) {
-                timeout -= AMP_PKI_QUERY_INTERVAL;
-            }
-        } else {
-            Log(LOG_DEBUG, "Sleeping for %d seconds before checking for cert",
-                    timeout);
-            sleep(timeout);
-            timeout = 0;
-        }
+        timeout = sleep_interval(timeout);
     }
 
     return res;
 }
-
-
