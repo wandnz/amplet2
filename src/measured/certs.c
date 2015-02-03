@@ -509,6 +509,8 @@ static int fetch_certificate(amp_ssl_opt_t *sslopts, char *ampname,
 
     /* open the file that the certificate will be written to */
     if ( (certfile = fopen(sslopts->cert, "w")) == NULL ) {
+        Log(LOG_WARNING, "Failed to open certfile '%s' for writing",
+                sslopts->cert);
         BIO_free_all(bio);
         return -1;
     }
@@ -552,7 +554,7 @@ static int fetch_certificate(amp_ssl_opt_t *sslopts, char *ampname,
 
         /* certificate has not yet been signed, wait and try again */
         if ( code == 403 ) {
-            Log(LOG_DEBUG, "Certificate has not yet been signed");
+            Log(LOG_INFO, "Certificate has not yet been signed");
             return 1;
         }
 
