@@ -82,8 +82,7 @@ static void cancel_test_watchdog(wand_event_handler_t *ev_hdl, pid_t pid) {
      * Seen it assert at least once so far. Ideally we shouldn't be triggering
      * asserts when it's behaviour we can deal with.
      */
-    Log(LOG_WARNING, "Couldn't find watchdog timer to cancel for %s test",
-            item->data.kill->testname);
+    Log(LOG_WARNING, "Couldn't find watchdog timer to cancel (pid %d)", pid);
 }
 
 
