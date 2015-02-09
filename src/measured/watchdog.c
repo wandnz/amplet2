@@ -68,8 +68,22 @@ static void cancel_test_watchdog(wand_event_handler_t *ev_hdl, pid_t pid) {
 	    }
 	}
     }
+
     /* if the watchdog for the pid doesn't exist, something has gone wrong */
-    assert(0);
+    //assert(0);
+
+    /* New warning - it's theoretically possible that the test completes at
+     * the same time that the watchdog timer fires. Libwandevent will process
+     * the timer first (killing an already completed process and removing the
+     * timer) and then the signal handler will fire (causing this function to
+     * be called, looking for a watchdog timer that no longer exists).
+     *
+     * Try running with this warning for a while and see how often it occurs.
+     * Seen it assert at least once so far. Ideally we shouldn't be triggering
+     * asserts when it's behaviour we can deal with.
+     */
+    Log(LOG_WARNING, "Couldn't find watchdog timer to cancel for %s test",
+            item->data.kill->testname);
 }
 
 
