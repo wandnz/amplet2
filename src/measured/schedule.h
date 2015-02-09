@@ -8,6 +8,8 @@
 #include "nametable.h"
 #include "ampresolv.h"
 
+/* debug schedule output file location */
+#define DEBUG_SCHEDULE_DUMP_FILE "/tmp/amplet2.schedule.dump"
 
 /* maximum line length for a single schedule line */
 #define MAX_SCHEDULE_LINE 1024
@@ -120,6 +122,7 @@ typedef struct schedule_item {
 } schedule_item_t;
 
 
+void dump_schedule(wand_event_handler_t *ev_hdl, FILE *out);
 void clear_test_schedule(wand_event_handler_t *ev_hdl);
 void read_schedule_dir(wand_event_handler_t *ev_hdl, char *directory);
 void setup_schedule_refresh(wand_event_handler_t *ev_hdl);

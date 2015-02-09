@@ -212,6 +212,39 @@ static void reload(wand_event_handler_t *ev_hdl, int signum,
 }
 
 
+/*
+ * Dump internal scheduling information to a file for later analysis. We need
+ * to be able to see the current state of the schedule to diagnose scheduling
+ * problems and it's not always possible to run in full debug mode (lots of
+ * output!).
+ */
+static void debug_dump(wand_event_handler_t *ev_hdl, int signum,
+        __attribute__((unused))void *data) {
+
+    char *filename;
+    FILE *out;
+
+    if ( asprintf(&filename, "%s.%d", DEBUG_SCHEDULE_DUMP_FILE,getpid()) < 0 ) {
+        Log(LOG_WARNING, "Failed to build filename for debug schedule output");
+        return;
+    }
+
+    Log(LOG_INFO, "Received signal %d, dumping debug information to '%s'",
+            signum, filename);
+
+    if ( (out = fopen(filename, "a")) == NULL ) {
+        Log(LOG_WARNING, "Failed to open debug schedule output file '%s': %s",
+                filename, strerror(errno));
+        return;
+    }
+
+    dump_schedule(ev_hdl, out);
+
+    fclose(out);
+    free(filename);
+}
+
+
 
 /*
  * Translate the configuration string for log level into a syslog level.
@@ -791,6 +824,9 @@ int main(int argc, char *argv[]) {
 
     /* SIGUSR1 should also reload tests/schedules, we use this internally */
     wand_add_signal(SIGUSR1, NULL, reload);
+
+    /* SIGUSR2 is a debug signal to dump internal state */
+    wand_add_signal(SIGUSR2, NULL, debug_dump);
 
     /* read the nametable to get a list of all test targets */
     read_nametable_dir(NAMETABLE_DIR);

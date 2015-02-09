@@ -30,24 +30,24 @@
 /*
  * Dump a debug information line about a scheduled test.
  */
-static void dump_event_run_test(test_schedule_item_t *item) {
+static void dump_event_run_test(test_schedule_item_t *item, FILE *out) {
 
     assert(item);
 
-    printf("EVENT_RUN_TEST ");
-    printf("%s %d.%.6d", amp_tests[item->test_id]->name,
+    fprintf(out, "EVENT_RUN_TEST ");
+    fprintf(out, "%s %d.%.6d", amp_tests[item->test_id]->name,
 	    (int)item->interval.tv_sec, (int)item->interval.tv_usec);
 
     if ( item->params == NULL ) {
-	printf(" (no args)");
+	fprintf(out, " (no args)");
     } else {
         int i;
 	/* params is a NULL terminated array */
 	for ( i=0; item->params[i] != NULL; i++ ) {
-	    printf(" %s", item->params[i]);
+	    fprintf(out, " %s", item->params[i]);
 	}
     }
-    printf("\n");
+    fprintf(out, "\n");
 }
 
 
@@ -55,10 +55,10 @@ static void dump_event_run_test(test_schedule_item_t *item) {
 /*
  * Dump a debug information line about a scheduled watchdog to kill a test.
  */
-static void dump_event_cancel_test(kill_schedule_item_t *item) {
+static void dump_event_cancel_test(kill_schedule_item_t *item, FILE *out) {
     assert(item);
 
-    printf("EVENT_CANCEL_TEST pid:%d\n", item->pid);
+    fprintf(out, "EVENT_CANCEL_TEST %s pid %d\n", item->testname, item->pid);
 }
 
 
@@ -66,10 +66,10 @@ static void dump_event_cancel_test(kill_schedule_item_t *item) {
 /*
  * Dump a debug information line about a scheduled watchdog to kill a test.
  */
-static void dump_event_fetch_schedule(fetch_schedule_item_t *item) {
+static void dump_event_fetch_schedule(fetch_schedule_item_t *item, FILE *out) {
     assert(item);
 
-    printf("EVENT_FETCH_SCHEDULE %s\n", item->schedule_url);
+    fprintf(out, "EVENT_FETCH_SCHEDULE %s\n", item->schedule_url);
 }
 
 
@@ -77,34 +77,42 @@ static void dump_event_fetch_schedule(fetch_schedule_item_t *item) {
 /*
  * Dump the current schedule for debug purposes
  */
-static void dump_schedule(wand_event_handler_t *ev_hdl) {
+void dump_schedule(wand_event_handler_t *ev_hdl, FILE *out) {
     struct wand_timer_t *timer;
     schedule_item_t *item;
+    struct timeval mono, wall, offset;
 
-    printf("====== SCHEDULE ======\n");
+    assert(out);
+
+    mono = wand_get_monotonictime(ev_hdl);
+    wall = wand_get_walltime(ev_hdl);
+
+    fprintf(out, "===== SCHEDULE at %d.%d =====\n", wall.tv_sec, wall.tv_usec);
 
     for ( timer=ev_hdl->timers; timer != NULL; timer=timer->next ) {
-	printf("%d.%.6d ", (int)timer->expire.tv_sec,
-		(int)timer->expire.tv_usec);
+        timersub(&timer->expire, &mono, &offset);
+	fprintf(out, "%d.%.6d ", (int)offset.tv_sec, (int)offset.tv_usec);
 	if ( timer->data == NULL ) {
-	    printf("NULL\n");
+	    fprintf(out, "NULL\n");
 	    continue;
 	}
 
 	/* TODO add file refresh timers to this list */
 	item = (schedule_item_t *)timer->data;
 	switch ( item->type ) {
-	    case EVENT_RUN_TEST: dump_event_run_test(item->data.test);
-				 break;
-	    case EVENT_CANCEL_TEST: dump_event_cancel_test(item->data.kill);
-				    break;
+	    case EVENT_RUN_TEST:
+                dump_event_run_test(item->data.test, out);
+                break;
+	    case EVENT_CANCEL_TEST:
+                dump_event_cancel_test(item->data.kill, out);
+                break;
             case EVENT_FETCH_SCHEDULE:
-                                    dump_event_fetch_schedule(item->data.fetch);
-                                    break;
-	    default: printf("UNKNOWN\n"); continue;
+                dump_event_fetch_schedule(item->data.fetch, out);
+                break;
+	    default: fprintf(out, "UNKNOWN\n"); continue;
 	};
     }
-    printf("\n");
+    fprintf(out, "\n");
 
 }
 
@@ -945,8 +953,6 @@ void read_schedule_dir(wand_event_handler_t *ev_hdl, char *directory) {
     for ( i = 0; i < glob_buf.gl_pathc; i++ ) {
 	read_schedule_file(ev_hdl, glob_buf.gl_pathv[i]);
     }
-
-    dump_schedule(ev_hdl);
 
     globfree(&glob_buf);
     return;
