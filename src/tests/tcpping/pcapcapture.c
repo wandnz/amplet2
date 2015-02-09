@@ -237,9 +237,7 @@ int pcap_listen(struct sockaddr *address, uint16_t srcportv4,
     }
 
     /* Find the device in our list of existing pcap devices */
-    p = pcaps;
-
-    while (p != NULL) {
+    for ( p = pcaps; p != NULL; p = p->next ) {
         if (strcmp(p->if_name, device) == 0)
             break;
     }
