@@ -87,7 +87,8 @@ void dump_schedule(wand_event_handler_t *ev_hdl, FILE *out) {
     mono = wand_get_monotonictime(ev_hdl);
     wall = wand_get_walltime(ev_hdl);
 
-    fprintf(out, "===== SCHEDULE at %d.%d =====\n", wall.tv_sec, wall.tv_usec);
+    fprintf(out, "===== SCHEDULE at %d.%d =====\n", (int)wall.tv_sec,
+            (int)wall.tv_usec);
 
     for ( timer=ev_hdl->timers; timer != NULL; timer=timer->next ) {
         timersub(&timer->expire, &mono, &offset);
