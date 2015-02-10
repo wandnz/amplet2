@@ -34,7 +34,10 @@ void add_test_watchdog(wand_event_handler_t *ev_hdl, pid_t pid, uint16_t max,
     item->data.kill = kill;
 
     /* schedule task to kill test process if it goes too long */
-    wand_add_timer(ev_hdl, max, 0, item, kill_running_test);
+    if ( wand_add_timer(ev_hdl, max, 0, item, kill_running_test) == NULL ) {
+        Log(LOG_ALERT, "Failed to add watchdog timer for %us to %s test",
+                max, testname);
+    }
 }
 
 

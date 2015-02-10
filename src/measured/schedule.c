@@ -855,8 +855,11 @@ static test_schedule_item_t *create_and_schedule_test(
         /* create the timer event for this test */
         next = get_next_schedule_time(ev_hdl, test->period, test->start,
                 test->end, US_FROM_TV(test->interval), 0, &test->abstime);
-        wand_add_timer(ev_hdl, next.tv_sec, next.tv_usec, sched,
-                run_scheduled_test);
+
+        if ( wand_add_timer(ev_hdl, next.tv_sec, next.tv_usec, sched,
+                run_scheduled_test) == NULL ) {
+            Log(LOG_ALERT, "Failed to schedule %s test", testname);
+        }
 
     } while ( *remaining != NULL );
 
@@ -1014,7 +1017,10 @@ void remote_schedule_callback(wand_event_handler_t *ev_hdl, void *data) {
             "Remote schedule fetch");
 
     /* reschedule checking for schedule updates */
-    wand_add_timer(ev_hdl, fetch->frequency, 0, data, remote_schedule_callback);
+    if ( wand_add_timer(ev_hdl, fetch->frequency, 0, data,
+                remote_schedule_callback) == NULL ) {
+        Log(LOG_ALERT, "Failed to reschedule remote update check");
+    }
 }
 
 

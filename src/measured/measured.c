@@ -754,8 +754,10 @@ int main(int argc, char *argv[]) {
             item->data.fetch = fetch_item;
 
             /* create the timer event for fetching schedules */
-            wand_add_timer(ev_hdl, fetch_item->frequency, 0, item,
-                    remote_schedule_callback);
+            if ( wand_add_timer(ev_hdl, fetch_item->frequency, 0, item,
+                    remote_schedule_callback) == NULL ) {
+                Log(LOG_ALERT, "Failed to schedule remote update check");
+            }
         }
     }
 

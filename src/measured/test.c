@@ -419,5 +419,10 @@ void run_scheduled_test(wand_event_handler_t *ev_hdl, void *data) {
     next = get_next_schedule_time(item->ev_hdl, test_item->period,
             test_item->start, test_item->end, US_FROM_TV(test_item->interval),
             run, &test_item->abstime);
-    wand_add_timer(ev_hdl, next.tv_sec, next.tv_usec, data, run_scheduled_test);
+
+    if ( wand_add_timer(ev_hdl, next.tv_sec, next.tv_usec, data,
+                run_scheduled_test) == NULL ) {
+        /* this should never happen if we properly check the next time */
+        Log(LOG_ALERT, "Failed to reschedule %s test", name);
+    }
 }
