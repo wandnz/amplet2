@@ -26,8 +26,8 @@
 //#define AMP_TEST_DIRECTORY AMP_CONFIG_DIR "/tests/"
 #define MAX_TEST_ARGS 128
 
-/* tests can start at most 5ms early, otherwise reschedule them */
-#define SCHEDULE_CLOCK_FUDGE ( 5 * 1000 )
+/* tests can start at most 500ms (in usec) early, otherwise reschedule them */
+#define SCHEDULE_CLOCK_FUDGE ( 500 * 1000 )
 
 /* convenience time conversions */
 #define US_FROM_MS(x) (((x) % 1000)*1000)
