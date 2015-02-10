@@ -325,6 +325,8 @@ static int fork_test(wand_event_handler_t *ev_hdl, test_schedule_item_t *item) {
     assert(item->test_id < AMP_TEST_LAST);
     assert(amp_tests[item->test_id]);
 
+    test = amp_tests[item->test_id];
+
     /*
      * Make sure this isn't being run too soon - the monotonic clock and
      * the system time don't generally keep in sync very well (and the system
@@ -336,13 +338,12 @@ static int fork_test(wand_event_handler_t *ev_hdl, test_schedule_item_t *item) {
         timersub(&item->abstime, &now, &now);
         /* run too soon, don't run it now - let it get rescheduled */
         if ( now.tv_sec != 0 || now.tv_usec > SCHEDULE_CLOCK_FUDGE ) {
-            Log(LOG_DEBUG,
-                    "Test triggered early by current clock, will reschedule");
+            Log(LOG_DEBUG, "%s test triggered early, will reschedule",
+                    test->name);
             return 0;
         }
     }
 
-    test = amp_tests[item->test_id];
 
     /*
      * man fork:
@@ -398,14 +399,15 @@ void run_scheduled_test(wand_event_handler_t *ev_hdl, void *data) {
     test_schedule_item_t *test_item;
     struct timeval next;
     int run;
+    char *name;
 
     assert(item->type == EVENT_RUN_TEST);
 
     test_item = (test_schedule_item_t *)item->data.test;
+    name = amp_tests[test_item->test_id]->name;
 
-    Log(LOG_DEBUG, "Running %s test", amp_tests[test_item->test_id]->name);
-    printf("running %s test at %d\n", amp_tests[test_item->test_id]->name,
-            (int)time(NULL));
+    Log(LOG_DEBUG, "Running %s test", name);
+    printf("running %s test at %d\n", name, (int)time(NULL));
 
     /*
      * run the test as soon as we know what it is, so it happens as close to
