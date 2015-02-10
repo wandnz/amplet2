@@ -410,6 +410,22 @@ struct timeval get_next_schedule_time(wand_event_handler_t *ev_hdl,
 	ADD_TV_PARTS(next, next, start / 1000000, start % 1000000);
     }
 
+    /* If somehow we get an invalid offset then throw all the calculations
+     * out the window and just offset by the frequency. Better to have the
+     * test scheduled roughly correct than to pass rubbish on to libwandevent.
+     */
+    if ( next.tv_sec < 0 || next.tv_usec < 0 || next.tv_usec >= 1000000 ) {
+        Log(LOG_WARNING,
+                "Failed to calculate sensible next time, using naive offset");
+        if ( frequency == 0 ) {
+            next.tv_sec = get_period_max_value(period) / 1000000;
+            next.tv_usec = 0;
+        } else {
+            next.tv_sec = frequency / 1000000;
+            next.tv_usec = 0;
+        }
+    }
+
     /* save the absolute time this test was meant to be run */
     if ( abstime ) {
         timeradd(&now, &next, abstime);
