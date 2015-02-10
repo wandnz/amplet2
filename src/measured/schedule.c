@@ -260,12 +260,10 @@ static int64_t check_time_range(int64_t value, schedule_period_t period) {
  * Get the time in seconds for the beginning of the current period. timegm()
  * should deal with any wrap around for weekly periods.
  */
-static time_t get_period_start(schedule_period_t period) {
-    time_t now;
+static time_t get_period_start(schedule_period_t period, time_t *now) {
     struct tm period_start;
 
-    time(&now);
-    gmtime_r(&now, &period_start);
+    gmtime_r(now, &period_start);
     period_start.tm_sec = 0;
     period_start.tm_min = 0;
 
@@ -324,15 +322,17 @@ struct timeval get_next_schedule_time(wand_event_handler_t *ev_hdl,
     int64_t diff, test_end;
     int next_repeat;
 
-    period_start = get_period_start(period);
-    test_end = (period_start * INT64_C(1000000)) + end;
-
     /*
      * wand_get_walltime essentially just calls gettimeofday(), but it lets
      * us write unit tests easier because we can cheat and set the time to
-     * anything we want
+     * anything we want. Also, have to make sure that we use this same time
+     * result for everything - if we make multiple calls we could end up on
+     * either side of a period boundary or similar.
      */
     now = wand_get_walltime(ev_hdl);
+
+    period_start = get_period_start(period, &now.tv_sec);
+    test_end = (period_start * INT64_C(1000000)) + end;
 
     /* get difference in us between the first event of this period and now */
     diff = now.tv_sec - period_start;
@@ -366,6 +366,7 @@ struct timeval get_next_schedule_time(wand_event_handler_t *ev_hdl,
         if ( abstime ) {
             timeradd(&now, &next, abstime);
         }
+
         return next;
     }
 
@@ -433,6 +434,7 @@ struct timeval get_next_schedule_time(wand_event_handler_t *ev_hdl,
 
     Log(LOG_DEBUG, "next test run scheduled at: %d.%d\n", (int)next.tv_sec,
 	    (int)next.tv_usec);
+
     return next;
 }
 
@@ -1200,7 +1202,7 @@ time_t amp_test_get_period_max_value(char repeat) {
 int64_t amp_test_check_time_range(int64_t value, schedule_period_t period) {
     return check_time_range(value, period);
 }
-time_t amp_test_get_period_start(char repeat) {
-    return get_period_start(repeat);
+time_t amp_test_get_period_start(char repeat, time_t *now) {
+    return get_period_start(repeat, now);
 }
 #endif
