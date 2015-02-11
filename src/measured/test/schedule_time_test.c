@@ -18,16 +18,19 @@ typedef struct test_schedule {
  * the appropriate duration.
  */
 static void check_period_time(void) {
+    time_t now;
+
     /* check the Hourly, Daily, Weekly identifiers get the correct duration */
     assert(amp_test_get_period_max_value(SCHEDULE_PERIOD_HOURLY) == 60*60);
     assert(amp_test_get_period_max_value(SCHEDULE_PERIOD_DAILY) == 60*60*24);
     assert(amp_test_get_period_max_value(SCHEDULE_PERIOD_WEEKLY) == 60*60*24*7);
 
+    time(&now);
     /* check that the period start values are the start of the period */
-    assert(amp_test_get_period_start(SCHEDULE_PERIOD_HOURLY) % 60 == 0);
-    assert(amp_test_get_period_start(SCHEDULE_PERIOD_DAILY) % 86400 == 0);
+    assert(amp_test_get_period_start(SCHEDULE_PERIOD_HOURLY, &now) % 60 == 0);
+    assert(amp_test_get_period_start(SCHEDULE_PERIOD_DAILY, &now) % 86400 == 0);
     /* weekly period is awkward cause 01-01-1970 is Thursday and Sunday is 0 */
-    assert((amp_test_get_period_start(SCHEDULE_PERIOD_WEEKLY) +
+    assert((amp_test_get_period_start(SCHEDULE_PERIOD_WEEKLY, &now) +
                 60*60*24*4) % 604800 == 0);
 }
 
@@ -127,6 +130,7 @@ static void check_next_schedule_time(void) {
     wand_event_handler_t ev_hdl;
     struct timeval offset;
     int i, count;
+    time_t now;
     struct test_schedule schedule[] = {
         /* daily */
         /* period start */
@@ -223,9 +227,10 @@ static void check_next_schedule_time(void) {
     count = sizeof(schedule) / sizeof(struct test_schedule);
 
     for ( i = 0; i < count; i++ ) {
+        time(&now);
         /* set offset from start of period to be the "now" time */
-        ev_hdl.walltime.tv_sec = amp_test_get_period_start(schedule[i].repeat) +
-            schedule[i].offset.tv_sec;
+        ev_hdl.walltime.tv_sec = amp_test_get_period_start(
+                schedule[i].repeat, &now) + schedule[i].offset.tv_sec;
         ev_hdl.walltime.tv_usec = schedule[i].offset.tv_usec;
 
         /*

@@ -87,7 +87,8 @@ void dump_schedule(wand_event_handler_t *ev_hdl, FILE *out) {
     mono = wand_get_monotonictime(ev_hdl);
     wall = wand_get_walltime(ev_hdl);
 
-    fprintf(out, "===== SCHEDULE at %d.%d =====\n", wall.tv_sec, wall.tv_usec);
+    fprintf(out, "===== SCHEDULE at %d.%d =====\n", (int)wall.tv_sec,
+            (int)wall.tv_usec);
 
     for ( timer=ev_hdl->timers; timer != NULL; timer=timer->next ) {
         timersub(&timer->expire, &mono, &offset);
@@ -259,12 +260,10 @@ static int64_t check_time_range(int64_t value, schedule_period_t period) {
  * Get the time in seconds for the beginning of the current period. timegm()
  * should deal with any wrap around for weekly periods.
  */
-static time_t get_period_start(schedule_period_t period) {
-    time_t now;
+static time_t get_period_start(schedule_period_t period, time_t *now) {
     struct tm period_start;
 
-    time(&now);
-    gmtime_r(&now, &period_start);
+    gmtime_r(now, &period_start);
     period_start.tm_sec = 0;
     period_start.tm_min = 0;
 
@@ -323,15 +322,17 @@ struct timeval get_next_schedule_time(wand_event_handler_t *ev_hdl,
     int64_t diff, test_end;
     int next_repeat;
 
-    period_start = get_period_start(period);
-    test_end = (period_start * INT64_C(1000000)) + end;
-
     /*
      * wand_get_walltime essentially just calls gettimeofday(), but it lets
      * us write unit tests easier because we can cheat and set the time to
-     * anything we want
+     * anything we want. Also, have to make sure that we use this same time
+     * result for everything - if we make multiple calls we could end up on
+     * either side of a period boundary or similar.
      */
     now = wand_get_walltime(ev_hdl);
+
+    period_start = get_period_start(period, &now.tv_sec);
+    test_end = (period_start * INT64_C(1000000)) + end;
 
     /* get difference in us between the first event of this period and now */
     diff = now.tv_sec - period_start;
@@ -365,6 +366,7 @@ struct timeval get_next_schedule_time(wand_event_handler_t *ev_hdl,
         if ( abstime ) {
             timeradd(&now, &next, abstime);
         }
+
         return next;
     }
 
@@ -409,6 +411,22 @@ struct timeval get_next_schedule_time(wand_event_handler_t *ev_hdl,
 	ADD_TV_PARTS(next, next, start / 1000000, start % 1000000);
     }
 
+    /* If somehow we get an invalid offset then throw all the calculations
+     * out the window and just offset by the frequency. Better to have the
+     * test scheduled roughly correct than to pass rubbish on to libwandevent.
+     */
+    if ( next.tv_sec < 0 || next.tv_usec < 0 || next.tv_usec >= 1000000 ) {
+        Log(LOG_WARNING,
+                "Failed to calculate sensible next time, using naive offset");
+        if ( frequency == 0 ) {
+            next.tv_sec = get_period_max_value(period) / 1000000;
+            next.tv_usec = 0;
+        } else {
+            next.tv_sec = frequency / 1000000;
+            next.tv_usec = 0;
+        }
+    }
+
     /* save the absolute time this test was meant to be run */
     if ( abstime ) {
         timeradd(&now, &next, abstime);
@@ -416,6 +434,7 @@ struct timeval get_next_schedule_time(wand_event_handler_t *ev_hdl,
 
     Log(LOG_DEBUG, "next test run scheduled at: %d.%d\n", (int)next.tv_sec,
 	    (int)next.tv_usec);
+
     return next;
 }
 
@@ -836,8 +855,11 @@ static test_schedule_item_t *create_and_schedule_test(
         /* create the timer event for this test */
         next = get_next_schedule_time(ev_hdl, test->period, test->start,
                 test->end, US_FROM_TV(test->interval), 0, &test->abstime);
-        wand_add_timer(ev_hdl, next.tv_sec, next.tv_usec, sched,
-                run_scheduled_test);
+
+        if ( wand_add_timer(ev_hdl, next.tv_sec, next.tv_usec, sched,
+                run_scheduled_test) == NULL ) {
+            Log(LOG_ALERT, "Failed to schedule %s test", testname);
+        }
 
     } while ( *remaining != NULL );
 
@@ -995,7 +1017,10 @@ void remote_schedule_callback(wand_event_handler_t *ev_hdl, void *data) {
             "Remote schedule fetch");
 
     /* reschedule checking for schedule updates */
-    wand_add_timer(ev_hdl, fetch->frequency, 0, data, remote_schedule_callback);
+    if ( wand_add_timer(ev_hdl, fetch->frequency, 0, data,
+                remote_schedule_callback) == NULL ) {
+        Log(LOG_ALERT, "Failed to reschedule remote update check");
+    }
 }
 
 
@@ -1183,7 +1208,7 @@ time_t amp_test_get_period_max_value(char repeat) {
 int64_t amp_test_check_time_range(int64_t value, schedule_period_t period) {
     return check_time_range(value, period);
 }
-time_t amp_test_get_period_start(char repeat) {
-    return get_period_start(repeat);
+time_t amp_test_get_period_start(char repeat, time_t *now) {
+    return get_period_start(repeat, now);
 }
 #endif

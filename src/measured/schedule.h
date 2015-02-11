@@ -26,8 +26,8 @@
 //#define AMP_TEST_DIRECTORY AMP_CONFIG_DIR "/tests/"
 #define MAX_TEST_ARGS 128
 
-/* tests can start at most 5ms early, otherwise reschedule them */
-#define SCHEDULE_CLOCK_FUDGE ( 5 * 1000 )
+/* tests can start at most 500ms (in usec) early, otherwise reschedule them */
+#define SCHEDULE_CLOCK_FUDGE ( 500 * 1000 )
 
 /* convenience time conversions */
 #define US_FROM_MS(x) (((x) % 1000)*1000)
@@ -135,7 +135,7 @@ void remote_schedule_callback(wand_event_handler_t *ev_hdl, void *data);
 #if UNIT_TEST
 time_t amp_test_get_period_max_value(char repeat);
 int64_t amp_test_check_time_range(int64_t value, schedule_period_t period);
-time_t amp_test_get_period_start(char repeat);
+time_t amp_test_get_period_start(char repeat, time_t *now);
 #endif
 
 #endif
