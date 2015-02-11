@@ -1,12 +1,12 @@
 Name: amplet2
-Version: 0.3.8
-Release: 2%{?dist}
+Version: 0.3.9
+Release: 1%{?dist}
 Summary: AMP Network Performance Measurement Suite - Client Tools
 
 Group: Applications/Internet
 License: AMP
 URL: http://research.wand.net.nz/software/amp.php
-Source0: http://research.wand.net.nz/software/amp/amplet2-0.3.8.tar.gz
+Source0: http://research.wand.net.nz/software/amp/amplet2-0.3.9.tar.gz
 Patch0: amplet2-client-init.patch
 Patch1: amplet2-client-default.patch
 Patch2: amplet2-client-makefile.patch
@@ -193,6 +193,12 @@ fi
 
 
 %changelog
+* Wed Feb 11 2015 Brendon Jones <brendonj@waikato.ac.nz> 0.3.9-1
+- Fix rescheduling tests when run slightly early around test period boundaries.
+- Fix a possible infinite loop in the tcpping test.
+- Replace an assert with a warning when a watchdog can't be removed.
+- Add ability to dump schedule config when receiving a SIGUSR2.
+
 * Fri Dec  5 2014 Brendon Jones <brendonj@waikato.ac.nz> 0.3.8-2
 - Fix tcpping test when bound to a single interface.
 - Quieten some too common, unhelpful warning messages.
