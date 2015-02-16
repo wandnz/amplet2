@@ -707,6 +707,7 @@ int run_throughput_client(int argc, char *argv[], int count,
             case 'P': options.tport = atoi(optarg); break;
             case 'r': options.randomise = 1; break;
             case 'z': options.write_size = atoi(optarg); break;
+            /* TODO if this isn't last, some options use default values! */
             case 'S': parseSchedule(&options, optarg); break;
             case 'o': options.sock_sndbuf = atoi(optarg); break;
             case 'i': options.sock_rcvbuf = atoi(optarg); break;
