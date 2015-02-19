@@ -41,9 +41,6 @@ int initialise_control_socket(struct socket_t *sockets, char *iface,
     sockets->socket = -1;
     sockets->socket6 = -1;
 
-    addr4 = get_numeric_address(ipv4, port);
-    addr6 = get_numeric_address(ipv6, port);
-
     if ( (sockets->socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0 ) {
         Log(LOG_WARNING, "Failed to open IPv4 control socket: %s",
                 strerror(errno));
@@ -84,12 +81,17 @@ int initialise_control_socket(struct socket_t *sockets, char *iface,
 
     /* bind them to interfaces and addresses if required */
     if ( iface && bind_sockets_to_device(sockets, iface) < 0 ) {
-        Log(LOG_ERR, "Unable to bind sockets to device, aborting test");
+        Log(LOG_ERR, "Unable to bind control socket to device, disabling");
         return -1;
     }
 
+    addr4 = get_numeric_address(ipv4, port);
+    addr6 = get_numeric_address(ipv6, port);
+
     if ( bind_sockets_to_address(sockets, addr4, addr6) < 0 ) {
-        Log(LOG_ERR,"Unable to bind socket to address, aborting test");
+        Log(LOG_ERR,"Unable to bind control socket to address, disabling");
+        freeaddrinfo(addr4);
+        freeaddrinfo(addr6);
         return -1;
     }
 
@@ -100,6 +102,9 @@ int initialise_control_socket(struct socket_t *sockets, char *iface,
                     strerror(errno));
             close(sockets->socket);
             sockets->socket = -1;
+        } else {
+            Log(LOG_INFO, "Control socket listening on %s:%s",
+                    amp_inet_ntop(addr4, addrstr), port);
         }
     }
 
@@ -109,26 +114,20 @@ int initialise_control_socket(struct socket_t *sockets, char *iface,
                     strerror(errno));
             close(sockets->socket6);
             sockets->socket6 = -1;
+        } else {
+            Log(LOG_INFO, "Control socket listening on %s:%s",
+                    amp_inet_ntop(addr6, addrstr), port);
         }
     }
+
+    freeaddrinfo(addr4);
+    freeaddrinfo(addr6);
 
     /* make sure that at least one of them is listening ok */
     if ( sockets->socket < 0 && sockets->socket6 < 0 ) {
         return -1;
     }
 
-    if ( sockets->socket > 0 ) {
-        Log(LOG_INFO, "Control socket listening on %s:%s",
-                amp_inet_ntop(addr4, addrstr), port);
-    }
-
-    if ( sockets->socket6 > 0 ) {
-        Log(LOG_INFO, "Control socket listening on %s:%s",
-                amp_inet_ntop(addr6, addrstr), port);
-    }
-
-    freeaddrinfo(addr4);
-    freeaddrinfo(addr6);
     return 0;
 }
 
