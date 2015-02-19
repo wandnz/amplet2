@@ -27,7 +27,9 @@ void add_test_watchdog(wand_event_handler_t *ev_hdl, pid_t pid, uint16_t max,
     kill = (kill_schedule_item_t *)malloc(sizeof(kill_schedule_item_t));
     kill->pid = pid;
     kill->sigint = sigint;
-    kill->testname = testname;
+    /* duplicated in case tests are reloaded and invalidates name pointer */
+    kill->testname = strdup(testname);
+
     item = (schedule_item_t *)malloc(sizeof(schedule_item_t));
     item->type = EVENT_CANCEL_TEST;
     item->ev_hdl = ev_hdl;
@@ -36,8 +38,27 @@ void add_test_watchdog(wand_event_handler_t *ev_hdl, pid_t pid, uint16_t max,
     /* schedule task to kill test process if it goes too long */
     if ( wand_add_timer(ev_hdl, max, 0, item, kill_running_test) == NULL ) {
         Log(LOG_ALERT, "Failed to add watchdog timer for %us to %s test",
-                max, testname);
+                max, kill->testname);
     }
+}
+
+
+
+/*
+ * Free a scheduled watchdog kill task, including any extra memory that it
+ * has associated with it.
+ */
+void free_watchdog_schedule_item(kill_schedule_item_t *item) {
+    if ( item == NULL ) {
+        Log(LOG_WARNING, "Attempting to free NULL watchdog item");
+        return;
+    }
+
+    if ( item->testname != NULL ) {
+        free(item->testname);
+    }
+
+    free(item);
 }
 
 
@@ -63,7 +84,7 @@ static void cancel_test_watchdog(wand_event_handler_t *ev_hdl, pid_t pid) {
 		if ( item->data.kill->pid == pid ) {
 		    wand_del_timer(ev_hdl, tmp);
 		    if ( item->data.kill != NULL ) {
-			free(item->data.kill);
+                        free_watchdog_schedule_item(item->data.kill);
 		    }
 		    free(item);
 		    return;
@@ -184,6 +205,6 @@ void kill_running_test(wand_event_handler_t *ev_hdl, void *data) {
     }
 
     /* tidy up the watchdog timer that just fired, it is no longer needed */
-    free(item->data.kill);
+    free_watchdog_schedule_item(item->data.kill);
     free(item);
 }
