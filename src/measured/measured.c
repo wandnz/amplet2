@@ -392,7 +392,7 @@ static int parse_config(char *filename, struct amp_global_t *vars) {
     /* should we override /etc/resolv.conf and use our own nameservers */
     /* XXX rework the logic of this portion to repeat less code */
     if ( cfg_size(cfg, "nameservers") > 0 ) {
-        int nscount = cfg_size(cfg, "nameservers");
+        unsigned int nscount = cfg_size(cfg, "nameservers");
         char *nameservers[nscount];
         for ( i=0; i<nscount; i++ ) {
             nameservers[i] = cfg_getnstr(cfg, "nameservers", i);

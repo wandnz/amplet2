@@ -909,7 +909,7 @@ static void printSpeed(uint64_t time_ns, uint64_t bytes){
  *
  * TODO make this output a lot nicer
  */
-void print_throughput(void *data, uint32_t len) {
+void print_throughput(void *data, __attribute__((unused))uint32_t len) {
     char address[128];
     struct report_header_t *rh = data;
     uint32_t count = 1;

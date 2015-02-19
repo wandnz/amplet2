@@ -139,7 +139,7 @@ size_t parse_headers(void *ptr, size_t size, size_t nmemb, void *data) {
          * wouldn't show up as a separate object.
          */
         char location[MAX_URL_LEN];
-        sscanf(buf, "%*[Ll]ocation: %s", &location);
+        sscanf(buf, "%*[Ll]ocation: %s", (char*)&location);
         object->location = strdup(location);
     } else {
         Log(LOG_DEBUG, "ignored header: %s\n", buf);
