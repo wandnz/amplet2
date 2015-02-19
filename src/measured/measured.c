@@ -190,7 +190,7 @@ static void reload(wand_event_handler_t *ev_hdl, int signum,
     Log(LOG_INFO, "Received signal %d, reloading all configuration", signum);
 
     /* cancel all scheduled tests (let running ones finish) */
-    clear_test_schedule(ev_hdl);
+    clear_test_schedule(ev_hdl, 0);
 
     /* empty the nametable */
     clear_nametable();
@@ -842,8 +842,7 @@ int main(int argc, char *argv[]) {
     wand_event_run(ev_hdl);
 
     /* if we get control back then it's time to tidy up */
-    /* TODO what to do about scheduled tasks such as watchdogs? */
-    clear_test_schedule(ev_hdl);
+    clear_test_schedule(ev_hdl, 1);
     clear_nametable();
 
     /* destroying event handler will also clear all signal handlers etc */

@@ -125,6 +125,11 @@ void dump_schedule(wand_event_handler_t *ev_hdl, FILE *out) {
  */
 static void free_test_schedule_item(test_schedule_item_t *item) {
 
+    if ( item == NULL ) {
+        Log(LOG_WARNING, "Attempting to free NULL schedule item");
+        return;
+    }
+
     /* free any test parameters, NULL terminated array */
     if ( item->params != NULL ) {
         int i;
@@ -155,9 +160,11 @@ static void free_test_schedule_item(test_schedule_item_t *item) {
 
 
 /*
- * Walk the list of timers and remove all those that are scheduled tests.
+ * Walk the list of timers and remove all of them, or just those that are
+ * scheduled tests. Refreshing the test schedule will still leave watchdogs
+ * and schedule fetches in the list.
  */
-void clear_test_schedule(wand_event_handler_t *ev_hdl) {
+void clear_test_schedule(wand_event_handler_t *ev_hdl, int all) {
     struct wand_timer_t *timer = ev_hdl->timers;
     struct wand_timer_t *tmp;
     schedule_item_t *item;
@@ -171,13 +178,36 @@ void clear_test_schedule(wand_event_handler_t *ev_hdl) {
 	 */
 	if ( tmp->data != NULL ) {
 	    item = (schedule_item_t *)tmp->data;
-	    if ( item->type == EVENT_RUN_TEST ) {
-		wand_del_timer(ev_hdl, tmp);
-		if ( item->data.test != NULL ) {
-		    free_test_schedule_item(item->data.test);
-		}
-		free(item);
-	    }
+
+            /* We can clear just the test schedule, or all timer events */
+            if ( !all && item->type != EVENT_RUN_TEST ) {
+                continue;
+            }
+
+            wand_del_timer(ev_hdl, tmp);
+
+            switch ( item->type ) {
+                case EVENT_RUN_TEST:
+                    if ( item->data.test != NULL ) {
+                        free_test_schedule_item(item->data.test);
+                    }
+                    break;
+                case EVENT_CANCEL_TEST:
+                    if ( item->data.kill != NULL ) {
+                        free_watchdog_schedule_item(item->data.kill);
+                    }
+                    break;
+                case EVENT_FETCH_SCHEDULE:
+                    if ( item->data.fetch != NULL ) {
+                    }
+                    break;
+                default:
+                    Log(LOG_WARNING, "Freeing unknown schedule item type %d",
+                            item->type);
+                    break;
+            };
+
+            free(item);
 	}
     }
 }

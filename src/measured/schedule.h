@@ -123,7 +123,7 @@ typedef struct schedule_item {
 
 
 void dump_schedule(wand_event_handler_t *ev_hdl, FILE *out);
-void clear_test_schedule(wand_event_handler_t *ev_hdl);
+void clear_test_schedule(wand_event_handler_t *ev_hdl, int all);
 void read_schedule_dir(wand_event_handler_t *ev_hdl, char *directory);
 void setup_schedule_refresh(wand_event_handler_t *ev_hdl);
 struct timeval get_next_schedule_time(wand_event_handler_t *ev_hdl,
