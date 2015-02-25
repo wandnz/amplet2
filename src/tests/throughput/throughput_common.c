@@ -6,6 +6,9 @@
  * Based upon the old AMP throughput test
  */
 #include <getopt.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 
 #include "throughput.h"
 #include "config.h"
@@ -110,17 +113,16 @@ static void betohPacket(struct packet_t *p) {
  *          The number of bytes (chars) to fill
  */
 static void randomMemset(char *data, unsigned int size){
-    unsigned int upto;
-    upto = 0;
-    while ( size - upto > sizeof(int) ) {
-        *(int *)(data + upto) = rand();
-        upto += sizeof(int);
+    int fd;
+
+    if ( (fd = open("/dev/urandom", O_RDONLY)) < 0 ) {
+        /* TODO do we want to shut the test down if this fails? */
+        Log(LOG_WARNING, "Failed to open /dev/urandom: %s", strerror(errno));
+        return;
     }
 
-    while ( upto < size ) {
-        *(data + upto) = (char)rand();
-        ++upto;
-    }
+    read(fd, data, size);
+    close(fd);
 }
 
 

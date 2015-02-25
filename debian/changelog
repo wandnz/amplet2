@@ -1,3 +1,12 @@
+amplet2 (0.3.9-1) unstable; urgency=low
+
+  * Fix rescheduling tests when slightly early around test period boundaries.
+  * Fix a possible infinite loop in the tcpping test.
+  * Replace an assert with a warning when a watchdog can't be removed.
+  * Add ability to dump schedule config when receiving a SIGUSR2.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Wed, 11 Feb 2015 14:44:54 +1300
+
 amplet2 (0.3.8-1) unstable; urgency=low
 
   * Fix tcpping test when bound to a single interface.

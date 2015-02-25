@@ -191,7 +191,7 @@ static void reload(wand_event_handler_t *ev_hdl, int signum,
     Log(LOG_INFO, "Received signal %d, reloading all configuration", signum);
 
     /* cancel all scheduled tests (let running ones finish) */
-    clear_test_schedule(ev_hdl);
+    clear_test_schedule(ev_hdl, 0);
 
     /* empty the nametable */
     clear_nametable();
@@ -210,6 +210,39 @@ static void reload(wand_event_handler_t *ev_hdl, int signum,
     /* re-read schedule files */
     read_schedule_dir(ev_hdl, SCHEDULE_DIR);
     read_schedule_dir(ev_hdl, vars.schedule_dir);
+}
+
+
+/*
+ * Dump internal scheduling information to a file for later analysis. We need
+ * to be able to see the current state of the schedule to diagnose scheduling
+ * problems and it's not always possible to run in full debug mode (lots of
+ * output!).
+ */
+static void debug_dump(wand_event_handler_t *ev_hdl, int signum,
+        __attribute__((unused))void *data) {
+
+    char *filename;
+    FILE *out;
+
+    if ( asprintf(&filename, "%s.%d", DEBUG_SCHEDULE_DUMP_FILE,getpid()) < 0 ) {
+        Log(LOG_WARNING, "Failed to build filename for debug schedule output");
+        return;
+    }
+
+    Log(LOG_INFO, "Received signal %d, dumping debug information to '%s'",
+            signum, filename);
+
+    if ( (out = fopen(filename, "a")) == NULL ) {
+        Log(LOG_WARNING, "Failed to open debug schedule output file '%s': %s",
+                filename, strerror(errno));
+        return;
+    }
+
+    dump_schedule(ev_hdl, out);
+
+    fclose(out);
+    free(filename);
 }
 
 
@@ -361,7 +394,7 @@ static int parse_config(char *filename, struct amp_global_t *vars) {
     /* should we override /etc/resolv.conf and use our own nameservers */
     /* XXX rework the logic of this portion to repeat less code */
     if ( cfg_size(cfg, "nameservers") > 0 ) {
-        int nscount = cfg_size(cfg, "nameservers");
+        unsigned int nscount = cfg_size(cfg, "nameservers");
         char *nameservers[nscount];
         for ( i=0; i<nscount; i++ ) {
             nameservers[i] = cfg_getnstr(cfg, "nameservers", i);
@@ -758,8 +791,10 @@ int main(int argc, char *argv[]) {
             item->data.fetch = fetch_item;
 
             /* create the timer event for fetching schedules */
-            wand_add_timer(ev_hdl, fetch_item->frequency, 0, item,
-                    remote_schedule_callback);
+            if ( wand_add_timer(ev_hdl, fetch_item->frequency, 0, item,
+                    remote_schedule_callback) == NULL ) {
+                Log(LOG_ALERT, "Failed to schedule remote update check");
+            }
         }
     }
 
@@ -829,6 +864,9 @@ int main(int argc, char *argv[]) {
     /* SIGUSR1 should also reload tests/schedules, we use this internally */
     wand_add_signal(SIGUSR1, NULL, reload);
 
+    /* SIGUSR2 is a debug signal to dump internal state */
+    wand_add_signal(SIGUSR2, NULL, debug_dump);
+
     /* read the nametable to get a list of all test targets */
     read_nametable_dir(NAMETABLE_DIR);
     read_nametable_dir(vars.nametable_dir);
@@ -841,9 +879,9 @@ int main(int argc, char *argv[]) {
     wand_event_run(ev_hdl);
 
     /* if we get control back then it's time to tidy up */
-    /* TODO what to do about scheduled tasks such as watchdogs? */
     Log(LOG_DEBUG, "Clearing test schedules");
-    clear_test_schedule(ev_hdl);
+    clear_test_schedule(ev_hdl, 1);
+
     Log(LOG_DEBUG, "Clearing name table");
     clear_nametable();
 

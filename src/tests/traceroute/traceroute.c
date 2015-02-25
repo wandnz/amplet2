@@ -17,6 +17,7 @@
 #include <malloc.h>
 #include <string.h>
 #include <signal.h>
+#include <inttypes.h>
 
 //TODO rename files and headers better?
 #include "config.h"
@@ -1789,7 +1790,8 @@ void print_traceroute(void *data, uint32_t len) {
                     case AS_UNKNOWN: printf("  (unknown)"); break;
                     case AS_PRIVATE: printf("  (private)"); break;
                     case AS_NULL: printf("  (no AS)"); break;
-                    default: printf("  (AS%d)", be64toh(hop->as)); break;
+                    default: printf("  (AS%" PRId64 ")", be64toh(hop->as));
+                             break;
                 };
             }
             printf(" %dus\n", ntohl(hop->rtt));

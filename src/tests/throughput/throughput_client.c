@@ -707,6 +707,7 @@ int run_throughput_client(int argc, char *argv[], int count,
             case 'P': options.tport = atoi(optarg); break;
             case 'r': options.randomise = 1; break;
             case 'z': options.write_size = atoi(optarg); break;
+            /* TODO if this isn't last, some options use default values! */
             case 'S': parseSchedule(&options, optarg); break;
             case 'o': options.sock_sndbuf = atoi(optarg); break;
             case 'i': options.sock_rcvbuf = atoi(optarg); break;
@@ -908,7 +909,7 @@ static void printSpeed(uint64_t time_ns, uint64_t bytes){
  *
  * TODO make this output a lot nicer
  */
-void print_throughput(void *data, uint32_t len) {
+void print_throughput(void *data, __attribute__((unused))uint32_t len) {
     char address[128];
     struct report_header_t *rh = data;
     uint32_t count = 1;

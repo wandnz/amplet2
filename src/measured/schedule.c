@@ -30,24 +30,24 @@
 /*
  * Dump a debug information line about a scheduled test.
  */
-static void dump_event_run_test(test_schedule_item_t *item) {
+static void dump_event_run_test(test_schedule_item_t *item, FILE *out) {
 
     assert(item);
 
-    printf("EVENT_RUN_TEST ");
-    printf("%s %d.%.6d", amp_tests[item->test_id]->name,
+    fprintf(out, "EVENT_RUN_TEST ");
+    fprintf(out, "%s %d.%.6d", amp_tests[item->test_id]->name,
 	    (int)item->interval.tv_sec, (int)item->interval.tv_usec);
 
     if ( item->params == NULL ) {
-	printf(" (no args)");
+	fprintf(out, " (no args)");
     } else {
         int i;
 	/* params is a NULL terminated array */
 	for ( i=0; item->params[i] != NULL; i++ ) {
-	    printf(" %s", item->params[i]);
+	    fprintf(out, " %s", item->params[i]);
 	}
     }
-    printf("\n");
+    fprintf(out, "\n");
 }
 
 
@@ -55,10 +55,10 @@ static void dump_event_run_test(test_schedule_item_t *item) {
 /*
  * Dump a debug information line about a scheduled watchdog to kill a test.
  */
-static void dump_event_cancel_test(kill_schedule_item_t *item) {
+static void dump_event_cancel_test(kill_schedule_item_t *item, FILE *out) {
     assert(item);
 
-    printf("EVENT_CANCEL_TEST pid:%d\n", item->pid);
+    fprintf(out, "EVENT_CANCEL_TEST %s pid %d\n", item->testname, item->pid);
 }
 
 
@@ -66,10 +66,10 @@ static void dump_event_cancel_test(kill_schedule_item_t *item) {
 /*
  * Dump a debug information line about a scheduled watchdog to kill a test.
  */
-static void dump_event_fetch_schedule(fetch_schedule_item_t *item) {
+static void dump_event_fetch_schedule(fetch_schedule_item_t *item, FILE *out) {
     assert(item);
 
-    printf("EVENT_FETCH_SCHEDULE %s\n", item->schedule_url);
+    fprintf(out, "EVENT_FETCH_SCHEDULE %s\n", item->schedule_url);
 }
 
 
@@ -77,34 +77,43 @@ static void dump_event_fetch_schedule(fetch_schedule_item_t *item) {
 /*
  * Dump the current schedule for debug purposes
  */
-static void dump_schedule(wand_event_handler_t *ev_hdl) {
+void dump_schedule(wand_event_handler_t *ev_hdl, FILE *out) {
     struct wand_timer_t *timer;
     schedule_item_t *item;
+    struct timeval mono, wall, offset;
 
-    printf("====== SCHEDULE ======\n");
+    assert(out);
+
+    mono = wand_get_monotonictime(ev_hdl);
+    wall = wand_get_walltime(ev_hdl);
+
+    fprintf(out, "===== SCHEDULE at %d.%d =====\n", (int)wall.tv_sec,
+            (int)wall.tv_usec);
 
     for ( timer=ev_hdl->timers; timer != NULL; timer=timer->next ) {
-	printf("%d.%.6d ", (int)timer->expire.tv_sec,
-		(int)timer->expire.tv_usec);
+        timersub(&timer->expire, &mono, &offset);
+	fprintf(out, "%d.%.6d ", (int)offset.tv_sec, (int)offset.tv_usec);
 	if ( timer->data == NULL ) {
-	    printf("NULL\n");
+	    fprintf(out, "NULL\n");
 	    continue;
 	}
 
 	/* TODO add file refresh timers to this list */
 	item = (schedule_item_t *)timer->data;
 	switch ( item->type ) {
-	    case EVENT_RUN_TEST: dump_event_run_test(item->data.test);
-				 break;
-	    case EVENT_CANCEL_TEST: dump_event_cancel_test(item->data.kill);
-				    break;
+	    case EVENT_RUN_TEST:
+                dump_event_run_test(item->data.test, out);
+                break;
+	    case EVENT_CANCEL_TEST:
+                dump_event_cancel_test(item->data.kill, out);
+                break;
             case EVENT_FETCH_SCHEDULE:
-                                    dump_event_fetch_schedule(item->data.fetch);
-                                    break;
-	    default: printf("UNKNOWN\n"); continue;
+                dump_event_fetch_schedule(item->data.fetch, out);
+                break;
+	    default: fprintf(out, "UNKNOWN\n"); continue;
 	};
     }
-    printf("\n");
+    fprintf(out, "\n");
 
 }
 
@@ -115,6 +124,11 @@ static void dump_schedule(wand_event_handler_t *ev_hdl) {
  * destinations it has.
  */
 static void free_test_schedule_item(test_schedule_item_t *item) {
+
+    if ( item == NULL ) {
+        Log(LOG_WARNING, "Attempting to free NULL schedule item");
+        return;
+    }
 
     /* free any test parameters, NULL terminated array */
     if ( item->params != NULL ) {
@@ -146,9 +160,11 @@ static void free_test_schedule_item(test_schedule_item_t *item) {
 
 
 /*
- * Walk the list of timers and remove all those that are scheduled tests.
+ * Walk the list of timers and remove all of them, or just those that are
+ * scheduled tests. Refreshing the test schedule will still leave watchdogs
+ * and schedule fetches in the list.
  */
-void clear_test_schedule(wand_event_handler_t *ev_hdl) {
+void clear_test_schedule(wand_event_handler_t *ev_hdl, int all) {
     struct wand_timer_t *timer = ev_hdl->timers;
     struct wand_timer_t *tmp;
     schedule_item_t *item;
@@ -162,13 +178,36 @@ void clear_test_schedule(wand_event_handler_t *ev_hdl) {
 	 */
 	if ( tmp->data != NULL ) {
 	    item = (schedule_item_t *)tmp->data;
-	    if ( item->type == EVENT_RUN_TEST ) {
-		wand_del_timer(ev_hdl, tmp);
-		if ( item->data.test != NULL ) {
-		    free_test_schedule_item(item->data.test);
-		}
-		free(item);
-	    }
+
+            /* We can clear just the test schedule, or all timer events */
+            if ( !all && item->type != EVENT_RUN_TEST ) {
+                continue;
+            }
+
+            wand_del_timer(ev_hdl, tmp);
+
+            switch ( item->type ) {
+                case EVENT_RUN_TEST:
+                    if ( item->data.test != NULL ) {
+                        free_test_schedule_item(item->data.test);
+                    }
+                    break;
+                case EVENT_CANCEL_TEST:
+                    if ( item->data.kill != NULL ) {
+                        free_watchdog_schedule_item(item->data.kill);
+                    }
+                    break;
+                case EVENT_FETCH_SCHEDULE:
+                    if ( item->data.fetch != NULL ) {
+                    }
+                    break;
+                default:
+                    Log(LOG_WARNING, "Freeing unknown schedule item type %d",
+                            item->type);
+                    break;
+            };
+
+            free(item);
 	}
     }
 }
@@ -251,12 +290,10 @@ static int64_t check_time_range(int64_t value, schedule_period_t period) {
  * Get the time in seconds for the beginning of the current period. timegm()
  * should deal with any wrap around for weekly periods.
  */
-static time_t get_period_start(schedule_period_t period) {
-    time_t now;
+static time_t get_period_start(schedule_period_t period, time_t *now) {
     struct tm period_start;
 
-    time(&now);
-    gmtime_r(&now, &period_start);
+    gmtime_r(now, &period_start);
     period_start.tm_sec = 0;
     period_start.tm_min = 0;
 
@@ -315,15 +352,17 @@ struct timeval get_next_schedule_time(wand_event_handler_t *ev_hdl,
     int64_t diff, test_end;
     int next_repeat;
 
-    period_start = get_period_start(period);
-    test_end = (period_start * INT64_C(1000000)) + end;
-
     /*
      * wand_get_walltime essentially just calls gettimeofday(), but it lets
      * us write unit tests easier because we can cheat and set the time to
-     * anything we want
+     * anything we want. Also, have to make sure that we use this same time
+     * result for everything - if we make multiple calls we could end up on
+     * either side of a period boundary or similar.
      */
     now = wand_get_walltime(ev_hdl);
+
+    period_start = get_period_start(period, &now.tv_sec);
+    test_end = (period_start * INT64_C(1000000)) + end;
 
     /* get difference in us between the first event of this period and now */
     diff = now.tv_sec - period_start;
@@ -357,6 +396,7 @@ struct timeval get_next_schedule_time(wand_event_handler_t *ev_hdl,
         if ( abstime ) {
             timeradd(&now, &next, abstime);
         }
+
         return next;
     }
 
@@ -401,6 +441,22 @@ struct timeval get_next_schedule_time(wand_event_handler_t *ev_hdl,
 	ADD_TV_PARTS(next, next, start / 1000000, start % 1000000);
     }
 
+    /* If somehow we get an invalid offset then throw all the calculations
+     * out the window and just offset by the frequency. Better to have the
+     * test scheduled roughly correct than to pass rubbish on to libwandevent.
+     */
+    if ( next.tv_sec < 0 || next.tv_usec < 0 || next.tv_usec >= 1000000 ) {
+        Log(LOG_WARNING,
+                "Failed to calculate sensible next time, using naive offset");
+        if ( frequency == 0 ) {
+            next.tv_sec = get_period_max_value(period) / 1000000;
+            next.tv_usec = 0;
+        } else {
+            next.tv_sec = frequency / 1000000;
+            next.tv_usec = 0;
+        }
+    }
+
     /* save the absolute time this test was meant to be run */
     if ( abstime ) {
         timeradd(&now, &next, abstime);
@@ -408,6 +464,7 @@ struct timeval get_next_schedule_time(wand_event_handler_t *ev_hdl,
 
     Log(LOG_DEBUG, "next test run scheduled at: %d.%d\n", (int)next.tv_sec,
 	    (int)next.tv_usec);
+
     return next;
 }
 
@@ -828,8 +885,11 @@ static test_schedule_item_t *create_and_schedule_test(
         /* create the timer event for this test */
         next = get_next_schedule_time(ev_hdl, test->period, test->start,
                 test->end, US_FROM_TV(test->interval), 0, &test->abstime);
-        wand_add_timer(ev_hdl, next.tv_sec, next.tv_usec, sched,
-                run_scheduled_test);
+
+        if ( wand_add_timer(ev_hdl, next.tv_sec, next.tv_usec, sched,
+                run_scheduled_test) == NULL ) {
+            Log(LOG_ALERT, "Failed to schedule %s test", testname);
+        }
 
     } while ( *remaining != NULL );
 
@@ -946,8 +1006,6 @@ void read_schedule_dir(wand_event_handler_t *ev_hdl, char *directory) {
 	read_schedule_file(ev_hdl, glob_buf.gl_pathv[i]);
     }
 
-    dump_schedule(ev_hdl);
-
     globfree(&glob_buf);
     return;
 }
@@ -989,7 +1047,10 @@ void remote_schedule_callback(wand_event_handler_t *ev_hdl, void *data) {
             "Remote schedule fetch");
 
     /* reschedule checking for schedule updates */
-    wand_add_timer(ev_hdl, fetch->frequency, 0, data, remote_schedule_callback);
+    if ( wand_add_timer(ev_hdl, fetch->frequency, 0, data,
+                remote_schedule_callback) == NULL ) {
+        Log(LOG_ALERT, "Failed to reschedule remote update check");
+    }
 }
 
 
@@ -1177,7 +1238,7 @@ time_t amp_test_get_period_max_value(char repeat) {
 int64_t amp_test_check_time_range(int64_t value, schedule_period_t period) {
     return check_time_range(value, period);
 }
-time_t amp_test_get_period_start(char repeat) {
-    return get_period_start(repeat);
+time_t amp_test_get_period_start(char repeat, time_t *now) {
+    return get_period_start(repeat, now);
 }
 #endif

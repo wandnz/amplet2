@@ -27,14 +27,38 @@ void add_test_watchdog(wand_event_handler_t *ev_hdl, pid_t pid, uint16_t max,
     kill = (kill_schedule_item_t *)malloc(sizeof(kill_schedule_item_t));
     kill->pid = pid;
     kill->sigint = sigint;
-    kill->testname = testname;
+    /* duplicated in case tests are reloaded and invalidates name pointer */
+    kill->testname = strdup(testname);
+
     item = (schedule_item_t *)malloc(sizeof(schedule_item_t));
     item->type = EVENT_CANCEL_TEST;
     item->ev_hdl = ev_hdl;
     item->data.kill = kill;
 
     /* schedule task to kill test process if it goes too long */
-    wand_add_timer(ev_hdl, max, 0, item, kill_running_test);
+    if ( wand_add_timer(ev_hdl, max, 0, item, kill_running_test) == NULL ) {
+        Log(LOG_ALERT, "Failed to add watchdog timer for %us to %s test",
+                max, kill->testname);
+    }
+}
+
+
+
+/*
+ * Free a scheduled watchdog kill task, including any extra memory that it
+ * has associated with it.
+ */
+void free_watchdog_schedule_item(kill_schedule_item_t *item) {
+    if ( item == NULL ) {
+        Log(LOG_WARNING, "Attempting to free NULL watchdog item");
+        return;
+    }
+
+    if ( item->testname != NULL ) {
+        free(item->testname);
+    }
+
+    free(item);
 }
 
 
@@ -60,7 +84,7 @@ static void cancel_test_watchdog(wand_event_handler_t *ev_hdl, pid_t pid) {
 		if ( item->data.kill->pid == pid ) {
 		    wand_del_timer(ev_hdl, tmp);
 		    if ( item->data.kill != NULL ) {
-			free(item->data.kill);
+                        free_watchdog_schedule_item(item->data.kill);
 		    }
 		    free(item);
 		    return;
@@ -68,8 +92,21 @@ static void cancel_test_watchdog(wand_event_handler_t *ev_hdl, pid_t pid) {
 	    }
 	}
     }
+
     /* if the watchdog for the pid doesn't exist, something has gone wrong */
-    assert(0);
+    //assert(0);
+
+    /* New warning - it's theoretically possible that the test completes at
+     * the same time that the watchdog timer fires. Libwandevent will process
+     * the timer first (killing an already completed process and removing the
+     * timer) and then the signal handler will fire (causing this function to
+     * be called, looking for a watchdog timer that no longer exists).
+     *
+     * Try running with this warning for a while and see how often it occurs.
+     * Seen it assert at least once so far. Ideally we shouldn't be triggering
+     * asserts when it's behaviour we can deal with.
+     */
+    Log(LOG_WARNING, "Couldn't find watchdog timer to cancel (pid %d)", pid);
 }
 
 
@@ -168,6 +205,6 @@ void kill_running_test(wand_event_handler_t *ev_hdl, void *data) {
     }
 
     /* tidy up the watchdog timer that just fired, it is no longer needed */
-    free(item->data.kill);
+    free_watchdog_schedule_item(item->data.kill);
     free(item);
 }

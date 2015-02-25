@@ -8,6 +8,8 @@
 #include "nametable.h"
 #include "ampresolv.h"
 
+/* debug schedule output file location */
+#define DEBUG_SCHEDULE_DUMP_FILE "/tmp/amplet2.schedule.dump"
 
 /* maximum line length for a single schedule line */
 #define MAX_SCHEDULE_LINE 1024
@@ -24,8 +26,8 @@
 //#define AMP_TEST_DIRECTORY AMP_CONFIG_DIR "/tests/"
 #define MAX_TEST_ARGS 128
 
-/* tests can start at most 5ms early, otherwise reschedule them */
-#define SCHEDULE_CLOCK_FUDGE ( 5 * 1000 )
+/* tests can start at most 500ms (in usec) early, otherwise reschedule them */
+#define SCHEDULE_CLOCK_FUDGE ( 500 * 1000 )
 
 /* convenience time conversions */
 #define US_FROM_MS(x) (((x) % 1000)*1000)
@@ -120,7 +122,8 @@ typedef struct schedule_item {
 } schedule_item_t;
 
 
-void clear_test_schedule(wand_event_handler_t *ev_hdl);
+void dump_schedule(wand_event_handler_t *ev_hdl, FILE *out);
+void clear_test_schedule(wand_event_handler_t *ev_hdl, int all);
 void read_schedule_dir(wand_event_handler_t *ev_hdl, char *directory);
 void setup_schedule_refresh(wand_event_handler_t *ev_hdl);
 struct timeval get_next_schedule_time(wand_event_handler_t *ev_hdl,
@@ -132,7 +135,7 @@ void remote_schedule_callback(wand_event_handler_t *ev_hdl, void *data);
 #if UNIT_TEST
 time_t amp_test_get_period_max_value(char repeat);
 int64_t amp_test_check_time_range(int64_t value, schedule_period_t period);
-time_t amp_test_get_period_start(char repeat);
+time_t amp_test_get_period_start(char repeat, time_t *now);
 #endif
 
 #endif
