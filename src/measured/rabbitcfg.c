@@ -99,10 +99,21 @@ static int grant_rabbitmq_permissions(char *username) {
 int setup_rabbitmq_user(char *username) {
     assert(username);
 
-    if ( create_rabbitmq_vhost(username) < 0 ||
-            create_rabbitmq_user(username) < 0 ||
-            grant_rabbitmq_permissions(username) < 0 ) {
-        Log(LOG_ALERT, "Failed to configure rabbitmq for amplet2 client %s",
+    if ( create_rabbitmq_vhost(username) < 0 ) {
+        Log(LOG_ALERT, "Failed to create rabbitmq vhost for amplet2 client %s",
+                username);
+        return -1;
+    }
+
+    if ( create_rabbitmq_user(username) < 0 ) {
+        Log(LOG_ALERT, "Failed to create rabbitmq user for amplet2 client %s",
+                username);
+        return -1;
+    }
+
+    if ( grant_rabbitmq_permissions(username) < 0 ) {
+        Log(LOG_ALERT,
+                "Failed to grant rabbitmq permissions for amplet2 client %s",
                 username);
         return -1;
     }
