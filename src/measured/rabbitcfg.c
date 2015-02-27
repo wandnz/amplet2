@@ -24,7 +24,18 @@ static int run_rabbitmqctl(char *args[]) {
     	Log(LOG_ALERT, "Failed to fork: %s", strerror(errno));
 	return -1;
     } else if ( pid == 0 ) {
+        /*
+         * Close stdout and stderr so we don't see rabbitmqctl messages. We
+         * can still detect errors by looking at the return values, and they
+         * will still be printed if debug mode is on
+         */
+        if ( log_level != LOG_DEBUG ) {
+            close(STDOUT_FILENO);
+            close(STDERR_FILENO);
+        }
+
         if ( execv(RABBITMQCTL, args) < 0 ) {
+            /* XXX if run in the foreground this won't output anything */
             Log(LOG_ALERT, "Failed to run %s:%s", RABBITMQCTL, strerror(errno));
             exit(-1);
         }
