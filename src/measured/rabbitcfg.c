@@ -45,6 +45,11 @@ static int run_rabbitmqctl(char *args[]) {
     waitpid(pid, &status, 0);
 
     if ( WIFEXITED(status) ) {
+        /* rabbitmqctl returns 1 when not run as root, make it a major error */
+        if ( WEXITSTATUS(status) == 1 ) {
+            Log(LOG_ALERT, "Insufficient permissions (are you root?)");
+            return -1;
+        }
         return WEXITSTATUS(status);
     }
 
