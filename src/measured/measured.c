@@ -61,7 +61,6 @@ static struct option long_options[] = {
     {"interface", required_argument, 0, 'I'},
     {"ipv4", required_argument, 0, '4'},
     {"ipv6", required_argument, 0, '6'},
-    {"setup-rabbitmq", no_argument, 0, 'f'},
     {0, 0, 0, 0}
 };
 
@@ -76,7 +75,6 @@ static void usage(void) {
             "               [-4 <address>] [-6 <address>]\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "Options:\n");
-    fprintf(stderr, "  -f, --setup-rabbitmq      Configure rabbitmq based on AMP config and exit\n");
     fprintf(stderr, "  -d, --daemonise           Detach and run in background\n");
     fprintf(stderr, "  -v, --version             Print version information and exit\n");
     fprintf(stderr, "  -x, --debug               Enable extra debug output\n");
@@ -542,7 +540,6 @@ int main(int argc, char *argv[]) {
     char *pidfile = NULL;
     int fetch_remote = 1;
     int backgrounded = 0;
-    int configure_rabbit = 0;
     struct amp_asn_info asn_info;
 
     while ( 1 ) {
@@ -562,14 +559,6 @@ int main(int argc, char *argv[]) {
 		}
                 backgrounded = 1;
 		break;
-            case 'f':
-                /*
-                 * Configure rabbit user, create shovel and exit (needs to
-                 * happen after config parsing though, so we know what
-                 * configuration to perform
-                 */
-                configure_rabbit = 1;
-                break;
 	    case 'v':
 		/* print version and build info */
                 print_version(argv[0]);
@@ -628,51 +617,76 @@ int main(int argc, char *argv[]) {
 	return -1;
     }
 
+    if ( asprintf(&vars.amqp_ssl.keys_dir, "%s/%s", AMP_KEYS_DIR,
+                vars.ampname) < 0 ) {
+        Log(LOG_ALERT, "Failed to build custom keys directory path");
+        return -1;
+    }
+
     /*
-     * Try to configure the local rabbitmq broker and then exit. Ideally this
-     * probably shouldn't be lumped in with the amplet client code, but it
-     * needs to have all the configuration parsing performed so it knows what
-     * to do.
+     * Set up SSL certificates etc. This has to go before curl_global_init()
+     * because if we fail then we clean up a whole lot of openssl stuff.
+     * Also needs to go before the rabbit shovel configuration, as the certs
+     * and keys are required to set that up too.
+     * TODO determine which bits we can clean up and which bits we can't.
      */
-    //XXX move this after SSL initialisation and certificate fetching? */
-    if ( configure_rabbit ) {
-        Log(LOG_INFO, "Configuring rabbitmq for amplet2 client %s",
+    if ( initialise_ssl(&vars.amqp_ssl, vars.collector) < 0 ) {
+        Log(LOG_WARNING, "Failed to initialise SSL, aborting");
+        return -1;
+    }
+
+    /* set up curl while we are still the only measured process running */
+    curl_global_init(CURL_GLOBAL_ALL);
+
+    /*
+     * Make sure certs are valid and loaded. Do not proceed if there are any
+     * problems with this.
+     */
+    if ( vars.ssl && (get_certificate(&vars.amqp_ssl, vars.ampname,
+                    vars.collector, vars.waitforcert) != 0 ||
+                (ssl_ctx = initialise_ssl_context(&vars.amqp_ssl)) == NULL) ) {
+        Log(LOG_ALERT, "Failed to load SSL keys/certificates, aborting");
+        return -1;
+    }
+
+    /*
+     * Try to configure the local rabbitmq broker. The easiest way to deal
+     * with this at the moment is to check every time we run - this could be
+     * a new client. The old approach was to run this manually, but that
+     * falls over somewhat if certificate fetching is going on (we need the
+     * certs now, and exiting after configuring rabbit isn't helpful).
+     */
+    if ( vars.vialocal ) {
+        Log(LOG_DEBUG, "Configuring rabbitmq for amplet2 client %s",
                 vars.ampname);
-
-        if ( vars.vialocal ) {
-            /*
-             * If we are using a local broker to give more resiliency then
-             * we should make our own user and vhost, give ourselves a private
-             * space to operate within.
-             */
-            if ( setup_rabbitmq_user(vars.ampname) < 0 ) {
-                Log(LOG_ALERT, "Failed to create user, aborting");
-                return -1;
-            }
-
-            /*
-             * The shovel is used to send data from our local queues to the
-             * remote collector via an SSL secured connection.
-             */
-             //XXX add echange and routing key
-            if ( setup_rabbitmq_shovel(vars.ampname, vars.collector,
-                        vars.port, vars.amqp_ssl.cacert, vars.amqp_ssl.cert,
-                        vars.amqp_ssl.key, vars.exchange, vars.routingkey)
-                    < 0 ) {
-                Log(LOG_ALERT, "Failed to create shovel, aborting");
-                return -1;
-            }
-            Log(LOG_INFO, "Done configuring rabbitmq");
-        } else {
-            /*
-             * If we aren't using a local broker then there is no configuration
-             * to perform - we are reporting directly to a remote broker that
-             * we can't really configure from here.
-             */
-            Log(LOG_WARNING, "vialocal = false, no local configuration");
+        /*
+         * If we are using a local broker to give more resiliency then
+         * we should make our own user and vhost, give ourselves a private
+         * space to operate within.
+         */
+        if ( setup_rabbitmq_user(vars.ampname) < 0 ) {
+            Log(LOG_ALERT, "Failed to create user, aborting");
+            return -1;
         }
 
-        exit(0);
+        /*
+         * The shovel is used to send data from our local queues to the
+         * remote collector via an SSL secured connection.
+         */
+        if ( setup_rabbitmq_shovel(vars.ampname, vars.collector,
+                    vars.port, vars.amqp_ssl.cacert, vars.amqp_ssl.cert,
+                    vars.amqp_ssl.key, vars.exchange, vars.routingkey) < 0 ) {
+            Log(LOG_ALERT, "Failed to create shovel, aborting");
+            return -1;
+        }
+        Log(LOG_DEBUG, "Done configuring rabbitmq");
+    } else {
+        /*
+         * If we aren't using a local broker then there is no configuration
+         * to perform - we are reporting directly to a remote broker that
+         * we can't really configure from here.
+         */
+        Log(LOG_DEBUG, "vialocal = false, no local configuration");
     }
 
     /* save the pointer to argv so that we can overwrite the name later */
@@ -699,35 +713,6 @@ int main(int argc, char *argv[]) {
     if ( register_tests(vars.testdir) == -1) {
 	Log(LOG_ALERT, "Failed to register tests, aborting.");
 	return -1;
-    }
-
-    if ( asprintf(&vars.amqp_ssl.keys_dir, "%s/%s", AMP_KEYS_DIR,
-                vars.ampname) < 0 ) {
-        Log(LOG_ALERT, "Failed to build custom keys directory path");
-        return -1;
-    }
-    /*
-     * Set up SSL certificates etc. This has to go before curl_global_init()
-     * because if we fail then we clean up a whole lot of openssl stuff.
-     * TODO determine which bits we can clean up and which bits we can't.
-     */
-    if ( initialise_ssl(&vars.amqp_ssl, vars.collector) < 0 ) {
-        Log(LOG_WARNING, "Failed to initialise SSL, aborting");
-        return -1;
-    }
-
-    /* set up curl while we are still the only measured process running */
-    curl_global_init(CURL_GLOBAL_ALL);
-
-    /*
-     * Make sure certs are valid and loaded. Do not proceed if there are any
-     * problems with this.
-     */
-    if ( vars.ssl && (get_certificate(&vars.amqp_ssl, vars.ampname,
-                    vars.collector, vars.waitforcert) != 0 ||
-                (ssl_ctx = initialise_ssl_context(&vars.amqp_ssl)) == NULL) ) {
-        Log(LOG_ALERT, "Failed to load SSL keys/certificates, aborting");
-        return -1;
     }
 
     /* set up event handlers */
