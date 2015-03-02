@@ -289,6 +289,7 @@ static int parse_config(char *filename, struct amp_global_t *vars) {
 
     cfg_opt_t opt_collector[] = {
         CFG_BOOL("vialocal", cfg_true, CFGF_NONE),
+        CFG_STR("local", AMQP_SERVER, CFGF_NONE),
         CFG_STR("address", AMQP_SERVER, CFGF_NONE),
         CFG_INT("port", AMQP_PORT, CFGF_NONE),
         CFG_STR("vhost", AMQP_VHOST, CFGF_NONE),
@@ -413,6 +414,7 @@ static int parse_config(char *filename, struct amp_global_t *vars) {
     for ( i=0; i<cfg_size(cfg, "collector"); i++ ) {
         cfg_sub = cfg_getnsec(cfg, "collector", i);
         vars->vialocal = cfg_getbool(cfg_sub, "vialocal");
+        vars->local = strdup(cfg_getstr(cfg_sub, "local"));
         vars->collector = strdup(cfg_getstr(cfg_sub, "address"));
         vars->port = cfg_getint(cfg_sub, "port");
         vars->vhost = strdup(cfg_getstr(cfg_sub, "vhost"));
@@ -673,7 +675,7 @@ int main(int argc, char *argv[]) {
          * The shovel is used to send data from our local queues to the
          * remote collector via an SSL secured connection.
          */
-        if ( setup_rabbitmq_shovel(vars.ampname, vars.collector,
+        if ( setup_rabbitmq_shovel(vars.ampname, vars.local, vars.collector,
                     vars.port, vars.amqp_ssl.cacert, vars.amqp_ssl.cert,
                     vars.amqp_ssl.key, vars.exchange, vars.routingkey) < 0 ) {
             Log(LOG_ALERT, "Failed to create shovel, aborting");

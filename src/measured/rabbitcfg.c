@@ -148,7 +148,7 @@ int setup_rabbitmq_user(char *username) {
  * to report our data into - by default it will create our queues as durable
  * with no other arguments.
  */
-int setup_rabbitmq_shovel(char *ampname, char *collector, int port,
+int setup_rabbitmq_shovel(char *ampname, char *local, char *collector, int port,
         char *cacert, char *cert, char *key, char *exchange, char *routingkey) {
 
     char *args[] = { RABBITMQCTL, "set_parameter", "shovel", ampname,
@@ -158,6 +158,7 @@ int setup_rabbitmq_shovel(char *ampname, char *collector, int port,
             ampname, collector);
 
     assert(ampname);
+    assert(local);
     assert(collector);
     assert(port > 0);
     assert(cacert);
@@ -171,7 +172,7 @@ int setup_rabbitmq_shovel(char *ampname, char *collector, int port,
      * own vhost back to the collector server.
      */
     if ( asprintf(&args[4],
-                "{\"src-uri\":\"amqp://%s:%s@localhost/%s\", "
+                "{\"src-uri\":\"amqp://%s:%s@%s/%s\", "
                 "\"src-queue\":\"report\", "
                 "\"dest-uri\":\"amqps://%s:%d"
                 "?cacertfile=%s"
@@ -182,8 +183,8 @@ int setup_rabbitmq_shovel(char *ampname, char *collector, int port,
                 "&auth_mechanism=external\", "
                 "\"dest-exchange\":\"%s\", "
                 "\"dest-exchange-key\":\"%s\"}",
-                ampname, ampname, ampname, collector, port, cacert, cert, key,
-                exchange, routingkey) < 0 ) {
+                ampname, ampname, local, ampname, collector, port, cacert,
+                cert, key, exchange, routingkey) < 0 ) {
         exit(-1);
     }
 

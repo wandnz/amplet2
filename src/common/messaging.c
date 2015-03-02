@@ -33,7 +33,7 @@
  */
 int connect_to_broker() {
     amqp_socket_t *sock;
-    char *collector = vars.vialocal ? AMQP_SERVER : vars.collector;
+    char *collector = vars.vialocal ? vars.local : vars.collector;
     int port = vars.vialocal ? AMQP_PORT : vars.port;
     char *vhost = vars.vialocal ? vars.ampname : vars.vhost;
 
