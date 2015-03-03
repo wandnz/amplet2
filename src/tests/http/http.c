@@ -200,30 +200,42 @@ static void report_results(struct timeval *start_time,
  * Split URL into server and path components. Based on code originally from
  * the first HTTP test in AMP. 
  */
-static void split_url(char *url, char *server, char *path, int set) {
+static void split_url(char *orig_url, char *server, char *path, int set) {
     static char *base_server = NULL;
     static char *base_path = NULL;
+    static char *base_scheme = NULL;
+    char *scheme;
     char *start;
     char *end;
+    char *url;
     int length;
 
-    assert(url);
+    assert(orig_url);
     assert(server);
     assert(path);
 
-    /* strip initial protocol portion, currently only understand http/https */
+    url = orig_url;
+
+    /* check initial protocol portion, currently only understand http/https */
     if ( strncasecmp(url, "http://", 7) == 0 ) {
         /* full url, treat as normal */
         start = url + 7;
+        scheme = "http";
     } else if ( strncasecmp(url, "https://", 8) == 0 ) {
         /* full url, treat as normal */
         start = url + 8;
+        scheme = "https";
     } else if ( strncasecmp(url, "//", 2) == 0 ) {
         /*
          * 2 slashes means it's a remote URL accessed over the same protocol
-         * as the current document, which for now we will assume is HTTP
+         * as the current document.
          */
-        start = url + 2;
+        scheme = base_scheme ? base_scheme : "http";
+        if ( asprintf(&url, "%s://%s", scheme, orig_url + 2) < 0 ) {
+            Log(LOG_WARNING, "Failed to build full URL for %s", orig_url);
+            exit(1);
+        }
+        start = url + strlen(scheme) + 3;
     } else if ( strncasecmp(url, "/", 1) == 0 ) {
         /* one slash makes this an absolute path on the current host */
         assert(base_server);
@@ -232,29 +244,21 @@ static void split_url(char *url, char *server, char *path, int set) {
         //printf("absolute url, making it: %s %s\n", server, path);
         return;
     } else if ( base_server != NULL && base_path != NULL ) {
-        /* TODO an initial url like www.wand.net.nz without a protocol
-         * specifier will hit here later in the test when trying to look up
-         * the object and will interpret the result as a relative path, which
-         * is incorrect (e.g. /www.wand.net.nz).
-         */
         /* no initial slashes but not the first url, treat as a relative path */
-        strncpy(server, base_server, MAX_DNS_NAME_LEN);
-        /* strip the last part of the path, back to the final slash */
-        //strncpy(path, base_path, MAX_PATH_LEN);
-        //strncat(path, url, MAX_PATH_LEN - strlen(base_path) - 1);
-        //XXX there has to be a slash, because we add one if there isnt!
         char *slash = rindex(base_path, '/');
+        strncpy(server, base_server, MAX_DNS_NAME_LEN);
         memset(path, 0, MAX_PATH_LEN);
-        //printf("base: %s (path already has %s)\n", base_path, path);
         strncpy(path, base_path, (slash - base_path) + 1);
-        //printf("1: %s\n", path);
         strncat(path, url, MAX_PATH_LEN - strlen(base_path) - 1);
-        //printf("given url: %s\n", url);
-        //printf("relative url, making it: %s %s\n", server, path);
         return;
     } else {
-        /* treat as a URL that is missing the protocol */
-        start = url;
+        /* initial url, treat it as http */
+        scheme = "http";
+        if ( asprintf(&url, "%s://%s", scheme, orig_url) < 0 ) {
+            Log(LOG_WARNING, "Failed to build full URL for %s", orig_url);
+            exit(1);
+        }
+        start = url + strlen(scheme) + 3;
     }
 
     /* determine end of the host portion and extract the remaining path */
@@ -267,9 +271,9 @@ static void split_url(char *url, char *server, char *path, int set) {
     }
 
     /* save the host portion also */
-    length = end - start;
+    length = end - url;
     assert(length < MAX_DNS_NAME_LEN);
-    strncpy(server, start, length);
+    strncpy(server, url, length);
     server[length] = '\0';
 
     /* save these so we can later parse relative URLs easily */
@@ -285,10 +289,22 @@ static void split_url(char *url, char *server, char *path, int set) {
         if ( base_path ) {
             free(base_path);
         }
+        /* schema might point to base_schema, so check before freeing it */
+        if ( base_scheme && base_scheme != scheme ) {
+            free(base_scheme);
+        }
 
         base_server = strdup(server);
         base_path = strdup(path);
+        if ( base_scheme != scheme ) {
+            base_scheme = strdup(scheme);
+        }
         //printf("setting base server/path: %s %s\n", base_server, base_path);
+    }
+
+    /* TODO might be nice to update the url so it gets printed better later */
+    if ( url != orig_url ) {
+        free(url);
     }
 }
 
@@ -1224,7 +1240,7 @@ int run_http(int argc, char *argv[], __attribute__((unused))int count,
     }
 
     curl_global_init(CURL_GLOBAL_ALL);
-    fetch(options.url);
+    fetch(options.path);
     curl_global_cleanup();
 
     if ( gettimeofday(&global.end, NULL) != 0 ) {
