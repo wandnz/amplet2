@@ -1149,7 +1149,7 @@ static void usage(char *prog) {
     printf("  -k \t\tDisable keep-alives (def:enabled)\n");
     printf("  -m <max>\tMaximum number of connections (def:24)\n");
     printf("  -s <max>\tMaximum number of connections per server (def:8)\n");
-    printf("  -x <max>\tMaximum number of persistent connections per server (def:2)\n");
+    printf("  -o <max>\tMaximum number of persistent connections per server (def:2)\n");
     printf("  -p\t\tEnable pipelining (def:disabled)\n");
     printf("  -r <max>\tMaximum number of pipelined requests (def:4)\n");
     printf("  -z <max>\tOutstanding pipelined requests before using new pipe (def:2)\n");
