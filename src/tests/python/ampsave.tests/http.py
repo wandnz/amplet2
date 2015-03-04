@@ -100,6 +100,18 @@ def get_data(data):
             max_age,s_maxage,pad,x_cache,x_cache_lu,flags = struct.unpack_from("=ii5sbbB", data, offset)
             offset += cache_len
 
+            # If there is only one server, with one object and that object
+            # has a code of zero, then we failed to fetch anything at all.
+            # Change the duration to None so the graphs properly interrupt
+            # the line.
+            if ( servers == 1 and len(results["servers"]) == 0 and
+                    obj == 1 and code == 0 ):
+                results["duration"] = None
+                # TODO should we still add the object?
+                #results["object_count"] = 0
+                #server["object_count"] = 0
+                #break
+
             # Append this object to the list for this server
             server["objects"].append({
                 "path": path.rstrip("\0"),
