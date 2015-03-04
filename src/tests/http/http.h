@@ -8,7 +8,7 @@
 #include "curl/curl.h"
 
 /* use the current date with 2 digit count appended as version: YYYYMMDDXX */
-#define AMP_HTTP_TEST_VERSION 2014091900
+#define AMP_HTTP_TEST_VERSION 2015030400
 
 #define MAX_DNS_NAME_LEN 256
 #define MAX_PATH_LEN 2048
@@ -158,13 +158,13 @@ struct http_report_header_t {
     uint32_t duration;
     uint32_t bytes;
     uint16_t total_objects;
-    uint8_t total_servers;
+    uint16_t total_servers;
+    uint16_t max_connections;
+    uint16_t max_connections_per_server;
+    uint16_t max_persistent_connections_per_server;
     uint8_t persist;
-    uint8_t max_connections;
-    uint8_t max_connections_per_server;
-    uint8_t max_persistent_connections_per_server;
     uint8_t pipelining;
-    char reserved2[6];
+    char reserved2[2];
     uint8_t pipelining_maxrequests;
     uint8_t caching;
 } __attribute__((packed));

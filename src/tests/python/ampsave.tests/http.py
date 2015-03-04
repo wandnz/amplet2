@@ -7,7 +7,8 @@ from ampsave.exceptions import AmpTestVersionMismatch
 
 
 # version needs to keep up with the version number in src/tests/http/http.h
-AMP_HTTP_TEST_VERSION = 2014091900
+AMP_HTTP_TEST_VERSION = 2015030400
+PREVIOUS_AMP_HTTP_TEST_VERSION = 2014091900
 
 def get_data(data):
     """
@@ -18,7 +19,21 @@ def get_data(data):
     http_report_object_t structures describing all the objects. All of
     these are described in src/tests/http/http.h
     """
-    header_len = struct.calcsize("=II512sIIHBBBBBB6sBB")
+
+    if len(data) < struct.calcsize("=I"):
+        print "%s: not enough data to unpack version", __file__
+        return None
+
+    version, = struct.unpack_from("=I", data, 0)
+    offset = struct.calcsize("=II")
+
+    if version == AMP_HTTP_TEST_VERSION:
+        header_len = struct.calcsize("=II512sIIHHHHHBB2sBB")
+    elif version == PREVIOUS_AMP_HTTP_TEST_VERSION:
+        header_len = struct.calcsize("=II512sIIHBBBBBB6sBB")
+    else:
+        raise AmpTestVersionMismatch(version, AMP_HTTP_TEST_VERSION)
+
     server_len = struct.calcsize("=256sQQQQ46sHiHBB")
     object_len = struct.calcsize("=256sQQQQQQQQQQQQII6sBB")
     cache_len = struct.calcsize("=ii5sbbB")
@@ -27,13 +42,12 @@ def get_data(data):
     if len(data) < header_len:
         print "%s: not enough data to unpack header", __file__
         return None
-    version, = struct.unpack_from("=I", data, 0)
-    if version != AMP_HTTP_TEST_VERSION:
-        raise AmpTestVersionMismatch(version, AMP_HTTP_TEST_VERSION)
-    offset = struct.calcsize("=II")
 
     # read the rest of the header that records test options
-    url,dur,size,obj,servers,persist,max_con,max_con_ps,max_ps_ps,pipe,pad,pipe_max,cache = struct.unpack_from("=512sIIHBBBBBB6sBB", data, offset)
+    if version == AMP_HTTP_TEST_VERSION:
+        url,dur,size,obj,servers,max_con,max_con_ps,max_ps_ps,persist,pipe,pad,pipe_max,cache = struct.unpack_from("=512sIIHHHHHBB2sBB", data, offset)
+    elif version == PREVIOUS_AMP_HTTP_TEST_VERSION:
+        url,dur,size,obj,servers,persist,max_con,max_con_ps,max_ps_ps,pipe,pad,pipe_max,cache = struct.unpack_from("=512sIIHBBBBBB6sBB", data, offset)
 
     offset = header_len
     results = {
