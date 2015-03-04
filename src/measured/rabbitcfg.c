@@ -24,7 +24,18 @@ static int run_rabbitmqctl(char *args[]) {
     	Log(LOG_ALERT, "Failed to fork: %s", strerror(errno));
 	return -1;
     } else if ( pid == 0 ) {
+        /*
+         * Close stdout and stderr so we don't see rabbitmqctl messages. We
+         * can still detect errors by looking at the return values, and they
+         * will still be printed if debug mode is on
+         */
+        if ( log_level != LOG_DEBUG ) {
+            close(STDOUT_FILENO);
+            close(STDERR_FILENO);
+        }
+
         if ( execv(RABBITMQCTL, args) < 0 ) {
+            /* XXX if run in the foreground this won't output anything */
             Log(LOG_ALERT, "Failed to run %s:%s", RABBITMQCTL, strerror(errno));
             exit(-1);
         }
@@ -34,6 +45,11 @@ static int run_rabbitmqctl(char *args[]) {
     waitpid(pid, &status, 0);
 
     if ( WIFEXITED(status) ) {
+        /* rabbitmqctl returns 1 when not run as root, make it a major error */
+        if ( WEXITSTATUS(status) == 1 ) {
+            Log(LOG_ALERT, "Insufficient permissions (are you root?)");
+            return -1;
+        }
         return WEXITSTATUS(status);
     }
 
@@ -99,10 +115,21 @@ static int grant_rabbitmq_permissions(char *username) {
 int setup_rabbitmq_user(char *username) {
     assert(username);
 
-    if ( create_rabbitmq_vhost(username) < 0 ||
-            create_rabbitmq_user(username) < 0 ||
-            grant_rabbitmq_permissions(username) < 0 ) {
-        Log(LOG_ALERT, "Failed to configure rabbitmq for amplet2 client %s",
+    if ( create_rabbitmq_vhost(username) < 0 ) {
+        Log(LOG_ALERT, "Failed to create rabbitmq vhost for amplet2 client %s",
+                username);
+        return -1;
+    }
+
+    if ( create_rabbitmq_user(username) < 0 ) {
+        Log(LOG_ALERT, "Failed to create rabbitmq user for amplet2 client %s",
+                username);
+        return -1;
+    }
+
+    if ( grant_rabbitmq_permissions(username) < 0 ) {
+        Log(LOG_ALERT,
+                "Failed to grant rabbitmq permissions for amplet2 client %s",
                 username);
         return -1;
     }
@@ -121,7 +148,7 @@ int setup_rabbitmq_user(char *username) {
  * to report our data into - by default it will create our queues as durable
  * with no other arguments.
  */
-int setup_rabbitmq_shovel(char *ampname, char *collector, int port,
+int setup_rabbitmq_shovel(char *ampname, char *local, char *collector, int port,
         char *cacert, char *cert, char *key, char *exchange, char *routingkey) {
 
     char *args[] = { RABBITMQCTL, "set_parameter", "shovel", ampname,
@@ -131,6 +158,7 @@ int setup_rabbitmq_shovel(char *ampname, char *collector, int port,
             ampname, collector);
 
     assert(ampname);
+    assert(local);
     assert(collector);
     assert(port > 0);
     assert(cacert);
@@ -144,7 +172,7 @@ int setup_rabbitmq_shovel(char *ampname, char *collector, int port,
      * own vhost back to the collector server.
      */
     if ( asprintf(&args[4],
-                "{\"src-uri\":\"amqp://%s:%s@localhost/%s\", "
+                "{\"src-uri\":\"amqp://%s:%s@%s/%s\", "
                 "\"src-queue\":\"report\", "
                 "\"dest-uri\":\"amqps://%s:%d"
                 "?cacertfile=%s"
@@ -155,8 +183,8 @@ int setup_rabbitmq_shovel(char *ampname, char *collector, int port,
                 "&auth_mechanism=external\", "
                 "\"dest-exchange\":\"%s\", "
                 "\"dest-exchange-key\":\"%s\"}",
-                ampname, ampname, ampname, collector, port, cacert, cert, key,
-                exchange, routingkey) < 0 ) {
+                ampname, ampname, local, ampname, collector, port, cacert,
+                cert, key, exchange, routingkey) < 0 ) {
         exit(-1);
     }
 

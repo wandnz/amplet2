@@ -4,11 +4,7 @@
 #include <stdint.h>
 #include <unbound.h>
 
-typedef struct amp_ssl_opt {
-    char *cacert;
-    char *key;
-    char *cert;
-} amp_ssl_opt_t;
+#include "ssl.h"
 
 struct amp_global_t {
     char *ampname;
@@ -19,6 +15,7 @@ struct amp_global_t {
     char *sourcev4;
     char *sourcev6;
     int vialocal;
+    char *local;
     char *vhost;
     char *exchange;
     char *routingkey;
@@ -42,6 +39,7 @@ struct amp_global_t {
     int asnsock_fd;
     char **argv;
     int argc;
+    int waitforcert;
 };
 
 struct amp_global_t vars;

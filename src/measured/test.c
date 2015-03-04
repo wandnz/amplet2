@@ -20,6 +20,7 @@
 #include "modules.h"
 #include "global.h" /* hopefully temporary, just to get source iface/address */
 #include "ampresolv.h"
+#include "ssl.h"
 
 
 
@@ -48,7 +49,8 @@ static void run_test(const test_schedule_item_t * const item) {
      * new process inherits exactly the same one and always returns the first
      * element in the sequence
      */
-    srandom(time(NULL));
+    srandom(time(NULL) + getpid());
+    reseed_openssl_rng();
 
     test = amp_tests[item->test_id];
     argv[argc++] = test->name;

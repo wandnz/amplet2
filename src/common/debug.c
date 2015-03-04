@@ -38,7 +38,7 @@ int log_level_override = 0;
 void Log(int priority, const char *fmt, ...)
 {
     va_list ap;
-    char buffer[513];
+    char buffer[1025];
     char *prefix;
     time_t ts;
     char date[32];

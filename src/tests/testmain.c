@@ -179,13 +179,24 @@ int main(int argc, char *argv[]) {
      * initialise SSL).
      */
     if ( test_info->server_callback != NULL && count > 0 ) {
-        /* these need values for standalone tests to work with remote servers */
-        vars.amqp_ssl.cacert = AMQP_CACERT_FILE;
-        vars.amqp_ssl.cert = AMQP_CERT_FILE;
-        vars.amqp_ssl.key = AMQP_KEY_FILE;
+        /*
+         * These need values for standalone tests to work with remote servers,
+         * but there aren't really any good default values we can use. The
+         * current values give us a way to make it work if we need to, but
+         * it's not very nice.
+         * TODO either parse the config file, or require them to be set from
+         * the command line?
+         */
+        vars.amqp_ssl.keys_dir = AMP_KEYS_DIR "/default";
+        vars.collector = "default";
         vars.control_port = "8869"; /* XXX */
-        if ( (ssl_ctx = initialise_ssl()) == NULL ) {
+
+        if ( initialise_ssl(&vars.amqp_ssl, vars.collector) < 0 ) {
             Log(LOG_ALERT, "Failed to initialise SSL, aborting");
+            return -1;
+        }
+        if ( (ssl_ctx = initialise_ssl_context(&vars.amqp_ssl)) == NULL ) {
+            Log(LOG_ALERT, "Failed to initialise SSL context, aborting");
             return -1;
         }
     }

@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.67])
-AC_INIT([amplet2], [0.3.9], [amp@wand.net.nz])
+AC_INIT([amplet2], [0.4.0], [amp@wand.net.nz])
 #AC_CONFIG_SRCDIR([src/measured/measured.c])
 AM_INIT_AUTOMAKE
 AC_CONFIG_HEADERS([config.h])
@@ -242,7 +242,7 @@ if test x"$want_http_test" = xtrue; then
 fi
 
 # Set default CFLAGS including the AMP_CONFIG_DIR and AMP_TEST_DIR
-AC_SUBST([AM_CFLAGS], ["-rdynamic -g -Wall -W -DAMP_CONFIG_DIR=\\\"\$(sysconfdir)/\$(PACKAGE)\\\" -DAMP_TEST_DIRECTORY=\\\"\$(libdir)/\$(PACKAGE)/tests\\\" -DAMP_LOG_DIR=\\\"\$(localstatedir)/log/\\\""])
+AC_SUBST([AM_CFLAGS], ["-rdynamic -g -Wall -W -D_GNU_SOURCE -DAMP_CONFIG_DIR=\\\"\$(sysconfdir)/\$(PACKAGE)\\\" -DAMP_TEST_DIRECTORY=\\\"\$(libdir)/\$(PACKAGE)/tests\\\" -DAMP_LOG_DIR=\\\"\$(localstatedir)/log/\\\""])
 
 
 AC_CONFIG_FILES([Makefile

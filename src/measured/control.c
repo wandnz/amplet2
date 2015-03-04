@@ -282,6 +282,7 @@ static void control_read_callback(wand_event_handler_t *ev_hdl, int fd,
                 strerror(errno));
         return;
     } else if ( pid == 0 ) {
+        reseed_openssl_rng();
         process_control_message(fd, test);
         assert(0);
     }

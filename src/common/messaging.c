@@ -14,6 +14,16 @@
 #include "global.h"
 
 
+
+/*
+ * TODO: do we need to call amqp_set_initialize_ssl_library(0) to prevent
+ * rabbitmq-c from initialising SSL? We already do it, so probably not.
+ * required. This doesn't deal with our properly configured SSL context though,
+ * so we won't be using the proper ciphers etc? But does that matter if we
+ * configure the server to only accept the ones we want? Or do we want to
+ * apply all of our settings to the context stored in the amqp_ssl_socket_t?
+ */
+
 /*
  * Create a connection to the local broker that measured can use to report
  * data for all tests. Each test will use a different channel within this
@@ -23,7 +33,7 @@
  */
 int connect_to_broker() {
     amqp_socket_t *sock;
-    char *collector = vars.vialocal ? AMQP_SERVER : vars.collector;
+    char *collector = vars.vialocal ? vars.local : vars.collector;
     int port = vars.vialocal ? AMQP_PORT : vars.port;
     char *vhost = vars.vialocal ? vars.ampname : vars.vhost;
 
