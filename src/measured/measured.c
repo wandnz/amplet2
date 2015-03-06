@@ -609,7 +609,7 @@ int main(int argc, char *argv[]) {
     openlog(PACKAGE, LOG_PID, LOG_USER);
 #endif
 
-    Log(LOG_INFO, "amplet2 starting");
+    Log(LOG_INFO, "%s starting", PACKAGE_STRING);
 
     if ( !config_file ) {
 	config_file = AMP_CLIENT_CONFIG_DIR "/default.conf";
