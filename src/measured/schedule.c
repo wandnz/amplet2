@@ -685,7 +685,9 @@ static char **populate_target_lists(test_schedule_item_t *test,
              * given family, up to the maximum count.
              */
             for ( addr=addresses->addr; addr != NULL; addr=addr->ai_next ) {
-                if ( (test->dest_count + test->resolve_count) >= max_targets ||
+                if ( (max_targets > 0 &&
+                        (test->dest_count + test->resolve_count) >= max_targets)
+                    ||
                     (count > 0 &&
                         (test->dest_count + test->resolve_count) >= count) ) {
                     break;
