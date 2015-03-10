@@ -290,6 +290,7 @@ static int parse_config(char *filename, struct amp_global_t *vars) {
     cfg_opt_t opt_collector[] = {
         CFG_BOOL("vialocal", cfg_true, CFGF_NONE),
         CFG_STR("local", AMQP_SERVER, CFGF_NONE),
+        CFG_BOOL("configrabbit", cfg_true, CFGF_NONE),
         CFG_STR("address", AMQP_SERVER, CFGF_NONE),
         CFG_INT("port", AMQP_PORT, CFGF_NONE),
         CFG_STR("vhost", AMQP_VHOST, CFGF_NONE),
@@ -415,6 +416,7 @@ static int parse_config(char *filename, struct amp_global_t *vars) {
         cfg_sub = cfg_getnsec(cfg, "collector", i);
         vars->vialocal = cfg_getbool(cfg_sub, "vialocal");
         vars->local = strdup(cfg_getstr(cfg_sub, "local"));
+        vars->configrabbit = cfg_getbool(cfg_sub, "configrabbit");
         vars->collector = strdup(cfg_getstr(cfg_sub, "address"));
         vars->port = cfg_getint(cfg_sub, "port");
         vars->vhost = strdup(cfg_getstr(cfg_sub, "vhost"));
@@ -658,7 +660,7 @@ int main(int argc, char *argv[]) {
      * falls over somewhat if certificate fetching is going on (we need the
      * certs now, and exiting after configuring rabbit isn't helpful).
      */
-    if ( vars.vialocal ) {
+    if ( vars.vialocal && vars.configrabbit ) {
         Log(LOG_DEBUG, "Configuring rabbitmq for amplet2 client %s",
                 vars.ampname);
         /*
