@@ -646,7 +646,7 @@ int main(int argc, char *argv[]) {
      * Make sure certs are valid and loaded. Do not proceed if there are any
      * problems with this.
      */
-    if ( vars.ssl && (get_certificate(&vars.amqp_ssl, vars.ampname,
+    if ( (get_certificate(&vars.amqp_ssl, vars.ampname,
                     vars.collector, vars.waitforcert) != 0 ||
                 (ssl_ctx = initialise_ssl_context(&vars.amqp_ssl)) == NULL) ) {
         Log(LOG_ALERT, "Failed to load SSL keys/certificates, aborting");
