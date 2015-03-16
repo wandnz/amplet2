@@ -1,3 +1,19 @@
+amplet2 (0.4.1-1) unstable; urgency=low
+
+  * Always initialise SSL, even if not needed for reporting to rabbitmq.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Fri, 13 Mar 2015 11:13:25 +1300
+
+amplet2 (0.4.0-1) unstable; urgency=low
+
+  * Add ability to generate keys and fetch signed certificates if not present.
+  * Fix HTTP test to deal with HTTPS URLs.
+  * Speed up random packet generation in throughput test by using /dev/urandom.
+  * Always configure rabbitmq if with a local broker (unless configured not to).
+  * Fix the nametable to properly use names as targets.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Tue, 10 Mar 2015 17:31:28 +1300
+
 amplet2 (0.3.9-1) unstable; urgency=low
 
   * Fix rescheduling tests when slightly early around test period boundaries.

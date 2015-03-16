@@ -1,12 +1,12 @@
 Name: amplet2
-Version: 0.3.9
+Version: 0.4.1
 Release: 1%{?dist}
 Summary: AMP Network Performance Measurement Suite - Client Tools
 
 Group: Applications/Internet
 License: AMP
 URL: http://research.wand.net.nz/software/amp.php
-Source0: http://research.wand.net.nz/software/amp/amplet2-0.3.9.tar.gz
+Source0: http://research.wand.net.nz/software/amp/amplet2-0.4.1.tar.gz
 Patch0: amplet2-client-init.patch
 Patch1: amplet2-client-default.patch
 Patch2: amplet2-client-makefile.patch
@@ -193,6 +193,16 @@ fi
 
 
 %changelog
+* Fri Mar 13 2015 Brendon Jones <brendonj@waikato.ac.nz> 0.4.1-1
+- Always initialise SSL, even if not needed for reporting to rabbitmq.
+
+* Tue Mar 10 2015 Brendon Jones <brendonj@waikato.ac.nz> 0.4.0-1
+- Add ability to generate keys and fetch signed certificates if not present.
+- Fix HTTP test to deal with HTTPS URLs.
+- Speed up random packet generation in throughput test by using /dev/urandom.
+- Always configure rabbitmq if with a local broker (unless configured not to).
+- Fix the nametable to properly use names as targets.
+
 * Wed Feb 11 2015 Brendon Jones <brendonj@waikato.ac.nz> 0.3.9-1
 - Fix rescheduling tests when run slightly early around test period boundaries.
 - Fix a possible infinite loop in the tcpping test.
