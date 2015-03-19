@@ -153,6 +153,7 @@ static void process_control_message(int fd, test_t *test) {
      * related - if we can't get the hostname we won't be able to validate
      * it anyway.
      */
+#if 0
     if ( getpeername(fd, (struct sockaddr *)&peer, &addrlen) < 0 ) {
         Log(LOG_WARNING, "Failed to get peer");
         close(fd);
@@ -167,6 +168,7 @@ static void process_control_message(int fd, test_t *test) {
     }
 
     Log(LOG_DEBUG, "Remote host is named %s", hostname);
+#endif
 
     /* Open up the ssl channel and validate the cert against our CA cert */
     /* TODO CRL or OCSP to deal with revocation of certificates */
