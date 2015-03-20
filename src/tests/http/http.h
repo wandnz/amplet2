@@ -37,6 +37,7 @@ struct opt_t {
     int pipelining;                            /* use pipelining? */
     int pipelining_maxrequests;                 /* max outstanding requests */
     int caching;                               /* allow cached content */
+    int parse;                                  /* extract objects from page */
     int pipe_size_before_skip;
     char *device;                               /* source device name */
     char *sourcev4;                             /* source v4 address */

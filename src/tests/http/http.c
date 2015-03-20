@@ -713,7 +713,7 @@ CURL *pipeline_next_object(struct server_stats_t *server) {
                 CURL_IPRESOLVE_WHATEVER);
     }
 
-    if ( object->parse ) {
+    if ( options.parse && object->parse ) {
         /* this is the main page, parse the result for more objects */
         curl_easy_setopt(object->handle, CURLOPT_WRITEFUNCTION, parse_response);
     } else {
@@ -1205,12 +1205,13 @@ int run_http(int argc, char *argv[], __attribute__((unused))int count,
     options.pipelining = 0;
     options.pipelining_maxrequests = 4;
     options.caching = 0;
+    options.parse = 1;
     options.pipe_size_before_skip = 2;
     options.device = NULL;
     options.sourcev4 = NULL;
     options.sourcev6 = NULL;
 
-    while ( (opt = getopt_long(argc, argv, "u:km:s:o:pr:cz:hvI:4:6:",
+    while ( (opt = getopt_long(argc, argv, "u:km:s:o:pr:cz:hvI:4:6:d",
                     long_options, NULL)) != -1 ) {
 	switch ( opt ) {
             case 'I': options.device = optarg; break;
@@ -1236,6 +1237,7 @@ int run_http(int argc, char *argv[], __attribute__((unused))int count,
                       break;
             case 'r': options.pipelining_maxrequests = atoi(optarg); break;
             case 'c': options.caching = 1; break;
+            case 'd': options.parse = 0; break;
             case 'z': options.pipe_size_before_skip = atoi(optarg); break;
             case 'v': version(argv[0]); exit(0);
 	    case 'h':
