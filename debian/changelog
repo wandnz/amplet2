@@ -1,3 +1,9 @@
+amplet2 (0.4.2-1) unstable; urgency=low
+
+  * Don't do address to name translation when accepting on control socket.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Fri, 18 Mar 2015 14:40:26 +1300
+
 amplet2 (0.4.1-1) unstable; urgency=low
 
   * Always initialise SSL, even if not needed for reporting to rabbitmq.

@@ -1,12 +1,12 @@
 Name: amplet2
-Version: 0.4.1
+Version: 0.4.2
 Release: 1%{?dist}
 Summary: AMP Network Performance Measurement Suite - Client Tools
 
 Group: Applications/Internet
 License: AMP
 URL: http://research.wand.net.nz/software/amp.php
-Source0: http://research.wand.net.nz/software/amp/amplet2-0.4.1.tar.gz
+Source0: http://research.wand.net.nz/software/amp/amplet2-0.4.2.tar.gz
 Patch0: amplet2-client-init.patch
 Patch1: amplet2-client-default.patch
 Patch2: amplet2-client-makefile.patch
@@ -193,6 +193,9 @@ fi
 
 
 %changelog
+* Wed Mar 18 2015 Brendon Jones <brendonj@waikato.ac.nz> 0.4.2-1
+- Don't do address to name translation when accepting on control socket.
+
 * Fri Mar 13 2015 Brendon Jones <brendonj@waikato.ac.nz> 0.4.1-1
 - Always initialise SSL, even if not needed for reporting to rabbitmq.
 
