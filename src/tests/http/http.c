@@ -872,6 +872,17 @@ static void check_messages(CURLM *multi, int *running_handles, int pipeline) {
             Log(LOG_WARNING, "R: %d - %s <%s> (%fb)\n", msg->data.result,
                     curl_easy_strerror(msg->data.result), url, bytes);
             //TODO should we break out of loop or anything here?
+            /*
+             * If we fail to resolve the first host then don't record an
+             * object. Any test with one server and zero objects won't be
+             * reported (similar to other tests when they fail to resolve
+             * a destination).
+             */
+            if ( msg->data.result == CURLE_COULDNT_RESOLVE_HOST &&
+                    server_list && server_list->next == NULL &&
+                    server_list->finished == NULL ) {
+                continue;
+            }
         }
 
         object = save_stats(msg->easy_handle, pipeline);
@@ -1249,7 +1260,11 @@ int run_http(int argc, char *argv[], __attribute__((unused))int count,
     }
 
     /* send report */
-    report_results(&global.start, server_list, &options);
+    if ( global.servers > 0 && global.objects > 0 ) {
+        report_results(&global.start, server_list, &options);
+    } else {
+        Log(LOG_DEBUG, "Didn't attempt to fetch any objects, no results");
+    }
 
     /* TODO, free everything */
     //free(server_list);
