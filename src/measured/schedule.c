@@ -488,7 +488,7 @@ static int compare_test_items(test_schedule_item_t *a, test_schedule_item_t *b){
     if ( a->start != b->start )
 	return 0;
 
-    if ( b->end != b->end )
+    if ( a->end != b->end )
 	return 0;
 
     if ( a->params != NULL && b->params != NULL ) {
