@@ -292,6 +292,7 @@ static void split_url(char *orig_url, char *server, char *path, int set) {
         /* schema might point to base_schema, so check before freeing it */
         if ( base_scheme && base_scheme != scheme ) {
             free(base_scheme);
+            base_scheme = NULL;
         }
 
         base_server = strdup(server);
