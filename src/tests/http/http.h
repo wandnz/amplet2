@@ -60,7 +60,7 @@ struct cache_headers_t {
         uint8_t proxy_revalidate:1;
         uint8_t unused:1;
     } flags;
-} __attribute((packed));
+} __attribute__((packed));
 
 struct globalStats_t {
     struct timeval start;
