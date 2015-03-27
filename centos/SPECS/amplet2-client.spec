@@ -1,12 +1,12 @@
 Name: amplet2
-Version: 0.4.2
+Version: 0.4.3
 Release: 1%{?dist}
 Summary: AMP Network Performance Measurement Suite - Client Tools
 
 Group: Applications/Internet
 License: AMP
 URL: http://research.wand.net.nz/software/amp.php
-Source0: http://research.wand.net.nz/software/amp/amplet2-0.4.2.tar.gz
+Source0: http://research.wand.net.nz/software/amp/amplet2-0.4.3.tar.gz
 Patch0: amplet2-client-init.patch
 Patch1: amplet2-client-default.patch
 Patch2: amplet2-client-makefile.patch
@@ -193,6 +193,11 @@ fi
 
 
 %changelog
+* Fri Mar 27 2015 Brendon Jones <brendonj@waikato.ac.nz> 0.4.3-1
+- Don't report HTTP test data if name resolution fails (same as other tests).
+- Add HTTP test option to suppress parsing of initial object.
+- Fix comparison of test schedule objects to properly check end time.
+
 * Wed Mar 18 2015 Brendon Jones <brendonj@waikato.ac.nz> 0.4.2-1
 - Don't do address to name translation when accepting on control socket.
 

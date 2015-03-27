@@ -1,3 +1,11 @@
+amplet2 (0.4.3-1) unstable; urgency=low
+
+  * Don't report HTTP test data if name resolution fails (same as other tests).
+  * Add HTTP test option to suppress parsing of initial object.
+  * Fix comparison of test schedule objects to properly check end time.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Fri, 27 Mar 2015 11:11:11 +1300
+
 amplet2 (0.4.2-1) unstable; urgency=low
 
   * Don't do address to name translation when accepting on control socket.
