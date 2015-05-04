@@ -47,6 +47,7 @@ static struct option long_options[] = {
     {"pipe-size", required_argument, 0, 'z'},
     {"ipv4", required_argument, 0, '4'},
     {"ipv6", required_argument, 0, '6'},
+    {"sslversion", required_argument, 0, 'S'},
     {NULL, 0, 0, 0}
 };
 
@@ -734,6 +735,7 @@ CURL *pipeline_next_object(struct server_stats_t *server) {
     curl_easy_setopt(object->handle, CURLOPT_ENCODING, "gzip");
     curl_easy_setopt(object->handle, CURLOPT_URL, object->url);
     curl_easy_setopt(object->handle, CURLOPT_USERAGENT, "AMP HTTP test agent");
+    curl_easy_setopt(object->handle, CURLOPT_SSLVERSION, options.sslversion);
 
     if ( server->multi[pipeline] == 0 ) {
         if ( !(server->multi[pipeline] = curl_multi_init()) ) {
@@ -1146,6 +1148,19 @@ static void configure_global_max_requests(struct opt_t *opt) {
     }
 }
 
+static void set_ssl_version(long *sslv, char *optarg) {
+
+    if (strncmp(optarg, "sslv3", 5) == 0) {
+            Log(LOG_DEBUG, "Forcing use of SSLv3\n");
+            *sslv = CURL_SSLVERSION_SSLv3;
+    } else if (strncmp(optarg, "tlsv1", 5) == 0) {
+            Log(LOG_DEBUG, "Forcing use of TLSv1\n");
+            *sslv = CURL_SSLVERSION_TLSv1;
+    } else {
+            Log(LOG_WARNING, "SSL version '%s' not recognised. Reverting to default SSL version\n", optarg);
+            *sslv = CURL_SSLVERSION_DEFAULT;
+    }
+}
 
 /*
  *
@@ -1166,6 +1181,7 @@ static void usage(char *prog) {
     printf("  -r <max>\tMaximum number of pipelined requests (def:4)\n");
     printf("  -z <max>\tOutstanding pipelined requests before using new pipe (def:2)\n");
     printf("  -c\t\tAllow cached content (def:false)\n");
+    printf("  -S <version>\tForce SSL version (valid options are sslv3, tlsv1)\n");
 }
 
 
@@ -1211,8 +1227,9 @@ int run_http(int argc, char *argv[], __attribute__((unused))int count,
     options.device = NULL;
     options.sourcev4 = NULL;
     options.sourcev6 = NULL;
+    options.sslversion = CURL_SSLVERSION_DEFAULT;
 
-    while ( (opt = getopt_long(argc, argv, "u:km:s:o:pr:cz:hvI:4:6:d",
+    while ( (opt = getopt_long(argc, argv, "u:km:s:o:pr:cz:hvI:4:6:dS:",
                     long_options, NULL)) != -1 ) {
 	switch ( opt ) {
             case 'I': options.device = optarg; break;
@@ -1241,6 +1258,7 @@ int run_http(int argc, char *argv[], __attribute__((unused))int count,
             case 'd': options.parse = 0; break;
             case 'z': options.pipe_size_before_skip = atoi(optarg); break;
             case 'v': version(argv[0]); exit(0);
+            case 'S': set_ssl_version(&options.sslversion, optarg); break;
 	    case 'h':
 	    default: usage(argv[0]); exit(0);
 	};
