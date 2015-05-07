@@ -1148,19 +1148,39 @@ static void configure_global_max_requests(struct opt_t *opt) {
     }
 }
 
-static void set_ssl_version(long *sslv, char *optarg) {
 
-    if (strncmp(optarg, "sslv3", 5) == 0) {
-            Log(LOG_DEBUG, "Forcing use of SSLv3\n");
-            *sslv = CURL_SSLVERSION_SSLv3;
-    } else if (strncmp(optarg, "tlsv1", 5) == 0) {
-            Log(LOG_DEBUG, "Forcing use of TLSv1\n");
-            *sslv = CURL_SSLVERSION_TLSv1;
+
+/*
+ *
+ */
+static void set_ssl_version(long *sslv, char *optarg) {
+    if ( strncmp(optarg, "sslv3", 5) == 0 ) {
+        Log(LOG_DEBUG, "Forcing use of SSLv3\n");
+        *sslv = CURL_SSLVERSION_SSLv3;
+    } else if ( strncmp(optarg, "tlsv1", 5) == 0 ) {
+        Log(LOG_DEBUG, "Forcing use of TLSv1\n");
+        *sslv = CURL_SSLVERSION_TLSv1;
+#if LIBCURL_VERSION_NUM >= 0x072200
+    /* Targeting specific TLS1.x versions was added in libcurl 7.34.0 */
+    } else if ( strncmp(optarg, "tlsv1.0", 7) == 0 ) {
+        Log(LOG_DEBUG, "Forcing use of TLSv1.0\n");
+        *sslv = CURL_SSLVERSION_TLSv1_0;
+    } else if ( strncmp(optarg, "tlsv1.1", 7) == 0 ) {
+        Log(LOG_DEBUG, "Forcing use of TLSv1.1\n");
+        *sslv = CURL_SSLVERSION_TLSv1_1;
+    } else if ( strncmp(optarg, "tlsv1.2", 7) == 0 ) {
+        Log(LOG_DEBUG, "Forcing use of TLSv1.2\n");
+        *sslv = CURL_SSLVERSION_TLSv1_2;
+#endif
     } else {
-            Log(LOG_WARNING, "SSL version '%s' not recognised. Reverting to default SSL version\n", optarg);
-            *sslv = CURL_SSLVERSION_DEFAULT;
+        Log(LOG_WARNING,
+                "SSL version '%s' not recognised. Using default SSL version\n",
+                optarg);
+        *sslv = CURL_SSLVERSION_DEFAULT;
     }
 }
+
+
 
 /*
  *
@@ -1181,6 +1201,7 @@ static void usage(char *prog) {
     printf("  -r <max>\tMaximum number of pipelined requests (def:4)\n");
     printf("  -z <max>\tOutstanding pipelined requests before using new pipe (def:2)\n");
     printf("  -c\t\tAllow cached content (def:false)\n");
+    /* TODO libcurl 7.34.0 or newer opens up other ssl version options */
     printf("  -S <version>\tForce SSL version (valid options are sslv3, tlsv1)\n");
 }
 
