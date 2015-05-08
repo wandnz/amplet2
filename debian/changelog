@@ -1,3 +1,10 @@
+amplet2 (0.4.4-1) unstable; urgency=low
+
+  * Add runtime option to HTTP test to force SSL version.
+  * Add config option to amplet2 client to set minimum inter-packet delay.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Fri,  8 May 2015 13:37:11 +1200
+
 amplet2 (0.4.3-1) unstable; urgency=low
 
   * Don't report HTTP test data if name resolution fails (same as other tests).
