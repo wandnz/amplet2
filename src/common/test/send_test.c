@@ -6,6 +6,7 @@
 #include <assert.h>
 
 #include "testlib.h"
+#include "global.h" /* required just for inter packet delay */
 
 #define TEST_PACKETS 10000
 #define MAX_PACKET_LEN 512
@@ -29,6 +30,12 @@ int main(void) {
     int delay, result, length, i;
     struct timeval start, end;
     uint64_t duration;
+
+    /*
+     * Set this manually to the default value as we have skipped the normal
+     * configuration process
+     */
+    vars.inter_packet_delay = MIN_INTER_PACKET_DELAY;
 
     /*
      * use a pair of unix sockets to test sending data without relying on

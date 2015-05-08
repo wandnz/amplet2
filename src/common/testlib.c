@@ -237,8 +237,8 @@ int delay_send_packet(int sock, char *packet, int size, struct addrinfo *dest,
     gettimeofday(&now, NULL);
 
     /* determine how much time is left to wait until the minimum delay */
-    if ( last.tv_sec != 0 && DIFF_TV_US(now, last) < MIN_INTER_PACKET_DELAY ) {
-	delay = MIN_INTER_PACKET_DELAY - DIFF_TV_US(now, last);
+    if ( last.tv_sec != 0 && DIFF_TV_US(now, last) < vars.inter_packet_delay ) {
+	delay = vars.inter_packet_delay - DIFF_TV_US(now, last);
     } else {
 	delay = 0;
 	last.tv_sec = now.tv_sec;

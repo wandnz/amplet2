@@ -14,6 +14,7 @@
 #include "global.h" /* just for temporary ssl testing stuff */
 #include "messaging.h" /* just for temporary ssl testing stuff */
 #include "ampresolv.h"
+#include "testlib.h"
 
 
 
@@ -93,6 +94,10 @@ int main(int argc, char *argv[]) {
 
     log_flag_index = 0;
     ns_flag_index = 0;
+
+    /* set this manually, normally done when parsing config */
+    /* TODO allow setting from the command line */
+    vars.inter_packet_delay = MIN_INTER_PACKET_DELAY;
 
     /*
      * deal with command line arguments - split them into actual arguments

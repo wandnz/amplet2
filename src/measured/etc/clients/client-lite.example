@@ -18,6 +18,11 @@
 # Source IPv6 address that all tests should bind to when sending test data
 #ipv6 = 2001:dead:beef::1
 
+# Minimum gap (in microseconds) between sending probe packets for most tests.
+# By default this is set to 100us which may be too short for some connections
+# with slower upload speeds. We are currently using 1000us for ADSL.
+#packetdelay = 100
+
 # Override the default nameservers in /etc/resolv.conf and use these ones
 # instead. If you specify more than 3, only the first 3 valid addresses
 # will be used.

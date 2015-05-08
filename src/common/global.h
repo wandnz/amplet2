@@ -41,6 +41,7 @@ struct amp_global_t {
     char **argv;
     int argc;
     int waitforcert;
+    uint32_t inter_packet_delay;
 };
 
 struct amp_global_t vars;

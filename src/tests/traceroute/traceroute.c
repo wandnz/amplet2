@@ -1252,7 +1252,7 @@ static void send_probe_callback(wand_event_handler_t *ev_hdl, void *data) {
 
     /* schedule the next probe to be sent */
     if ( probelist->ready != NULL ) {
-        wand_add_timer(ev_hdl, 0, MIN_INTER_PACKET_DELAY, data,
+        wand_add_timer(ev_hdl, 0, vars.inter_packet_delay, data,
                 send_probe_callback);
     }
 }
@@ -1276,7 +1276,7 @@ static void recv_probe4_callback(wand_event_handler_t *ev_hdl,
     gettimeofday(&now, NULL);
     if ( process_packet(AF_INET, (struct sockaddr*)&addr, packet, now,
                 data) > 0 ) {
-        wand_add_timer(ev_hdl, 0, MIN_INTER_PACKET_DELAY, data,
+        wand_add_timer(ev_hdl, 0, vars.inter_packet_delay, data,
                 send_probe_callback);
     }
 
@@ -1311,7 +1311,7 @@ static void recv_probe6_callback(wand_event_handler_t *ev_hdl,
     /* TODO get a full ipv6 header so we can treat them the same? */
     if ( process_packet(AF_INET6, (struct sockaddr*)&addr, packet, now,
                 data) > 0 ) {
-        wand_add_timer(ev_hdl, 0, MIN_INTER_PACKET_DELAY, data,
+        wand_add_timer(ev_hdl, 0, vars.inter_packet_delay, data,
                 send_probe_callback);
     }
 
@@ -1357,7 +1357,7 @@ static void probe_timeout_callback(wand_event_handler_t *ev_hdl, void *data) {
 
         if ( append_ready_item(probelist, item) ) {
             /* XXX in 100usec, or just do it now? or always have timer firing */
-            wand_add_timer(ev_hdl, 0, MIN_INTER_PACKET_DELAY, data,
+            wand_add_timer(ev_hdl, 0, vars.inter_packet_delay, data,
                     send_probe_callback);
         }
     } else {
@@ -1368,7 +1368,7 @@ static void probe_timeout_callback(wand_event_handler_t *ev_hdl, void *data) {
         probelist->done_count++;
 
         if ( enqueue_next_pending(probelist) ) {
-            wand_add_timer(ev_hdl, 0, MIN_INTER_PACKET_DELAY, data,
+            wand_add_timer(ev_hdl, 0, vars.inter_packet_delay, data,
                     send_probe_callback);
         }
     }
@@ -1618,7 +1618,7 @@ int run_traceroute(int argc, char *argv[], int count, struct addrinfo **dests) {
             recv_probe6_callback);
 
     /* set up timer to send packets */
-    wand_add_timer(ev_hdl, 0, MIN_INTER_PACKET_DELAY, &probelist,
+    wand_add_timer(ev_hdl, 0, vars.inter_packet_delay, &probelist,
             send_probe_callback);
 
     wand_event_run(ev_hdl);

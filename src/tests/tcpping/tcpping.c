@@ -19,6 +19,7 @@
 #include <signal.h>
 
 #include "config.h"
+#include "global.h"
 #include "testlib.h"
 #include "tcpping.h"
 #include "pcapcapture.h"
@@ -644,8 +645,8 @@ nextdest:
         tp->nextpackettimer = NULL;
     } else {
         tp->nextpackettimer = wand_add_timer(ev_hdl,
-                (int) (MIN_INTER_PACKET_DELAY / 1000000),
-                (MIN_INTER_PACKET_DELAY % 1000000),
+                (int) (vars.inter_packet_delay / 1000000),
+                (vars.inter_packet_delay % 1000000),
                 tp, send_packet);
     }
 

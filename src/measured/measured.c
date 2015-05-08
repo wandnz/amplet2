@@ -280,6 +280,25 @@ static int callback_verify_loglevel(cfg_t *cfg, cfg_opt_t *opt,
 
 
 /*
+ * Ensure that any value given for the minimum inter-packet delay is a
+ * vaguely sensible value.
+ */
+static int callback_verify_packet_delay(cfg_t *cfg, cfg_opt_t *opt) {
+    int value = cfg_opt_getnint(opt, cfg_opt_size(opt) - 1);
+
+    /* force the inter packet delay to be between 0 and 1 second */
+    if ( value < 0 || value > 1000000 ) {
+        cfg_error(cfg, "Invalid value for option %s: %d\n"
+                "Delay must be between 0 and 1000000 microseconds\n",
+                opt->name, value);
+        return -1;
+    }
+    return 0;
+}
+
+
+
+/*
  *
  */
 static int parse_config(char *filename, struct amp_global_t *vars) {
@@ -330,6 +349,7 @@ static int parse_config(char *filename, struct amp_global_t *vars) {
 	CFG_STR("interface", NULL, CFGF_NONE),
 	CFG_STR("ipv4", NULL, CFGF_NONE),
 	CFG_STR("ipv6", NULL, CFGF_NONE),
+        CFG_INT("packetdelay", MIN_INTER_PACKET_DELAY, CFGF_NONE),
         CFG_INT_CB("loglevel", LOG_INFO, CFGF_NONE, &callback_verify_loglevel),
         CFG_STR_LIST("nameservers", NULL, CFGF_NONE),
 	CFG_SEC("collector", opt_collector, CFGF_NONE),
@@ -341,6 +361,8 @@ static int parse_config(char *filename, struct amp_global_t *vars) {
     Log(LOG_INFO, "Parsing configuration file %s\n", filename);
 
     cfg = cfg_init(measured_opts, CFGF_NONE);
+    cfg_set_validate_func(cfg, "packetdelay", callback_verify_packet_delay);
+
     ret = cfg_parse(cfg, filename);
 
     if ( ret == CFG_FILE_ERROR ) {
@@ -390,6 +412,9 @@ static int parse_config(char *filename, struct amp_global_t *vars) {
     if ( vars->sourcev6 == NULL && cfg_getstr(cfg, "ipv6") != NULL ) {
         vars->sourcev6 = strdup(cfg_getstr(cfg, "ipv6"));
     }
+
+    /* set the minimum microsecond gap between sending test probes */
+    vars->inter_packet_delay = cfg_getint(cfg, "packetdelay");
 
     /* should we override /etc/resolv.conf and use our own nameservers */
     /* XXX rework the logic of this portion to repeat less code */
