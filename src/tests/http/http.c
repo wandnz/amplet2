@@ -128,7 +128,7 @@ static int report_server_results(struct http_report_server_t *server,
     server->end.tv_sec = server_info->end.tv_sec;
     server->end.tv_usec = server_info->end.tv_usec;
     server->bytes = server_info->bytes;
-    server->objects = server_info->objects;
+    server->objects = server_info->objects + server_info->failed_objects;
 
     for ( object_info = server_info->finished; object_info != NULL;
             object_info = object_info->next ) {
@@ -140,8 +140,8 @@ static int report_server_results(struct http_report_server_t *server,
         reported_objects++;
     }
 
-    assert(reported_objects == server_info->objects);
-    return server_info->objects;
+    assert(reported_objects == server->objects);
+    return server->objects;
 }
 
 
@@ -164,7 +164,8 @@ static void report_results(struct timeval *start_time,
     /* allocate space for all our results - XXX could this get too large? */
     len = sizeof(struct http_report_header_t) +
 	(global.servers * sizeof(struct http_report_server_t)) +
-        (global.objects * sizeof(struct http_report_object_t));
+        ((global.objects + global.failed_objects) *
+         sizeof(struct http_report_object_t));
     buffer = malloc(len);
     memset(buffer, 0, len);
 
@@ -189,7 +190,7 @@ static void report_results(struct timeval *start_time,
     }
 
     assert(global.servers == reported_servers);
-    assert(global.objects == reported_objects);
+    assert((global.objects + global.failed_objects) == reported_objects);
 
     report(AMP_TEST_HTTP, (uint64_t)start_time->tv_sec, (void*)buffer, len);
     free(buffer);
@@ -804,14 +805,34 @@ static struct object_stats_t *save_stats(CURL *handle, int pipeline) {
     curl_easy_getinfo(handle, CURLINFO_NUM_CONNECTS, &connect_count);
     curl_easy_getinfo(handle, CURLINFO_RESPONSE_CODE, &code);
 
-    global.bytes += bytes;
-    global.objects++;
-    server->bytes += bytes;
-    server->objects++;
+    /* XXX if the server never returned a response (couldn't resolve or it
+     * timed out) then we are going to ignore this object in the global stats
+     * because otherwise we get object fetch durations that are based on the
+     * arbitrary timeouts we have set in curl. THIS IS STILL MISLEADING but
+     * works well enough with nntsc, which currently only stores global stats
+     * to make some basic graphs.
+     *
+     * It looks like the correct approach will be to store counts of both
+     * successful and failed object fetches, as well as maybe the times of
+     * both the last successful and last failed fetches. This information can
+     * be added to the tooltips (or possibly shown directly on the graph?) so
+     * that it is obvious when a result is unusual because of failed fetches.
+     * This requires updating the protocol/ampsave, which is why we don't want
+     * to do it just now.
+     */
     server->end.tv_sec = end.tv_sec;
     server->end.tv_usec = end.tv_usec;
-    global.end.tv_sec = end.tv_sec;
-    global.end.tv_usec = end.tv_usec;
+    if ( code > 0 ) {
+        global.bytes += bytes;
+        global.objects++;
+        server->bytes += bytes;
+        server->objects++;
+        global.end.tv_sec = end.tv_sec;
+        global.end.tv_usec = end.tv_usec;
+    } else {
+        global.failed_objects++;
+        server->failed_objects++;
+    }
 
     /* find object in queue */
     for ( i = 0; i < server->num_pipelines; i++ ) {

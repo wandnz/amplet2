@@ -69,6 +69,7 @@ struct globalStats_t {
     uint32_t bytes;
     uint32_t servers;
     uint32_t objects;
+    uint32_t failed_objects;
 } global;//XXX move elsewhere?
 
 /* TODO can these stats structs be reconciled with the report ones? */
@@ -79,6 +80,7 @@ struct server_stats_t {
     struct timeval end;
     uint32_t bytes;
     uint32_t objects;
+    uint32_t failed_objects;
     uint32_t currentPipe;
     uint32_t pipelining_maxrequests;
     CURLM **multi;
