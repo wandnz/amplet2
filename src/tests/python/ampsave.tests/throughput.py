@@ -100,9 +100,9 @@ def get_data(data):
 
         # Convert direction enum values into more descriptive strings
         if direction == 1:
-            dirstr = "out"
-        elif direction == 2:
             dirstr = "in"
+        elif direction == 2:
+            dirstr = "out"
         else:
             # XXX Should we actually be getting these other values?
             dirstr = "unknown"
