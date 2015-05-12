@@ -1,3 +1,17 @@
+amplet2 (0.4.6-1) unstable; urgency=low
+
+  * Don't update HTTP endtime after cleaning up - let returned objects set it.
+  * Don't try to log an ampname before it has been set.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Tue, 12 May 2015 11:34:46 +1200
+
+amplet2 (0.4.5-1) unstable; urgency=low
+
+  * Don't count failed object fetches towards global HTTP test statistics.
+  * First basic attempt to include the ampname when logging to syslog.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Mon, 11 May 2015 16:09:20 +1200
+
 amplet2 (0.4.4-1) unstable; urgency=low
 
   * Add runtime option to HTTP test to force SSL version.
