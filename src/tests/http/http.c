@@ -1317,10 +1317,23 @@ int run_http(int argc, char *argv[], __attribute__((unused))int count,
     fetch(options.path);
     curl_global_cleanup();
 
+    /*
+     * XXX don't update the end time, rely on the last successful object fetch
+     * to do this. When we move to tracking and reporting good/bad fetches then
+     * we probably want to start recording this again as the actual true total
+     * time that the test took. Right now we are being misleading with the
+     * total time ignoring failed requests.
+     *
+     * It's possible for us to get to here with end time not being set but
+     * only if no objects were fetched, in which case we don't report so the
+     * value is never used.
+     */
+    /*
     if ( gettimeofday(&global.end, NULL) != 0 ) {
-	Log(LOG_ERR, "Could not gettimeofday(), aborting test");
-	exit(-1);
+        Log(LOG_ERR, "Could not gettimeofday(), aborting test");
+        exit(-1);
     }
+    */
 
     /* send report */
     if ( global.servers > 0 && global.objects > 0 ) {
