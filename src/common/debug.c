@@ -9,6 +9,7 @@
 
 #include "config.h"
 #include "debug.h"
+#include "global.h" /* just for ampname */
 
 
 
@@ -59,7 +60,15 @@ void Log(int priority, const char *fmt, ...)
 #if LOG_TO_SYSLOG
     /* log to syslog if enabled and the program is running without a tty */
     if ( !isatty(fileno(stdout)) ) {
-	syslog(priority, "%s", buffer);
+        /*
+         * TODO set ampname as part of the ident string in openlog()? Or
+         * somehow route to different log files based on ampname?
+         */
+        if ( vars.ampname ) {
+            syslog(priority, "%s %s", vars.ampname, buffer);
+        } else {
+            syslog(priority, "%s", buffer);
+        }
         return;
     }
 #endif
