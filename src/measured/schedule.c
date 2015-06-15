@@ -160,6 +160,27 @@ static void free_test_schedule_item(test_schedule_item_t *item) {
 
 
 /*
+ *
+ */
+static void free_fetch_schedule_item(fetch_schedule_item_t *item) {
+
+    if ( item == NULL ) {
+        Log(LOG_WARNING, "Attempting to free NULL schedule item");
+        return;
+    }
+
+    if ( item->schedule_url != NULL ) free(item->schedule_url);
+    if ( item->schedule_dir != NULL ) free(item->schedule_dir);
+    if ( item->cacert != NULL ) free(item->cacert);
+    if ( item->cert != NULL ) free(item->cert);
+    if ( item->key != NULL ) free(item->key);
+
+    free(item);
+}
+
+
+
+/*
  * Walk the list of timers and remove all of them, or just those that are
  * scheduled tests. Refreshing the test schedule will still leave watchdogs
  * and schedule fetches in the list.
@@ -199,6 +220,7 @@ void clear_test_schedule(wand_event_handler_t *ev_hdl, int all) {
                     break;
                 case EVENT_FETCH_SCHEDULE:
                     if ( item->data.fetch != NULL ) {
+                        free_fetch_schedule_item(item->data.fetch);
                     }
                     break;
                 default:
@@ -1017,7 +1039,7 @@ void read_schedule_dir(wand_event_handler_t *ev_hdl, char *directory) {
 /*
  *
  */
-void remote_schedule_callback(wand_event_handler_t *ev_hdl, void *data) {
+static void remote_schedule_callback(wand_event_handler_t *ev_hdl, void *data) {
     schedule_item_t *item;
     fetch_schedule_item_t *fetch;
     pid_t pid;
@@ -1232,6 +1254,56 @@ int update_remote_schedule(char *dir, char *url, char *cacert, char *cert,
             "Failed to initialise curl, skipping fetch of remote schedule");
     return -1;
 }
+
+
+
+/*
+ * Try to fetch the remote schedule right now, and create the recurring event
+ * that will check for new schedules in the future.
+ */
+int enable_remote_schedule_fetch(wand_event_handler_t *ev_hdl,
+        fetch_schedule_item_t *fetch, char *ampname) {
+
+    schedule_item_t *item;
+
+    assert(ev_hdl);
+
+    if ( fetch == NULL ) {
+        Log(LOG_DEBUG, "Remote schedule fetching disabled");
+        return 0;
+    }
+
+    if ( fetch->schedule_url == NULL ) {
+        Log(LOG_WARNING, "Remote schedule fetching missing URL, skipping!");
+        return 0;
+    }
+
+    /* need to determine the specific client schedule_dir */
+    if ( asprintf(&fetch->schedule_dir, "%s/%s", SCHEDULE_DIR, ampname) < 0 ) {
+        Log(LOG_ALERT, "Failed to build schedule directory path");
+        return -1;
+    }
+
+    /* do a fetch now, while blocking the main process */
+    update_remote_schedule(fetch->schedule_dir, fetch->schedule_url,
+            fetch->cacert, fetch->cert, fetch->key);
+
+    item = (schedule_item_t *)malloc(sizeof(schedule_item_t));
+    item->type = EVENT_FETCH_SCHEDULE;
+    item->ev_hdl = ev_hdl;
+    item->data.fetch = fetch;
+
+    /* create the timer event for fetching schedules */
+    if ( wand_add_timer(ev_hdl, fetch->frequency, 0, item,
+                remote_schedule_callback) == NULL ) {
+        Log(LOG_ALERT, "Failed to schedule remote update check");
+        return -1;
+    }
+
+    return 0;
+}
+
+
 
 #if UNIT_TEST
 time_t amp_test_get_period_max_value(char repeat) {

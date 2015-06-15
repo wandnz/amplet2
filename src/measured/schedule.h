@@ -131,7 +131,9 @@ struct timeval get_next_schedule_time(wand_event_handler_t *ev_hdl,
         uint64_t frequency, int run, struct timeval *abstime);
 int update_remote_schedule(char *dir, char *server, char *cacert, char *cert,
         char *key);
-void remote_schedule_callback(wand_event_handler_t *ev_hdl, void *data);
+//void remote_schedule_callback(wand_event_handler_t *ev_hdl, void *data);
+int enable_remote_schedule_fetch(wand_event_handler_t *ev_hdl,
+        fetch_schedule_item_t *fetch, char *ampname);
 #if UNIT_TEST
 time_t amp_test_get_period_max_value(char repeat);
 int64_t amp_test_check_time_range(int64_t value, schedule_period_t period);

@@ -421,7 +421,7 @@ uint16_t start_remote_server(test_type_t type, struct addrinfo *dest) {
     SSL *ssl;
     X509 *server_cert;
     int sock;
-    uint16_t bytes, server_port, control_port;
+    uint16_t bytes, server_port;
     int res;
     int attempts;
 
@@ -436,14 +436,12 @@ uint16_t start_remote_server(test_type_t type, struct addrinfo *dest) {
 
     Log(LOG_DEBUG, "Starting remote server for test type %d", type);
 
-    /* vars.control_port is a char*, cause getaddrinfo needs that elsewhere */
-    control_port = atol(vars.control_port);
     switch ( dest->ai_family ) {
         case AF_INET: ((struct sockaddr_in *)dest->ai_addr)->sin_port =
-                      htons(control_port);
+                      htons(vars.control_port);
                       break;
         case AF_INET6: ((struct sockaddr_in6 *)dest->ai_addr)->sin6_port =
-                       htons(control_port);
+                       htons(vars.control_port);
                        break;
         default: return 0;
     };

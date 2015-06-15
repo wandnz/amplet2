@@ -366,3 +366,53 @@ void asn_socket_event_callback(
     pthread_create(&thread, NULL, amp_asn_worker_thread, info);
     pthread_detach(thread);
 }
+
+
+
+/*
+ *
+ */
+struct amp_asn_info* initialise_asn_info(void) {
+    struct amp_asn_info *info;
+
+    info = (struct amp_asn_info *) malloc(sizeof(struct amp_asn_info));
+
+    info->fd = -1;
+
+    info->refresh = malloc(sizeof(time_t));
+    *info->refresh = time(NULL) + MIN_ASN_CACHE_REFRESH +
+        (rand() % MAX_ASN_CACHE_REFRESH_OFFSET);
+
+    Log(LOG_DEBUG, "ASN cache will be refreshed at %d", *info->refresh);
+
+    info->trie = malloc(sizeof(struct iptrie));
+    info->trie->ipv4 = NULL;
+    info->trie->ipv6 = NULL;
+
+    info->mutex = malloc(sizeof(pthread_mutex_t));
+    pthread_mutex_init(info->mutex, NULL);
+
+    return info;
+}
+
+
+
+/*
+ *
+ */
+void amp_asn_info_delete(struct amp_asn_info *info) {
+    if ( info == NULL ) {
+        return;
+    }
+
+    pthread_mutex_lock(info->mutex);
+    iptrie_clear(info->trie);
+    pthread_mutex_unlock(info->mutex);
+    pthread_mutex_destroy(info->mutex);
+
+    if ( info->mutex ) free(info->mutex);
+    if ( info->refresh ) free(info->refresh);
+    if ( info->trie ) free(info->trie);
+
+    free(info);
+}

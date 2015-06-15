@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.67])
-AC_INIT([amplet2], [0.4.6], [amp@wand.net.nz])
+AC_INIT([amplet2], [0.4.7], [amp@wand.net.nz])
 #AC_CONFIG_SRCDIR([src/measured/measured.c])
 AM_INIT_AUTOMAKE
 AC_CONFIG_HEADERS([config.h])
@@ -30,15 +30,15 @@ if test "$confuse_found" = 0; then
     AC_MSG_ERROR(Required library libconfuse not found; use LDFLAGS to specify library location)
 fi
 
-AC_CHECK_LIB([wandevent], [wand_add_fd],event_found=1,event_found=0)
-if test "$event_found" = 0; then
-    AC_MSG_ERROR(Required library libwandevent3 not found; use LDFLAGS to specify library location)
-fi
+#AC_CHECK_LIB([wandevent], [wand_add_fd],event_found=1,event_found=0)
+#if test "$event_found" = 0; then
+#    AC_MSG_ERROR(Required library libwandevent3 not found; use LDFLAGS to specify library location)
+#fi
 
-AC_CHECK_LIB([rabbitmq], [amqp_new_connection],rabbit_found=1,rabbit_found=0)
-if test "$rabbit_found" = 0; then
-    AC_MSG_ERROR(Required library librabbitmq not found; use LDFLAGS to specify library location)
-fi
+#AC_CHECK_LIB([rabbitmq], [amqp_new_connection],rabbit_found=1,rabbit_found=0)
+#if test "$rabbit_found" = 0; then
+#    AC_MSG_ERROR(Required library librabbitmq not found; use LDFLAGS to specify library location)
+#fi
 
 AC_CHECK_LIB([pthread], [pthread_create],pthread_found=1,pthread_found=0)
 if test "$pthread_found" = 0; then

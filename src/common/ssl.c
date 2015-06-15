@@ -565,4 +565,9 @@ void ssl_cleanup(void) {
     }
     EVP_cleanup();
     ERR_free_strings();
+    /*
+     * XXX should be able to call SSL_COMP_free_compression_methods() but our
+     * libssl doesn't appear to be new enough?
+     */
+    sk_SSL_COMP_free(SSL_COMP_get_compression_methods());
 }
