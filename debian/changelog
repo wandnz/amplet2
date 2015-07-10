@@ -1,3 +1,15 @@
+amplet2 (0.4.7-2) unstable; urgency=low
+
+  * More debug around ASN lookups during traceroute test.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Thu,  9 Jul 2015 17:04:57 +1200
+
+amplet2 (0.4.7-1) unstable; urgency=low
+
+  * Break report messages into blocks of 255 results.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Thu,  9 Jul 2015 14:23:49 +1200
+
 amplet2 (0.4.6-1) unstable; urgency=low
 
   * Don't update HTTP endtime after cleaning up - let returned objects set it.
