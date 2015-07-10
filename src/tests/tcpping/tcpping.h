@@ -9,6 +9,9 @@
 /* use the current date with 2 digit count appended as version: YYYYMMDDXX */
 #define AMP_TCPPING_TEST_VERSION 2014072100
 
+/* number of results we will fit into a single result message */
+# define AMP_TCPPING_MAX_RESULTS 255
+
 /* use the same packet size as ICMP, so we're directly comparable */
 #define DEFAULT_TCPPING_SYN_LENGTH 84
 

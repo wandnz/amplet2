@@ -7,6 +7,9 @@
 /* use the current date with 2 digit count appended as version: YYYYMMDDXX */
 #define AMP_DNS_TEST_VERSION 2014020400
 
+/* number of results we will fit into a single result message */
+# define AMP_DNS_MAX_RESULTS 255
+
 /* maximum size in bytes of a DNS name - 255 bytes */
 #define MAX_DNS_NAME_LEN MAX_STRING_FIELD
 

@@ -11,6 +11,9 @@
 /* use the current date with 2 digit count appended as version: YYYYMMDDXX */
 #define AMP_TRACEROUTE_TEST_VERSION 2014080700
 
+/* number of results we will fit into a single result message */
+# define AMP_TRACEROUTE_MAX_RESULTS 255
+
 #define DEFAULT_TRACEROUTE_PROBE_LEN 60
 
 #define MIN_TRACEROUTE_PROBE_LEN (sizeof(struct ip6_hdr) + \

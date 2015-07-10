@@ -656,90 +656,114 @@ nextdest:
 }
 
 
+
+/*
+ *
+ */
+static int report_destination(struct info_t *info, char *buffer,
+        int packet_size) {
+
+    struct tcpping_report_item_t *item;
+    char *ampname = address_to_name(info->addr);
+    int padding = 0;
+
+    assert(ampname);
+    assert(strlen(ampname) < MAX_STRING_FIELD);
+
+    item = (struct tcpping_report_item_t *)(buffer);
+
+    if (info->reply == 1) {
+        item->rtt = htonl(info->delay);
+    } else {
+        /* XXX ICMP responses are currently treated as 'no result', but
+         * if we probably should look at who sent the ICMP response before
+         * deciding that. If the target sent the ICMP packet, maybe we
+         * should treat that as a valid end-to-end measurement?
+         */
+        item->rtt = -1;
+    }
+    item->family = info->addr->ai_family;
+    item->reply = info->reply;
+    item->replyflags = info->replyflags;
+    item->icmptype = info->icmptype;
+    item->icmpcode = info->icmpcode;
+
+    switch ( item->family ) {
+        case AF_INET:
+            memcpy(item->address,
+                    &((struct sockaddr_in*) info->addr->ai_addr)->sin_addr,
+                    sizeof(struct in_addr));
+            item->packet_size = sizeof(struct iphdr);
+            padding = 20;
+            break;
+        case AF_INET6:
+            memcpy(item->address,
+                    &((struct sockaddr_in6*) info->addr->ai_addr)->sin6_addr,
+                    sizeof(struct in6_addr));
+            item->packet_size = sizeof(struct ip6_hdr);
+            padding = 0;
+            break;
+        default:
+            Log(LOG_WARNING, "Unknown address family %d\n", item->family);
+            memset(item->address, 0, sizeof(item->address));
+            break;
+    };
+
+    item->packet_size += sizeof(struct tcphdr) + packet_size + padding;
+    item->packet_size = htons(item->packet_size);
+    item->namelen = strlen(ampname) + 1;
+
+    strncpy(buffer + sizeof(struct tcpping_report_item_t), ampname,
+            MAX_STRING_FIELD);
+
+    Log(LOG_DEBUG, "tcpping result: %dus, %d,%d,%d,%d",
+            htonl(item->rtt), item->reply, item->replyflags,
+            item->icmptype, item->icmpcode);
+
+    return sizeof(struct tcpping_report_item_t) + item->namelen;
+}
+
+
+
+/*
+ *
+ */
 static void report_results(struct timeval *start_time, int count,
         struct info_t info[], struct opt_t *opt) {
 
-    char *buffer;
-    struct tcpping_report_header_t *header;
-    struct tcpping_report_item_t *item;
-    int len, maxlen;
     int i;
-    int padding = 0;
+    char *buffer;
+    struct tcpping_report_header_t *header = NULL;
+    int len = 0;
+    int maxlen;
 
     maxlen = (sizeof(struct tcpping_report_header_t)) +
-            (count * sizeof(struct tcpping_report_item_t)) +
-            (count * MAX_STRING_FIELD);
+            (AMP_TCPPING_MAX_RESULTS * sizeof(struct tcpping_report_item_t)) +
+            (AMP_TCPPING_MAX_RESULTS * MAX_STRING_FIELD);
     buffer = malloc(maxlen);
-    memset(buffer, 0, maxlen);
-
-    header = (struct tcpping_report_header_t *) buffer;
-    header->version = htonl(AMP_TCPPING_TEST_VERSION);
-    header->port = htons(opt->port);
-    header->random = opt->random;
-    header->count = count;
-
-    len = sizeof(struct tcpping_report_header_t);
 
     for ( i = 0; i < count; i++ ) {
-        char *ampname = address_to_name(info[i].addr);
-        assert(ampname);
-        assert(strlen(ampname) < MAX_STRING_FIELD);
-
-        item = (struct tcpping_report_item_t *)(buffer + len);
-
-        if (info[i].reply == 1) {
-            item->rtt = htonl(info[i].delay);
-        } else {
-            /* XXX ICMP responses are currently treated as 'no result', but
-             * if we probably should look at who sent the ICMP response before
-             * deciding that. If the target sent the ICMP packet, maybe we
-             * should treat that as a valid end-to-end measurement?
-             */
-            item->rtt = -1;
+        if ( (i % AMP_TCPPING_MAX_RESULTS) == 0 ) {
+            /* single header at the start of buffer describes test options */
+            memset(buffer, 0, maxlen);
+            header = (struct tcpping_report_header_t *) buffer;
+            header->version = htonl(AMP_TCPPING_TEST_VERSION);
+            header->port = htons(opt->port);
+            header->random = opt->random;
+            len = sizeof(struct tcpping_report_header_t);
         }
-        item->family = info[i].addr->ai_family;
-        item->reply = info[i].reply;
-        item->replyflags = info[i].replyflags;
-        item->icmptype = info[i].icmptype;
-        item->icmpcode = info[i].icmpcode;
 
-        switch ( item->family ) {
-            case AF_INET:
-                memcpy(item->address,
-                        &((struct sockaddr_in*)
-                            info[i].addr->ai_addr)->sin_addr,
-                        sizeof(struct in_addr));
-                item->packet_size = sizeof(struct iphdr);
-                padding = 20;
-                break;
-            case AF_INET6:
-                memcpy(item->address,
-                        &((struct sockaddr_in6*)
-                            info[i].addr->ai_addr)->sin6_addr,
-                        sizeof(struct in6_addr));
-                item->packet_size = sizeof(struct ip6_hdr);
-                padding = 0;
-                break;
-            default:
-                Log(LOG_WARNING, "Unknown address family %d\n", item->family);
-                memset(item->address, 0, sizeof(item->address));
-                break;
-        };
+        /* pass in the single result and the part of the buffer to put it in */
+        len += report_destination(&info[i], buffer + len, opt->packet_size);
 
-        item->packet_size += sizeof(struct tcphdr) + opt->packet_size + padding;
-        item->packet_size = htons(item->packet_size);
-        item->namelen = strlen(ampname) + 1;
-        len += sizeof(struct tcpping_report_item_t);
-
-        strncpy(buffer + len, ampname, MAX_STRING_FIELD);
-        len += item->namelen;
-
-        Log(LOG_DEBUG, "tcpping result %d: %dus, %d,%d,%d,%d", i,
-                htonl(item->rtt), item->reply, item->replyflags,
-                item->icmptype, item->icmpcode);
-
+        /* report as we go, every 255 items or the last item */
+        if ( ((i + 1) % AMP_TCPPING_MAX_RESULTS) == 0 || (i + 1) == count ) {
+            header->count = (i % AMP_TCPPING_MAX_RESULTS) + 1;
+            report(AMP_TEST_TCPPING, (uint64_t)start_time->tv_sec,
+                    (void*)buffer, len);
+        }
     }
-    report(AMP_TEST_TCPPING, (uint64_t)start_time->tv_sec, (void*)buffer, len);
+
     free(buffer);
 }
 
