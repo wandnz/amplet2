@@ -162,6 +162,11 @@ static void *amp_asn_worker_thread(void *thread_data) {
         ready = select(max_fd + 1, &readset, &writeset, NULL, &timeout);
 
         if ( ready == 0 || (ready < 0 && errno != EINTR) ) {
+            if ( ready == 0 ) {
+                Log(LOG_WARNING, "Timeout reached while waiting for ASN data");
+            } else {
+                Log(LOG_WARNING, "Error while waiting for ASN data");
+            }
             break;
         }
 
@@ -186,6 +191,7 @@ static void *amp_asn_worker_thread(void *thread_data) {
                     }
                 }
                 if ( outstanding == 0 ) {
+                    Log(LOG_DEBUG, "Last request, no more outstanding data");
                     break;
                 }
                 continue;
@@ -243,6 +249,7 @@ static void *amp_asn_worker_thread(void *thread_data) {
                 whois_fd = connect_to_whois_server();
                 if ( whois_fd == -1 ) {
                     /* for now, let's just give up if this fails */
+                    Log(LOG_WARNING, "Failed to connect to whois server");
                     break;
                 }
             }
@@ -267,6 +274,11 @@ static void *amp_asn_worker_thread(void *thread_data) {
             if ( (bytes = recv(whois_fd, buffer + offset,
                             buflen - offset - 1, 0)) < 1 ) {
                 /* error or end of file */
+                if ( bytes == 0 ) {
+                    Log(LOG_DEBUG, "Finished receiving data from whois server");
+                } else {
+                    Log(LOG_DEBUG, "Error receiving data from whois server");
+                }
                 break;
             }
 
@@ -306,6 +318,7 @@ static void *amp_asn_worker_thread(void *thread_data) {
 
                 outstanding--;
                 if ( outstanding == 0 ) {
+                    Log(LOG_DEBUG, "No more outstanding data");
                     break;
                 }
             }
