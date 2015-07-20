@@ -134,6 +134,7 @@ static iptrie_node_t *iptrie_add_internal(iptrie_node_t *root,
         }
         node->left = NULL;
         node->right = NULL;
+        node->next = NULL;
         return node;
     }
 
@@ -177,6 +178,7 @@ static iptrie_node_t *iptrie_add_internal(iptrie_node_t *root,
         }
         node->left = NULL;
         node->right = NULL;
+        node->next = NULL;
 
         if ( cmp == 0 ) {
             /* the next bit is a zero, add it down the left branch */
@@ -355,4 +357,32 @@ int iptrie_on_all_leaves(struct iptrie *root,
     }
 
     return 0;
+}
+
+
+
+/*
+ * Traverse the trie and join all the leaves together into a list.
+ */
+static int iptrie_to_list_internal(iptrie_node_t *node, void *data) {
+
+    if ( node == NULL ) {
+        return 0;
+    }
+
+    node->next = *((iptrie_node_t**)data);
+    *((iptrie_node_t**)data) = node;
+
+    return 0;
+}
+
+
+
+/*
+ * Traverse the trie and join all the leaves together into a list.
+ */
+iplist_t *iptrie_to_list(struct iptrie *root) {
+    iplist_t *list = NULL;
+    iptrie_on_all_leaves(root, iptrie_to_list_internal, &list);
+    return list;
 }
