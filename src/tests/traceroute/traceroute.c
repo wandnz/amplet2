@@ -1163,7 +1163,9 @@ static void report_results(struct timeval *start_time, int count,
 	    count, opt->packet_size, opt->random);
 
     for ( i = 0, item = info; item != NULL; i++, item = item->next ) {
+        Log(LOG_DEBUG, "Reporting trace item %d", i);
         if ( (i % AMP_TRACEROUTE_MAX_RESULTS) == 0 ) {
+            Log(LOG_DEBUG, "%d is first item in block, allocating space", i);
             /* allocate space for our header */
             len = sizeof(struct traceroute_report_header_t);
             buffer = malloc(len);
@@ -1185,11 +1187,15 @@ static void report_results(struct timeval *start_time, int count,
         if ( (i + 1) % AMP_TRACEROUTE_MAX_RESULTS == 0 || (i + 1) == count ) {
             header = (struct traceroute_report_header_t *)buffer;
             header->count = (i % AMP_TRACEROUTE_MAX_RESULTS) + 1;
+            Log(LOG_DEBUG, "Reporting %d traceroute results (%d/%d)",
+                    header->count, i+1, count);
             report(AMP_TEST_TRACEROUTE,
                     (uint64_t)start_time->tv_sec, (void*)buffer, len);
             free(buffer);
         }
     }
+
+    Log(LOG_DEBUG, "Done reporting results (i=%d, item=%p)", i, item);
 }
 
 
@@ -1758,7 +1764,8 @@ void print_traceroute(void *data, uint32_t len) {
     struct traceroute_report_path_t *path;
     struct traceroute_report_hop_t *hop;
     char addrstr[INET6_ADDRSTRLEN];
-    int i, offset;
+    int offset;
+    uint8_t i;
     int hopcount;
     char *ampname;
 
@@ -1767,7 +1774,7 @@ void print_traceroute(void *data, uint32_t len) {
     assert(ntohl(header->version) == AMP_TRACEROUTE_TEST_VERSION);
 
     printf("\n");
-    printf("AMP traceroute test, %u destinations, %u byte packets ",
+    printf("AMP traceroute test, %" PRIu8 " destinations, %u byte packets ",
             header->count, ntohs(header->packet_size));
     if ( header->random ) {
 	printf("(random size)\n");
@@ -1777,7 +1784,7 @@ void print_traceroute(void *data, uint32_t len) {
 
     offset = sizeof(struct traceroute_report_header_t);
 
-    for ( i=0; i<header->count; i++ ) {
+    for ( i = 0; i < header->count; i++ ) {
         /* specific path information */
         path = (struct traceroute_report_path_t*)(data + offset);
         offset += sizeof(struct traceroute_report_path_t);
