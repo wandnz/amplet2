@@ -7,6 +7,7 @@
 
 #include "iptrie.h"
 
+#define WHOIS_UNAVAILABLE -2
 
 int connect_to_whois_server(void);
 int amp_asn_flag_done(int fd);
