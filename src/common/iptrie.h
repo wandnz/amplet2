@@ -6,6 +6,7 @@
 
 
 #define iptrie_node_t struct iptrie_node
+#define iplist_t struct iptrie_node
 struct iptrie_node {
     /* ASNs are only 32bit, but we can use the extra space as markers */
     int64_t as;
@@ -14,6 +15,7 @@ struct iptrie_node {
 
     iptrie_node_t *left;
     iptrie_node_t *right;
+    iptrie_node_t *next;
 };
 
 struct iptrie {
@@ -22,11 +24,12 @@ struct iptrie {
 };
 
 
+
 void iptrie_add(struct iptrie *root, struct sockaddr *address,
         uint8_t prefix, int64_t as);
 int64_t iptrie_lookup_as(struct iptrie *root, struct sockaddr *address);
 void iptrie_clear(struct iptrie *root);
 int iptrie_on_all_leaves(struct iptrie *root,
         int (*func)(iptrie_node_t*, void*), void *data);
-
+iplist_t *iptrie_to_list(struct iptrie *root);
 #endif

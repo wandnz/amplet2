@@ -6,6 +6,7 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <fcntl.h>
 #include <arpa/inet.h>
 #include <strings.h>
 
@@ -154,6 +155,8 @@ static int amp_asn_add_query_local(int fd, struct sockaddr *address) {
     void *addr;
     int length;
 
+    Log(LOG_DEBUG, "Sending ASN query to local socket");
+
     switch ( address->sa_family ) {
         case AF_INET: addr = &((struct sockaddr_in*)address)->sin_addr;
                       length = sizeof(struct in_addr);
@@ -161,9 +164,10 @@ static int amp_asn_add_query_local(int fd, struct sockaddr *address) {
         case AF_INET6: addr = &((struct sockaddr_in6*)address)->sin6_addr;
                        length = sizeof(struct in6_addr);
                        break;
-        default: return -1;
+        default: Log(LOG_WARNING, "Unknown address family"); return -1;
     };
 
+    Log(LOG_DEBUG, "Sending ASN address family");
     if ( send(fd, &address->sa_family, sizeof(uint16_t), MSG_NOSIGNAL) < 0 ) {
         Log(LOG_WARNING, "Failed to send asn address family: %s",
                 strerror(errno));
@@ -171,11 +175,13 @@ static int amp_asn_add_query_local(int fd, struct sockaddr *address) {
     }
 
     /* send the address to lookup the asn for */
+    Log(LOG_DEBUG, "Sending ASN address");
     if ( send(fd, addr, length, MSG_NOSIGNAL) < 0 ) {
         Log(LOG_WARNING, "Failed to send asn address: %s", strerror(errno));
         return -1;
     }
 
+    Log(LOG_DEBUG, "Sent ASN address and family ok");
     return 0;
 }
 
@@ -292,8 +298,12 @@ static struct iptrie *amp_asn_fetch_results_direct(int whois_fd,
 int connect_to_whois_server(void) {
     struct addrinfo hints, *result;
     int fd;
+    int flags;
+    struct timeval socktimeout = {5, 0};
     char *server = "whois.cymru.com";
     char *port = "43";
+
+    Log(LOG_DEBUG, "Connecting to whois server");
 
     memset(&hints, 0, sizeof(hints));
     hints.ai_family = AF_INET;
@@ -301,28 +311,87 @@ int connect_to_whois_server(void) {
     hints.ai_protocol = IPPROTO_TCP;
 
     if ( getaddrinfo(server, port, &hints, &result) < 0 ) {
-        return -1;
+        Log(LOG_WARNING, "getaddrinfo() failed for whois server: %s",
+                strerror(errno));
+        return WHOIS_UNAVAILABLE;
     }
 
-    if ( (fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0 ) {
+    /* make this a non-blocking socket so we can give up connecting earlier */
+    if ( (fd = socket(AF_INET, SOCK_STREAM|SOCK_NONBLOCK, IPPROTO_TCP)) < 0 ) {
+        Log(LOG_WARNING, "Failed to create socket for whois server: %s",
+                strerror(errno));
         freeaddrinfo(result);
-        return -1;
+        return WHOIS_UNAVAILABLE;
+    }
+
+    /*
+     * Set low timeouts for sending on this socket - give up quickly in case
+     * of failure. We shouldn't need to change recv timeouts because we are
+     * using select() and deal nicely with that side of things. This is more
+     * just to cover ourselves when select() says we can write, but there isn't
+     * enough room for a full message (after a partial write we will block
+     * forever if the peer doesn't consume any more data).
+     */
+    if ( setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &socktimeout,
+                sizeof(socktimeout)) < 0 ) {
+        Log(LOG_WARNING, "Failed to set send timeout on whois socket: %s",
+                strerror(errno));
+        freeaddrinfo(result);
+        return WHOIS_UNAVAILABLE;
     }
 
     if ( connect(fd, result->ai_addr, result->ai_addrlen) < 0 ) {
-        close(fd);
-        freeaddrinfo(result);
-        return -1;
+        if ( errno == EINPROGRESS ) {
+            struct timeval timeout = {10, 0};
+            fd_set writeset;
+
+            FD_ZERO(&writeset);
+            FD_SET(fd, &writeset);
+
+            /* wait briefly to connect, we don't have all day */
+            if ( select(fd + 1, NULL, &writeset, NULL, &timeout) < 1 ) {
+                Log(LOG_WARNING, "Timeout waiting to connect to whois server");
+                close(fd);
+                freeaddrinfo(result);
+                return WHOIS_UNAVAILABLE;
+            }
+
+            Log(LOG_DEBUG, "Connected to whois server OK");
+
+        } else {
+            Log(LOG_WARNING, "Failed to connect socket for whois server: %s",
+                    strerror(errno));
+            close(fd);
+            freeaddrinfo(result);
+            return WHOIS_UNAVAILABLE;
+        }
     }
 
     freeaddrinfo(result);
+
+    /* get the current socket flags so we don't clobber any accidentally */
+    if ( (flags = fcntl(fd, F_GETFL, NULL)) < 0 ) {
+        Log(LOG_WARNING, "Failed to get flags for whois socket");
+        close(fd);
+        return WHOIS_UNAVAILABLE;
+    }
+
+    /* set the socket back to blocking mode */
+    flags &= (~O_NONBLOCK);
+
+    if ( (fcntl(fd, F_SETFL, flags)) < 0 ) {
+        Log(LOG_WARNING, "Failed to get flags for whois socket: %s",
+                strerror(errno));
+        close(fd);
+        return WHOIS_UNAVAILABLE;
+    }
 
     /* enable bulk input mode */
     if ( send(fd, "begin\n", strlen("begin\n"), 0) < 0 ) {
         Log(LOG_WARNING, "Failed to send header to whois server: %s",
                 strerror(errno));
         close(fd);
-        return -1;
+        return WHOIS_UNAVAILABLE;
     }
 
     /* disable column headings */
@@ -330,7 +399,7 @@ int connect_to_whois_server(void) {
         Log(LOG_WARNING, "Failed to send header to whois server: %s",
                 strerror(errno));
         close(fd);
-        return -1;
+        return WHOIS_UNAVAILABLE;
     }
 
     /* don't bother getting the plaintext name for the ASN */
@@ -338,7 +407,7 @@ int connect_to_whois_server(void) {
         Log(LOG_WARNING, "Failed to send header to whois server: %s",
                 strerror(errno));
         close(fd);
-        return -1;
+        return WHOIS_UNAVAILABLE;
     }
 
     /*
@@ -367,6 +436,7 @@ int amp_asn_add_query(iptrie_node_t *root, void *data) {
     socklen = sizeof(struct sockaddr_storage);
 
     if ( getsockname(fd, (struct sockaddr*)&addr, &socklen) < 0 ) {
+        Log(LOG_WARNING, "getsockname() failed: %s", strerror(errno));
         return -1;
     }
 

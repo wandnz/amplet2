@@ -88,6 +88,7 @@ int set_as_numbers(struct dest_info_t *donelist) {
      * lots of duplicate /24s and /64s in the doneset, this will filter out
      * duplicates so we can make fewer queries.
      */
+    Log(LOG_DEBUG, "Building address trie to check ASNs");
     for ( item = donelist; item != NULL; item = item->next ) {
         if ( item->path_length < 1 || item->first_response < 1 ) {
             continue;
@@ -113,20 +114,24 @@ int set_as_numbers(struct dest_info_t *donelist) {
     }
 
     /* traverse the trie and actually make the queries now */
+    Log(LOG_DEBUG, "Sending all addresses for ASN resolution");
     if ( iptrie_on_all_leaves(&trie, amp_asn_add_query, &asn_fd) < 0 ) {
         goto end;
     }
 
+    Log(LOG_DEBUG, "Done sending all addresses for ASN resolution");
     if ( amp_asn_flag_done(asn_fd) < 0 ) {
         goto end;
     }
 
     /* fetch all the results into the same trie we queried from, setting ASNs */
+    Log(LOG_DEBUG, "Fetching results of ASN resolution");
     if ( amp_asn_fetch_results(asn_fd, &trie) == NULL ) {
         goto end;
     }
 
     /* match up the AS numbers to the IP addresses */
+    Log(LOG_DEBUG, "Matching results of ASN resolution with addresses");
     for ( item = donelist; item != NULL; item = item->next ) {
         for ( i = 0; i < item->path_length; i++ ) {
             if ( item->hop[i].addr ) {

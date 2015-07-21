@@ -1,12 +1,12 @@
 Name: amplet2
-Version: 0.4.3
+Version: 0.4.8
 Release: 1%{?dist}
 Summary: AMP Network Performance Measurement Suite - Client Tools
 
 Group: Applications/Internet
 License: AMP
 URL: http://research.wand.net.nz/software/amp.php
-Source0: http://research.wand.net.nz/software/amp/amplet2-0.4.3.tar.gz
+Source0: http://research.wand.net.nz/software/amp/amplet2-0.4.8.tar.gz
 Patch0: amplet2-client-init.patch
 Patch1: amplet2-client-default.patch
 Patch2: amplet2-client-makefile.patch
@@ -193,6 +193,17 @@ fi
 
 
 %changelog
+* Tue Jul 21 2015 Brendon Jones <brendonj@waikato.ac.nz> 0.4.8-1
+- Rewrite ASN lookups to deal better with whois server issues.
+- More debug around ASN lookups during traceroute test.
+- Break report messages into blocks of 255 results.
+- Don't update HTTP endtime after cleaning up - let returned objects set it.
+- Don't try to log an ampname before it has been set.
+- Don't count failed object fetches towards global HTTP test statistics.
+- First basic attempt to include the ampname when logging to syslog.
+- Add runtime option to HTTP test to force SSL version.
+- Add config option to amplet2 client to set minimum inter-packet delay.
+
 * Fri Mar 27 2015 Brendon Jones <brendonj@waikato.ac.nz> 0.4.3-1
 - Don't report HTTP test data if name resolution fails (same as other tests).
 - Add HTTP test option to suppress parsing of initial object.

@@ -506,110 +506,130 @@ static int open_sockets(struct socket_t *sockets) {
 /*
  *
  */
+static int report_destination(struct info_t *info, char *buffer) {
+    struct dns_report_item_t *item;
+    char *ampname = address_to_name(info->addr);
+
+    assert(ampname);
+    assert(strlen(ampname) < MAX_STRING_FIELD);
+
+    item = (struct dns_report_item_t *)(buffer);
+    item->response_size = htonl(info->bytes);
+    item->flags.bytes = info->flags.bytes; /* already in network order */
+    item->total_answer = htons(info->total_answer);
+    item->total_authority = htons(info->total_authority);
+    item->total_additional = htons(info->total_additional);
+    item->family = info->addr->ai_family;
+    item->query_length = htonl(info->query_length);
+    item->ttl = info->ttl;
+
+    /*
+     * TODO this response code is different to the actual rcode in the
+     * response packet - do we need both of them?
+     */
+    //item->response_code = info->response_code;
+
+    /* save the address the query was sent to */
+    switch ( item->family ) {
+        case AF_INET:
+            memcpy(item->address,
+                    &((struct sockaddr_in*)
+                        info->addr->ai_addr)->sin_addr,
+                    sizeof(struct in_addr));
+            break;
+        case AF_INET6:
+            memcpy(item->address,
+                    &((struct sockaddr_in6*)
+                        info->addr->ai_addr)->sin6_addr,
+                    sizeof(struct in6_addr));
+            break;
+        default:
+            Log(LOG_WARNING, "Unknown address family %d\n", item->family);
+            memset(item->address, 0, sizeof(item->address));
+            break;
+    };
+
+    /* TODO check response code too? */
+    if ( info->reply && info->time_sent.tv_sec > 0 ) {
+        item->rtt = htonl(info->delay);
+    } else {
+        item->rtt = htonl(-1);
+    }
+
+    /* add variable length ampname onto the buffer, after the report item */
+    item->namelen = strlen(ampname) + 1;
+    strncpy(buffer + sizeof(struct dns_report_item_t), ampname, item->namelen);
+
+    /* some servers will return an instance name, variable length */
+    if ( strlen(info->response) > 0 ) {
+        assert(strlen(info->response) < MAX_STRING_FIELD);
+        item->instancelen = strlen(info->response) + 1;
+        strncpy(buffer + sizeof(struct dns_report_item_t) + item->namelen,
+                info->response, item->instancelen);
+    } else {
+        item->instancelen = 0;
+    }
+
+    Log(LOG_DEBUG, "dns result: %dus\n", ntohl(item->rtt));
+
+    return sizeof(struct dns_report_item_t) + item->namelen + item->instancelen;
+}
+
+
+
+/*
+ *
+ */
 static void report_results(struct timeval *start_time, int count,
 	struct info_t info[], struct opt_t *opt) {
 
     int i;
     char *buffer;
-    struct dns_report_header_t *header;
-    struct dns_report_item_t *item;
-    int len, maxlen;
+    struct dns_report_header_t *header = NULL;
+    int len = 0;
+    int maxlen;
 
     Log(LOG_DEBUG, "Building dns report, count:%d, query:%s\n",
 	    count, opt->query_string);
 
-    /* allocate space for all our results - XXX could this get too large? */
+    /* allocate space for all our results */
     maxlen = sizeof(struct dns_report_header_t) +
         (strlen(opt->query_string) + 1) +
-	(count * sizeof(struct dns_report_item_t)) +
-        (2 * count * MAX_STRING_FIELD);
+	(AMP_DNS_MAX_RESULTS * sizeof(struct dns_report_item_t)) +
+        (2 * AMP_DNS_MAX_RESULTS * MAX_STRING_FIELD);
     buffer = malloc(maxlen);
-    memset(buffer, 0, maxlen);
-
-    /* single header at the start of the buffer describes the test options */
-    header = (struct dns_report_header_t *)buffer;
-    header->version = htonl(AMP_DNS_TEST_VERSION);
-    header->query_type = htons(opt->query_type);
-    header->query_class = htons(opt->query_class);
-    header->recurse = opt->recurse;
-    header->dnssec = opt->dnssec;
-    header->nsid = opt->nsid;
-    header->udp_payload_size = htons(opt->udp_payload_size);
-    header->count = count;
-    len = sizeof(struct dns_report_header_t);
-
-    header->querylen = strlen(opt->query_string) + 1;
-    strncpy(buffer + len, opt->query_string, header->querylen);
-    len += header->querylen;
 
     /* add results for all the destinations */
     for ( i = 0; i < count; i++ ) {
-        char *ampname = address_to_name(info[i].addr);
-        assert(ampname);
-        assert(strlen(ampname) < MAX_STRING_FIELD);
+        if ( (i % AMP_DNS_MAX_RESULTS) == 0 ) {
+            /* single header at start of buffer describes the test options */
+            memset(buffer, 0, maxlen);
+            header = (struct dns_report_header_t *)buffer;
+            header->version = htonl(AMP_DNS_TEST_VERSION);
+            header->query_type = htons(opt->query_type);
+            header->query_class = htons(opt->query_class);
+            header->recurse = opt->recurse;
+            header->dnssec = opt->dnssec;
+            header->nsid = opt->nsid;
+            header->udp_payload_size = htons(opt->udp_payload_size);
+            len = sizeof(struct dns_report_header_t);
 
-        item = (struct dns_report_item_t *)(buffer + len);
-	item->response_size = htonl(info[i].bytes);
-	item->flags.bytes = info[i].flags.bytes; /* already in network order */
-	item->total_answer = htons(info[i].total_answer);
-	item->total_authority = htons(info[i].total_authority);
-	item->total_additional = htons(info[i].total_additional);
-	item->family = info[i].addr->ai_family;
-	item->query_length = htonl(info[i].query_length);
-	item->ttl = info[i].ttl;
-        len += sizeof(struct dns_report_item_t);
-	/*
-	 * TODO this response code is different to the actual rcode in the
-	 * response packet - do we need both of them?
-	 */
-	//item->response_code = info[i].response_code;
+            header->querylen = strlen(opt->query_string) + 1;
+            strncpy(buffer + len, opt->query_string, header->querylen);
+            len += header->querylen;
+        }
 
-	/* save the address the query was sent to */
-	switch ( item->family ) {
-	    case AF_INET:
-		memcpy(item->address,
-			&((struct sockaddr_in*)
-			    info[i].addr->ai_addr)->sin_addr,
-			sizeof(struct in_addr));
-		break;
-	    case AF_INET6:
-		memcpy(item->address,
-			&((struct sockaddr_in6*)
-			    info[i].addr->ai_addr)->sin6_addr,
-			sizeof(struct in6_addr));
-		break;
-	    default:
-		Log(LOG_WARNING, "Unknown address family %d\n", item->family);
-		memset(item->address, 0, sizeof(item->address));
-		break;
-	};
+        /* pass in the single result and the part of the buffer to put it in */
+        len += report_destination(&info[i], buffer + len);
 
-        /* TODO check response code too? */
-	if ( info[i].reply && info[i].time_sent.tv_sec > 0 ) {
-	    item->rtt = htonl(info[i].delay);
-	} else {
-	    item->rtt = htonl(-1);
-	}
-
-        /* add variable length ampname onto the buffer, after the report item */
-        item->namelen = strlen(ampname) + 1;
-        strncpy(buffer + len, ampname, item->namelen);
-        len += item->namelen;
-
-	/* some servers will return an instance name, variable length */
-	if ( strlen(info[i].response) > 0 ) {
-            assert(strlen(info[i].response) < MAX_STRING_FIELD);
-            item->instancelen = strlen(info[i].response) + 1;
-            strncpy(buffer + len, info[i].response, item->instancelen);
-            len += item->instancelen;
-	} else {
-            item->instancelen = 0;
-	}
-
-	Log(LOG_DEBUG, "dns result %d: %dus\n", i, ntohl(item->rtt));
+        /* report as we go, every 255 items or the last item */
+        if ( ((i + 1) % AMP_DNS_MAX_RESULTS) == 0 || (i + 1) == count ) {
+            header->count = (i % AMP_DNS_MAX_RESULTS) + 1;
+            report(AMP_TEST_DNS, (uint64_t)start_time->tv_sec, (void*)buffer,
+                    len);
+        }
     }
 
-    report(AMP_TEST_DNS, (uint64_t)start_time->tv_sec, (void*)buffer, len);
     free(buffer);
 }
 
