@@ -663,6 +663,7 @@ errorCleanup :
 int run_throughput_client(int argc, char *argv[], int count,
         struct addrinfo **dests) {
     struct opt_t options;
+    amp_test_meta_t meta;
     int opt;
     int option_index = 0;
     extern struct option long_options[];
@@ -692,15 +693,19 @@ int run_throughput_client(int argc, char *argv[], int count,
     options.device = NULL;
     client = NULL;
 
+    memset(&meta, 0, sizeof(meta));
+
     while ( (opt = getopt_long(argc, argv, "?hp:P:rz:o:i:Nm:wS:c:d:4:6:I:t:",
                     long_options, &option_index)) != -1 ) {
 
         switch ( opt ) {
             case '4': options.sourcev4 = get_numeric_address(optarg, NULL);
+                      meta.sourcev4 = optarg;
                       break;
             case '6': options.sourcev6 = get_numeric_address(optarg, NULL);
+                      meta.sourcev4 = optarg;
                       break;
-            case 'I': options.device = optarg; break;
+            case 'I': options.device = meta.interface = optarg; break;
             /* case 'B': for iperf compatability? */
             case 'c': client = optarg; break;
             case 'p': options.cport = atoi(optarg); break;
@@ -845,7 +850,7 @@ int run_throughput_client(int argc, char *argv[], int count,
     if ( client == NULL ) {
         int remote_port;
         if ( (remote_port = start_remote_server(AMP_TEST_THROUGHPUT,
-                        dests[0])) == 0 ) {
+                        dests[0], &meta)) == 0 ) {
             Log(LOG_WARNING, "Failed to start remote server, aborting test");
             exit(1);
         }

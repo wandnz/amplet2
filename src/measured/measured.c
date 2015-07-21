@@ -186,6 +186,7 @@ static void stop_running(wand_event_handler_t *ev_hdl,
 static void reload(wand_event_handler_t *ev_hdl, int signum, void *data) {
     char nametable[PATH_MAX];
     char schedule[PATH_MAX];
+    amp_test_meta_t *meta = (amp_test_meta_t*)data;
 
     if ( signum > 0 ) {
         Log(LOG_INFO, "Received signal %d, reloading all configuration",signum);
@@ -208,13 +209,13 @@ static void reload(wand_event_handler_t *ev_hdl, int signum, void *data) {
 
     /* re-read nametable files from the global and client specific dirs */
     read_nametable_dir(NAMETABLE_DIR);
-    snprintf((char*)&nametable, PATH_MAX, "%s/%s", NAMETABLE_DIR, (char*)data);
+    snprintf((char*)&nametable, PATH_MAX, "%s/%s", NAMETABLE_DIR,meta->ampname);
     read_nametable_dir(nametable);
 
     /* re-read schedule files from the global and client specific dirs */
-    read_schedule_dir(ev_hdl, SCHEDULE_DIR);
-    snprintf((char*)&schedule, PATH_MAX, "%s/%s", SCHEDULE_DIR, (char*)data);
-    read_schedule_dir(ev_hdl, schedule);
+    read_schedule_dir(ev_hdl, SCHEDULE_DIR, meta);
+    snprintf((char*)&schedule, PATH_MAX, "%s/%s", SCHEDULE_DIR, meta->ampname);
+    read_schedule_dir(ev_hdl, schedule, meta);
 }
 
 
@@ -224,8 +225,8 @@ static void reload(wand_event_handler_t *ev_hdl, int signum, void *data) {
  * the configuration after receiving a signal, just call through to reload().
  */
 static void load_tests_and_schedules(wand_event_handler_t *ev_hdl,
-        char *ampname) {
-    reload(ev_hdl, 0, ampname);
+        amp_test_meta_t *meta) {
+    reload(ev_hdl, 0, meta);
 }
 
 
@@ -267,6 +268,38 @@ static void debug_dump(wand_event_handler_t *ev_hdl, int signum,
 /*
  *
  */
+static void free_local_meta_vars(amp_test_meta_t *meta) {
+    if ( meta->interface ) free(meta->interface);
+    if ( meta->sourcev4 ) free(meta->sourcev4);
+    if ( meta->sourcev6 ) free(meta->sourcev6);
+    /* meta->ampname is a pointer to the global variable, leave it */;
+}
+
+
+
+/*
+ *
+ */
+static void free_global_vars(struct amp_global_t *vars) {
+    if ( vars->ampname ) free(vars->ampname);
+    if ( vars->local ) free(vars->local);
+    if ( vars->collector ) free(vars->collector);
+    if ( vars->vhost ) free(vars->vhost);
+    if ( vars->exchange ) free(vars->exchange);
+    if ( vars->routingkey ) free(vars->routingkey);
+    if ( vars->amqp_ssl.keys_dir ) free(vars->amqp_ssl.keys_dir);
+    if ( vars->amqp_ssl.cacert ) free(vars->amqp_ssl.cacert);
+    if ( vars->amqp_ssl.cert ) free(vars->amqp_ssl.cert);
+    if ( vars->amqp_ssl.key ) free(vars->amqp_ssl.key);
+    if ( vars->nssock ) free(vars->nssock);
+    if ( vars->asnsock ) free(vars->asnsock);
+}
+
+
+
+/*
+ *
+ */
 int main(int argc, char *argv[]) {
     wand_event_handler_t *ev_hdl;
     char *config_file = NULL;
@@ -274,7 +307,11 @@ int main(int argc, char *argv[]) {
     int fetch_remote = 1;
     int backgrounded = 0;
     struct amp_asn_info *asn_info;
+    amp_test_meta_t meta;
+    amp_control_t *control;
     cfg_t *cfg;
+
+    memset(&meta, 0, sizeof(meta));
 
     while ( 1 ) {
 
@@ -316,15 +353,15 @@ int main(int argc, char *argv[]) {
                 break;
             case 'I':
                 /* override config settings and set the source interface */
-                vars.interface = optarg;
+                meta.interface = optarg;
                 break;
             case '4':
                 /* override config settings and set the source IPv4 address */
-                vars.sourcev4 = optarg;
+                meta.sourcev4 = optarg;
                 break;
             case '6':
                 /* override config settings and set the source IPv6 address */
-                vars.sourcev6 = optarg;
+                meta.sourcev6 = optarg;
                 break;
 	    case 'h':
 	    default:
@@ -372,10 +409,22 @@ int main(int argc, char *argv[]) {
         log_level = get_loglevel_config(cfg);
     }
 
+    /* update the iface structure with any interface config from config file */
+    get_interface_config(cfg, &meta);
+    meta.ampname = vars.ampname;
+
+    /* set up the dns resolver context */
+    if ( (vars.ctx = get_dns_context_config(cfg, &meta)) == NULL ) {
+        Log(LOG_ALERT, "Failed to configure resolver, aborting.");
+	cfg_free(cfg);
+        return -1;
+    }
+
     /* determine the directory that the ssl keys should be stored in */
     if ( asprintf(&vars.amqp_ssl.keys_dir, "%s/%s", AMP_KEYS_DIR,
                 vars.ampname) < 0 ) {
         Log(LOG_ALERT, "Failed to build custom keys directory path");
+	cfg_free(cfg);
         return -1;
     }
 
@@ -388,6 +437,7 @@ int main(int argc, char *argv[]) {
      */
     if ( initialise_ssl(&vars.amqp_ssl, vars.collector) < 0 ) {
         Log(LOG_WARNING, "Failed to initialise SSL, aborting");
+	cfg_free(cfg);
         return -1;
     }
 
@@ -402,6 +452,7 @@ int main(int argc, char *argv[]) {
                     vars.collector, should_wait_for_cert(cfg)) != 0 ||
                 (ssl_ctx = initialise_ssl_context(&vars.amqp_ssl)) == NULL) ) {
         Log(LOG_ALERT, "Failed to load SSL keys/certificates, aborting");
+	cfg_free(cfg);
         return -1;
     }
 
@@ -424,6 +475,7 @@ int main(int argc, char *argv[]) {
          */
         if ( setup_rabbitmq_user(vars.ampname) < 0 ) {
             Log(LOG_ALERT, "Failed to create user, aborting");
+            cfg_free(cfg);
             return -1;
         }
 
@@ -435,6 +487,7 @@ int main(int argc, char *argv[]) {
                     vars.port, vars.amqp_ssl.cacert, vars.amqp_ssl.cert,
                     vars.amqp_ssl.key, vars.exchange, vars.routingkey) < 0 ) {
             Log(LOG_ALERT, "Failed to create shovel, aborting");
+            cfg_free(cfg);
             return -1;
         }
         Log(LOG_DEBUG, "Done configuring rabbitmq");
@@ -453,6 +506,7 @@ int main(int argc, char *argv[]) {
      */
     if ( pidfile && create_pidfile(pidfile) < 0 ) {
         Log(LOG_WARNING, "Failed to create pidfile %s, aborting", pidfile);
+        cfg_free(cfg);
         return -1;
     }
 
@@ -465,20 +519,23 @@ int main(int argc, char *argv[]) {
     if ( asprintf(&vars.nssock, "%s/%s.sock", AMP_RUN_DIR,
                 vars.ampname) < 0 ) {
         Log(LOG_ALERT, "Failed to build local resolve socket path");
+	cfg_free(cfg);
         return -1;
     }
 
     /* construct our custom, per-client asn lookup socket */
     if ( asprintf(&vars.asnsock, "%s/%s.asn", AMP_RUN_DIR, vars.ampname) < 0 ) {
         Log(LOG_ALERT, "Failed to build local asn socket path");
+	cfg_free(cfg);
         return -1;
     }
 
     /* if remote fetching is enabled, try to get the config for it */
     if ( fetch_remote ) {
         if ( enable_remote_schedule_fetch(ev_hdl,
-                    get_remote_schedule_config(cfg), vars.ampname) < 0 ) {
+                    get_remote_schedule_config(cfg), &meta) < 0 ) {
             Log(LOG_ALERT, "Failed to enable remote schedule fetching");
+            cfg_free(cfg);
             return -1;
         }
     }
@@ -492,6 +549,7 @@ int main(int argc, char *argv[]) {
     /* create the resolver/cache unix socket and add event listener for it */
     if ( (vars.nssock_fd = initialise_local_socket(vars.nssock)) < 0 ) {
         Log(LOG_ALERT, "Failed to initialise local resolver, aborting");
+	cfg_free(cfg);
         return -1;
     }
     wand_add_fd(ev_hdl, vars.nssock_fd, EV_READ, vars.ctx,
@@ -501,6 +559,7 @@ int main(int argc, char *argv[]) {
     Log(LOG_DEBUG, "Creating local socket for ASN lookups");
     if ( (vars.asnsock_fd = initialise_local_socket(vars.asnsock)) < 0 ) {
         Log(LOG_ALERT, "Failed to initialise local asn resolver, aborting");
+	cfg_free(cfg);
         return -1;
     }
 
@@ -509,20 +568,20 @@ int main(int argc, char *argv[]) {
     wand_add_fd(ev_hdl, vars.asnsock_fd, EV_READ, asn_info,
             asn_socket_event_callback);
 
+    /* save the port, tests need to know where to connect */
+    control = get_control_config(cfg, &meta);
+    vars.control_port = atol(control->port); /* TODO move to meta */
+
     /* if SSL is properly enabled then try to create the control sockets */
-    if ( ssl_ctx != NULL ) {
-        amp_control_t *control = get_control_config(cfg);
-
+    if ( ssl_ctx != NULL && control->enabled ) {
         if ( initialise_control_socket(ev_hdl, control) < 0 ) {
-            Log(LOG_DEBUG, "Control socket is disabled, skipping");
-            vars.control_port = 0;
-        } else {
-            /* save the port globally, not ideal but we need it elsewhere */
-            vars.control_port = atol(control->port);
+            Log(LOG_WARNING, "Failed to start control socket!");
         }
-
-        free_control_config(control);
+    } else if ( ssl_ctx != NULL ) {
+        Log(LOG_DEBUG, "Control socket is disabled, skipping");
     }
+
+    free_control_config(control);
 
     /* configuration is done, free the object */
     cfg_free(cfg);
@@ -532,17 +591,17 @@ int main(int argc, char *argv[]) {
      * without a TTY. With a TTY we want SIGHUP to terminate measured.
      */
     if ( backgrounded ) {
-        wand_add_signal(SIGHUP, vars.ampname, reload);
+        wand_add_signal(SIGHUP, &meta, reload);
     }
 
     /* SIGUSR1 should also reload tests/schedules, we use this internally */
-    wand_add_signal(SIGUSR1, vars.ampname, reload);
+    wand_add_signal(SIGUSR1, &meta, reload);
 
     /* SIGUSR2 is a debug signal to dump internal state */
     wand_add_signal(SIGUSR2, NULL, debug_dump);
 
     /* register all test modules, load nametable, load schedules */
-    load_tests_and_schedules(ev_hdl, vars.ampname);
+    load_tests_and_schedules(ev_hdl, &meta);
 
     /* give up control to libwandevent */
     wand_event_run(ev_hdl);
@@ -562,18 +621,8 @@ int main(int argc, char *argv[]) {
 
     //TODO shutdown control socket?
 
-    if ( vars.ampname ) free(vars.ampname);
-    if ( vars.local ) free(vars.local);
-    if ( vars.collector ) free(vars.collector);
-    if ( vars.vhost ) free(vars.vhost);
-    if ( vars.exchange ) free(vars.exchange);
-    if ( vars.routingkey ) free(vars.routingkey);
-    if ( vars.amqp_ssl.keys_dir ) free(vars.amqp_ssl.keys_dir);
-    if ( vars.amqp_ssl.cacert ) free(vars.amqp_ssl.cacert);
-    if ( vars.amqp_ssl.cert ) free(vars.amqp_ssl.cert);
-    if ( vars.amqp_ssl.key ) free(vars.amqp_ssl.key);
-    if ( vars.nssock ) free(vars.nssock);
-    if ( vars.asnsock ) free(vars.asnsock);
+    free_local_meta_vars(&meta);
+    free_global_vars(&vars);
 
     /* clean up the ASN socket, mutex, storage */
     Log(LOG_DEBUG, "Shutting down ASN lookup");

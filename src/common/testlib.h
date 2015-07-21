@@ -82,7 +82,8 @@ int report(test_type_t type, uint64_t timestamp, void *bytes, size_t len);
 char *address_to_name(struct addrinfo *address);
 int compare_addresses(const struct sockaddr *a,
         const struct sockaddr *b, int len);
-uint16_t start_remote_server(test_type_t type, struct addrinfo *dest);
+uint16_t start_remote_server(test_type_t type, struct addrinfo *dest,
+        amp_test_meta_t *meta);
 int send_server_port(SSL *ssl, uint16_t port);
 struct addrinfo *get_numeric_address(char *interface, char *port);
 int bind_socket_to_device(int sock, char *device);

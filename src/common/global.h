@@ -10,9 +10,6 @@ struct amp_global_t {
     char *ampname;
     char *collector;
     uint16_t port;
-    char *interface;
-    char *sourcev4;
-    char *sourcev6;
     int vialocal;
     char *local;
     char *vhost;

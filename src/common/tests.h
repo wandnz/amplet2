@@ -25,6 +25,13 @@ typedef enum {
 
 struct test_schedule_item;
 
+typedef struct amp_test_meta {
+    char *interface;
+    char *sourcev4;
+    char *sourcev6;
+    char *ampname;
+    int control_port;
+} amp_test_meta_t;
 
 typedef struct test {
     /* */

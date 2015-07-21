@@ -417,7 +417,8 @@ int send_server_port(SSL *ssl, uint16_t port) {
  * server for a particular test. This will return the port number that the
  * server is running on.
  */
-uint16_t start_remote_server(test_type_t type, struct addrinfo *dest) {
+uint16_t start_remote_server(test_type_t type, struct addrinfo *dest,
+        amp_test_meta_t *meta) {
     SSL *ssl;
     X509 *server_cert;
     int sock;
@@ -452,19 +453,19 @@ uint16_t start_remote_server(test_type_t type, struct addrinfo *dest) {
         return 0;
     }
 
-    if ( vars.interface ) {
-        if ( bind_socket_to_device(sock, vars.interface) < 0 ) {
+    if ( meta->interface ) {
+        if ( bind_socket_to_device(sock, meta->interface) < 0 ) {
             return 0;
         }
     }
 
-    if ( vars.sourcev4 || vars.sourcev6 ) {
+    if ( meta->sourcev4 || meta->sourcev6 ) {
         struct addrinfo *addr;
 
         switch ( dest->ai_family ) {
-            case AF_INET: addr = get_numeric_address(vars.sourcev4, NULL);
+            case AF_INET: addr = get_numeric_address(meta->sourcev4, NULL);
                           break;
-            case AF_INET6: addr = get_numeric_address(vars.sourcev6, NULL);
+            case AF_INET6: addr = get_numeric_address(meta->sourcev6, NULL);
                            break;
             default: return 0;
         };

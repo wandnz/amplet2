@@ -756,7 +756,7 @@ static char **populate_target_lists(test_schedule_item_t *test,
  */
 static test_schedule_item_t *create_and_schedule_test(
         wand_event_handler_t *ev_hdl, yaml_document_t *document,
-        yaml_node_item_t index) {
+        yaml_node_item_t index, amp_test_meta_t *meta) {
 
     test_schedule_item_t *test = NULL;
     schedule_item_t *sched;
@@ -878,6 +878,7 @@ static test_schedule_item_t *create_and_schedule_test(
         test->end = end;
         test->test_id = test_id;
         test->params = params;
+        test->meta = meta;
         /*
          * Convert the list of targets into actual dests and ones to resolve.
          * We update the list to only point at the remainder (if there are
@@ -930,7 +931,8 @@ end:
 /*
  * Read in the schedule file and create events for each test.
  */
-static void read_schedule_file(wand_event_handler_t *ev_hdl, char *filename) {
+static void read_schedule_file(wand_event_handler_t *ev_hdl, char *filename,
+        amp_test_meta_t *meta) {
 
     FILE *in;
     yaml_parser_t parser;
@@ -987,7 +989,7 @@ static void read_schedule_file(wand_event_handler_t *ev_hdl, char *filename) {
             yaml_node_item_t *item;
             for ( item = value->data.sequence.items.start;
                     item != value->data.sequence.items.top; item++ ) {
-                create_and_schedule_test(ev_hdl, &document, *item);
+                create_and_schedule_test(ev_hdl, &document, *item, meta);
             }
         }
      }
@@ -1005,7 +1007,9 @@ parser_load_error:
 /*
  *
  */
-void read_schedule_dir(wand_event_handler_t *ev_hdl, char *directory) {
+void read_schedule_dir(wand_event_handler_t *ev_hdl, char *directory,
+        amp_test_meta_t *meta) {
+
     glob_t glob_buf;
     unsigned int i;
     char full_loc[MAX_PATH_LENGTH];
@@ -1013,6 +1017,7 @@ void read_schedule_dir(wand_event_handler_t *ev_hdl, char *directory) {
     assert(ev_hdl);
     assert(directory);
     assert(strlen(directory) < MAX_PATH_LENGTH - 8);
+    assert(meta);
 
     /*
      * Using glob makes it easy to treat every non-dotfile in the schedule
@@ -1027,7 +1032,7 @@ void read_schedule_dir(wand_event_handler_t *ev_hdl, char *directory) {
 	    directory, glob_buf.gl_pathc);
 
     for ( i = 0; i < glob_buf.gl_pathc; i++ ) {
-	read_schedule_file(ev_hdl, glob_buf.gl_pathv[i]);
+	read_schedule_file(ev_hdl, glob_buf.gl_pathv[i], meta);
     }
 
     globfree(&glob_buf);
@@ -1262,7 +1267,7 @@ int update_remote_schedule(char *dir, char *url, char *cacert, char *cert,
  * that will check for new schedules in the future.
  */
 int enable_remote_schedule_fetch(wand_event_handler_t *ev_hdl,
-        fetch_schedule_item_t *fetch, char *ampname) {
+        fetch_schedule_item_t *fetch, amp_test_meta_t *meta) {
 
     schedule_item_t *item;
 
@@ -1279,7 +1284,8 @@ int enable_remote_schedule_fetch(wand_event_handler_t *ev_hdl,
     }
 
     /* need to determine the specific client schedule_dir */
-    if ( asprintf(&fetch->schedule_dir, "%s/%s", SCHEDULE_DIR, ampname) < 0 ) {
+    if ( asprintf(&fetch->schedule_dir, "%s/%s", SCHEDULE_DIR,
+                meta->ampname) < 0 ) {
         Log(LOG_ALERT, "Failed to build schedule directory path");
         return -1;
     }

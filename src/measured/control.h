@@ -11,6 +11,7 @@
 #define TEST_SERVER_EXTRA_TIME 60
 
 typedef struct amp_control {
+    int enabled;
     char *port;
     char *interface;
     char *ipv4;
