@@ -25,9 +25,9 @@
  *
  * https://www.openssl.org/docs/crypto/EVP_DigestInit.html
  */
-static char *hash(char *str, int *length, const EVP_MD *type) {
+static unsigned char *hash(char *str, unsigned int *length, const EVP_MD *type){
     EVP_MD_CTX *mdctx;
-    char *hashstr = calloc(1, EVP_MAX_MD_SIZE);
+    unsigned char *hashstr = calloc(1, EVP_MAX_MD_SIZE);
 
     assert(str);
     assert(hashstr);
@@ -227,8 +227,8 @@ static X509_REQ *create_new_csr(RSA *key, char *ampname) {
     name = X509_REQ_get_subject_name(request);
 
     /*XXX any other options we want to set? server will just add whatever? */
-    if ( !X509_NAME_add_entry_by_txt(name, "CN", MBSTRING_ASC, ampname,
-                -1, -1, 0) ) {
+    if ( !X509_NAME_add_entry_by_txt(name, "CN", MBSTRING_ASC,
+                (unsigned char*)ampname, -1, -1, 0) ) {
         Log(LOG_WARNING, "Failed to set Common Name in CSR");
         EVP_PKEY_free(pkey);
         X509_REQ_free(request);
@@ -239,8 +239,8 @@ static X509_REQ *create_new_csr(RSA *key, char *ampname) {
      * TODO this might need to be a different/custom label, as amplets need
      * to be both servers and clients
      */
-    if ( !X509_NAME_add_entry_by_txt(name, "O", MBSTRING_ASC, "client",
-                -1, -1, 0) ) {
+    if ( !X509_NAME_add_entry_by_txt(name, "O", MBSTRING_ASC,
+                (unsigned char*)"client", -1, -1, 0) ) {
         Log(LOG_WARNING, "Failed to set Organisation in CSR");
         EVP_PKEY_free(pkey);
         X509_REQ_free(request);
@@ -300,9 +300,9 @@ static int send_csr(X509_REQ *request, char *collector, char *cacert) {
     char *url;
     char *csrstr;
     struct curl_slist *slist = NULL;
-    char *hashstr;
-    int length;
-    int i;
+    unsigned char *hashstr;
+    unsigned int length;
+    unsigned int i;
     char fingerprint[33];
 
     /* try to read the CSR into a string so we have it in textual form */
@@ -325,7 +325,7 @@ static int send_csr(X509_REQ *request, char *collector, char *cacert) {
      * TODO is this actually useful?
      */
     length = strlen(csrstr);
-    if ( (hashstr = hash(csrstr, &length, EVP_md5())) == NULL || length <= 0 ) {
+    if ( (hashstr = hash(csrstr, &length, EVP_md5())) == NULL || length == 0 ) {
         free(csrstr);
         return -1;
     }
@@ -393,11 +393,12 @@ static int send_csr(X509_REQ *request, char *collector, char *cacert) {
 /*
  * https://www.openssl.org/docs/crypto/RSA_sign.html
  */
-static char *sign(char *keyname, char *hashstr, int *length) {
-    char *signature;
+static unsigned char *sign(char *keyname, unsigned char *hashstr,
+        unsigned int *length) {
+    unsigned char *signature;
     FILE *privfile;
     RSA *key;
-    int siglen;
+    unsigned int siglen;
 
     assert(hashstr);
     assert(length);
@@ -446,9 +447,10 @@ static int fetch_certificate(amp_ssl_opt_t *sslopts, char *ampname,
     FILE *certfile;
     double size;
     long code;
-    char *url, *hashstr, *signature, *urlsig;
-    int length;
-    int i;
+    char *url, *urlsig;
+    unsigned char *hashstr, *signature;
+    unsigned int length;
+    unsigned int i;
     BIO *bio;
 
     Log(LOG_DEBUG, "Fetch signed certificate");
@@ -456,7 +458,7 @@ static int fetch_certificate(amp_ssl_opt_t *sslopts, char *ampname,
     /* hash the data that we are about to sign */
     length = strlen(ampname);
     if ( (hashstr = hash(ampname, &length, EVP_sha256())) == NULL ||
-            length <= 0 ) {
+            length == 0 ) {
         return -1;
     }
 
@@ -465,7 +467,7 @@ static int fetch_certificate(amp_ssl_opt_t *sslopts, char *ampname,
      * have access to the signed certificate
      */
     if ( (signature = sign(sslopts->key, hashstr, &length)) == NULL ||
-            length <= 0 ) {
+            length == 0 ) {
         free(hashstr);
         return -1;
     }
