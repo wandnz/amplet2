@@ -61,26 +61,6 @@ struct info_t {
 };
 
 
-struct icmp_report_item_t {
-    /* nicer way than storing just 16 bytes for the address? */
-    char address[16];
-    int32_t rtt;
-    uint8_t family;
-    uint8_t err_type;
-    uint8_t err_code;
-    uint8_t ttl;
-    uint8_t namelen;
-} __attribute__((__packed__));
-
-struct icmp_report_header_t {
-    uint32_t version;
-    uint16_t packet_size;
-    uint8_t random;
-    uint8_t count;
-} __attribute__((__packed__));
-
-
-
 int run_icmp(int argc, char *argv[], int count, struct addrinfo **dests);
 int save_icmp(char *monitor, uint64_t timestamp, void *data, uint32_t len);
 void print_icmp(void *data, uint32_t len);
