@@ -435,12 +435,6 @@ static Amplet2__Icmp__Item* report_destination(struct info_t *info) {
     amplet2__icmp__item__init(item);
     item->has_family = 1;
     item->family = info->addr->ai_family;
-    item->has_err_type = 1;
-    item->err_type = info->err_type;
-    item->has_err_code = 1;
-    item->err_code = info->err_code;
-    item->has_ttl = 1;
-    item->ttl = info->ttl;
     item->name = address_to_name(info->addr);
 
     /* find the target address and point the report item field at it */
@@ -470,11 +464,26 @@ static Amplet2__Icmp__Item* report_destination(struct info_t *info) {
             (info->err_type == ICMP_REDIRECT ||
              (info->err_type == 0 && info->err_code == 0)) ) {
         //printf("%dms ", (int)((info[i].delay/1000.0) + 0.5));
-        item->rtt = info->delay;
         item->has_rtt = 1;
+        item->rtt = info->delay;
+        item->has_ttl = 1;
+        item->ttl = info->ttl;
     } else {
         /* don't send an rtt if there wasn't a valid one recorded */
         item->has_rtt = 0;
+        item->has_ttl = 0;
+    }
+
+    if ( item->has_rtt || info->err_type > 0 ) {
+        /* valid response (0/0) or a useful error, set the type/code fields */
+        item->has_err_type = 1;
+        item->err_type = info->err_type;
+        item->has_err_code = 1;
+        item->err_code = info->err_code;
+    } else {
+        /* missing response, don't include type and code fields */
+        item->has_err_type = 0;
+        item->has_err_code = 0;
     }
 
     Log(LOG_DEBUG, "icmp result: %dus, %d/%d\n", item->has_rtt?item->rtt:-1,
