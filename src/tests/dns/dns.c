@@ -1106,6 +1106,8 @@ void print_dns(void *data, uint32_t len) {
 		item->total_additional);
 	printf("\n");
     }
+
+    amplet2__dns__report__free_unpacked(msg, NULL);
 }
 
 
