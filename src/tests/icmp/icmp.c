@@ -763,14 +763,14 @@ void print_icmp(void *data, uint32_t len) {
         inet_ntop(item->family, item->address.data, addrstr, INET6_ADDRSTRLEN);
         printf(" (%s)", addrstr);
 
-        if ( !item->has_rtt ) {
+        if ( item->has_rtt ) {
+            printf(" %dus", item->rtt);
+        } else {
             if ( item->err_type == 0 ) {
                 printf(" missing");
             } else {
                 printf(" error");
             }
-        } else {
-            printf(" %dus", item->rtt);
         }
         printf(" (%u/%u)\n", item->err_type, item->err_code);
     }
