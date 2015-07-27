@@ -1049,7 +1049,7 @@ void print_dns(void *data, uint32_t len) {
 
     /* print global configuration options */
     printf("\n");
-    printf("AMP dns test, %z destinations, %s %s %s",
+    printf("AMP dns test, %zu destinations, %s %s %s",
 	    msg->n_reports, msg->header->query,
 	    get_query_class_string(msg->header->query_class),
 	    get_query_type_string(msg->header->query_type));

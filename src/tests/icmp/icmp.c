@@ -746,7 +746,7 @@ void print_icmp(void *data, uint32_t len) {
     assert(msg->header);
 
     /* print test header information */
-    printf("\nAMP icmp test, %" PRIu64 " destinations, %u byte packets ",
+    printf("\nAMP icmp test, %zu destinations, %u byte packets ",
             msg->n_reports, msg->header->packet_size);
 
     if ( msg->header->random ) {
