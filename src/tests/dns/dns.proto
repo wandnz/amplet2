@@ -9,9 +9,9 @@ message Header {
     optional uint32 query_type = 1 [default = 1];
     optional uint32 query_class = 2 [default = 1];
     optional uint32 udp_payload_size = 3 [default = 4096];
-    optional bool recurse = 4 [default = 0];
-    optional bool dnssec = 5 [default = 0];
-    optional bool nsid = 6 [default = 0];
+    optional bool recurse = 4 [default = false];
+    optional bool dnssec = 5 [default = false];
+    optional bool nsid = 6 [default = false];
     optional string query = 7;
 }
 
