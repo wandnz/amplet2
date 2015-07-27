@@ -517,6 +517,7 @@ static Amplet2__Dns__Item* report_destination(struct info_t *info) {
     item->has_family = 1;
     item->family = info->addr->ai_family;
     item->name = address_to_name(info->addr);
+    item->has_query_length = 1;
     item->query_length = info->query_length;
 
     /* find the target address and point the report item field at it */
