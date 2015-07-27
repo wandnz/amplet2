@@ -20,6 +20,7 @@
 #include "debug.h"
 #include "testlib.h"
 #include "dns.h"
+#include "dns.pb-c.h"
 
 
 static struct option long_options[] = {
@@ -506,73 +507,107 @@ static int open_sockets(struct socket_t *sockets) {
 /*
  *
  */
-static int report_destination(struct info_t *info, char *buffer) {
-    struct dns_report_item_t *item;
-    char *ampname = address_to_name(info->addr);
+static Amplet2__Dns__Item* report_destination(struct info_t *info) {
 
-    assert(ampname);
-    assert(strlen(ampname) < MAX_STRING_FIELD);
+    Amplet2__Dns__Item *item =
+        (Amplet2__Dns__Item*)malloc(sizeof(Amplet2__Dns__Item));
 
-    item = (struct dns_report_item_t *)(buffer);
-    item->response_size = htonl(info->bytes);
-    item->flags.bytes = info->flags.bytes; /* already in network order */
-    item->total_answer = htons(info->total_answer);
-    item->total_authority = htons(info->total_authority);
-    item->total_additional = htons(info->total_additional);
+    /* fill the report item with results of a test */
+    amplet2__dns__item__init(item);
+    item->has_family = 1;
     item->family = info->addr->ai_family;
-    item->query_length = htonl(info->query_length);
-    item->ttl = info->ttl;
+    item->name = address_to_name(info->addr);
+    item->query_length = info->query_length;
 
-    /*
-     * TODO this response code is different to the actual rcode in the
-     * response packet - do we need both of them?
-     */
-    //item->response_code = info->response_code;
-
-    /* save the address the query was sent to */
+    /* find the target address and point the report item field at it */
     switch ( item->family ) {
         case AF_INET:
-            memcpy(item->address,
-                    &((struct sockaddr_in*)
-                        info->addr->ai_addr)->sin_addr,
-                    sizeof(struct in_addr));
+            item->address.data =
+                (void*)&((struct sockaddr_in*) info->addr->ai_addr)->sin_addr;
+            item->address.len = sizeof(struct in_addr);
+            item->has_address = 1;
             break;
         case AF_INET6:
-            memcpy(item->address,
-                    &((struct sockaddr_in6*)
-                        info->addr->ai_addr)->sin6_addr,
-                    sizeof(struct in6_addr));
+            item->address.data =
+                (void*)&((struct sockaddr_in6*) info->addr->ai_addr)->sin6_addr;
+            item->address.len = sizeof(struct in6_addr);
+            item->has_address = 1;
             break;
         default:
             Log(LOG_WARNING, "Unknown address family %d\n", item->family);
-            memset(item->address, 0, sizeof(item->address));
+            item->address.data = NULL;
+            item->address.len = 0;
+            item->has_address = 0;
             break;
     };
 
     /* TODO check response code too? */
     if ( info->reply && info->time_sent.tv_sec > 0 ) {
-        item->rtt = htonl(info->delay);
+        item->has_rtt = 1;
+        item->rtt = info->delay;
+        item->has_ttl = 1;
+        item->ttl = info->ttl;
+        item->has_response_size = 1;
+        item->response_size = info->bytes;
+        item->has_total_answer = 1;
+        item->total_answer = info->total_answer;
+        item->has_total_authority = 1;
+        item->total_authority = info->total_authority;
+        item->has_total_additional = 1;
+        item->total_additional = info->total_additional;
+
+        /* flags */
+        item->has_qr = 1;
+        item->qr = info->flags.fields.qr;
+        item->has_opcode = 1;
+        item->opcode = info->flags.fields.opcode;
+        item->has_aa = 1;
+        item->aa = info->flags.fields.aa;
+        item->has_tc = 1;
+        item->tc = info->flags.fields.tc;
+        item->has_rd = 1;
+        item->rd = info->flags.fields.rd;
+        item->has_ra = 1;
+        item->ra = info->flags.fields.ra;
+        item->has_z = 1;
+        item->z = info->flags.fields.z;
+        item->has_ad = 1;
+        item->ad = info->flags.fields.ad;
+        item->has_cd = 1;
+        item->cd = info->flags.fields.cd;
+        item->has_rcode = 1;
+        item->rcode = info->flags.fields.rcode;
+
+        /* possible instance name from NSID OPT RR */
+        if ( strlen(info->response) > 0 ) {
+            item->instance = info->response;
+        } else {
+            item->instance = NULL;
+        }
     } else {
-        item->rtt = htonl(-1);
+        /* don't report any of these fields without a response to our query */
+        item->has_rtt = 0;
+        item->has_ttl = 0;
+        item->has_response_size = 0;
+        item->has_total_answer = 0;
+        item->has_total_authority = 0;
+        item->has_total_additional = 0;
+        item->has_qr = 0;
+        item->has_opcode = 0;
+        item->has_aa = 0;
+        item->has_tc = 0;
+        item->has_rd = 0;
+        item->has_ra = 0;
+        item->has_z = 0;
+        item->has_ad = 0;
+        item->has_cd = 0;
+        item->has_rcode = 0;
+        item->instance = NULL;
     }
 
-    /* add variable length ampname onto the buffer, after the report item */
-    item->namelen = strlen(ampname) + 1;
-    strncpy(buffer + sizeof(struct dns_report_item_t), ampname, item->namelen);
+    Log(LOG_DEBUG, "dns result: %dus\n", item->has_rtt ? item->rtt : -1);
 
-    /* some servers will return an instance name, variable length */
-    if ( strlen(info->response) > 0 ) {
-        assert(strlen(info->response) < MAX_STRING_FIELD);
-        item->instancelen = strlen(info->response) + 1;
-        strncpy(buffer + sizeof(struct dns_report_item_t) + item->namelen,
-                info->response, item->instancelen);
-    } else {
-        item->instancelen = 0;
-    }
-
-    Log(LOG_DEBUG, "dns result: %dus\n", ntohl(item->rtt));
-
-    return sizeof(struct dns_report_item_t) + item->namelen + item->instancelen;
+    return item;
 }
 
 
@@ -584,52 +619,56 @@ static void report_results(struct timeval *start_time, int count,
 	struct info_t info[], struct opt_t *opt) {
 
     int i;
-    char *buffer;
-    struct dns_report_header_t *header = NULL;
+    void *buffer;
     int len = 0;
-    int maxlen;
 
     Log(LOG_DEBUG, "Building dns report, count:%d, query:%s\n",
 	    count, opt->query_string);
 
-    /* allocate space for all our results */
-    maxlen = sizeof(struct dns_report_header_t) +
-        (strlen(opt->query_string) + 1) +
-	(AMP_DNS_MAX_RESULTS * sizeof(struct dns_report_item_t)) +
-        (2 * AMP_DNS_MAX_RESULTS * MAX_STRING_FIELD);
-    buffer = malloc(maxlen);
+    Amplet2__Dns__Report msg = AMPLET2__DNS__REPORT__INIT;
+    Amplet2__Dns__Header header = AMPLET2__DNS__HEADER__INIT;
+    Amplet2__Dns__Item **reports;
 
-    /* add results for all the destinations */
+    /* populate the header with all the test options */
+    header.has_query_type = 1;
+    header.query_type = opt->query_type;
+    header.has_query_class = 1;
+    header.query_class = opt->query_class;
+    header.has_recurse = 1;
+    header.recurse = opt->recurse;
+    header.has_dnssec = 1;
+    header.dnssec = opt->dnssec;
+    header.has_nsid = 1;
+    header.nsid = opt->nsid;
+    header.has_udp_payload_size = 1;
+    header.udp_payload_size = opt->udp_payload_size;
+    header.query = opt->query_string;
+
+    /* build up the repeated reports section with each of the results */
+    reports = malloc(sizeof(Amplet2__Dns__Item*) * count);
     for ( i = 0; i < count; i++ ) {
-        if ( (i % AMP_DNS_MAX_RESULTS) == 0 ) {
-            /* single header at start of buffer describes the test options */
-            memset(buffer, 0, maxlen);
-            header = (struct dns_report_header_t *)buffer;
-            header->version = htonl(AMP_DNS_TEST_VERSION);
-            header->query_type = htons(opt->query_type);
-            header->query_class = htons(opt->query_class);
-            header->recurse = opt->recurse;
-            header->dnssec = opt->dnssec;
-            header->nsid = opt->nsid;
-            header->udp_payload_size = htons(opt->udp_payload_size);
-            len = sizeof(struct dns_report_header_t);
-
-            header->querylen = strlen(opt->query_string) + 1;
-            strncpy(buffer + len, opt->query_string, header->querylen);
-            len += header->querylen;
-        }
-
-        /* pass in the single result and the part of the buffer to put it in */
-        len += report_destination(&info[i], buffer + len);
-
-        /* report as we go, every 255 items or the last item */
-        if ( ((i + 1) % AMP_DNS_MAX_RESULTS) == 0 || (i + 1) == count ) {
-            header->count = (i % AMP_DNS_MAX_RESULTS) + 1;
-            report(AMP_TEST_DNS, (uint64_t)start_time->tv_sec, (void*)buffer,
-                    len);
-        }
+        reports[i] = report_destination(&info[i]);
     }
 
+    /* populate the top level report object with the header and reports */
+    msg.header = &header;
+    msg.reports = reports;
+    msg.n_reports = count;
+
+    /* pack all the results into a buffer for transmitting */
+    len = amplet2__dns__report__get_packed_size(&msg);
+    buffer = malloc(len);
+    amplet2__dns__report__pack(&msg, buffer);
+
+    /* send the packed report object */
+    report(AMP_TEST_DNS, (uint64_t)start_time->tv_sec, (void*)buffer, len);
+
+    /* free up all the memory we had to allocate to report items */
+    for ( i = 0; i < count; i++ ) {
+        free(reports[i]);
+    }
+
+    free(reports);
     free(buffer);
 }
 
@@ -995,94 +1034,76 @@ int run_dns(int argc, char *argv[], int count, struct addrinfo **dests) {
  * lines of output per server.
  */
 void print_dns(void *data, uint32_t len) {
-    struct dns_report_header_t *header = (struct dns_report_header_t*)data;
-    struct dns_report_item_t *item;
+    Amplet2__Dns__Report *msg;
+    Amplet2__Dns__Item *item;
+    unsigned int i;
     char addrstr[INET6_ADDRSTRLEN];
-    int i, offset;
-    char *ampname, *query, *instance;
 
     assert(data != NULL);
-    assert(len >= sizeof(struct dns_report_header_t));
-    assert(len >= sizeof(struct dns_report_header_t) +
-	    header->count * sizeof(struct dns_report_item_t));
-    assert(ntohl(header->version) == AMP_DNS_TEST_VERSION);
 
-    offset = sizeof(struct dns_report_header_t);
-    query = (char *)data + offset;
-    offset += header->querylen;
+    /* unpack all the data */
+    msg = amplet2__dns__report__unpack(NULL, len, data);
+
+    assert(msg);
+    assert(msg->header);
 
     /* print global configuration options */
     printf("\n");
-    printf("AMP dns test, %u destinations, %s %s %s",
-	    header->count, query,
-	    get_query_class_string(ntohs(header->query_class)),
-	    get_query_type_string(ntohs(header->query_type)));
+    printf("AMP dns test, %z destinations, %s %s %s",
+	    msg->n_reports, msg->header->query,
+	    get_query_class_string(msg->header->query_class),
+	    get_query_type_string(msg->header->query_type));
     printf("\n");
 
-    if ( header->recurse || header->dnssec || header->nsid ) {
+    if ( msg->header->recurse || msg->header->dnssec || msg->header->nsid ) {
 	printf("global options:");
-	if ( header->recurse ) printf(" +recurse");
-	if ( header->dnssec ) printf(" +dnssec");
-	if ( header->nsid ) printf(" +nsid");
+	if ( msg->header->recurse ) printf(" +recurse");
+	if ( msg->header->dnssec ) printf(" +dnssec");
+	if ( msg->header->nsid ) printf(" +nsid");
 	printf("\n");
     }
 
     /* print per test results */
-    for ( i=0; i<header->count; i++ ) {
-        item = (struct dns_report_item_t*)(data + offset);
-        offset += sizeof(struct dns_report_item_t);
+    for ( i=0; i < msg->n_reports; i++ ) {
+        item = msg->reports[i];
 
-        ampname = (char *)data + offset;
-        offset += item->namelen;
+	printf("SERVER: %s", item->name);
+	inet_ntop(item->family, item->address.data, addrstr, INET6_ADDRSTRLEN);
 
-        if ( item->instancelen > 0 ) {
-            instance = (char *)data + offset;
-            offset += item->instancelen;
-        } else {
-            instance = NULL;
+        /* nothing further we can do if there is no rtt - no good response */
+        if ( !item->has_rtt ) {
+            printf(" (%s) no response\n", addrstr);
+            continue;
         }
 
-	printf("SERVER: %s", ampname);
-	inet_ntop(item->family, item->address, addrstr, INET6_ADDRSTRLEN);
-	if ( ((int32_t)ntohl(item->rtt)) < 0 ) {
-	    printf(" (%s) no response\n", addrstr);
-	    continue;
-	} else {
-	    /* Suppress instance name if it's the same as the ampname */
-            if ( instance == NULL ) {
-                printf(" (%s)", addrstr);
-            } else {
-                printf(" (%s,%s)", addrstr, instance);
-            }
-	    printf(" %dus", ntohl(item->rtt));
-	}
+        /* TODO Suppress instance name if it's the same as the ampname? */
+        if ( item->instance ) {
+            printf(" (%s,%s)", addrstr, item->instance);
+        } else {
+            printf(" (%s)", addrstr);
+        }
+        printf(" %dus", item->rtt);
 	printf("\n");
 
-	printf("MSG SIZE sent: %d, rcvd: %d, ", ntohl(item->query_length),
-		ntohl(item->response_size));
+        printf("MSG SIZE sent: %d, rcvd: %d, ", item->query_length,
+                item->response_size);
 
-        /*
-         * The flags struct is set up to deal with it being in network byte
-         * order, so don't bother byte swapping it here before printing the
-         * various fields.
-         */
-	printf("opcode: %s, status: %s\n",
-		get_opcode_string(item->flags.fields.opcode),
-		get_status_string(item->flags.fields.rcode));
+	printf("opcode: %s, status: %s\n", get_opcode_string(item->opcode),
+		get_status_string(item->rcode));
 
 	printf("flags:");
-	if ( item->flags.fields.qr ) printf(" qr");
-	if ( item->flags.fields.aa ) printf(" aa");
-	if ( item->flags.fields.rd ) printf(" rd");
-	if ( item->flags.fields.ra ) printf(" ra");
-	if ( item->flags.fields.tc ) printf(" tc");
-	if ( item->flags.fields.ad ) printf(" ad");
-	if ( item->flags.fields.cd ) printf(" cd");
+	if ( item->qr ) printf(" qr");
+	if ( item->aa ) printf(" aa");
+	if ( item->rd ) printf(" rd");
+	if ( item->ra ) printf(" ra");
+	if ( item->tc ) printf(" tc");
+	if ( item->ad ) printf(" ad");
+	if ( item->cd ) printf(" cd");
 	printf("; ");
 
 	printf("QUERY: 1, ANSWER: %d, AUTHORITY: %d, ADDITIONAL: %d\n",
-		ntohs(item->total_answer), ntohs(item->total_authority),
-		ntohs(item->total_additional));
+		item->total_answer, item->total_authority,
+		item->total_additional);
 	printf("\n");
     }
 }

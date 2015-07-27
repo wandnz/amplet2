@@ -1,0 +1,43 @@
+package amplet2.dns;
+
+// XXX SET SOME DEFAULTS
+
+message Report {
+    optional Header header = 1;
+    repeated Item reports = 2;
+}
+
+message Header {
+    optional uint32 query_type = 1;
+    optional uint32 query_class = 2;
+    optional uint32 udp_payload_size = 3;
+    optional bool recurse = 4;
+    optional bool dnssec = 5;
+    optional bool nsid = 6;
+    optional string query = 7;
+}
+
+message Item {
+    optional bytes address = 1;
+    optional uint32 family = 2;
+    optional sint32 rtt = 3;
+    optional uint32 query_length = 4;
+    optional uint32 response_size = 5;
+    optional uint32 total_answer = 6;
+    optional uint32 total_authority = 7;
+    optional uint32 total_additional = 8;
+    // TODO do we gain anything by moving flags into another message?
+    optional bool qr = 9;
+    optional uint32 opcode = 10;
+    optional bool aa = 11;;
+    optional bool tc = 12;
+    optional bool rd = 13;
+    optional bool ra = 14;
+    optional bool z = 15;
+    optional bool ad = 16;
+    optional bool cd = 17;
+    optional uint32 rcode = 18;
+    optional uint32 ttl = 19;
+    optional string name = 20;
+    optional string instance = 21;
+}
