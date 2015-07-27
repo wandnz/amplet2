@@ -12,8 +12,8 @@ message Header {
 
 message Item {
 	optional bytes address = 1;
-	optional sint32 rtt = 2;
-	optional uint32 family = 3;
+	optional uint32 family = 2;
+	optional sint32 rtt = 3;
 	optional uint32 err_type = 4;
 	optional uint32 err_code = 5;
 	optional uint32 ttl = 6;
