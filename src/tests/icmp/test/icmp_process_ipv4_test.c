@@ -41,7 +41,7 @@ int main(void) {
         /* TODO incorrect responses with embedded packets */
         //{ ICMP_DEST_UNREACH, ICMP_HOST_UNREACH, 0, { .echo = {0, 0} } },
     };
-    int length[] = {
+    unsigned int length[] = {
         /* good response responses */
         MIN_VALID_LEN,
         MIN_VALID_LEN,
