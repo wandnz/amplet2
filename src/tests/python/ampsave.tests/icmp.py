@@ -1,4 +1,3 @@
-import struct
 import socket
 import ampsave.tests.icmp_pb2 # TODO determine best place to locate these
 

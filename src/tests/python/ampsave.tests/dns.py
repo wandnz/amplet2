@@ -1,4 +1,3 @@
-import struct
 import socket
 import ampsave.tests.dns_pb2 # XXX whatever this ends up being
 
