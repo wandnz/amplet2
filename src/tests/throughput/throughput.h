@@ -101,44 +101,8 @@ void usage(char *prog);
 #define MAX_MALLOC 20e6
 
 /**
- * A header structure for the test result all structures used for results
- * are reported with
- *
- * sizeof(struct report_header_t) == 64
- *
- * All report items are stored in big endian byte order
- */
-struct report_header_t {
-    uint32_t version; /* Applies to all report_* items */
-    uint32_t count; /* Count of the headers below */
-    uint64_t start_ns; /* Time when TCP connection was established */
-    uint64_t end_ns; /* Time TCP connection is closed for this address */
-    char client_addr[16]; /* Do we need to record our own address ?*/
-    char server_addr[16];
-    uint32_t test_seq_len; /* A textual representation of the test sequence */
-    uint8_t family;
-    uint8_t namelen;
-    uint16_t __PADDING1;
-};
-
-/**
- * sizeof(struct report_header_t) == 32
- * Again all big endian byte order
- */
-struct report_result_t {
-    uint64_t duration_ns;
-    uint64_t bytes;
-    uint32_t packets;
-    uint32_t write_size;
-    uint8_t type; /* The direction of the test S2C or C2S*/
-    uint8_t has_web10g_client;
-    uint8_t has_web10g_server;
-    uint8_t __PADDING1;
-    uint32_t __PADDING2;
-};
-
-/**
  * The very large structure holding everything we can get from web10g
+ * TODO convert to protocol buffers
  *
  * sizeof(struct report_web10g_t) == 480
  */
@@ -272,7 +236,7 @@ struct report_web10g_t {
  */
 struct test_result_t {
     uint32_t packets; /* packet count */
-    uint32_t write_size; /* write_size seems a bit pointless maybe remove it?? */
+    uint32_t write_size; /* XXX write_size seems a bit pointless maybe remove it?? */
     uint64_t bytes; /* Bytes seen */
     uint64_t start_ns; /* Start time in nanoseconds */
     uint64_t end_ns; /* End time in nanoseconds */
