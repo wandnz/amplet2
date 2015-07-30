@@ -486,8 +486,8 @@ static Amplet2__Icmp__Item* report_destination(struct info_t *info) {
         item->has_err_code = 0;
     }
 
-    Log(LOG_DEBUG, "icmp result: %dus, %d/%d\n", item->has_rtt?item->rtt:-1,
-            item->err_type, item->err_code);
+    Log(LOG_DEBUG, "icmp result: %dus, %d/%d\n",
+            item->has_rtt?(int)item->rtt:-1, item->err_type, item->err_code);
 
     return item;
 }
