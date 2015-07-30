@@ -23,6 +23,7 @@
 #include "testlib.h"
 #include "tcpping.h"
 #include "pcapcapture.h"
+#include "tcpping.pb-c.h"
 
 static struct option long_options[] = {
     {"help", no_argument, 0, 'h'},
@@ -74,7 +75,7 @@ static int open_sockets(struct tcppingglobals *tcpping) {
     }
 
     if ( tcpping->device ) {
-        if (bind_sockets_to_device(&tcpping->raw_sockets,
+        if ( bind_sockets_to_device(&tcpping->raw_sockets,
                 tcpping->device) < 0 ) {
             Log(LOG_ERR, "Unable to bind raw sockets to device, aborting test");
             return 0;
@@ -660,67 +661,103 @@ nextdest:
 /*
  *
  */
-static int report_destination(struct info_t *info, char *buffer,
-        int packet_size) {
+static Amplet2__Tcpping__Item* report_destination(struct info_t *info) {
 
-    struct tcpping_report_item_t *item;
-    char *ampname = address_to_name(info->addr);
-    int padding = 0;
+    Amplet2__Tcpping__Item *item =
+        (Amplet2__Tcpping__Item*)malloc(sizeof(Amplet2__Tcpping__Item));
 
-    assert(ampname);
-    assert(strlen(ampname) < MAX_STRING_FIELD);
-
-    item = (struct tcpping_report_item_t *)(buffer);
-
-    if (info->reply == 1) {
-        item->rtt = htonl(info->delay);
-    } else {
-        /* XXX ICMP responses are currently treated as 'no result', but
-         * if we probably should look at who sent the ICMP response before
-         * deciding that. If the target sent the ICMP packet, maybe we
-         * should treat that as a valid end-to-end measurement?
-         */
-        item->rtt = -1;
-    }
+    /* fill the report item with results of a test */
+    amplet2__tcpping__item__init(item);
+    item->has_family = 1;
     item->family = info->addr->ai_family;
-    item->reply = info->reply;
-    item->replyflags = info->replyflags;
-    item->icmptype = info->icmptype;
-    item->icmpcode = info->icmpcode;
+    item->name = address_to_name(info->addr);
 
+    /* find the target address and point the report item field at it */
     switch ( item->family ) {
         case AF_INET:
-            memcpy(item->address,
-                    &((struct sockaddr_in*) info->addr->ai_addr)->sin_addr,
-                    sizeof(struct in_addr));
-            item->packet_size = sizeof(struct iphdr);
-            padding = 20;
+            item->address.data =
+                (void*)&((struct sockaddr_in*) info->addr->ai_addr)->sin_addr;
+            item->address.len = sizeof(struct in_addr);
+            item->has_address = 1;
             break;
         case AF_INET6:
-            memcpy(item->address,
-                    &((struct sockaddr_in6*) info->addr->ai_addr)->sin6_addr,
-                    sizeof(struct in6_addr));
-            item->packet_size = sizeof(struct ip6_hdr);
-            padding = 0;
+            item->address.data =
+                (void*)&((struct sockaddr_in6*) info->addr->ai_addr)->sin6_addr;
+            item->address.len = sizeof(struct in6_addr);
+            item->has_address = 1;
             break;
         default:
             Log(LOG_WARNING, "Unknown address family %d\n", item->family);
-            memset(item->address, 0, sizeof(item->address));
+            item->address.data = NULL;
+            item->address.len = 0;
+            item->has_address = 0;
             break;
     };
 
-    item->packet_size += sizeof(struct tcphdr) + packet_size + padding;
-    item->packet_size = htons(item->packet_size);
-    item->namelen = strlen(ampname) + 1;
+    switch ( info->reply ) {
+        case 0: //XXX use an enum with actual names...
+            item->has_rtt = 0;
+            item->has_icmptype = 0;
+            item->has_icmpcode = 0;
+            item->flags = NULL;
+            break;
 
-    strncpy(buffer + sizeof(struct tcpping_report_item_t), ampname,
-            MAX_STRING_FIELD);
+        case 1:
+            item->flags = (Amplet2__Tcpping__TcpFlags*)malloc(
+                    sizeof(Amplet2__Tcpping__TcpFlags));
+
+            item->has_rtt = 1;
+            item->rtt = info->delay;
+
+            amplet2__tcpping__tcp_flags__init(item->flags);
+
+            if ( info->replyflags & 0x01 ) {
+                item->flags->has_fin = 1;
+                item->flags->fin = 1;
+            }
+            if ( info->replyflags & 0x02 ) {
+                item->flags->has_syn = 1;
+                item->flags->syn = 1;
+            }
+            if ( info->replyflags & 0x04 ) {
+                item->flags->has_rst = 1;
+                item->flags->rst = 1;
+            }
+            if ( info->replyflags & 0x08 ) {
+                item->flags->has_psh = 1;
+                item->flags->psh = 1;
+            }
+            if ( info->replyflags & 0x10 ) {
+                item->flags->has_ack = 1;
+                item->flags->ack = 1;
+            }
+            if ( info->replyflags & 0x20 ) {
+                item->flags->has_urg = 1;
+                item->flags->urg = 1;
+            }
+            item->has_icmptype = 0;
+            item->has_icmpcode = 0;
+            break;
+
+        case 2:
+            /*
+             * TODO check if the ICMP response is from the target, consider
+             * using it to generate an RTT?
+             */
+            item->has_rtt = 0;
+            item->has_icmptype = 1;
+            item->icmptype = info->icmptype;
+            item->has_icmpcode = 1;
+            item->icmpcode = info->icmpcode;
+            item->flags = NULL;
+            break;
+    };
 
     Log(LOG_DEBUG, "tcpping result: %dus, %d,%d,%d,%d",
-            htonl(item->rtt), item->reply, item->replyflags,
-            item->icmptype, item->icmpcode);
+            item->rtt ? item->rtt : -1, info->reply, info->replyflags,
+            info->icmptype, info->icmpcode);
 
-    return sizeof(struct tcpping_report_item_t) + item->namelen;
+    return item;
 }
 
 
@@ -732,40 +769,53 @@ static void report_results(struct timeval *start_time, int count,
         struct info_t info[], struct opt_t *opt) {
 
     int i;
-    char *buffer;
-    struct tcpping_report_header_t *header = NULL;
+    void *buffer;
     int len = 0;
-    int maxlen;
 
-    maxlen = (sizeof(struct tcpping_report_header_t)) +
-            (AMP_TCPPING_MAX_RESULTS * sizeof(struct tcpping_report_item_t)) +
-            (AMP_TCPPING_MAX_RESULTS * MAX_STRING_FIELD);
-    buffer = malloc(maxlen);
+    Amplet2__Tcpping__Report msg = AMPLET2__TCPPING__REPORT__INIT;
+    Amplet2__Tcpping__Header header = AMPLET2__TCPPING__HEADER__INIT;
+    Amplet2__Tcpping__Item **reports;
 
+    header.has_packet_size = 1;
+    header.packet_size = sizeof(struct ip6_hdr) + sizeof(struct tcphdr) +
+        opt->packet_size;
+    header.has_random = 1;
+    header.random = opt->random;
+    header.has_port = 1;
+    header.port = opt->port;
+
+    /* build up the repeated reports section with each of the results */
+    reports = malloc(sizeof(Amplet2__Tcpping__Item*) * count);
     for ( i = 0; i < count; i++ ) {
-        if ( (i % AMP_TCPPING_MAX_RESULTS) == 0 ) {
-            /* single header at the start of buffer describes test options */
-            memset(buffer, 0, maxlen);
-            header = (struct tcpping_report_header_t *) buffer;
-            header->version = htonl(AMP_TCPPING_TEST_VERSION);
-            header->port = htons(opt->port);
-            header->random = opt->random;
-            len = sizeof(struct tcpping_report_header_t);
-        }
-
-        /* pass in the single result and the part of the buffer to put it in */
-        len += report_destination(&info[i], buffer + len, opt->packet_size);
-
-        /* report as we go, every 255 items or the last item */
-        if ( ((i + 1) % AMP_TCPPING_MAX_RESULTS) == 0 || (i + 1) == count ) {
-            header->count = (i % AMP_TCPPING_MAX_RESULTS) + 1;
-            report(AMP_TEST_TCPPING, (uint64_t)start_time->tv_sec,
-                    (void*)buffer, len);
-        }
+        reports[i] = report_destination(&info[i]);
     }
 
+    /* populate the top level report object with the header and reports */
+    msg.header = &header;
+    msg.reports = reports;
+    msg.n_reports = count;
+
+    /* pack all the results into a buffer for transmitting */
+    len = amplet2__tcpping__report__get_packed_size(&msg);
+    buffer = malloc(len);
+    amplet2__tcpping__report__pack(&msg, buffer);
+
+    /* send the packed report object */
+    report(AMP_TEST_TCPPING, (uint64_t)start_time->tv_sec, (void*)buffer, len);
+
+    /* free up all the memory we had to allocate to report items */
+    for ( i = 0; i < count; i++ ) {
+        if ( reports[i]->flags ) {
+            free(reports[i]->flags);
+        }
+        free(reports[i]);
+    }
+
+    free(reports);
     free(buffer);
 }
+
+
 
 /*
  * Halt the event loop in the event of a SIGINT (either sent from the terminal
@@ -780,7 +830,10 @@ static void interrupt_test(wand_event_handler_t *ev_hdl,
     ev_hdl->running = false;
 }
 
-/* Force the event loop to halt, so we can end the test and report the
+
+
+/*
+ * Force the event loop to halt, so we can end the test and report the
  * results that we do have.
  */
 static void halt_test(wand_event_handler_t *ev_hdl, void *evdata) {
@@ -791,6 +844,11 @@ static void halt_test(wand_event_handler_t *ev_hdl, void *evdata) {
     ev_hdl->running = false;
 }
 
+
+
+/*
+ *
+ */
 static void usage(char *prog) {
     fprintf(stderr, "Usage: %s [-P port] [-r] [-p perturbate] [-s packetsize]\n", prog);
     fprintf(stderr, "\n");
@@ -915,80 +973,79 @@ int run_tcpping(int argc, char *argv[], int count, struct addrinfo **dests) {
     return 0;
 }
 
+
+
+/*
+ *
+ */
 void print_tcpping(void *data, uint32_t len) {
-
-    struct tcpping_report_header_t *header;
-    struct tcpping_report_item_t *item;
+    Amplet2__Tcpping__Report *msg;
+    Amplet2__Tcpping__Item *item;
+    unsigned int i;
     char addrstr[INET6_ADDRSTRLEN];
-    int i, offset;
-    char *ampname;
 
-    header = (struct tcpping_report_header_t *)data;
+    assert(data != NULL);
 
-    assert(data);
-    assert(len >= sizeof(struct tcpping_report_header_t));
-    assert(len >= sizeof(struct tcpping_report_header_t) +
-            header->count * sizeof(struct tcpping_report_item_t));
-    assert(ntohl(header->version) == AMP_TCPPING_TEST_VERSION);
+    /* unpack all the data */
+    msg = amplet2__tcpping__report__unpack(NULL, len, data);
 
+    assert(msg);
+    assert(msg->header);
+
+    /* print global configuration options */
     printf("\n");
-    printf("AMP TCPPing test to port %u, %u destinations",
-            ntohs(header->port), header->count);
-    if (header->random) {
+    printf("AMP TCPPing test to port %u, %zu destinations, %u byte packets ",
+            msg->header->port, msg->n_reports, msg->header->packet_size);
+
+    if ( msg->header->random ) {
         printf("(random size)\n");
     } else {
-        printf("\n");
+        printf("(fixed size)\n");
     }
 
+    /* print each of the test results */
+    for ( i = 0; i < msg->n_reports; i++ ) {
+        item = msg->reports[i];
 
-    offset = sizeof(struct tcpping_report_header_t);
-
-    for (i = 0; i < header->count; i++) {
-        item = (struct tcpping_report_item_t *)(data + offset);
-        offset += sizeof(struct tcpping_report_item_t);
-
-        ampname = (char *)data + offset;
-        offset += item->namelen;
-        printf("%s", ampname);
-
-        inet_ntop(item->family, item->address, addrstr, INET6_ADDRSTRLEN);
+        printf("%s", item->name);
+        inet_ntop(item->family, item->address.data, addrstr, INET6_ADDRSTRLEN);
         printf(" (%s)", addrstr);
 
-        if ( ((int32_t)ntohl(item->rtt)) < 0 ) {
-            if ( item->reply == 0 ) {
-                printf(" missing ");
-            } else if (item->reply == 2) {
-                printf(" error (%u/%u) ", item->icmptype, item->icmpcode);
-            }
+        if ( item->has_rtt ) {
+            /* anything with an rtt is currently TCP only, should have flags */
+            printf(" %dus ", item->rtt);
+
+            if ( item->flags->has_syn && item->flags->syn )
+                printf("SYN ");
+            if ( item->flags->has_fin && item->flags->fin )
+                printf("FIN ");
+            if ( item->flags->has_urg && item->flags->urg )
+                printf("URG ");
+            if ( item->flags->has_psh && item->flags->psh )
+                printf("PSH ");
+            if ( item->flags->has_rst && item->flags->rst )
+                printf("RST ");
+            if ( item->flags->has_ack && item->flags->ack )
+                printf("ACK ");
+        } else if ( item->has_icmptype && item->has_icmpcode ) {
+                /* print any icmp errors we got, there won't be an rtt */
+                printf(" ICMP (%u/%u ", item->icmptype, item->icmpcode);
         } else {
-            printf(" %dus ", ntohl(item->rtt));
-
-            if (item->reply == 1) {
-                if (item->replyflags & 0x02)
-                    printf("SYN ");
-                if (item->replyflags & 0x01)
-                    printf("FIN ");
-                if (item->replyflags & 0x20)
-                    printf("URG ");
-                if (item->replyflags & 0x08)
-                    printf("PSH ");
-                if (item->replyflags & 0x04)
-                    printf("RST ");
-                if (item->replyflags & 0x10)
-                    printf("ACK ");
-            }
-
-            if (item->reply == 2) {
-                printf("ICMP (%u/%u) ", item->icmptype, item->icmpcode);
-            }
+            /* no response of any sort */
+            printf(" missing " );
         }
-        printf("%d bytes\n", ntohs(item->packet_size));
+        printf("\n");
     }
-
     printf("\n");
 
+    amplet2__tcpping__report__free_unpacked(msg, NULL);
 }
 
+
+
+/*
+ *
+ */
 test_t *register_test() {
     test_t *new_test = (test_t *)malloc(sizeof(test_t));
 

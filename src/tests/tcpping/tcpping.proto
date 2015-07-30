@@ -1,0 +1,33 @@
+package amplet2.tcpping;
+
+message Report {
+    optional Header header = 1;
+    repeated Item reports = 2;
+}
+
+message Header {
+    optional uint32 packet_size = 1 [default = 60];
+    optional bool random = 2 [default = false];
+    optional uint32 port = 3 [default = 80];
+}
+
+message Item {
+    optional bytes address = 1;
+    optional uint32 family = 2;
+    optional sint32 rtt = 3;
+    optional uint32 icmptype = 4;
+    optional uint32 icmpcode = 5;
+    optional TcpFlags flags = 6;
+    optional string name = 7;
+}
+
+message TcpFlags {
+    optional bool fin = 1;
+    optional bool syn = 2;
+    optional bool rst = 3;
+    optional bool psh = 4;
+    optional bool ack = 5;
+    optional bool urg = 6;
+}
+
+

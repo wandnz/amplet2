@@ -102,25 +102,6 @@ struct info_t {
     uint8_t icmpcode;           /* ICMP code of the reply */
 };
 
-struct tcpping_report_item_t {
-    char address[16];
-    int32_t rtt;
-    uint16_t packet_size;
-    uint8_t family;
-    uint8_t reply;
-    uint8_t replyflags;
-    uint8_t icmptype;
-    uint8_t icmpcode;
-    uint8_t namelen;
-} __attribute__((__packed__));
-
-struct tcpping_report_header_t {
-    uint32_t version;
-    uint16_t port;
-    uint8_t random;
-    uint8_t count;
-} __attribute__((__packed__));
-
 int run_tcpping(int argc, char *argv[], int count, struct addrinfo **dests);
 int save_tcpping(char *monitor, uint64_t timestamp, void *data, uint32_t len);
 void print_tcpping(void *data, uint32_t len);
