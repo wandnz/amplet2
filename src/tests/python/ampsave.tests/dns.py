@@ -15,7 +15,7 @@ def get_data(data):
         # it doubles the length of the function
         try:
             address = socket.inet_ntop(i.family, i.address)
-        except (ValueError, socket.error) e:
+        except (ValueError, socket.error) as e:
             if i.family == socket.AF_INET:
                 address = "0.0.0.0"
             elif i.family == socket.AF_INET6:
