@@ -1,5 +1,5 @@
-import socket
-import ampsave.tests.dns_pb2 # XXX whatever this ends up being
+import ampsave.tests.dns_pb2
+from ampsave.common import getAddressFromMessage
 
 def get_data(data):
     """
@@ -11,19 +11,7 @@ def get_data(data):
     msg.ParseFromString(data)
 
     for i in msg.reports:
-        # better check that the address is determined properly, even though
-        # it doubles the length of the function
-        try:
-            address = socket.inet_ntop(i.family, i.address)
-        except (ValueError, socket.error) as e:
-            if i.family == socket.AF_INET:
-                address = "0.0.0.0"
-            elif i.family == socket.AF_INET6:
-                address = "::"
-            else:
-                raise ValueError
-
-        # again, should probably check this has sensible values
+        # should probably check this has sensible values
         if len(i.instance) > 0:
             instance = i.instance
         elif len(i.name) > 0:
@@ -36,7 +24,7 @@ def get_data(data):
             {
                 "destination": i.name if len(i.name) > 0 else "unknown",
                 "instance": instance,
-                "address": address,
+                "address": getAddressFromMessage(i),
                 "rtt": i.rtt if i.HasField("rtt") else None,
                 "query_len": i.query_length,
                 "response_size": i.response_size if i.HasField("response_size") else None,

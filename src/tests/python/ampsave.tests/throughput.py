@@ -1,5 +1,5 @@
-import socket
 import ampsave.tests.throughput_pb2
+from ampsave.common import getAddressFromMessage
 
 
 def schedule_to_test_params(schedule):
@@ -38,18 +38,6 @@ def get_data(data):
 
     testparams = schedule_to_test_params(msg.header.schedule)
 
-    # better check that the address is determined properly, even though
-    # it doubles the length of the function
-    try:
-        address = socket.inet_ntop(msg.header.family, msg.header.address)
-    except (ValueError, socket.error) as e:
-        if msg.header.family == socket.AF_INET:
-            address = "0.0.0.0"
-        elif msg.header.family == socket.AF_INET6:
-            address = "::"
-        else:
-            raise ValueError
-
     for i in msg.reports:
         params = testparams.pop(0)
         results.append(
@@ -65,7 +53,7 @@ def get_data(data):
     # TODO confirm what happens if the test fails to connect
     return {
         "target": msg.header.name,
-        "address": address,
+        "address": getAddressFromMessage(msg.header),
         "schedule": msg.header.schedule,
         "write_size": msg.header.write_size,
         "results": results,

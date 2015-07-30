@@ -1,5 +1,5 @@
-import socket
-import ampsave.tests.icmp_pb2 # TODO determine best place to locate these
+import ampsave.tests.icmp_pb2
+from ampsave.common import getAddressFromMessage
 
 def get_data(data):
     """
@@ -11,23 +11,11 @@ def get_data(data):
     msg.ParseFromString(data)
 
     for i in msg.reports:
-        # better check that the address is determined properly, even though
-        # it doubles the length of the function
-        try:
-            address = socket.inet_ntop(i.family, i.address)
-        except (ValueError, socket.error) as e:
-            if i.family == socket.AF_INET:
-                address = "0.0.0.0"
-            elif i.family == socket.AF_INET6:
-                address = "::"
-            else:
-                raise ValueError
-
         # build the result structure based on what fields were present
         results.append(
             {
                 "target": i.name if len(i.name) > 0 else "unknown",
-                "address": address,
+                "address": getAddressFromMessage(i),
                 "rtt": i.rtt if i.HasField("rtt") else None,
                 "error_type": i.err_type if i.HasField("err_type") else None,
                 "error_code": i.err_code if i.HasField("err_code") else None,
