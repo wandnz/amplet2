@@ -1,5 +1,5 @@
 import ampsave.tests.dns_pb2
-from ampsave.common import getAddressFromMessage
+from ampsave.common import getPrintableAddress
 
 def get_data(data):
     """
@@ -24,7 +24,7 @@ def get_data(data):
             {
                 "destination": i.name if len(i.name) > 0 else "unknown",
                 "instance": instance,
-                "address": getAddressFromMessage(i),
+                "address": getPrintableAddress(i.family, i.address),
                 "rtt": i.rtt if i.HasField("rtt") else None,
                 "query_len": i.query_length,
                 "response_size": i.response_size if i.HasField("response_size") else None,

@@ -1,15 +1,15 @@
 import socket
 
-def getAddressFromMessage(msg):
+def getPrintableAddress(family, address):
     try:
-        address = socket.inet_ntop(msg.family, msg.address)
+        addrstr = socket.inet_ntop(family, address)
     except (ValueError, socket.error) as e:
-        if msg.family == socket.AF_INET:
-            address = "0.0.0.0"
-        elif msg.family == socket.AF_INET6:
-            address = "::"
+        if family == socket.AF_INET:
+            addrstr = "0.0.0.0"
+        elif family == socket.AF_INET6:
+            addrstr = "::"
         else:
             # TODO Should this return a string, an empty string or None?
             # Or go back to throwing an exception (which we then have to catch)
-            address = "unknown"
-    return address
+            addrstr = "unknown"
+    return addrstr

@@ -1,5 +1,5 @@
 import ampsave.tests.tcpping_pb2
-from ampsave.common import getAddressFromMessage
+from ampsave.common import getPrintableAddress
 
 def get_data(data):
     """
@@ -15,7 +15,7 @@ def get_data(data):
             {
                 "target": i.name if len(i.name) > 0 else "unknown",
                 "port": msg.header.port,
-                "address": getAddressFromMessage(i),
+                "address": getPrintableAddress(i.family, i.address),
                 "rtt": i.rtt if i.HasField("rtt") else None,
                 "replyflags": {
                     "fin": i.flags.fin,

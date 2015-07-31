@@ -1,5 +1,5 @@
 import ampsave.tests.throughput_pb2
-from ampsave.common import getAddressFromMessage
+from ampsave.common import getPrintableAddress
 
 
 def schedule_to_test_params(schedule):
@@ -53,7 +53,7 @@ def get_data(data):
     # TODO confirm what happens if the test fails to connect
     return {
         "target": msg.header.name,
-        "address": getAddressFromMessage(msg.header),
+        "address": getPrintableAddress(msg.header.family, msg.header.address),
         "schedule": msg.header.schedule,
         "write_size": msg.header.write_size,
         "results": results,

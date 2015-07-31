@@ -1,5 +1,5 @@
 import ampsave.tests.icmp_pb2
-from ampsave.common import getAddressFromMessage
+from ampsave.common import getPrintableAddress
 
 def get_data(data):
     """
@@ -15,7 +15,7 @@ def get_data(data):
         results.append(
             {
                 "target": i.name if len(i.name) > 0 else "unknown",
-                "address": getAddressFromMessage(i),
+                "address": getPrintableAddress(i.family, i.address),
                 "rtt": i.rtt if i.HasField("rtt") else None,
                 "error_type": i.err_type if i.HasField("err_type") else None,
                 "error_code": i.err_code if i.HasField("err_code") else None,
