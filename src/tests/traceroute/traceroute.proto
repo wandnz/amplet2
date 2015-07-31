@@ -1,0 +1,28 @@
+package amplet2.traceroute;
+
+message Report {
+    optional Header header = 1;
+    repeated Item reports = 2;
+}
+
+message Header {
+    optional uint32 packet_size = 1 [default = 60];
+    optional bool random = 2 [default = false];
+    optional bool ip = 3 [default = true];
+    optional bool asn = 4 [default = false];
+}
+
+message Item {
+    optional bytes address = 1;
+    optional int32 family = 2;
+    optional uint32 err_type = 3;
+    optional uint32 err_code = 4;
+    optional string name = 5;
+    repeated Hop path = 6;
+}
+
+message Hop {
+    optional bytes address = 1;
+    optional uint64 asn = 2;
+    optional uint32 rtt = 3;
+}
