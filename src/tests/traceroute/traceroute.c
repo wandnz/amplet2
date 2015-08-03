@@ -1061,37 +1061,6 @@ static int open_sockets(struct socket_t *icmp_sockets,
 
 
 
-static int extract_address(ProtobufCBinaryData *dst,
-        const struct addrinfo *src) {
-    assert(dst);
-
-    if ( src == NULL ) {
-        dst->data = 0;
-        dst->len = 0;
-        return 0;
-    }
-
-    switch ( src->ai_family ) {
-        case AF_INET:
-            dst->data = (void*)&((struct sockaddr_in*)src->ai_addr)->sin_addr;
-            dst->len = sizeof(struct in_addr);
-            break;
-        case AF_INET6:
-            dst->data = (void*)&((struct sockaddr_in6*)src->ai_addr)->sin6_addr;
-            dst->len = sizeof(struct in6_addr);
-            break;
-        default:
-            Log(LOG_WARNING, "Unknown address family %d\n", src->ai_family);
-            dst->data = NULL;
-            dst->len = 0;
-            break;
-    };
-
-    return dst->data ? 1 : 0;
-}
-
-
-
 /*
  *
  */
@@ -1107,7 +1076,7 @@ static Amplet2__Traceroute__Item* report_destination(struct dest_info_t *info) {
     item->has_family = 1;
     item->family = info->addr->ai_family;
     item->name = address_to_name(info->addr);
-    item->has_address = extract_address(&item->address, info->addr);
+    item->has_address = copy_address_to_protobuf(&item->address, info->addr);
     item->n_path = info->path_length;
 
     if ( info->err_type > 0 ) {
@@ -1132,7 +1101,7 @@ static Amplet2__Traceroute__Item* report_destination(struct dest_info_t *info) {
         amplet2__traceroute__hop__init(item->path[i]);
 
         item->path[i]->has_address =
-            extract_address(&item->path[i]->address, info->hop[i].addr);
+            copy_address_to_protobuf(&item->path[i]->address,info->hop[i].addr);
 
         if ( item->path[i]->has_address ) {
             item->path[i]->has_rtt = 1;

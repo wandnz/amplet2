@@ -436,28 +436,7 @@ static Amplet2__Icmp__Item* report_destination(struct info_t *info) {
     item->has_family = 1;
     item->family = info->addr->ai_family;
     item->name = address_to_name(info->addr);
-
-    /* find the target address and point the report item field at it */
-    switch ( item->family ) {
-        case AF_INET:
-            item->address.data =
-                (void*)&((struct sockaddr_in*) info->addr->ai_addr)->sin_addr;
-            item->address.len = sizeof(struct in_addr);
-            item->has_address = 1;
-            break;
-        case AF_INET6:
-            item->address.data =
-                (void*)&((struct sockaddr_in6*) info->addr->ai_addr)->sin6_addr;
-            item->address.len = sizeof(struct in6_addr);
-            item->has_address = 1;
-            break;
-        default:
-            Log(LOG_WARNING, "Unknown address family %d\n", item->family);
-            item->address.data = NULL;
-            item->address.len = 0;
-            item->has_address = 0;
-            break;
-    };
+    item->has_address = copy_address_to_protobuf(&item->address, info->addr);
 
     /* TODO do we want to truncate to milliseconds like the old test? */
     if ( info->reply && info->time_sent.tv_sec > 0 &&

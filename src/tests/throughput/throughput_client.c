@@ -339,28 +339,7 @@ static void report_results(uint64_t start_time, struct addrinfo *dest,
     header.has_write_size = 1;
     header.write_size = options->write_size;
     header.name = address_to_name(dest);
-
-    /* find the target address and point the report item field at it */
-    switch ( header.family ) {
-        case AF_INET:
-            header.address.data =
-                (void*)&((struct sockaddr_in*)dest->ai_addr)->sin_addr;
-            header.address.len = sizeof(struct in_addr);
-            header.has_address = 1;
-            break;
-        case AF_INET6:
-            header.address.data =
-                (void*)&((struct sockaddr_in6*)dest->ai_addr)->sin6_addr;
-            header.address.len = sizeof(struct in6_addr);
-            header.has_address = 1;
-            break;
-        default:
-            Log(LOG_WARNING, "Unknown address family %d\n", header.family);
-            header.address.data = NULL;
-            header.address.len = 0;
-            header.has_address = 0;
-            break;
-    };
+    header.has_address = copy_address_to_protobuf(&header.address, dest);
 
     /* build up the repeated reports section with each of the results */
     for ( i = 0, item = options->schedule; item != NULL; item = item->next ) {
