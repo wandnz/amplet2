@@ -24,17 +24,6 @@
 
 
 
-int run_dns(int argc, char *argv[], int count, struct addrinfo **dests);
-int save_dns(char *monitor, uint64_t timestamp, void *data, uint32_t len);
-void print_dns(void *data, uint32_t len);
-test_t *register_test(void);
-#if UNIT_TEST
-char *amp_test_dns_encode(char *query);
-char *amp_test_dns_decode(char *result, char *data, char *start);
-#endif
-
-
-
 /*
  * Our implementation of a DNS header so we can set/check flags etc easily.
  */
@@ -162,5 +151,19 @@ struct opt_t {
     int nsid;
     int perturbate;
 };
+
+
+
+int run_dns(int argc, char *argv[], int count, struct addrinfo **dests);
+int save_dns(char *monitor, uint64_t timestamp, void *data, uint32_t len);
+void print_dns(void *data, uint32_t len);
+test_t *register_test(void);
+#if UNIT_TEST
+char *amp_test_dns_encode(char *query);
+char *amp_test_dns_decode(char *result, char *data, char *start);
+void amp_test_report_results(struct timeval *start_time, int count,
+	struct info_t info[], struct opt_t *opt);
+#endif
+
 
 #endif
