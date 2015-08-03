@@ -17,7 +17,7 @@ message Header {
 
 message Item {
     optional bytes address = 1;
-    optional uint32 family = 2;
+    optional int32 family = 2;
     optional sint32 rtt = 3;
     optional uint32 query_length = 4;
     optional uint32 response_size = 5;
