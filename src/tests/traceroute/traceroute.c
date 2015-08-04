@@ -1089,7 +1089,7 @@ static Amplet2__Traceroute__Item* report_destination(struct dest_info_t *info) {
         item->has_err_code = 0;
     }
 
-    item->path = malloc(sizeof(Amplet2__Traceroute__Hop) * info->path_length);
+    item->path = malloc(sizeof(Amplet2__Traceroute__Hop*) * info->path_length);
 
     Log(LOG_DEBUG, "path result %d: %d hops to %s", info->id, info->path_length,
             item->name);
