@@ -688,6 +688,12 @@ CURL *pipeline_next_object(struct server_stats_t *server) {
     object->slist = config_request_headers(object->url, options.caching);
     curl_easy_setopt(object->handle, CURLOPT_HTTPHEADER, object->slist);
 
+    /* if keep-alives are disabled then ensure a new connection */
+    if ( !options.keep_alive ) {
+        curl_easy_setopt(object->handle, CURLOPT_FRESH_CONNECT, 1);
+        curl_easy_setopt(object->handle, CURLOPT_FORBID_REUSE, 1);
+    }
+
     /* timeout anything that fails to connect in a reasonable time period */
     curl_easy_setopt(object->handle, CURLOPT_CONNECTTIMEOUT, 60); //XXX
 
@@ -1280,7 +1286,7 @@ int run_http(int argc, char *argv[], __attribute__((unused))int count,
 	    //case 'u': strncpy(options.url, optarg, MAX_URL_LEN); break;
 	    case 'u': split_url(optarg, options.host, options.path, 1);
                       strncpy(options.url, optarg, MAX_URL_LEN); break;
-	    case 'k': options.keep_alive = 1; break;
+	    case 'k': options.keep_alive = 0; break;
 	    case 'm': options.max_connections = atoi(optarg); break;
 	    case 's': options.max_connections_per_server = atoi(optarg); break;
 	    case 'o': options.max_persistent_connections_per_server =
