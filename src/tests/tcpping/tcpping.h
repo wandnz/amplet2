@@ -27,6 +27,12 @@
 /* timeout in sec to wait before declaring the response lost, currently 10s */
 #define LOSS_TIMEOUT 10
 
+enum reply_type {
+    NO_REPLY = 0,
+    TCP_REPLY = 1,
+    ICMP_REPLY = 2,
+};
+
 /*
  * User defined test options to control packet size and timing.
  */
@@ -92,8 +98,7 @@ struct info_t {
     struct timeval time_sent;   /* Time when the SYN was sent */
     uint32_t seqno;             /* Sequence number of the sent SYN */
     uint32_t delay;             /* Delay in receiving response */
-    uint8_t reply;              /* Set to 1 if the reply was a TCP packet,
-                                 * 2 if the reply was an ICMP packet */
+    enum reply_type reply;      /* Protocol of reply (TCP/ICMP) */
     uint8_t replyflags;         /* TCP control bits set in the reply */
     uint8_t icmptype;           /* ICMP type of the reply */
     uint8_t icmpcode;           /* ICMP code of the reply */

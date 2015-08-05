@@ -378,7 +378,7 @@ static inline int match_response(struct tcppingglobals *tp,
     destid = destid / 100;
     assert(destid < tp->destcount);
 
-    if (tp->info[destid].reply != 0) {
+    if (tp->info[destid].reply != NO_REPLY) {
         /* Already got a reply for this SYN */
         return -1;
     }
@@ -397,7 +397,7 @@ static void process_tcp_response(struct tcppingglobals *tp, struct tcphdr *tcp,
     }
 
     if ((destid = match_response(tp, tcp, true)) >= 0) {
-        tp->info[destid].reply = 1;
+        tp->info[destid].reply = TCP_REPLY;
         tp->info[destid].delay = DIFF_TV_US(ts, tp->info[destid].time_sent);
         tp->info[destid].replyflags = 0;
 
@@ -461,7 +461,7 @@ static void process_icmp4_response(struct tcppingglobals *tp,
     if ((destid = match_response(tp, (struct tcphdr *)packet, false)) >= 0) {
         tp->info[destid].icmptype = icmp->type;
         tp->info[destid].icmpcode = icmp->code;
-        tp->info[destid].reply = 2;
+        tp->info[destid].reply = ICMP_REPLY;
         tp->info[destid].delay = DIFF_TV_US(ts, tp->info[destid].time_sent);
         tp->outstanding --;
     }
@@ -502,7 +502,7 @@ static void process_icmp6_response(struct tcppingglobals *tp,
     if ((destid = match_response(tp, (struct tcphdr *)packet, false)) >= 0) {
         tp->info[destid].icmptype = icmp->icmp6_type;
         tp->info[destid].icmpcode = icmp->icmp6_code;
-        tp->info[destid].reply = 2;
+        tp->info[destid].reply = ICMP_REPLY;
         tp->info[destid].delay = DIFF_TV_US(ts, tp->info[destid].time_sent);
         tp->outstanding --;
     }
@@ -570,7 +570,7 @@ static void send_packet(wand_event_handler_t *ev_hdl,
     tp->info[tp->destindex].addr = dest;
     tp->info[tp->destindex].seqno = tp->seqindex + (tp->destindex * 100);
     tp->info[tp->destindex].delay = 0;
-    tp->info[tp->destindex].reply = 0;
+    tp->info[tp->destindex].reply = NO_REPLY;
     tp->info[tp->destindex].replyflags = 0;
     tp->info[tp->destindex].icmptype = 0;
     tp->info[tp->destindex].icmpcode = 0;
@@ -674,14 +674,14 @@ static Amplet2__Tcpping__Item* report_destination(struct info_t *info) {
     item->has_address = copy_address_to_protobuf(&item->address, info->addr);
 
     switch ( info->reply ) {
-        case 0: //XXX use an enum with actual names...
+        case NO_REPLY:
             item->has_rtt = 0;
             item->has_icmptype = 0;
             item->has_icmpcode = 0;
             item->flags = NULL;
             break;
 
-        case 1:
+        case TCP_REPLY:
             item->flags = (Amplet2__Tcpping__TcpFlags*)malloc(
                     sizeof(Amplet2__Tcpping__TcpFlags));
 
@@ -718,7 +718,7 @@ static Amplet2__Tcpping__Item* report_destination(struct info_t *info) {
             item->has_icmpcode = 0;
             break;
 
-        case 2:
+        case ICMP_REPLY:
             /*
              * TODO check if the ICMP response is from the target, consider
              * using it to generate an RTT?
@@ -780,7 +780,7 @@ static void report_results(struct timeval *start_time, int count,
     amplet2__tcpping__report__pack(&msg, buffer);
 
     /* send the packed report object */
-    report(AMP_TEST_TCPPING, (uint64_t)start_time->tv_sec, (void*)buffer, len);
+    report(AMP_TEST_TCPPING, (uint64_t)start_time->tv_sec, buffer, len);
 
     /* free up all the memory we had to allocate to report items */
     for ( i = 0; i < count; i++ ) {
