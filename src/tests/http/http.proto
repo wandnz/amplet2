@@ -1,0 +1,60 @@
+package amplet2.http;
+
+message Report {
+    optional Header header = 1;
+    repeated Server servers = 2;
+}
+
+message Header {
+    optional string url = 1;
+    optional uint32 duration = 2;
+    optional uint32 total_bytes = 3;
+    optional uint32 total_objects = 4; //XXX what about failed objects?
+    optional uint32 total_servers = 5; //XXX this duplicates n_servers?
+    optional uint32 max_connections = 6;
+    optional uint32 max_connections_per_server = 7;
+    optional uint32 pipelining_maxrequests = 8;
+    optional uint32 max_persistent_connections_per_server = 9;
+    optional bool persist = 10;
+    optional bool pipelining = 11;
+    optional bool caching = 12;
+}
+
+message Server {
+    optional string hostname = 1;
+    optional double start = 2;
+    optional double end = 3;
+    optional string address = 4;
+    //optional bytes address = 4; //XXX this is a string in the current code?
+    // XXX need family if not going to use the string format
+//    optional int32 family = 5;
+    optional uint32 total_bytes = 6;
+    repeated Object objects = 7;
+}
+
+message Object {
+    optional string path = 1;
+    optional double start = 2;
+    optional double end = 3;
+    optional double lookup = 4;
+    optional double connect = 5;
+    optional double start_transfer = 6;
+    optional double total_time = 7;
+    optional uint32 code = 8;
+    optional uint32 size = 9;
+    optional uint32 connect_count = 10;
+    optional uint32 pipeline = 11;
+
+    //XXX split into header/flag stuff? seriously consider it?
+    optional int32 max_age = 12;
+    optional int32 s_maxage = 13;
+    optional bool x_cache = 14;
+    optional bool x_cache_lookup = 15;
+    optional bool pub = 16;
+    optional bool priv = 17;
+    optional bool no_cache = 18;
+    optional bool no_store = 19;
+    optional bool no_transform = 20;
+    optional bool must_revalidate = 21;
+    optional bool proxy_revalidate = 22;
+}

@@ -18,10 +18,6 @@
 #define MAX_URL_LEN (MAX_PATH_LEN + MAX_DNS_NAME_LEN)
 #define MAX_REPORTABLE_URL_LEN (MAX_REPORTABLE_PATH_LEN + MAX_DNS_NAME_LEN)
 
-#define FLOAT_TO_TV(f, tv) {\
-    (tv).tv_sec = (uint64_t) f;\
-    (tv).tv_usec = (uint64_t) ((f - (tv).tv_sec) * 1000000);\
-}
 
 /*
  * User defined test options that control packet size and timing.
@@ -119,59 +115,6 @@ struct object_stats_t {
     struct object_stats_t *next;
 };
 
-/* TODO move this out to a more generic location */
-struct amp_timeval_t {
-    uint64_t tv_sec;
-    uint64_t tv_usec;
-};
-
-struct http_report_server_t {
-    /* TODO make the name field variable length? */
-    char hostname[MAX_DNS_NAME_LEN];
-    struct amp_timeval_t start;
-    struct amp_timeval_t end;
-    /* nicer way than storing just 16 bytes for the address? */
-    char address[MAX_ADDR_LEN];
-    uint16_t reserved1;
-    int32_t bytes;
-    uint16_t reserved2;
-    uint8_t objects;
-    uint8_t reserved3;
-} __attribute__((packed));
-
-struct http_report_object_t {
-    char path[MAX_REPORTABLE_PATH_LEN];
-    struct amp_timeval_t start;
-    struct amp_timeval_t end;
-    struct amp_timeval_t lookup;
-    struct amp_timeval_t connect;
-    struct amp_timeval_t start_transfer;
-    struct amp_timeval_t total_time;
-    uint32_t code;
-    uint32_t size;
-    char reserved[6];
-    uint8_t connect_count;
-    uint8_t pipeline;
-    struct cache_headers_t headers;
-} __attribute__((packed));
-
-struct http_report_header_t {
-    uint32_t version;
-    uint32_t reserved;
-    char url[MAX_REPORTABLE_URL_LEN];
-    uint32_t duration;
-    uint32_t bytes;
-    uint16_t total_objects;
-    uint16_t total_servers;
-    uint16_t max_connections;
-    uint16_t max_connections_per_server;
-    uint16_t max_persistent_connections_per_server;
-    uint8_t persist;
-    uint8_t pipelining;
-    char reserved2[2];
-    uint8_t pipelining_maxrequests;
-    uint8_t caching;
-} __attribute__((packed));
 
 
 int run_http(int argc, char *argv[], int count, struct addrinfo **dests);
