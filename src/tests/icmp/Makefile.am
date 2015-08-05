@@ -20,3 +20,4 @@ INCLUDES=-I../ -I../../common/
 
 icmp.pb-c.c: Makefile
 	protoc-c --c_out=. icmp.proto
+	protoc --python_out=../python/ampsave.tests/ icmp.proto

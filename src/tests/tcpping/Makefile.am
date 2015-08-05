@@ -20,3 +20,4 @@ INCLUDES=-I../ -I../../common/
 
 tcpping.pb-c.c: Makefile
 	protoc-c --c_out=. tcpping.proto
+	protoc --python_out=../python/ampsave.tests/ tcpping.proto
