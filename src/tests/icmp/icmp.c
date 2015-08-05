@@ -491,15 +491,10 @@ static void report_results(struct timeval *start_time, int count,
     Amplet2__Icmp__Item **reports;
 
     /* populate the header with all the test options */
-    header.packet_size = opt->packet_size;
-    header.random = opt->random;
-
-    /*
-     * XXX do we want all these to be optional? what does it do to our ability
-     * to move to proto3 if they are all required?
-     */
     header.has_packet_size = 1;
+    header.packet_size = opt->packet_size;
     header.has_random = 1;
+    header.random = opt->random;
 
     /* build up the repeated reports section with each of the results */
     reports = malloc(sizeof(Amplet2__Icmp__Item*) * count);

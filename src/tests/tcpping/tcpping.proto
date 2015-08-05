@@ -29,5 +29,3 @@ message TcpFlags {
     optional bool ack = 5;
     optional bool urg = 6;
 }
-
-

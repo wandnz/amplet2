@@ -26,8 +26,8 @@ message Server {
     optional double end = 3;
     optional string address = 4;
     //optional bytes address = 4; //XXX this is a string in the current code?
-    // XXX need family if not going to use the string format
-//    optional int32 family = 5;
+    //XXX need family if not going to use the string format
+    //optional int32 family = 5;
     optional uint32 total_bytes = 6;
     repeated Object objects = 7;
 }
