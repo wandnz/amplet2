@@ -11,13 +11,13 @@ message Header {
     optional uint32 total_bytes = 3;
     optional uint32 total_objects = 4; //XXX what about failed objects?
     optional uint32 total_servers = 5; //XXX this duplicates n_servers?
-    optional uint32 max_connections = 6;
-    optional uint32 max_connections_per_server = 7;
-    optional uint32 pipelining_maxrequests = 8;
-    optional uint32 max_persistent_connections_per_server = 9;
-    optional bool persist = 10;
-    optional bool pipelining = 11;
-    optional bool caching = 12;
+    optional uint32 max_connections = 6 [default = 24];
+    optional uint32 max_connections_per_server = 7 [default = 8];
+    optional uint32 pipelining_maxrequests = 8 [default = 4];
+    optional uint32 max_persistent_connections_per_server = 9 [default = 2];
+    optional bool persist = 10 [default = true];
+    optional bool pipelining = 11 [default = false];
+    optional bool caching = 12 [default = false];
 }
 
 message Server {
