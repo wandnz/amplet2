@@ -1064,7 +1064,8 @@ static int open_sockets(struct socket_t *icmp_sockets,
 /*
  *
  */
-static Amplet2__Traceroute__Item* report_destination(struct dest_info_t *info) {
+static Amplet2__Traceroute__Item* report_destination(struct dest_info_t *info,
+        struct opt_t *opt) {
 
     int i;
     char addrstr[INET6_ADDRSTRLEN];
@@ -1100,19 +1101,27 @@ static Amplet2__Traceroute__Item* report_destination(struct dest_info_t *info) {
                 sizeof(Amplet2__Traceroute__Hop));
         amplet2__traceroute__hop__init(item->path[i]);
 
-        item->path[i]->has_address =
-            copy_address_to_protobuf(&item->path[i]->address,info->hop[i].addr);
+        if ( opt->ip ) {
+            /* only try to give an address if full ip pathing is requested */
+            item->path[i]->has_address =
+                copy_address_to_protobuf(&item->path[i]->address,
+                        info->hop[i].addr);
 
-        if ( item->path[i]->has_address ) {
-            item->path[i]->has_rtt = 1;
-            item->path[i]->rtt = info->hop[i].delay;
+            if ( item->path[i]->has_address ) {
+                /* rtt is only available if we got a response from an address */
+                item->path[i]->has_rtt = 1;
+                item->path[i]->rtt = info->hop[i].delay;
+
+                /* save an address string for debug output */
+                inet_ntop(item->family, item->path[i]->address.data, addrstr,
+                        INET6_ADDRSTRLEN);
+            }
+        }
+
+        if ( opt->as ) {
+            /* if requested the asn will always be set (even with no address) */
             item->path[i]->has_asn = 1;
             item->path[i]->asn = info->hop[i].as;
-            inet_ntop(item->family, item->path[i]->address.data, addrstr,
-                    INET6_ADDRSTRLEN);
-        } else {
-            item->path[i]->has_rtt = 0;
-            item->path[i]->has_asn = 0;
         }
 
         Log(LOG_DEBUG, " %d: %s %d AS%d\n", i+1,
@@ -1158,7 +1167,7 @@ static void report_results(struct timeval *start_time, int count,
     reports = malloc(sizeof(Amplet2__Traceroute__Item*) * count);
     for ( i = 0, result = info;
             i < count && result != NULL; i++, result = result->next ) {
-        reports[i] = report_destination(result);
+        reports[i] = report_destination(result, opt);
     }
 
     assert(i == count);

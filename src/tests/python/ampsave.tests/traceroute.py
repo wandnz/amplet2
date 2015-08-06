@@ -32,11 +32,11 @@ def get_data(data):
             # XXX not currently checking global flags, do I need to?
             # the fields shouldn't be present unless the flags are set
             hopitem = {}
-            if hop.HasField("rtt"):
+            if msg.header.ip and hop.HasField("rtt"):
                 hopitem["rtt"] = hop.rtt
-            if hop.HasField("address"):
+            if msg.header.ip and hop.HasField("address"):
                 hopitem["address"] = getPrintableAddress(i.family, hop.address)
-            if hop.HasField("asn"):
+            if msg.header.asn and hop.HasField("asn"):
                 hopitem["as"] = hop.asn
             result["hops"].append(hopitem)
 
