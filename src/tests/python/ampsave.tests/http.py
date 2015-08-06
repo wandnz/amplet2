@@ -13,7 +13,7 @@ def get_data(data):
     results = {
         "url": msg.header.url,
         "duration": msg.header.duration,
-        "bytes": msg.header.size,
+        "bytes": msg.header.total_bytes,
         "server_count": msg.header.total_servers,
         "object_count": msg.header.total_objects,
         "keep_alive": msg.header.persist,
