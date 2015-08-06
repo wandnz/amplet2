@@ -7,7 +7,7 @@ def get_data(data):
     """
 
     results = []
-    msg = ampsave.tests.dns_pb2.Report()
+    msg = ampsave.tests.tcpping_pb2.Report()
     msg.ParseFromString(data)
 
     for i in msg.reports:
