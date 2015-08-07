@@ -71,8 +71,6 @@ static void report_header_results(Amplet2__Http__Header *header,
     header->total_bytes = global.bytes;
     header->has_total_objects = 1;
     header->total_objects = global.objects;
-    header->has_total_servers = 1;
-    header->total_servers = global.servers;
 
     header->has_max_connections = 1;
     header->max_connections = opt->max_connections;
@@ -90,6 +88,58 @@ static void report_header_results(Amplet2__Http__Header *header,
     header->pipelining = opt->pipelining;
     header->has_caching = 1;
     header->caching = opt->caching;
+}
+
+
+
+/*
+ *
+ */
+static Amplet2__Http__CacheHeaders* report_cache_headers(
+        struct cache_headers_t *cache) {
+
+    Amplet2__Http__CacheHeaders *headers = (Amplet2__Http__CacheHeaders*)
+        malloc(sizeof(Amplet2__Http__CacheHeaders));
+
+    amplet2__http__cache_headers__init(headers);
+
+    if ( cache->max_age != -1 ) {
+        headers->has_max_age = 1;
+        headers->max_age = cache->max_age;
+    }
+
+    if ( cache->s_maxage != -1 ) {
+        headers->has_s_maxage = 1;
+        headers->s_maxage = cache->s_maxage;
+    }
+
+    if ( cache->x_cache != -1 ) {
+        headers->has_x_cache = 1;
+        headers->x_cache = cache->x_cache;
+    }
+
+    if ( cache->x_cache_lookup != -1 ) {
+        headers->has_x_cache_lookup = 1;
+        headers->x_cache_lookup = cache->x_cache_lookup;
+    }
+
+    /* these are all enabled when present, so are disabled if missing */
+    headers->has_pub = 1;
+    headers->pub = cache->flags.pub;
+    headers->has_priv = 1;
+    headers->priv = cache->flags.priv;
+    headers->has_no_cache = 1;
+    headers->no_cache = cache->flags.no_cache;
+    headers->has_no_store = 1;
+    headers->no_store = cache->flags.no_store;
+    headers->has_no_transform = 1;
+    headers->no_transform = cache->flags.no_transform;
+    headers->has_must_revalidate = 1;
+    headers->must_revalidate = cache->flags.must_revalidate;
+    headers->has_proxy_revalidate = 1;
+    headers->proxy_revalidate = cache->flags.proxy_revalidate;
+
+    return headers;
 }
 
 
@@ -136,43 +186,7 @@ static Amplet2__Http__Object* report_object_results(
     object->has_pipeline = 1;
     object->pipeline = info->pipeline;
     object->path = info->path;
-
-    /* do i need to explicitly set has_* to 0 everywhere? it defaults off? */
-    if ( info->headers.max_age != -1 ) {
-        object->has_max_age = 1;
-        object->max_age = info->headers.max_age;
-    }
-
-    if ( info->headers.s_maxage != -1 ) {
-        object->has_s_maxage = 1;
-        object->s_maxage = info->headers.s_maxage;
-    }
-
-    if ( info->headers.x_cache != -1 ) {
-        object->has_x_cache = 1;
-        object->x_cache = info->headers.x_cache;
-    }
-
-    if ( info->headers.x_cache_lookup != -1 ) {
-        object->has_x_cache_lookup = 1;
-        object->x_cache_lookup = info->headers.x_cache_lookup;
-    }
-
-    /* these are all enabled when present, so are disabled if missing */
-    object->has_pub = 1;
-    object->pub = info->headers.flags.pub;
-    object->has_priv = 1;
-    object->priv = info->headers.flags.priv;
-    object->has_no_cache = 1;
-    object->no_cache = info->headers.flags.no_cache;
-    object->has_no_store = 1;
-    object->no_store = info->headers.flags.no_store;
-    object->has_no_transform = 1;
-    object->no_transform = info->headers.flags.no_transform;
-    object->has_must_revalidate = 1;
-    object->must_revalidate = info->headers.flags.must_revalidate;
-    object->has_proxy_revalidate = 1;
-    object->proxy_revalidate = info->headers.flags.proxy_revalidate;
+    object->cache_headers = report_cache_headers(&info->headers);
 
     return object;
 }
@@ -270,6 +284,9 @@ static void report_results(struct timeval *start_time,
     /* free up all the memory we had to allocate to report items */
     for ( i = 0; i < global.servers; i++ ) {
         for ( j = 0; j < servers[i]->n_objects; j++ ) {
+            if ( servers[i]->objects[j]->cache_headers ) {
+                free(servers[i]->objects[j]->cache_headers);
+            }
             free(servers[i]->objects[j]);
         }
         free(servers[i]->objects);

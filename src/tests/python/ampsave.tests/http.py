@@ -14,7 +14,7 @@ def get_data(data):
         "url": msg.header.url,
         "duration": msg.header.duration,
         "bytes": msg.header.total_bytes,
-        "server_count": msg.header.total_servers,
+        "server_count": len(msg.servers),
         "object_count": msg.header.total_objects,
         "keep_alive": msg.header.persist,
         "max_connections": msg.header.max_connections,
@@ -45,7 +45,7 @@ def get_data(data):
             # has a code of zero, then we failed to fetch anything at all.
             # Change the duration to None so the graphs properly interrupt
             # the line.
-            if ( msg.header.total_servers == 1 and
+            if ( len(msg.servers) == 1 and
                     msg.header.total_objects == 1 and obj.code == 0 ):
                 results["duration"] = None
                 # TODO should we still add the object?
@@ -68,18 +68,18 @@ def get_data(data):
                 "pipeline": obj.pipeline,
                 "headers": {
                     "flags": {
-                        "pub": obj.pub,
-                        "priv": obj.priv,
-                        "no_cache": obj.no_cache,
-                        "no_store": obj.no_store,
-                        "no_transform": obj.no_transform,
-                        "must_revalidate": obj.must_revalidate,
-                        "proxy_revalidate": obj.proxy_revalidate,
+                        "pub": obj.cache_headers.pub,
+                        "priv": obj.cache_headers.priv,
+                        "no_cache": obj.cache_headers.no_cache,
+                        "no_store": obj.cache_headers.no_store,
+                        "no_transform": obj.cache_headers.no_transform,
+                        "must_revalidate": obj.cache_headers.must_revalidate,
+                        "proxy_revalidate": obj.cache_headers.proxy_revalidate,
                     },
-                    "max_age": obj.max_age if obj.HasField("max_age") else None,
-                    "s_maxage": obj.s_maxage if obj.HasField("s_maxage") else None,
-                    "x_cache": obj.x_cache if obj.HasField("x_cache") else None,
-                    "x_cache_lookup": obj.x_cache_lookup if obj.HasField("x_cache_lookup") else None,
+                    "max_age": obj.cache_headers.max_age if obj.cache_headers.HasField("max_age") else None,
+                    "s_maxage": obj.cache_headers.s_maxage if obj.cache_headers.HasField("s_maxage") else None,
+                    "x_cache": obj.cache_headers.x_cache if obj.cache_headers.HasField("x_cache") else None,
+                    "x_cache_lookup": obj.cache_headers.x_cache_lookup if obj.cache_headers.HasField("x_cache_lookup") else None,
                 },
             })
 

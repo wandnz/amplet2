@@ -24,18 +24,21 @@ message Item {
     optional uint32 total_answer = 6;
     optional uint32 total_authority = 7;
     optional uint32 total_additional = 8;
-    // TODO do we gain anything by moving flags into another message?
-    optional bool qr = 9;
-    optional uint32 opcode = 10;
-    optional bool aa = 11;;
-    optional bool tc = 12;
-    optional bool rd = 13;
-    optional bool ra = 14;
-    optional bool z = 15;
-    optional bool ad = 16;
-    optional bool cd = 17;
-    optional uint32 rcode = 18;
-    optional uint32 ttl = 19;
-    optional string name = 20;
-    optional string instance = 21;
+    optional DnsFlags flags = 9;
+    optional uint32 ttl = 10;
+    optional string name = 11;
+    optional string instance = 12;
+}
+
+message DnsFlags {
+    optional bool qr = 1;
+    optional uint32 opcode = 2;
+    optional bool aa = 3;;
+    optional bool tc = 4;
+    optional bool rd = 5;
+    optional bool ra = 6;
+    optional bool z = 7;
+    optional bool ad = 8;
+    optional bool cd = 9;
+    optional uint32 rcode = 10;
 }

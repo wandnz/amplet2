@@ -9,15 +9,14 @@ message Header {
     optional string url = 1;
     optional uint32 duration = 2;
     optional uint32 total_bytes = 3;
-    optional uint32 total_objects = 4; //XXX what about failed objects?
-    optional uint32 total_servers = 5; //XXX this duplicates n_servers?
-    optional uint32 max_connections = 6 [default = 24];
-    optional uint32 max_connections_per_server = 7 [default = 8];
-    optional uint32 pipelining_maxrequests = 8 [default = 4];
-    optional uint32 max_persistent_connections_per_server = 9 [default = 2];
-    optional bool persist = 10 [default = true];
-    optional bool pipelining = 11 [default = false];
-    optional bool caching = 12 [default = false];
+    optional uint32 total_objects = 4;
+    optional uint32 max_connections = 5 [default = 24];
+    optional uint32 max_connections_per_server = 6 [default = 8];
+    optional uint32 pipelining_maxrequests = 7 [default = 4];
+    optional uint32 max_persistent_connections_per_server = 8 [default = 2];
+    optional bool persist = 9 [default = true];
+    optional bool pipelining = 10 [default = false];
+    optional bool caching = 11 [default = false];
 }
 
 message Server {
@@ -25,7 +24,7 @@ message Server {
     optional double start = 2;
     optional double end = 3;
     optional string address = 4;
-    //optional bytes address = 4; //XXX this is a string in the current code?
+    //optional bytes address = 4;
     //XXX need family if not going to use the string format
     //optional int32 family = 5;
     optional uint32 total_bytes = 6;
@@ -44,17 +43,19 @@ message Object {
     optional uint32 size = 9;
     optional uint32 connect_count = 10;
     optional uint32 pipeline = 11;
+    optional CacheHeaders cache_headers = 12;
+}
 
-    //XXX split into header/flag stuff? seriously consider it?
-    optional int32 max_age = 12;
-    optional int32 s_maxage = 13;
-    optional bool x_cache = 14;
-    optional bool x_cache_lookup = 15;
-    optional bool pub = 16;
-    optional bool priv = 17;
-    optional bool no_cache = 18;
-    optional bool no_store = 19;
-    optional bool no_transform = 20;
-    optional bool must_revalidate = 21;
-    optional bool proxy_revalidate = 22;
+message CacheHeaders {
+    optional int32 max_age = 1;
+    optional int32 s_maxage = 2;
+    optional bool x_cache = 3;
+    optional bool x_cache_lookup = 4;
+    optional bool pub = 5;
+    optional bool priv = 6;
+    optional bool no_cache = 7;
+    optional bool no_store = 8;
+    optional bool no_transform = 9;
+    optional bool must_revalidate = 10;
+    optional bool proxy_revalidate = 11;
 }

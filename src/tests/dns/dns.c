@@ -507,6 +507,41 @@ static int open_sockets(struct socket_t *sockets) {
 /*
  *
  */
+static Amplet2__Dns__DnsFlags* report_flags(union flags_t *flags) {
+
+    Amplet2__Dns__DnsFlags *item = (Amplet2__Dns__DnsFlags*)malloc(
+            sizeof(Amplet2__Dns__DnsFlags));
+    amplet2__dns__dns_flags__init(item);
+
+    item->has_qr = 1;
+    item->qr = flags->fields.qr;
+    item->has_opcode = 1;
+    item->opcode = flags->fields.opcode;
+    item->has_aa = 1;
+    item->aa = flags->fields.aa;
+    item->has_tc = 1;
+    item->tc = flags->fields.tc;
+    item->has_rd = 1;
+    item->rd = flags->fields.rd;
+    item->has_ra = 1;
+    item->ra = flags->fields.ra;
+    item->has_z = 1;
+    item->z = flags->fields.z;
+    item->has_ad = 1;
+    item->ad = flags->fields.ad;
+    item->has_cd = 1;
+    item->cd = flags->fields.cd;
+    item->has_rcode = 1;
+    item->rcode = flags->fields.rcode;
+
+    return item;
+}
+
+
+
+/*
+ *
+ */
 static Amplet2__Dns__Item* report_destination(struct info_t *info) {
 
     Amplet2__Dns__Item *item =
@@ -535,28 +570,7 @@ static Amplet2__Dns__Item* report_destination(struct info_t *info) {
         item->total_authority = info->total_authority;
         item->has_total_additional = 1;
         item->total_additional = info->total_additional;
-
-        /* flags */
-        item->has_qr = 1;
-        item->qr = info->flags.fields.qr;
-        item->has_opcode = 1;
-        item->opcode = info->flags.fields.opcode;
-        item->has_aa = 1;
-        item->aa = info->flags.fields.aa;
-        item->has_tc = 1;
-        item->tc = info->flags.fields.tc;
-        item->has_rd = 1;
-        item->rd = info->flags.fields.rd;
-        item->has_ra = 1;
-        item->ra = info->flags.fields.ra;
-        item->has_z = 1;
-        item->z = info->flags.fields.z;
-        item->has_ad = 1;
-        item->ad = info->flags.fields.ad;
-        item->has_cd = 1;
-        item->cd = info->flags.fields.cd;
-        item->has_rcode = 1;
-        item->rcode = info->flags.fields.rcode;
+        item->flags = report_flags(&info->flags);
 
         /* possible instance name from NSID OPT RR */
         if ( strlen(info->response) > 0 ) {
@@ -572,16 +586,7 @@ static Amplet2__Dns__Item* report_destination(struct info_t *info) {
         item->has_total_answer = 0;
         item->has_total_authority = 0;
         item->has_total_additional = 0;
-        item->has_qr = 0;
-        item->has_opcode = 0;
-        item->has_aa = 0;
-        item->has_tc = 0;
-        item->has_rd = 0;
-        item->has_ra = 0;
-        item->has_z = 0;
-        item->has_ad = 0;
-        item->has_cd = 0;
-        item->has_rcode = 0;
+        item->flags = NULL;
         item->instance = NULL;
     }
 
@@ -645,6 +650,9 @@ static void report_results(struct timeval *start_time, int count,
 
     /* free up all the memory we had to allocate to report items */
     for ( i = 0; i < count; i++ ) {
+        if ( reports[i]->flags ) {
+            free(reports[i]->flags);
+        }
         free(reports[i]);
     }
 
@@ -1068,18 +1076,21 @@ void print_dns(void *data, uint32_t len) {
         printf("MSG SIZE sent: %d, rcvd: %d, ", item->query_length,
                 item->response_size);
 
-	printf("opcode: %s, status: %s\n", get_opcode_string(item->opcode),
-		get_status_string(item->rcode));
+        if ( item->flags ) {
+            printf("opcode: %s, status: %s\n",
+                    get_opcode_string(item->flags->opcode),
+                    get_status_string(item->flags->rcode));
 
-	printf("flags:");
-	if ( item->qr ) printf(" qr");
-	if ( item->aa ) printf(" aa");
-	if ( item->rd ) printf(" rd");
-	if ( item->ra ) printf(" ra");
-	if ( item->tc ) printf(" tc");
-	if ( item->ad ) printf(" ad");
-	if ( item->cd ) printf(" cd");
-	printf("; ");
+            printf("flags:");
+            if ( item->flags->qr ) printf(" qr");
+            if ( item->flags->aa ) printf(" aa");
+            if ( item->flags->rd ) printf(" rd");
+            if ( item->flags->ra ) printf(" ra");
+            if ( item->flags->tc ) printf(" tc");
+            if ( item->flags->ad ) printf(" ad");
+            if ( item->flags->cd ) printf(" cd");
+            printf("; ");
+        }
 
 	printf("QUERY: 1, ANSWER: %d, AUTHORITY: %d, ADDITIONAL: %d\n",
 		item->total_answer, item->total_authority,
