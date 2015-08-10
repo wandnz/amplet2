@@ -100,26 +100,27 @@ static void verify_response(struct info_t *a, Amplet2__Dns__Item *b) {
         assert(b->has_total_additional);
         assert(a->total_additional == b->total_additional);
         /* flags */
-        assert(b->has_qr);
-        assert(a->flags.fields.qr == b->qr);
-        assert(b->has_opcode);
-        assert(a->flags.fields.opcode == b->opcode);
-        assert(b->has_aa);
-        assert(a->flags.fields.aa == b->aa);
-        assert(b->has_tc);
-        assert(a->flags.fields.tc == b->tc);
-        assert(b->has_rd);
-        assert(a->flags.fields.rd == b->rd);
-        assert(b->has_ra);
-        assert(a->flags.fields.ra == b->ra);
-        assert(b->has_z);
-        assert(a->flags.fields.z == b->z);
-        assert(b->has_ad);
-        assert(a->flags.fields.ad == b->ad);
-        assert(b->has_cd);
-        assert(a->flags.fields.cd == b->cd);
-        assert(b->has_rcode);
-        assert(a->flags.fields.rcode == b->rcode);
+        assert(b->flags);
+        assert(b->flags->has_qr);
+        assert(a->flags.fields.qr == b->flags->qr);
+        assert(b->flags->has_opcode);
+        assert(a->flags.fields.opcode == b->flags->opcode);
+        assert(b->flags->has_aa);
+        assert(a->flags.fields.aa == b->flags->aa);
+        assert(b->flags->has_tc);
+        assert(a->flags.fields.tc == b->flags->tc);
+        assert(b->flags->has_rd);
+        assert(a->flags.fields.rd == b->flags->rd);
+        assert(b->flags->has_ra);
+        assert(a->flags.fields.ra == b->flags->ra);
+        assert(b->flags->has_z);
+        assert(a->flags.fields.z == b->flags->z);
+        assert(b->flags->has_ad);
+        assert(a->flags.fields.ad == b->flags->ad);
+        assert(b->flags->has_cd);
+        assert(a->flags.fields.cd == b->flags->cd);
+        assert(b->flags->has_rcode);
+        assert(a->flags.fields.rcode == b->flags->rcode);
 
         /* possible instance name from NSID OPT RR */
         if ( strlen(a->response) > 0 ) {
@@ -136,16 +137,7 @@ static void verify_response(struct info_t *a, Amplet2__Dns__Item *b) {
         assert(!b->has_total_authority);
         assert(!b->has_total_additional);
         /* flags */
-        assert(!b->has_qr);
-        assert(!b->has_opcode);
-        assert(!b->has_aa);
-        assert(!b->has_tc);
-        assert(!b->has_rd);
-        assert(!b->has_ra);
-        assert(!b->has_z);
-        assert(!b->has_ad);
-        assert(!b->has_cd);
-        assert(!b->has_rcode);
+        assert(b->flags == NULL);
         assert(b->instance == NULL);
     }
 }
