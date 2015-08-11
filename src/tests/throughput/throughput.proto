@@ -7,7 +7,7 @@ message Report {
 
 message Header {
     optional bytes address = 1;
-    optional uint32 family = 2;
+    optional int32 family = 2;
     optional string schedule = 3;
     optional uint32 write_size = 4;
     optional string name = 5;
