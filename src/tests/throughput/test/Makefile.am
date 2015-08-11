@@ -1,5 +1,5 @@
-TESTS=throughput_register.test throughput_hello.test throughput_ready.test throughput_request.test
-check_PROGRAMS=throughput_register.test throughput_hello.test throughput_ready.test throughput_request.test
+TESTS=throughput_register.test throughput_hello.test throughput_ready.test throughput_request.test throughput_report.test
+check_PROGRAMS=throughput_register.test throughput_hello.test throughput_ready.test throughput_request.test throughput_report.test
 
 throughput_register_test_SOURCES=throughput_register_test.c ../throughput.c ../throughput_server.c ../throughput_client.c ../throughput_common.c ../web10g.c
 nodist_throughput_register_test_SOURCES=../throughput.pb-c.c
@@ -21,6 +21,10 @@ nodist_throughput_request_test_SOURCES=../throughput.pb-c.c
 throughput_request_test_CFLAGS=-rdynamic -DUNIT_TEST
 throughput_request_test_LDFLAGS=-module -avoid-version -L../../../common/ -lamp -lprotobuf-c
 
+throughput_report_test_SOURCES=throughput_report_test.c ../throughput.c ../throughput_server.c ../throughput_client.c ../throughput_common.c
+nodist_throughput_report_test_SOURCES=../throughput.pb-c.c
+throughput_report_test_CFLAGS=-rdynamic -DUNIT_TEST
+throughput_report_test_LDFLAGS=-module -avoid-version -L../../../common/ -lamp -lprotobuf-c
 
 AM_CFLAGS=-g -Wall -W -rdynamic
 INCLUDES=-I../ -I../../ -I../../../common/

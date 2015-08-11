@@ -916,3 +916,12 @@ void print_throughput(void *data, uint32_t len) {
 
     amplet2__throughput__report__free_unpacked(msg, NULL);
 }
+
+
+
+#if UNIT_TEST
+void amp_test_report_results(uint64_t start_time, struct addrinfo *dest,
+        struct opt_t *options) {
+    report_results(start_time, dest, options);
+}
+#endif
