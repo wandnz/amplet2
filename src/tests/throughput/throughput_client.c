@@ -153,13 +153,30 @@ static void parseSchedule(struct opt_t *options, char *request) {
  * @param options - A options structure to free the enclosed schedule.
  */
 static void freeSchedule(struct opt_t *options){
-    struct test_request_t *cur = options->schedule;
+    struct test_request_t *item = options->schedule;
+    struct test_request_t *tmp;
 
-    while ( cur != NULL ) {
-        struct test_request_t *temp;
-        temp = cur->next;
-        free(cur);
-        cur = temp;
+    while ( item != NULL ) {
+        tmp = item;
+        item = item->next;
+
+        if ( tmp->s_result ) {
+            free(tmp->s_result);
+            tmp->s_result = NULL;
+        }
+        if ( tmp->c_result ) {
+            free(tmp->c_result);
+            tmp->c_result = NULL;
+        }
+        if ( tmp->s_web10g ) {
+            free(tmp->s_web10g);
+            tmp->s_web10g = NULL;
+        }
+        if ( tmp->c_web10g ) {
+            free(tmp->c_web10g);
+            tmp->c_web10g = NULL;
+        }
+        free(tmp);
     }
 
     options->schedule = NULL;
@@ -294,24 +311,6 @@ static Amplet2__Throughput__Item* report_schedule(struct test_request_t *info) {
         (item->direction ==
          AMPLET2__THROUGHPUT__ITEM__DIRECTION__SERVER_TO_CLIENT) ?
         "client" : "server");
-
-    /* TODO these don't really belong here */
-    if ( info->s_result ) {
-        free(info->s_result);
-        info->s_result = NULL;
-    }
-    if ( info->c_result ) {
-        free(info->c_result);
-        info->c_result = NULL;
-    }
-    if ( info->s_web10g ) {
-        free(info->s_web10g);
-        info->s_web10g = NULL;
-    }
-    if ( info->c_web10g ) {
-        free(info->c_web10g);
-        info->c_web10g = NULL;
-    }
 
     return item;
 }
