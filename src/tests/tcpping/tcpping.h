@@ -5,6 +5,7 @@
 #include <sys/socket.h>
 #include <netdb.h>
 #include <libwandevent.h>
+#include "testlib.h"
 
 /* use the current date with 2 digit count appended as version: YYYYMMDDXX */
 #define AMP_TCPPING_TEST_VERSION 2014072100
@@ -109,6 +110,10 @@ int save_tcpping(char *monitor, uint64_t timestamp, void *data, uint32_t len);
 void print_tcpping(void *data, uint32_t len);
 test_t *register_test(void);
 
+#if UNIT_TEST
+void amp_test_report_results(struct timeval *start_time, int count,
+        struct info_t info[], struct opt_t *opt);
+#endif
 
 #endif
 

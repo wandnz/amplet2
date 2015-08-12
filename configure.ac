@@ -262,6 +262,7 @@ AC_CONFIG_FILES([Makefile
                  src/tests/traceroute/Makefile
                  src/tests/traceroute/test/Makefile
                  src/tests/tcpping/Makefile
+                 src/tests/tcpping/test/Makefile
                  src/tests/http/Makefile
                  src/tests/throughput/Makefile
                  src/tests/throughput/test/Makefile

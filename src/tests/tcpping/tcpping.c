@@ -733,7 +733,7 @@ static Amplet2__Tcpping__Item* report_destination(struct info_t *info) {
     };
 
     Log(LOG_DEBUG, "tcpping result: %dus, %d,%d,%d,%d",
-            item->rtt ? item->rtt : -1, info->reply, info->replyflags,
+            item->rtt ? (int)item->rtt : -1, info->reply, info->replyflags,
             info->icmptype, info->icmpcode);
 
     return item;
@@ -1039,5 +1039,14 @@ test_t *register_test() {
     new_test->sigint = 1;
     return new_test;
 }
+
+
+
+#if UNIT_TEST
+void amp_test_report_results(struct timeval *start_time, int count,
+        struct info_t info[], struct opt_t *opt) {
+    report_results(start_time, count, info, opt);
+}
+#endif
 
 /* vim: set sw=4 tabstop=4 softtabstop=4 expandtab : */

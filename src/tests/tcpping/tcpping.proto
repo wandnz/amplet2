@@ -14,7 +14,7 @@ message Header {
 message Item {
     optional bytes address = 1;
     optional int32 family = 2;
-    optional sint32 rtt = 3;
+    optional uint32 rtt = 3;
     optional uint32 icmptype = 4;
     optional uint32 icmpcode = 5;
     optional TcpFlags flags = 6;

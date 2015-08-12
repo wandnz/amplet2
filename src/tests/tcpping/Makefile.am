@@ -1,4 +1,5 @@
 EXTRA_DIST=*.h tcpping.proto
+SUBDIRS= . test
 BUILT_SOURCES=tcpping.pb-c.c
 CLEANFILES=tcpping.pb-c.c tcpping.pb-c.h
 
