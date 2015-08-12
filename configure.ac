@@ -65,6 +65,16 @@ if test "$curl_h_found" = 0; then
     AC_MSG_ERROR(Required headers for libcurl not found; use CLFAGS to specify header location)
 fi
 
+# make sure google protocol buffer C libraries exist
+AC_CHECK_LIB(protobuf-c, protobuf_c_out_of_memory, libprotobufc_found=1, libprotobufc_found=0)
+if test "$libprotobufc_found" = 0; then
+    AC_MSG_ERROR(Required library libprotobuf-c not found; use LDFLAGS to specify library location)
+fi
+AC_CHECK_HEADER(google/protobuf-c/protobuf-c.h, protobuf_h_found=1, protobuf_h_found=0)
+if test "$protobuf_h_found" = 0; then
+    AC_MSG_ERROR(Required headers for protobuf-c not found; use CLFAGS to specify header location)
+fi
+
 # check if we have the web10g library, it's ok for it to be missing
 AC_CHECK_LIB([estats], [estats_nl_client_init],
         [AM_CONDITIONAL(HAVE_ESTATS, true)],
