@@ -590,7 +590,7 @@ static Amplet2__Dns__Item* report_destination(struct info_t *info) {
         item->instance = NULL;
     }
 
-    Log(LOG_DEBUG, "dns result: %dus\n", item->has_rtt ? item->rtt : -1);
+    Log(LOG_DEBUG, "dns result: %dus\n", item->has_rtt ? (int)item->rtt : -1);
 
     return item;
 }
