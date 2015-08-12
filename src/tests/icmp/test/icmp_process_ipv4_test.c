@@ -104,5 +104,7 @@ int main(void) {
         }
     }
 
+    free(info);
+
     return 0;
 }
