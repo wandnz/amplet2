@@ -23,6 +23,6 @@ message Item {
 
 message Hop {
     optional bytes address = 1;
-    optional uint64 asn = 2;
+    optional sint64 asn = 2;
     optional uint32 rtt = 3;
 }
