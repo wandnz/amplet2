@@ -276,8 +276,7 @@ AC_CONFIG_FILES([Makefile
                  src/tests/http/Makefile
                  src/tests/throughput/Makefile
                  src/tests/throughput/test/Makefile
-                 src/tests/remoteskeleton/Makefile
-                 src/xferd/Makefile])
+                 src/tests/remoteskeleton/Makefile])
 AC_OUTPUT
 
 reportopt() {
