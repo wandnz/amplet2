@@ -27,7 +27,7 @@
 #define TRACEROUTE_DEST_PORT 33434
 
 /* TTL to use for the first probe packet */
-#define INITIAL_TTL 6
+#define INITIAL_TTL 3
 
 /* Maximum number of destinations that can have probe packets outstanding */
 #define INITIAL_WINDOW 50
