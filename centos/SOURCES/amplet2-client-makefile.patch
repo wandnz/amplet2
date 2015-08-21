@@ -1,24 +1,37 @@
---- a/src/tests/python/Makefile.am      2014-11-04 13:40:15.861999804 +1300
-+++ b/src/tests/python/Makefile.am      2014-11-04 13:40:44.658001757 +1300
-@@ -4,7 +4,8 @@
-	python setup.py build
- 
- install-exec-hook:
--	python setup.py install --prefix=$(DESTDIR)/$(prefix)
-+	mkdir -p $(DESTDIR)/$(prefix)/lib/python2.6/site-packages
-+	PYTHONPATH=$(DESTDIR)/$(prefix)/lib/python2.6/site-packages python setup.py install --prefix=$(DESTDIR)/$(prefix)
- 
+--- a/src/tests/python/Makefile.am      2015-08-21 18:09:57.023519530 +1200
++++ b/src/tests/python/Makefile.am      2015-08-21 18:15:05.803029405 +1200
+@@ -5,13 +5,9 @@
+
+ # https://blog.kevin-brown.com/programming/2014/09/24/combining-autotools-and-setuptools.html
+ install-exec-local:
++       mkdir -p $(DESTDIR)/$(pythondir)/
+        PYTHONPATH=$(DESTDIR)/$(pythondir)/ \
+-        python setup.py install \
+-            --prefix=$(DESTDIR)/$(prefix) \
+-            --install-layout=deb \
+-            --single-version-externally-managed \
+-            --record $(DESTDIR)/$(pythondir)/ampsave/install_files.txt \
+-            --verbose
++               python setup.py install --prefix=$(DESTDIR)/$(prefix)
+
  clean-local:
-	-rm -rf build
---- a/src/tests/python/Makefile.in	2014-11-04 14:04:22.500999984 +1300
-+++ b/src/tests/python/Makefile.in	2014-11-04 14:05:02.975000006 +1300
-@@ -365,7 +365,8 @@
-	python setup.py build
- 
- install-exec-hook:
--	python setup.py install --prefix=$(DESTDIR)/$(prefix)
-+	mkdir -p $(DESTDIR)/$(prefix)/lib/python2.6/site-packages
-+	PYTHONPATH=$(DESTDIR)/$(prefix)/lib/python2.6/site-packages python setup.py install --prefix=$(DESTDIR)/$(prefix)
- 
+        python setup.py clean --all
+
+--- a/src/tests/python/Makefile.in      2015-08-21 17:54:38.000000000 +1200
++++ b/src/tests/python/Makefile.in      2015-08-21 18:15:36.422278239 +1200
+@@ -372,13 +372,9 @@
+
+ # https://blog.kevin-brown.com/programming/2014/09/24/combining-autotools-and-setuptools.html
+ install-exec-local:
++       mkdir -p $(DESTDIR)/$(pythondir)/
+        PYTHONPATH=$(DESTDIR)/$(pythondir)/ \
+-        python setup.py install \
+-            --prefix=$(DESTDIR)/$(prefix) \
+-            --install-layout=deb \
+-            --single-version-externally-managed \
+-            --record $(DESTDIR)/$(pythondir)/ampsave/install_files.txt \
+-            --verbose
++               python setup.py install --prefix=$(DESTDIR)/$(prefix)
+
  clean-local:
- 	-rm -rf build
+        python setup.py clean --all
