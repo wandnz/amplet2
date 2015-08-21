@@ -8,6 +8,7 @@
 #include <assert.h>
 
 #include "throughput.h"
+#include "throughput.pb-c.h"
 
 
 
@@ -152,13 +153,30 @@ static void parseSchedule(struct opt_t *options, char *request) {
  * @param options - A options structure to free the enclosed schedule.
  */
 static void freeSchedule(struct opt_t *options){
-    struct test_request_t *cur = options->schedule;
+    struct test_request_t *item = options->schedule;
+    struct test_request_t *tmp;
 
-    while ( cur != NULL ) {
-        struct test_request_t *temp;
-        temp = cur->next;
-        free(cur);
-        cur = temp;
+    while ( item != NULL ) {
+        tmp = item;
+        item = item->next;
+
+        if ( tmp->s_result ) {
+            free(tmp->s_result);
+            tmp->s_result = NULL;
+        }
+        if ( tmp->c_result ) {
+            free(tmp->c_result);
+            tmp->c_result = NULL;
+        }
+        if ( tmp->s_web10g ) {
+            free(tmp->s_web10g);
+            tmp->s_web10g = NULL;
+        }
+        if ( tmp->c_web10g ) {
+            free(tmp->c_web10g);
+            tmp->c_web10g = NULL;
+        }
+        free(tmp);
     }
 
     options->schedule = NULL;
@@ -257,186 +275,107 @@ static int connectToServer(struct addrinfo *serv_addr, struct opt_t *options,
 
 
 /*
- * Extract just the address portion from a sockaddr_storage and save it in
- * a character array.
+ *
  */
-static void getSockaddrAddr(struct sockaddr_storage *ss, char addr[16]) {
-    memset(addr, 0, sizeof(addr));
+static Amplet2__Throughput__Item* report_schedule(struct test_request_t *info) {
 
-    switch ( ss->ss_family ) {
-        case AF_INET:
-                memcpy(addr, &((struct sockaddr_in*)ss)->sin_addr,
-                        sizeof(struct in_addr));
-                break;
-        case AF_INET6:
-                memcpy(addr, &((struct sockaddr_in6*)ss)->sin6_addr,
-                        sizeof(struct in6_addr));
-                break;
-        default:
-                Log(LOG_WARNING, "Unknown address family %d", ss->ss_family);
-                break;
-    };
+    Amplet2__Throughput__Item *item =
+        (Amplet2__Throughput__Item*)malloc(sizeof(Amplet2__Throughput__Item));
+    struct test_result_t *result;
+
+    /* Get the result from the receiving side */
+    result = (info->type == TPUT_2_CLIENT) ? info->c_result : info->s_result;
+
+    /* fill the report item with results of a test */
+    amplet2__throughput__item__init(item);
+    item->has_direction = 1;
+    item->direction = info->type;
+    item->has_duration = 1;
+    item->duration = result->end_ns - result->start_ns;
+    item->has_bytes = 1;
+    item->bytes = result->bytes;
+
+#if 0
+    item->has_web10g_client = info->c_web10g ? 1 : 0;
+    item->has_web10g_server = info->s_web10g ? 1 : 0;
+
+    if ( item->c_web10g ) {
+    }
+
+    if ( item->s_web10g ) {
+    }
+#endif
+
+    Log(LOG_DEBUG, "tput result: %" PRIu64 " bytes in %" PRIu64 "ms to %s",
+        item->bytes, item->duration / (uint64_t) 1000000,
+        (item->direction ==
+         AMPLET2__THROUGHPUT__ITEM__DIRECTION__SERVER_TO_CLIENT) ?
+        "client" : "server");
+
+    return item;
 }
 
 
 
-/**
- * Make the binary blob for our report
- * Everything here is ordered in Big Endian Byte order
- * +------------------+
- * |                  |
- * | report_header_t  |
- * |                  |
- * +------------------+
- * | Schedule String  | Size defined by report_header_t.test_seq_len including NULL terminator
- * +------------------+
- * |  For every test  |
- * | report_result_t  | From here on repeated for every test C2S or S2C
- * |                  | See report_header_t.count for the number
- * +------------------+
- * | Optional Clients |
- * | report_web10g_t  | Check report_result_t.has_web10g_client
- * |                  |
- * +------------------+
- * | Optional Servers |
- * | report_web10g_t  | Check report_result_t.has_web10g_server
- * |                  |
- * +------------------+
- * + More             + times report_header_t.count
- * + report_header_t's+
- * +~~~~~~~~~~~~~~~~~ +
+/*
+ *
  */
-static void report_results(struct addrinfo *dest, int sock_fd,
-        struct opt_t *options, uint64_t start_time_ns, uint64_t end_time_ns) {
-    struct report_header_t *rh;
-    size_t r_size;
-    socklen_t len;
-    struct sockaddr_storage ss;
-    struct test_request_t *cur;
-    char *ampname = address_to_name(dest);
+static void report_results(uint64_t start_time, struct addrinfo *dest,
+        struct opt_t *options) {
 
-    assert(ampname);
-    assert(strlen(ampname) < MAX_STRING_FIELD);
+    Amplet2__Throughput__Report msg = AMPLET2__THROUGHPUT__REPORT__INIT;
+    Amplet2__Throughput__Header header = AMPLET2__THROUGHPUT__HEADER__INIT;
+    Amplet2__Throughput__Item **reports = NULL;
+    struct test_request_t *item;
+    unsigned int i;
+    void *buffer;
+    int len;
 
-    r_size = sizeof(struct report_header_t) +
-        strlen(options->textual_schedule) + 1 + strlen(ampname) + 1;
-    rh = malloc(r_size);
+    /* populate the header with all the test options */
+    header.schedule = options->textual_schedule;
+    header.has_family = 1;
+    header.family = dest->ai_family;
+    header.has_write_size = 1;
+    header.write_size = options->write_size;
+    header.name = address_to_name(dest);
+    header.has_address = copy_address_to_protobuf(&header.address, dest);
 
-    /* Build our header up */
-    rh->version = AMP_THROUGHPUT_TEST_VERSION;
-    rh->count = 0; /* Add as we go */
-    rh->start_ns = start_time_ns;
-    rh->end_ns = end_time_ns;
-    rh->test_seq_len = strlen(options->textual_schedule) + 1;
-    rh->namelen = strlen(ampname) + 1;
+    /* build up the repeated reports section with each of the results */
+    for ( i = 0, item = options->schedule; item != NULL; item = item->next ) {
+        /* only report on schedule items that send data */
+        if ( item->type != TPUT_2_CLIENT && item->type != TPUT_2_SERVER ) {
+            continue;
+        }
 
-    /* Fill in the addresses of the connection */
-    if ( sock_fd != -1 ) {
-        len = sizeof(ss);
-        getpeername(sock_fd, (struct sockaddr*)&ss, &len);
-        rh->family = ss.ss_family;
-        getSockaddrAddr(&ss, rh->server_addr);
-        len = sizeof(ss);
-        getsockname(sock_fd, (struct sockaddr*)&ss, &len);
-        getSockaddrAddr(&ss, rh->client_addr);
-    } else {
-        /* Does family matter here? Can we tell where we tried to go? */
-        rh->family = AF_INET;
-        memset(rh->server_addr, 0, 16);
-        memset(rh->client_addr, 0, 16);
+        if ( item->c_result == NULL || item->s_result == NULL ) {
+            continue;
+        }
+
+        reports = realloc(reports, sizeof(Amplet2__Throughput__Item*) * (i+1));
+        reports[i] = report_schedule(item);
+        i++;
     }
 
-    /* Put the Schedule in after the header, its size is variable */
-    memcpy(((char *) rh) + sizeof(struct report_header_t),
-            options->textual_schedule, rh->test_seq_len);
+    /* populate the top level report object with the header and reports */
+    msg.header = &header;
+    msg.reports = reports;
+    msg.n_reports = i;
 
-    /* put the ampname after the schedule, it is also variable length */
-    strncpy(((char *) rh) + sizeof(struct report_header_t) + rh->test_seq_len,
-            ampname, rh->namelen);
+    /* pack all the results into a buffer for transmitting */
+    len = amplet2__throughput__report__get_packed_size(&msg);
+    buffer = malloc(len);
+    amplet2__throughput__report__pack(&msg, buffer);
 
-    /* Loop through the schedule and push the results on to the end */
-    for ( cur = options->schedule; cur != NULL ; cur = cur->next ) {
-        struct report_result_t *res;
-        void *temp;
+    /* send the packed report object */
+    report(AMP_TEST_THROUGHPUT, start_time, (void*)buffer, len);
 
-        switch ( cur->type ) {
-            case TPUT_NULL:
-                continue;
-
-            case TPUT_NEW_CONNECTION:
-            case TPUT_PAUSE:
-                continue;
-
-            case TPUT_2_CLIENT:
-            case TPUT_2_SERVER:
-                if ( cur->c_result == NULL || cur->s_result == NULL ) {
-                    /* Something went very wrong */
-                    continue;
-                }
-                rh = realloc(rh, r_size + sizeof(struct report_result_t));
-                res = (struct report_result_t  *) (((char *) rh) + r_size);
-                r_size += sizeof(struct report_result_t);
-
-                /* Get the result from the receiving side */
-                struct test_result_t *result = cur->type == TPUT_2_CLIENT ?
-                    cur->c_result : cur->s_result;
-
-                res->type = cur->type;
-                res->packets = htobe32(result->packets);
-                res->write_size = htobe32(result->write_size);
-                res->duration_ns = htobe64(result->end_ns - result->start_ns);
-                res->bytes = htobe64(result->bytes);
-                rh->count++;
-
-                /* Order matters always put client first */
-                res->has_web10g_client = cur->c_web10g == NULL ? 0 : 1;
-                res->has_web10g_server = cur->s_web10g == NULL ? 0 : 1;
-
-                /* Our web10g data is already converted to big endian */
-                if ( cur->c_web10g ) {
-                    rh = realloc(rh, r_size + sizeof(struct report_web10g_t));
-                    temp = ((char *) rh) + r_size;
-                    r_size += sizeof(struct report_web10g_t);
-                    memcpy(temp, cur->c_web10g, sizeof(struct report_web10g_t));
-                }
-
-                if ( cur->s_web10g ) {
-                    rh = realloc(rh, r_size + sizeof(struct report_web10g_t));
-                    temp = ((char *) rh) + r_size;
-                    r_size += sizeof(struct report_web10g_t);
-                    memcpy(temp, cur->s_web10g, sizeof(struct report_web10g_t));
-                }
-                break;
-        };
-
-        if ( cur->s_result ) {
-            free(cur->s_result);
-            cur->s_result = NULL;
-        }
-        if ( cur->c_result ) {
-            free(cur->c_result);
-            cur->c_result = NULL;
-        }
-        if ( cur->s_web10g ) {
-            free(cur->s_web10g);
-            cur->s_web10g = NULL;
-        }
-        if ( cur->c_web10g ) {
-            free(cur->c_web10g);
-            cur->c_web10g = NULL;
-        }
+    /* free up all the memory we had to allocate to report items */
+    for ( i = 0; i < msg.n_reports; i++ ) {
+        free(reports[i]);
     }
 
-    /* Convert the header to big endian byte order */
-    rh->version = htobe32(rh->version);
-    rh->count = htobe32(rh->count);
-    rh->start_ns = htobe64(rh->start_ns);
-    rh->end_ns = htobe64(rh->end_ns);
-    rh->test_seq_len = htobe32(rh->test_seq_len);
-
-    report(AMP_TEST_THROUGHPUT, start_time_ns / (uint64_t) 1000000000,
-            (void*)rh, r_size);
-    free(rh);
+    free(reports);
+    free(buffer);
 }
 
 
@@ -630,8 +569,7 @@ static int runSchedule(struct addrinfo *serv_addr, struct opt_t *options) {
      *
      * We will report this set of results then we can finish
      */
-    report_results(serv_addr, control_socket, options, start_time_ns,
-            timeNanoseconds());
+    report_results(start_time_ns / 1000000000, serv_addr, options);
 
     Log(LOG_DEBUG, "Closing test");
     if( sendClosePacket(control_socket) < 0)
@@ -643,8 +581,7 @@ static int runSchedule(struct addrinfo *serv_addr, struct opt_t *options) {
     return 0;
 errorCleanup :
     /* See if we can report something anyway */
-    report_results(serv_addr, control_socket, options, start_time_ns,
-            timeNanoseconds());
+    report_results(start_time_ns / 1000000000, serv_addr, options);
 
     if ( control_socket != -1 ) {
         close(control_socket);
@@ -876,34 +813,55 @@ int run_throughput_client(int argc, char *argv[], int count,
 
 
 
+/*
+ *
+ */
+static void printSize(uint64_t bytes) {
+    double scaled = (double)bytes;
+    char *units[] = {"bytes", "KBytes", "MBytes", "GBytes", NULL};
+    char **unit;
+
+    for ( unit = units; *unit != NULL; unit++ ) {
+        if ( scaled < 1024 ) {
+            printf(" %.02lf %s", scaled, *unit);
+            return;
+        }
+        scaled = scaled / 1024.0;
+    }
+
+    printf(" %.02lf TBytes", scaled);
+}
+
+
+
+/*
+ *
+ */
+static void printDuration(uint64_t time_ns) {
+    printf(" in %.02lf seconds", ((double)time_ns) / 1000000000);
+}
+
+
+
 /**
  * Print out a speed in a factor of bits per second
  * Kb = 1000 * b
  * Mb = 1000 * Kb etc
  */
-static void printSpeed(uint64_t time_ns, uint64_t bytes){
+static void printSpeed(uint64_t bytes, uint64_t time_ns) {
     double x_per_sec = ((double)bytes * 8.0) / ((double) time_ns / 1e9);
+    char *units[] = {"bits", "Kbits", "Mbits", "Gbits", NULL};
+    char **unit;
 
-    if ( x_per_sec > 1000 ) {
-        x_per_sec /= 1000;
-    } else {
-        printf("--- Speed: %lf%s\n", x_per_sec, "Bits/s");
-        return;
+    for ( unit = units; *unit != NULL; unit++ ) {
+        if ( x_per_sec < 1000 ) {
+            printf(" at %.02lf %s/sec", x_per_sec, *unit);
+            return;
+        }
+        x_per_sec = x_per_sec / 1000;
     }
-    if ( x_per_sec > 1000 ) {
-        x_per_sec /= 1000;
-    } else {
-        printf("--- Speed: %lf%s\n", x_per_sec, "Kb/s");
-        return;
-    }
-    if ( x_per_sec > 1000 ) {
-        x_per_sec /= 1000;
-    } else {
-        printf("--- Speed: %lf%s\n", x_per_sec, "Mb/s");
-        return;
-    }
-    /* Realistically not going to be Tb/s */
-    printf("--- Speed: %lf%s\n", x_per_sec, "Gb/s");
+
+    printf(" at %.02lf Tb/s", x_per_sec);
 }
 
 
@@ -914,78 +872,61 @@ static void printSpeed(uint64_t time_ns, uint64_t bytes){
  *
  * TODO make this output a lot nicer
  */
-void print_throughput(void *data, __attribute__((unused))uint32_t len) {
-    char address[128];
-    struct report_header_t *rh = data;
-    uint32_t count = 1;
-    char *place;
-    char *ampname, *schedule;
+void print_throughput(void *data, uint32_t len) {
+    Amplet2__Throughput__Report *msg;
+    Amplet2__Throughput__Item *item;
+    unsigned int i;
+    char addrstr[INET6_ADDRSTRLEN];
 
     assert(data != NULL);
-    assert(be32toh(rh->version) == AMP_THROUGHPUT_TEST_VERSION);
 
-    /* Read the report header results */
-    schedule = (char *) (rh+1);
+    /* unpack all the data */
+    msg = amplet2__throughput__report__unpack(NULL, len, data);
 
-    /* Get the ampname out */
-    ampname = (char *) schedule + be32toh(rh->test_seq_len);
-    place = ampname + rh->namelen;
+    assert(msg);
+    assert(msg->header);
 
-    inet_ntop(rh->family, &rh->server_addr, address, sizeof(address));
-    printf("\n- Got the results test(s) to server %s (%s)\n", ampname, address);
+    /* print global configuration options */
+    printf("\n");
+    inet_ntop(msg->header->family, msg->header->address.data, addrstr,
+            INET6_ADDRSTRLEN);
+    printf("AMP throughput test to %s (%s)\n", msg->header->name, addrstr);
+    printf("writesize:%" PRIu32 " schedule:%s\n", msg->header->write_size,
+            msg->header->schedule);
 
-    inet_ntop(rh->family, &rh->client_addr, address, sizeof(address));
-    printf("- Our source interface %s\n", address);
-    printf("- Found %d headers\n", be32toh(rh->count));
-    printf("- Test schedule was %s\n\n", schedule);
-
-    /* Now read back the actual results */
-    while ( count <= be32toh(rh->count) ) {
-        struct report_result_t *rr;
-        rr = (struct report_result_t *) place;
-        place += sizeof(struct report_result_t);
-
-        printf("\n\n--- Test run %d ---\n", count);
-        switch ( rr->type ) {
-            case TPUT_2_CLIENT:
-                printf("--- Test type server -> client \n");
-                break;
-            case TPUT_2_SERVER:
-                printf("--- Test type client -> server \n");
-                break;
-            case TPUT_PAUSE:
-                printf("--- Test type pause\n");
-                break;
-            case TPUT_NEW_CONNECTION:
-                printf("--- Test type reset connection\n");
-                break;
-            default:
-                printf("--- Test type unknown %d \n", (int) rr->type);
-        }
-        printf("--- Packets sent/received during test %" PRIu32 "\n",
-                be32toh(rr->packets));
-        printf("--- Write Size for the test %" PRIu32 "\n",
-                be32toh(rr->write_size));
-        printf("--- Test duration %lf secs \n",
-                (double)be64toh(rr->duration_ns) / 1e9);
-        printf("--- Test %" PRIu64 " bytes\n", be64toh(rr->bytes));
-        printSpeed(be64toh(rr->duration_ns), be64toh(rr->bytes));
-
-        if ( rr->has_web10g_client ) {
-            printf("--- Found web10g vars from the client\n");
-            print_web10g((struct report_web10g_t *) place);
-            place += sizeof(struct report_web10g_t);
+    for ( i=0; i < msg->n_reports; i++ ) {
+        item = msg->reports[i];
+        if ( item->direction ==
+                AMPLET2__THROUGHPUT__ITEM__DIRECTION__SERVER_TO_CLIENT ) {
+            printf("  * server -> client:");
+        } else if ( item->direction ==
+                AMPLET2__THROUGHPUT__ITEM__DIRECTION__CLIENT_TO_SERVER ) {
+            printf("  * client -> server:");
         } else {
-            printf("--- No web10g vars from the client \n");
+            continue;
         }
 
-        if ( rr->has_web10g_server ) {
-            printf("--- Found web10g vars from the server\n");
-            print_web10g((struct report_web10g_t *) place);
-            place += sizeof(struct report_web10g_t);
-        } else {
-            printf("--- No web10g vars from the server\n");
+        printSize(item->bytes);
+        printDuration(item->duration);
+        printSpeed(item->bytes, item->duration);
+        printf("\n");
+#if 0
+        if ( item->has_web10g_client ) {
         }
-        count++;
+
+        if ( item->has_web10g_server ) {
+        }
+#endif
     }
+
+    amplet2__throughput__report__free_unpacked(msg, NULL);
 }
+
+
+
+#if UNIT_TEST
+void amp_test_report_results(uint64_t start_time, struct addrinfo *dest,
+        struct opt_t *options) {
+    report_results(start_time, dest, options);
+}
+#endif

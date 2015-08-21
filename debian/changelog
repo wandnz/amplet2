@@ -1,3 +1,9 @@
+amplet2 (0.5.0-1) unstable; urgency=low
+
+  * Use Google protocol buffers when reporting test results.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Fri, 21 Aug 2015 14:49:28 +1200
+
 amplet2 (0.4.8-1) unstable; urgency=low
 
   * Rewrite ASN lookups to deal better with whois server issues.

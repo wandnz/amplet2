@@ -14,6 +14,8 @@
 #include <amqp.h>
 #include <amqp_framing.h>
 
+#include <google/protobuf-c/protobuf-c.h>
+
 #include "testlib.h"
 #include "debug.h"
 #include "tests.h"
@@ -812,4 +814,40 @@ int check_exists(char *path, int strict) {
 
     /* file doesn't exist, but that's ok as strict isn't set */
     return 1;
+}
+
+
+
+/*
+ * Copy the address from a struct addrinfo into a protocol buffer byte field,
+ * setting the length appropriately. Returns 1 if an address was successfully
+ * copied.
+ */
+int copy_address_to_protobuf(ProtobufCBinaryData *dst,
+        const struct addrinfo *src) {
+    assert(dst);
+
+    if ( src == NULL ) {
+        dst->data = 0;
+        dst->len = 0;
+        return 0;
+    }
+
+    switch ( src->ai_family ) {
+        case AF_INET:
+            dst->data = (void*)&((struct sockaddr_in*)src->ai_addr)->sin_addr;
+            dst->len = sizeof(struct in_addr);
+            break;
+        case AF_INET6:
+            dst->data = (void*)&((struct sockaddr_in6*)src->ai_addr)->sin6_addr;
+            dst->len = sizeof(struct in6_addr);
+            break;
+        default:
+            Log(LOG_WARNING, "Unknown address family %d\n", src->ai_family);
+            dst->data = NULL;
+            dst->len = 0;
+            break;
+    };
+
+    return dst->data ? 1 : 0;
 }

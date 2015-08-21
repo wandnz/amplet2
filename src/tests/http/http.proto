@@ -1,0 +1,61 @@
+package amplet2.http;
+
+message Report {
+    optional Header header = 1;
+    repeated Server servers = 2;
+}
+
+message Header {
+    optional string url = 1;
+    optional uint32 duration = 2;
+    optional uint32 total_bytes = 3;
+    optional uint32 total_objects = 4;
+    optional uint32 max_connections = 5 [default = 24];
+    optional uint32 max_connections_per_server = 6 [default = 8];
+    optional uint32 pipelining_maxrequests = 7 [default = 4];
+    optional uint32 max_persistent_connections_per_server = 8 [default = 2];
+    optional bool persist = 9 [default = true];
+    optional bool pipelining = 10 [default = false];
+    optional bool caching = 11 [default = false];
+}
+
+message Server {
+    optional string hostname = 1;
+    optional double start = 2;
+    optional double end = 3;
+    optional string address = 4;
+    //optional bytes address = 4;
+    //XXX need family if not going to use the string format
+    //optional int32 family = 5;
+    optional uint32 total_bytes = 6;
+    repeated Object objects = 7;
+}
+
+message Object {
+    optional string path = 1;
+    optional double start = 2;
+    optional double end = 3;
+    optional double lookup = 4;
+    optional double connect = 5;
+    optional double start_transfer = 6;
+    optional double total_time = 7;
+    optional uint32 code = 8;
+    optional uint32 size = 9;
+    optional uint32 connect_count = 10;
+    optional uint32 pipeline = 11;
+    optional CacheHeaders cache_headers = 12;
+}
+
+message CacheHeaders {
+    optional int32 max_age = 1;
+    optional int32 s_maxage = 2;
+    optional bool x_cache = 3;
+    optional bool x_cache_lookup = 4;
+    optional bool pub = 5;
+    optional bool priv = 6;
+    optional bool no_cache = 7;
+    optional bool no_store = 8;
+    optional bool no_transform = 9;
+    optional bool must_revalidate = 10;
+    optional bool proxy_revalidate = 11;
+}

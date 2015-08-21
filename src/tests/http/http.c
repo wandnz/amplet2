@@ -18,6 +18,7 @@
 #include "servers.h"
 #include "parsers.h"
 #include "output.h"
+#include "http.pb-c.h"
 
 #include <inttypes.h>
 #include <fcntl.h>
@@ -56,27 +57,89 @@ static struct option long_options[] = {
 /*
  * Fill in the standard report header with options that were set
  */
-static void report_header_results(struct http_report_header_t *header,
+static void report_header_results(Amplet2__Http__Header *header,
         struct opt_t *opt) {
 
     assert(header);
     assert(opt);
 
-    header->version = AMP_HTTP_TEST_VERSION;
-    strncpy(header->url, opt->url, MAX_REPORTABLE_URL_LEN);
+    header->url = opt->url;
+    header->has_duration = 1;
     header->duration = ((global.end.tv_sec - global.start.tv_sec) * 1000) +
         (global.end.tv_usec - global.start.tv_usec + 500) / 1000;
-    header->bytes = global.bytes;
+    header->has_total_bytes = 1;
+    header->total_bytes = global.bytes;
+    header->has_total_objects = 1;
     header->total_objects = global.objects;
-    header->total_servers = global.servers;
-    header->persist = opt->keep_alive;//XXX different names?
+
+    header->has_max_connections = 1;
     header->max_connections = opt->max_connections;
+    header->has_max_connections_per_server = 1;
     header->max_connections_per_server = opt->max_connections_per_server;
+    header->has_pipelining_maxrequests = 1;
+    header->pipelining_maxrequests = opt->pipelining_maxrequests;
+    header->has_max_persistent_connections_per_server = 1;
     header->max_persistent_connections_per_server =
         opt->max_persistent_connections_per_server;
+
+    header->has_persist = 1;
+    header->persist = opt->keep_alive;
+    header->has_pipelining = 1;
     header->pipelining = opt->pipelining;
-    header->pipelining_maxrequests = opt->pipelining_maxrequests;
+    header->has_caching = 1;
     header->caching = opt->caching;
+}
+
+
+
+/*
+ *
+ */
+static Amplet2__Http__CacheHeaders* report_cache_headers(
+        struct cache_headers_t *cache) {
+
+    Amplet2__Http__CacheHeaders *headers = (Amplet2__Http__CacheHeaders*)
+        malloc(sizeof(Amplet2__Http__CacheHeaders));
+
+    amplet2__http__cache_headers__init(headers);
+
+    if ( cache->max_age != -1 ) {
+        headers->has_max_age = 1;
+        headers->max_age = cache->max_age;
+    }
+
+    if ( cache->s_maxage != -1 ) {
+        headers->has_s_maxage = 1;
+        headers->s_maxage = cache->s_maxage;
+    }
+
+    if ( cache->x_cache != -1 ) {
+        headers->has_x_cache = 1;
+        headers->x_cache = cache->x_cache;
+    }
+
+    if ( cache->x_cache_lookup != -1 ) {
+        headers->has_x_cache_lookup = 1;
+        headers->x_cache_lookup = cache->x_cache_lookup;
+    }
+
+    /* these are all enabled when present, so are disabled if missing */
+    headers->has_pub = 1;
+    headers->pub = cache->flags.pub;
+    headers->has_priv = 1;
+    headers->priv = cache->flags.priv;
+    headers->has_no_cache = 1;
+    headers->no_cache = cache->flags.no_cache;
+    headers->has_no_store = 1;
+    headers->no_store = cache->flags.no_store;
+    headers->has_no_transform = 1;
+    headers->no_transform = cache->flags.no_transform;
+    headers->has_must_revalidate = 1;
+    headers->must_revalidate = cache->flags.must_revalidate;
+    headers->has_proxy_revalidate = 1;
+    headers->proxy_revalidate = cache->flags.proxy_revalidate;
+
+    return headers;
 }
 
 
@@ -84,26 +147,48 @@ static void report_header_results(struct http_report_header_t *header,
 /*
  * Report on a single object.
  */
-static void report_object_results(struct http_report_object_t *object,
+static Amplet2__Http__Object* report_object_results(
         struct object_stats_t *info) {
+
+    Amplet2__Http__Object *object =
+        (Amplet2__Http__Object*)malloc(sizeof(Amplet2__Http__Object));
 
     assert(object);
     assert(info);
 
-    strncpy(object->path, info->path, MAX_REPORTABLE_PATH_LEN);
-    object->start.tv_sec = info->start.tv_sec;
-    object->start.tv_usec = info->start.tv_usec;
-    object->end.tv_sec = info->end.tv_sec;
-    object->end.tv_usec = info->end.tv_usec;
-    FLOAT_TO_TV(info->lookup, object->lookup);
-    FLOAT_TO_TV(info->connect, object->connect);
-    FLOAT_TO_TV(info->start_transfer, object->start_transfer);
-    FLOAT_TO_TV(info->total_time, object->total_time);
+    amplet2__http__object__init(object);
+
+    /* total time should always exist, convert from timeval to float */
+    object->has_start = 1;
+    object->start = (double)info->start.tv_sec +
+        ((double)info->start.tv_usec / 1000000.0);
+    object->has_end = 1;
+    object->end = (double)info->end.tv_sec +
+        ((double)info->end.tv_usec / 1000000.0);
+
+    /* split timings should always exist */
+    object->has_lookup = 1;
+    object->lookup = info->lookup;
+    object->has_connect = 1;
+    object->connect = info->connect;
+    object->has_start_transfer = 1;
+    object->start_transfer = info->start_transfer;
+    object->has_total_time = 1;
+    object->total_time = info->total_time;
+
+    /* XXX some objects have code 0 and failed somehow... */
+    object->has_code = 1;
     object->code = info->code;
+    object->has_size = 1;
     object->size = info->size;
-    memcpy(&object->headers, &info->headers, sizeof(struct cache_headers_t));
+    object->has_connect_count = 1;
     object->connect_count = info->connect_count;
+    object->has_pipeline = 1;
     object->pipeline = info->pipeline;
+    object->path = info->path;
+    object->cache_headers = report_cache_headers(&info->headers);
+
+    return object;
 }
 
 
@@ -111,37 +196,46 @@ static void report_object_results(struct http_report_object_t *object,
 /*
  * Report on a single server and all objects that were fetched from it.
  */
-static int report_server_results(struct http_report_server_t *server,
-        struct server_stats_t *server_info) {
+static Amplet2__Http__Server* report_server_results(
+        struct server_stats_t *info) {
 
-    uint8_t reported_objects = 0;
-    struct http_report_object_t *object;
+    unsigned int i;
     struct object_stats_t *object_info;
+    Amplet2__Http__Server *server =
+        (Amplet2__Http__Server*)malloc(sizeof(Amplet2__Http__Server));
 
+    assert(info);
     assert(server);
-    assert(server_info);
 
-    strncpy(server->hostname, server_info->server_name, MAX_DNS_NAME_LEN);
-    strncpy(server->address, server_info->address, MAX_ADDR_LEN);
-    server->start.tv_sec = server_info->start.tv_sec;
-    server->start.tv_usec = server_info->start.tv_usec;
-    server->end.tv_sec = server_info->end.tv_sec;
-    server->end.tv_usec = server_info->end.tv_usec;
-    server->bytes = server_info->bytes;
-    server->objects = server_info->objects + server_info->failed_objects;
+    /* fill the report item with results of a test */
+    amplet2__http__server__init(server);
+    server->hostname = info->server_name;
+    server->address = info->address;
 
-    for ( object_info = server_info->finished; object_info != NULL;
-            object_info = object_info->next ) {
+    server->has_start = 1;
+    server->start = (double)info->start.tv_sec +
+        ((double)info->start.tv_usec / 1000000.0);
+    server->has_end = 1;
+    server->end = (double)info->end.tv_sec +
+        ((double)info->end.tv_usec / 1000000.0);
 
-        object = (struct http_report_object_t *)(((char *)server) +
-                sizeof(struct http_report_server_t) +
-                (reported_objects * sizeof(struct http_report_object_t)));
-        report_object_results(object, object_info);
-        reported_objects++;
+    server->has_total_bytes = 1;
+    server->total_bytes = info->bytes;
+    server->n_objects = info->objects + info->failed_objects;
+
+    /* deal with all the objects fetched from this server */
+    server->objects = malloc(
+            sizeof(Amplet2__Http__Object*) * server->n_objects);
+
+    for ( i = 0, object_info = info->finished;
+            i < server->n_objects && object_info != NULL;
+            i++, object_info = object_info->next ) {
+
+        Log(LOG_DEBUG, "Reporting object %d of %d\n", i+1, server->n_objects);
+        server->objects[i] = report_object_results(object_info);
     }
 
-    assert(reported_objects == server->objects);
-    return server->objects;
+    return server;
 }
 
 
@@ -150,49 +244,56 @@ static int report_server_results(struct http_report_server_t *server,
  *
  */
 static void report_results(struct timeval *start_time,
-        struct server_stats_t *servers, struct opt_t *opt) {
-    char *buffer;
-    struct http_report_header_t *header;
-    struct http_report_server_t *server;
+        struct server_stats_t *server_stats, struct opt_t *opt) {
+
+    unsigned int i, j;
+    void *buffer;
+    int len = 0;
     struct server_stats_t *tmpsrv;
-    uint32_t reported_objects = 0;
-    uint32_t reported_servers = 0;
-    int len;
+
+    Amplet2__Http__Report msg = AMPLET2__HTTP__REPORT__INIT;
+    Amplet2__Http__Header header = AMPLET2__HTTP__HEADER__INIT;
+    Amplet2__Http__Server **servers;
 
     Log(LOG_DEBUG, "Building http report, url:%s\n", opt->url);
 
-    /* allocate space for all our results - XXX could this get too large? */
-    len = sizeof(struct http_report_header_t) +
-	(global.servers * sizeof(struct http_report_server_t)) +
-        ((global.objects + global.failed_objects) *
-         sizeof(struct http_report_object_t));
-    buffer = malloc(len);
-    memset(buffer, 0, len);
+    report_header_results(&header, opt);
 
-    /* single header at the start of the buffer describes the test options */
-    header = (struct http_report_header_t *)buffer;
-    report_header_results(header, opt);
-
-    /* add results for all the servers that data was fetched from */
-    for ( tmpsrv = servers; tmpsrv != NULL; tmpsrv = tmpsrv->next ) {
-        assert(reported_servers < global.servers);
-        /* global information regarding this particular server */
-	server = (struct http_report_server_t *)(buffer +
-		sizeof(struct http_report_header_t) +
-		reported_servers * sizeof(struct http_report_server_t) +
-                reported_objects * sizeof(struct http_report_object_t));
-
-        reported_objects += report_server_results(server, tmpsrv);
-
-        Log(LOG_DEBUG, "server result %d: %s\n", reported_servers,
+    /* add results for all the servers from which data was fetched */
+    servers = malloc(sizeof(Amplet2__Http__Server*) * global.servers);
+    for ( i = 0, tmpsrv = server_stats;
+            i < global.servers && tmpsrv != NULL; i++, tmpsrv = tmpsrv->next ) {
+        Log(LOG_DEBUG, "Reporting server %d of %d: %s\n", i+1, global.servers,
                 tmpsrv->address);
-        reported_servers++;
+        servers[i] = report_server_results(tmpsrv);
     }
 
-    assert(global.servers == reported_servers);
-    assert((global.objects + global.failed_objects) == reported_objects);
+    /* populate the top level report object with the header and servers */
+    msg.header = &header;
+    msg.servers = servers;
+    msg.n_servers = global.servers;
 
-    report(AMP_TEST_HTTP, (uint64_t)start_time->tv_sec, (void*)buffer, len);
+    /* pack all the results into a buffer for transmitting */
+    len = amplet2__http__report__get_packed_size(&msg);
+    buffer = malloc(len);
+    amplet2__http__report__pack(&msg, buffer);
+
+    /* send the packed report object */
+    report(AMP_TEST_HTTP, (uint64_t)start_time->tv_sec, buffer, len);
+
+    /* free up all the memory we had to allocate to report items */
+    for ( i = 0; i < global.servers; i++ ) {
+        for ( j = 0; j < servers[i]->n_objects; j++ ) {
+            if ( servers[i]->objects[j]->cache_headers ) {
+                free(servers[i]->objects[j]->cache_headers);
+            }
+            free(servers[i]->objects[j]);
+        }
+        free(servers[i]->objects);
+        free(servers[i]);
+    }
+
+    free(servers);
     free(buffer);
 }
 
@@ -687,6 +788,12 @@ CURL *pipeline_next_object(struct server_stats_t *server) {
     object->handle = curl_easy_init();
     object->slist = config_request_headers(object->url, options.caching);
     curl_easy_setopt(object->handle, CURLOPT_HTTPHEADER, object->slist);
+
+    /* if keep-alives are disabled then ensure a new connection */
+    if ( !options.keep_alive ) {
+        curl_easy_setopt(object->handle, CURLOPT_FRESH_CONNECT, 1);
+        curl_easy_setopt(object->handle, CURLOPT_FORBID_REUSE, 1);
+    }
 
     /* timeout anything that fails to connect in a reasonable time period */
     curl_easy_setopt(object->handle, CURLOPT_CONNECTTIMEOUT, 60); //XXX
@@ -1280,7 +1387,7 @@ int run_http(int argc, char *argv[], __attribute__((unused))int count,
 	    //case 'u': strncpy(options.url, optarg, MAX_URL_LEN); break;
 	    case 'u': split_url(optarg, options.host, options.path, 1);
                       strncpy(options.url, optarg, MAX_URL_LEN); break;
-	    case 'k': options.keep_alive = 1; break;
+	    case 'k': options.keep_alive = 0; break;
 	    case 'm': options.max_connections = atoi(optarg); break;
 	    case 's': options.max_connections_per_server = atoi(optarg); break;
 	    case 'o': options.max_persistent_connections_per_server =

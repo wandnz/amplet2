@@ -7,9 +7,6 @@
 /* use the current date with 2 digit count appended as version: YYYYMMDDXX */
 #define AMP_DNS_TEST_VERSION 2014020400
 
-/* number of results we will fit into a single result message */
-# define AMP_DNS_MAX_RESULTS 255
-
 /* maximum size in bytes of a DNS name - 255 bytes */
 #define MAX_DNS_NAME_LEN MAX_STRING_FIELD
 
@@ -24,17 +21,6 @@
 #define MISSING     1
 #define INVALID     2
 #define NOTFOUND    3
-
-
-
-int run_dns(int argc, char *argv[], int count, struct addrinfo **dests);
-int save_dns(char *monitor, uint64_t timestamp, void *data, uint32_t len);
-void print_dns(void *data, uint32_t len);
-test_t *register_test(void);
-#if UNIT_TEST
-char *amp_test_dns_encode(char *query);
-char *amp_test_dns_decode(char *result, char *data, char *start);
-#endif
 
 
 
@@ -128,7 +114,7 @@ struct dns_opt_rdata_t {
 
 
 /*
- * Information block recording data for each DNS request test packet 
+ * Information block recording data for each DNS request test packet
  * that is sent, and when the response is received.
  */
 struct info_t {
@@ -143,7 +129,7 @@ struct info_t {
     uint16_t total_answer;
     uint16_t total_authority;
     uint16_t total_additional;
-    uint8_t reply;			/* set to 1 once we have a reply */ 
+    uint8_t reply;			/* set to 1 once we have a reply */
     uint8_t response_code;
     uint8_t dnssec_response;
     uint8_t addr_count;
@@ -168,33 +154,16 @@ struct opt_t {
 
 
 
-struct dns_report_item_t {
-    /* nicer way than storing just 16 bytes for the address? */
-    char address[16];
-    int32_t rtt;
-    uint32_t query_length;		/* number of bytes in query */
-    uint32_t response_size;
-    uint16_t total_answer;
-    uint16_t total_authority;
-    uint16_t total_additional;
-    union flags_t flags;
-    uint8_t family;
-    uint8_t ttl;
-    uint8_t namelen;
-    uint8_t instancelen;
-} __attribute__((__packed__));
+int run_dns(int argc, char *argv[], int count, struct addrinfo **dests);
+int save_dns(char *monitor, uint64_t timestamp, void *data, uint32_t len);
+void print_dns(void *data, uint32_t len);
+test_t *register_test(void);
+#if UNIT_TEST
+char *amp_test_dns_encode(char *query);
+char *amp_test_dns_decode(char *result, char *data, char *start);
+void amp_test_report_results(struct timeval *start_time, int count,
+	struct info_t info[], struct opt_t *opt);
+#endif
 
-struct dns_report_header_t {
-    uint32_t version;
-    uint16_t query_type;
-    uint16_t query_class;
-    uint16_t udp_payload_size;
-    uint8_t recurse:1;
-    uint8_t dnssec:1;
-    uint8_t nsid:1;
-    uint8_t reserved:5;
-    uint8_t count;
-    uint8_t querylen;
-} __attribute__((__packed__));
 
 #endif

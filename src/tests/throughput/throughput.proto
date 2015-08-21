@@ -1,0 +1,25 @@
+package amplet2.throughput;
+
+message Report {
+    optional Header header = 1;
+    repeated Item reports = 2;
+}
+
+message Header {
+    optional bytes address = 1;
+    optional int32 family = 2;
+    optional string schedule = 3;
+    optional uint32 write_size = 4;
+    optional string name = 5;
+}
+
+message Item {
+    optional uint64 duration = 1;
+    optional uint64 bytes = 2;
+    enum Direction {
+        NULL = 0;
+        SERVER_TO_CLIENT = 1;
+        CLIENT_TO_SERVER = 2;
+    }
+    optional Direction direction = 3;
+}
