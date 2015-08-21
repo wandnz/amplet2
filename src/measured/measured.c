@@ -574,7 +574,7 @@ int main(int argc, char *argv[]) {
     while ( 1 ) {
 
 	int opt_ind = 0;
-	int c = getopt_long(argc, argv, "dfhp:vxc:rI:4:6:",
+	int c = getopt_long(argc, argv, "dhp:vxc:rI:4:6:",
                 long_options, &opt_ind);
 	if ( c == -1 )
 	    break;
