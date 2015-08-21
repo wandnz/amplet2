@@ -1,6 +1,8 @@
 #ifndef _MEASURED_TESTLIB_H
 #define _MEASURED_TESTLIB_H
 
+#include <google/protobuf-c/protobuf-c.h>
+
 #include "tests.h"
 #include "debug.h"
 
@@ -92,5 +94,7 @@ int bind_sockets_to_address(struct socket_t *sockets,
         struct addrinfo *sourcev4, struct addrinfo *sourcev6);
 int set_default_socket_options(struct socket_t *sockets);
 int check_exists(char *path, int strict);
+int copy_address_to_protobuf(ProtobufCBinaryData *dst,
+        const struct addrinfo *src);
 
 #endif

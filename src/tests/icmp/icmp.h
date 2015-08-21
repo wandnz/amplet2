@@ -8,9 +8,6 @@
 /* use the current date with 2 digit count appended as version: YYYYMMDDXX */
 #define AMP_ICMP_TEST_VERSION 2014020300
 
-/* number of results we will fit into a single result message */
-# define AMP_ICMP_MAX_RESULTS 255
-
 /* by default use an 84 byte packet, because that's what it has always been */
 #define DEFAULT_ICMP_ECHO_REQUEST_LEN 84
 
@@ -61,26 +58,6 @@ struct info_t {
 };
 
 
-struct icmp_report_item_t {
-    /* nicer way than storing just 16 bytes for the address? */
-    char address[16];
-    int32_t rtt;
-    uint8_t family;
-    uint8_t err_type;
-    uint8_t err_code;
-    uint8_t ttl;
-    uint8_t namelen;
-} __attribute__((__packed__));
-
-struct icmp_report_header_t {
-    uint32_t version;
-    uint16_t packet_size;
-    uint8_t random;
-    uint8_t count;
-} __attribute__((__packed__));
-
-
-
 int run_icmp(int argc, char *argv[], int count, struct addrinfo **dests);
 int save_icmp(char *monitor, uint64_t timestamp, void *data, uint32_t len);
 void print_icmp(void *data, uint32_t len);
@@ -89,6 +66,8 @@ test_t *register_test(void);
 uint16_t amp_test_icmp_checksum(uint16_t *packet, int size);
 int amp_test_process_ipv4_packet(char *packet, uint32_t bytes, uint16_t ident,
         struct timeval now, int count, struct info_t info[]);
+void amp_test_report_results(struct timeval *start_time, int count,
+        struct info_t info[], struct opt_t *opt);
 #endif
 
 

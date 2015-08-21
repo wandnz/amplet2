@@ -11,9 +11,6 @@
 /* use the current date with 2 digit count appended as version: YYYYMMDDXX */
 #define AMP_TRACEROUTE_TEST_VERSION 2014080700
 
-/* number of results we will fit into a single result message */
-# define AMP_TRACEROUTE_MAX_RESULTS 255
-
 #define DEFAULT_TRACEROUTE_PROBE_LEN 60
 
 #define MIN_TRACEROUTE_PROBE_LEN (sizeof(struct ip6_hdr) + \
@@ -126,31 +123,6 @@ struct dest_info_t {
     struct hop_info_t hop[MAX_HOPS_IN_PATH];
     struct dest_info_t *next;
 };
-
-struct traceroute_report_hop_t {
-    char address[16];
-    int64_t as;                /* AS that the address belongs to */
-    int32_t rtt;
-} __attribute__((__packed__));
-
-struct traceroute_report_path_t {
-    /* nicer way than storing just 16 bytes for the address? */
-    char address[16];
-    uint8_t family;
-    uint8_t length;
-    uint8_t err_type;
-    uint8_t err_code;
-    uint8_t namelen;
-} __attribute__((__packed__));
-
-struct traceroute_report_header_t {
-    uint32_t version;
-    uint16_t packet_size;
-    uint8_t random;
-    uint8_t count;
-    uint8_t ip;
-    uint8_t as;
-} __attribute__((__packed__));
 
 
 /*

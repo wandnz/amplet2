@@ -20,6 +20,7 @@
 #include "config.h"
 #include "testlib.h"
 #include "icmp.h"
+#include "icmp.pb-c.h"
 
 
 /*
@@ -425,56 +426,49 @@ static int open_sockets(struct socket_t *raw_sockets) {
 /*
  *
  */
-static int report_destination(struct info_t *info, char *buffer) {
-    struct icmp_report_item_t *item;
-    char *ampname = address_to_name(info->addr);
-    assert(ampname);
-    assert(strlen(ampname) < MAX_STRING_FIELD);
+static Amplet2__Icmp__Item* report_destination(struct info_t *info) {
+
+    Amplet2__Icmp__Item *item =
+        (Amplet2__Icmp__Item*)malloc(sizeof(Amplet2__Icmp__Item));
 
     /* fill the report item with results of a test */
-    item = (struct icmp_report_item_t *)(buffer);
-    item->err_type = info->err_type;
-    item->err_code = info->err_code;
+    amplet2__icmp__item__init(item);
+    item->has_family = 1;
     item->family = info->addr->ai_family;
-    item->ttl = info->ttl;
-
-    switch ( item->family ) {
-        case AF_INET:
-            memcpy(item->address,
-                    &((struct sockaddr_in*)
-                        info->addr->ai_addr)->sin_addr,
-                    sizeof(struct in_addr));
-            break;
-        case AF_INET6:
-            memcpy(item->address,
-                    &((struct sockaddr_in6*)
-                        info->addr->ai_addr)->sin6_addr,
-                    sizeof(struct in6_addr));
-            break;
-        default:
-            Log(LOG_WARNING, "Unknown address family %d\n", item->family);
-            memset(item->address, 0, sizeof(item->address));
-            break;
-    };
+    item->name = address_to_name(info->addr);
+    item->has_address = copy_address_to_protobuf(&item->address, info->addr);
 
     /* TODO do we want to truncate to milliseconds like the old test? */
     if ( info->reply && info->time_sent.tv_sec > 0 &&
             (info->err_type == ICMP_REDIRECT ||
              (info->err_type == 0 && info->err_code == 0)) ) {
         //printf("%dms ", (int)((info[i].delay/1000.0) + 0.5));
-        item->rtt = htonl(info->delay);
+        item->has_rtt = 1;
+        item->rtt = info->delay;
+        item->has_ttl = 1;
+        item->ttl = info->ttl;
     } else {
-        item->rtt = htonl(-1);
+        /* don't send an rtt if there wasn't a valid one recorded */
+        item->has_rtt = 0;
+        item->has_ttl = 0;
     }
 
-    /* add variable length ampname onto the buffer, after the report item */
-    item->namelen = strlen(ampname) + 1;
-    strncpy(buffer + sizeof(struct icmp_report_item_t), ampname,
-            MAX_STRING_FIELD);
-    Log(LOG_DEBUG, "icmp result: %dus, %d/%d\n", htonl(item->rtt),
-            item->err_type, item->err_code);
+    if ( item->has_rtt || info->err_type > 0 ) {
+        /* valid response (0/0) or a useful error, set the type/code fields */
+        item->has_err_type = 1;
+        item->err_type = info->err_type;
+        item->has_err_code = 1;
+        item->err_code = info->err_code;
+    } else {
+        /* missing response, don't include type and code fields */
+        item->has_err_type = 0;
+        item->has_err_code = 0;
+    }
 
-    return sizeof(struct icmp_report_item_t) + item->namelen;
+    Log(LOG_DEBUG, "icmp result: %dus, %d/%d\n",
+            item->has_rtt?(int)item->rtt:-1, item->err_type, item->err_code);
+
+    return item;
 }
 
 
@@ -483,46 +477,49 @@ static int report_destination(struct info_t *info, char *buffer) {
  *
  */
 static void report_results(struct timeval *start_time, int count,
-	struct info_t info[], struct opt_t *opt) {
+        struct info_t info[], struct opt_t *opt) {
 
     int i;
-    char *buffer;
-    struct icmp_report_header_t *header = NULL;
+    void *buffer;
     int len = 0;
-    int maxlen;
 
     Log(LOG_DEBUG, "Building icmp report, count:%d, psize:%d, rand:%d\n",
-	    count, opt->packet_size, opt->random);
+            count, opt->packet_size, opt->random);
 
-    /* TODO we could use less memory if this was min(count, 255) */
-    maxlen = (sizeof(struct icmp_report_header_t)) +
-        (AMP_ICMP_MAX_RESULTS * sizeof(struct icmp_report_item_t)) +
-        (AMP_ICMP_MAX_RESULTS * MAX_STRING_FIELD);
-    buffer = malloc(maxlen);
+    Amplet2__Icmp__Report msg = AMPLET2__ICMP__REPORT__INIT;
+    Amplet2__Icmp__Header header = AMPLET2__ICMP__HEADER__INIT;
+    Amplet2__Icmp__Item **reports;
 
+    /* populate the header with all the test options */
+    header.has_packet_size = 1;
+    header.packet_size = opt->packet_size;
+    header.has_random = 1;
+    header.random = opt->random;
+
+    /* build up the repeated reports section with each of the results */
+    reports = malloc(sizeof(Amplet2__Icmp__Item*) * count);
     for ( i = 0; i < count; i++ ) {
-        /* limit messages to 255 items */
-        if ( (i % AMP_ICMP_MAX_RESULTS) == 0 ) {
-            /* single header at the start of buffer describes test options */
-            memset(buffer, 0, maxlen);
-            header = (struct icmp_report_header_t *)buffer;
-            header->version = htonl(AMP_ICMP_TEST_VERSION);
-            header->packet_size = htons(opt->packet_size);
-            header->random = opt->random;
-            len = sizeof(struct icmp_report_header_t);
-        }
-
-        /* pass in the single result and the part of the buffer to put it in */
-        len += report_destination(&info[i], buffer + len);
-
-        /* report as we go, every 255 items or the last item */
-        if ( ((i + 1) % AMP_ICMP_MAX_RESULTS) == 0 || (i + 1) == count ) {
-            header->count = (i % AMP_ICMP_MAX_RESULTS) + 1;
-            report(AMP_TEST_ICMP, (uint64_t)start_time->tv_sec, (void*)buffer,
-                    len);
-        }
+        reports[i] = report_destination(&info[i]);
     }
 
+    /* populate the top level report object with the header and reports */
+    msg.header = &header;
+    msg.reports = reports;
+    msg.n_reports = count;
+
+    /* pack all the results into a buffer for transmitting */
+    len = amplet2__icmp__report__get_packed_size(&msg);
+    buffer = malloc(len);
+    amplet2__icmp__report__pack(&msg, buffer);
+
+    /* send the packed report object */
+    report(AMP_TEST_ICMP, (uint64_t)start_time->tv_sec, (void*)buffer, len);
+
+    /* free up all the memory we had to allocate to report items */
+    for ( i = 0; i < count; i++ ) {
+        free(reports[i]);
+    }
+    free(reports);
     free(buffer);
 }
 
@@ -709,52 +706,51 @@ int run_icmp(int argc, char *argv[], int count, struct addrinfo **dests) {
  * Print icmp test results to stdout, nicely formatted for the standalone test
  */
 void print_icmp(void *data, uint32_t len) {
-    struct icmp_report_header_t *header = (struct icmp_report_header_t*)data;
-    struct icmp_report_item_t *item;
+    Amplet2__Icmp__Report *msg;
+    Amplet2__Icmp__Item *item;
+    unsigned int i;
     char addrstr[INET6_ADDRSTRLEN];
-    int i, offset;
-    char *ampname;
 
-    assert(data != NULL);
-    assert(len >= sizeof(struct icmp_report_header_t));
-    assert(len >= sizeof(struct icmp_report_header_t) +
-	    header->count * sizeof(struct icmp_report_item_t));
-    assert(ntohl(header->version) == AMP_ICMP_TEST_VERSION);
+    assert(data);
 
-    printf("\n");
-    printf("AMP icmp test, %u destinations, %u byte packets ", header->count,
-	    ntohs(header->packet_size));
-    if ( header->random ) {
-	printf("(random size)\n");
+    /* unpack all the data */
+    msg = amplet2__icmp__report__unpack(NULL, len, data);
+
+    assert(msg);
+    assert(msg->header);
+
+    /* print test header information */
+    printf("\nAMP icmp test, %zu destinations, %u byte packets ",
+            msg->n_reports, msg->header->packet_size);
+
+    if ( msg->header->random ) {
+        printf("(random size)\n");
     } else {
-	printf("(fixed size)\n");
+        printf("(fixed size)\n");
     }
 
-    offset = sizeof(struct icmp_report_header_t);
+    /* print each of the test results */
+    for ( i = 0; i < msg->n_reports; i++ ) {
+        item = msg->reports[i];
 
-    for ( i=0; i<header->count; i++ ) {
-        item = (struct icmp_report_item_t*)(data + offset);
-        offset += sizeof(struct icmp_report_item_t);
+        printf("%s", item->name);
+        inet_ntop(item->family, item->address.data, addrstr, INET6_ADDRSTRLEN);
+        printf(" (%s)", addrstr);
 
-        ampname = (char *)data + offset;
-        offset += item->namelen;
-	printf("%s", ampname);
-
-	inet_ntop(item->family, item->address, addrstr, INET6_ADDRSTRLEN);
-	printf(" (%s)",	addrstr);
-
-	if ( ((int32_t)ntohl(item->rtt)) < 0 ) {
-	    if ( item->err_type == 0 ) {
-		printf(" missing");
-	    } else {
-		printf(" error");
-	    }
-	} else {
-	    printf(" %dus", ntohl(item->rtt));
-	}
-	printf(" (%u/%u)\n", item->err_type, item->err_code);
+        if ( item->has_rtt ) {
+            printf(" %dus", item->rtt);
+        } else {
+            if ( item->err_type == 0 ) {
+                printf(" missing");
+            } else {
+                printf(" error");
+            }
+        }
+        printf(" (%u/%u)\n", item->err_type, item->err_code);
     }
     printf("\n");
+
+    amplet2__icmp__report__free_unpacked(msg, NULL);
 }
 
 
@@ -801,5 +797,10 @@ uint16_t amp_test_icmp_checksum(uint16_t *packet, int size) {
 int amp_test_process_ipv4_packet(char *packet, uint32_t bytes, uint16_t ident,
 	struct timeval now, int count, struct info_t info[]) {
     return process_ipv4_packet(packet, bytes, ident, now, count, info);
+}
+
+void amp_test_report_results(struct timeval *start_time, int count,
+        struct info_t info[], struct opt_t *opt) {
+    report_results(start_time, count, info, opt);
 }
 #endif

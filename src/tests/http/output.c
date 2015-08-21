@@ -2,107 +2,136 @@
 #include <assert.h>
 #include "http.h"
 #include "output.h"
+#include "http.pb-c.h"
 
 
 
-static void print_global_info(struct http_report_header_t *header) {
-    assert(header);
+/*
+ *
+ */
+static void print_global_info(Amplet2__Http__Report *report) {
+    assert(report);
 
     printf("\n");
-    printf("AMP HTTP test, url:%s\n", header->url);
-    printf("%d servers, %d objects, total size %dB, total duration %dms\n",
-            header->total_servers, header->total_objects,
-            header->bytes, header->duration);
+    printf("AMP HTTP test, url:%s\n", report->header->url);
+    printf("%zu servers, %d objects, total size %dB, total duration %dms\n",
+            report->n_servers, report->header->total_objects,
+            report->header->total_bytes, report->header->duration);
     printf("Test options:\n");
-    printf("\tkeep_alive:\t\t\t\t%d\n", header->persist);
-    printf("\tmax_connections:\t\t\t%d\n", header->max_connections);
+    printf("\tkeep_alive:\t\t\t\t%d\n", report->header->persist);
+    printf("\tmax_connections:\t\t\t%d\n", report->header->max_connections);
     printf("\tmax_connections_per_server:\t\t%d\n",
-            header->max_connections_per_server);
+            report->header->max_connections_per_server);
     printf("\tmax_persistent_connections_per_server:\t%d\n",
-            header->max_persistent_connections_per_server);
-    printf("\tpipelining:\t\t\t\t%d\n", header->pipelining);
+            report->header->max_persistent_connections_per_server);
+    printf("\tpipelining:\t\t\t\t%d\n", report->header->pipelining);
     printf("\tpipelining_maxrequests:\t\t\t%d\n",
-            header->pipelining_maxrequests);
-    printf("\tcaching:\t\t\t\t%d\n", header->caching);
+            report->header->pipelining_maxrequests);
+    printf("\tcaching:\t\t\t\t%d\n", report->header->caching);
 }
 
 
 
-static void print_object(struct http_report_object_t *object) {
+/*
+ *
+ */
+static void print_object(Amplet2__Http__Object *object) {
     assert(object);
 
     /* original object stats */
-    printf("  OBJECT %s (%d) pipe=%d dns=%" PRIu64 ".%.6" PRIu64
-            " c=%" PRIu64 ".%.6" PRIu64 " p=%" PRIu64 ".%.6" PRIu64
-            " t=%" PRIu64 ".%.6" PRIu64 " s=%" PRIu64 ".%.6" PRIu64
-            " f=%" PRIu64 ".%.6" PRIu64 " bytes=%d connects=%d",
-            object->path, object->code, object->pipeline, object->lookup.tv_sec,
-            object->lookup.tv_usec, object->connect.tv_sec,
-            object->connect.tv_usec, object->start_transfer.tv_sec,
-            object->start_transfer.tv_usec, object->total_time.tv_sec,
-            object->total_time.tv_usec,
-            object->start.tv_sec, object->start.tv_usec,
-            object->end.tv_sec, object->end.tv_usec,
-            object->size, object->connect_count);
+    printf("  OBJECT %s (%d) pipe=%d dns=%.6f c=%.6f p=%.6f t=%.6f "
+            "s=%.6f f=%.6f bytes=%d connects=%d",
+            object->path, object->code, object->pipeline, object->lookup,
+            object->connect, object->start_transfer, object->total_time,
+            object->start, object->end, object->size, object->connect_count);
 
     /* further information on caching for medialab */
-    printf(" cacheflags=%" PRIu8, *((uint8_t*)&object->headers.flags));
-    printf(" max-age=%d s-maxage=%d x-cache=%d x-cache-lookup=%d",
-            object->headers.max_age, object->headers.s_maxage,
-            object->headers.x_cache, object->headers.x_cache_lookup);
-
-    printf("\n");
+    if ( object->cache_headers ) {
+        printf(" cacheflags=(");
+        if ( object->cache_headers->pub ) {
+            printf(" pub");
+        }
+        if ( object->cache_headers->priv ) {
+            printf(" priv");
+        }
+        if ( object->cache_headers->no_cache ) {
+            printf(" no-cache");
+        }
+        if ( object->cache_headers->no_store ) {
+            printf(" no-store");
+        }
+        if ( object->cache_headers->no_transform ) {
+            printf(" no-transform");
+        }
+        if ( object->cache_headers->must_revalidate ) {
+            printf(" must-revalidate");
+        }
+        if ( object->cache_headers->proxy_revalidate ) {
+            printf(" proxy-revalidate");
+        }
+        if ( object->cache_headers->has_max_age ) {
+            printf(" max-age:%d", object->cache_headers->max_age);
+        }
+        if ( object->cache_headers->has_s_maxage ) {
+            printf(" s-maxage:%d", object->cache_headers->s_maxage);
+        }
+        if ( object->cache_headers->has_x_cache ) {
+            printf(" x-cache:%d", object->cache_headers->x_cache);
+        }
+        if ( object->cache_headers->has_x_cache_lookup ) {
+            printf(" x-cache-lookup:%d", object->cache_headers->x_cache_lookup);
+        }
+    }
+    printf(" )\n");
 }
 
 
 
-static int print_server(struct http_report_server_t *server) {
-    struct http_report_object_t *object;
-    int i;
+/*
+ *
+ */
+static void print_server(Amplet2__Http__Server *server) {
+    unsigned int i;
 
     assert(server);
 
     printf("\n");
-    printf("SERVER %s (%s) s=%d.%.6d f=%d.%.6d obj=%d bytes=%d\n",
+    printf("SERVER %s (%s) s=%.6f f=%.6f obj=%zu bytes=%u\n",
             server->hostname, server->address,
-            (int)server->start.tv_sec, (int)server->start.tv_usec,
-            (int)server->end.tv_sec, (int)server->end.tv_usec,
-            server->objects, server->bytes);
+            server->start, server->end,
+            server->n_objects, server->total_bytes);
 
     /* per-object information for this server */
-    for ( i = 0; i < server->objects; i++ ) {
-        object = (struct http_report_object_t *)(((char *)server) +
-                sizeof(struct http_report_server_t) +
-                (i * sizeof(struct http_report_object_t)));
-        print_object(object);
+    for ( i = 0; i < server->n_objects; i++ ) {
+        print_object(server->objects[i]);
     }
-
-    return server->objects;
 }
 
 
 
+/*
+ *
+ */
 void print_http(void *data, uint32_t len) {
-    struct http_report_header_t *header = (struct http_report_header_t*)data;
-    struct http_report_server_t *server;
-    int reported_objects = 0;
-    int i;
+    Amplet2__Http__Report *msg;
+    unsigned int i;
 
     assert(data != NULL);
-    assert(len >= sizeof(struct http_report_header_t));
-    assert(header->version == AMP_HTTP_TEST_VERSION);
+
+    /* unpack all the data */
+    msg = amplet2__http__report__unpack(NULL, len, data);
+
+    assert(msg);
+    assert(msg->header);
 
     /* print header options */
-    print_global_info(header);
+    print_global_info(msg);
 
-    for ( i=0; i<header->total_servers; i++ ) {
-        /* specific server information */
-        server = (struct http_report_server_t*)(data +
-                sizeof(struct http_report_header_t) +
-                i * sizeof(struct http_report_server_t) +
-                reported_objects * sizeof(struct http_report_object_t));
-        reported_objects += print_server(server);
+    /* print each of the servers */
+    for ( i = 0; i < msg->n_servers; i++ ) {
+        print_server(msg->servers[i]);
     }
     printf("\n");
 
+    amplet2__http__report__free_unpacked(msg, NULL);
 }

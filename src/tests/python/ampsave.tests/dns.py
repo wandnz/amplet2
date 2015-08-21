@@ -1,213 +1,61 @@
-import struct
-import socket
-
-from ampsave.exceptions import AmpTestVersionMismatch
-
-# version needs to keep up with the version number in src/tests/icmp/icmp.h
-AMP_DNS_TEST_VERSION = 2014020400
-
-
-# Old data coming from deployed amplet2-client debian package 0.1.13-1
-# TODO remove this code once we have got rid of everyone that speaks this
-# version
-def data_2013022000(data):
-    header_len = struct.calcsize("=I256sHHHBB")
-    item_len = struct.calcsize("=128s256s16siIIHHHHHBB")
-
-    # offset past the version number which has already been read
-    offset = struct.calcsize("=I")
-
-    # read the rest of the header that records test options
-    query,qtype,qclass,payload,opts,count = struct.unpack_from("=256sHHHBB", data, offset)
-
-    offset = header_len
-    results = []
-
-    # extract every item in the data portion of the message
-    while count > 0:
-        # "p" pascal string could be useful here, length byte before string
-        name,instance,addr,rtt,qlen,size,ans,aut,add,flags,res,family,ttl = struct.unpack_from("=128s256s16siIIHHHHHBB", data, offset)
-
-        # the C structure understands how to access the flags in the
-        # appropriate byte order, but that doesn't help us here - swap it.
-        flags = socket.ntohs(flags)
-
-        if family == socket.AF_INET:
-            addr = socket.inet_ntop(family, addr[:4])
-        elif family == socket.AF_INET6:
-            addr = socket.inet_ntop(family, addr)
-        else:
-            #print "Unknown address family %d" % family
-            raise ValueError
-
-        results.append(
-                {
-                    "destination": name.rstrip("\0"),
-                    "instance": instance.rstrip("\0"),
-                    "address": addr,
-                    "rtt": rtt if rtt >= 0 else None,
-                    "query_len": qlen,
-		    "response_size": size if rtt >= 0 else None,
-		    "total_answer": ans if rtt >= 0 else None,
-		    "total_authority": aut if rtt >= 0 else None,
-		    "total_additional": add if rtt >= 0 else None,
-                    "flags": {
-                        "rd": bool(flags & 0x0100),
-                        "tc": bool(flags & 0x0200),
-                        "aa": bool(flags & 0x0400),
-                        "opcode": int(flags & 0x7800),
-                        "qr": bool(flags & 0x8000),
-                        "rcode": int(flags & 0x000f),
-                        "cd": bool(flags & 0x0010),
-                        "ad": bool(flags & 0x0020),
-                        "ra": bool(flags & 0x0080),
-		    } if rtt >= 0 else {},
-		    "ttl": ttl if rtt >= 0 else None,
-                }
-            )
-        offset += item_len
-        count -= 1
-
-    return {
-        "query": query.rstrip("\0"),
-        "query_type": get_query_type(qtype),
-        "query_class": get_query_class(qclass),
-        "udp_payload_size": payload,
-        "recurse": bool(opts & 0x01),
-        "dnssec": bool(opts & 0x02),
-        "nsid": bool(opts & 0x04),
-        "results": results,
-    }
-
-
-# New data that is byte swapped, variable length strings etc
-def data_2014020400(data):
-    header_len = struct.calcsize("!IHHHBBB")
-    item_len = struct.calcsize("!16siIIHHHHBBBB")
-
-    if len(data) < header_len:
-        print "%s: not enough data to unpack header", __file__
-        return None
-
-    # offset past the version number which has already been read
-    offset = struct.calcsize("!I")
-
-    # read the rest of the header that records test options
-    qtype,qclass,payload,opts,count,querylen = struct.unpack_from("!HHHBBB", data, offset)
-
-    # get the variable length query string that follows the header
-    assert(querylen > 0 and querylen < 255)
-    offset = header_len
-    if len(data[offset:]) < querylen:
-        print "%s: not enough data to unpack query", __file__
-        return None
-    (query,) = struct.unpack_from("!%ds" % querylen, data, offset)
-    offset += querylen
-    assert(querylen == len(query))
-
-    results = []
-
-    # extract every item in the data portion of the message
-    while count > 0:
-        if len(data[offset:]) < item_len:
-            print "%s: not enough data to unpack item", __file__
-            return results
-	# "p" pascal string could be useful here, length byte before string
-        addr,rtt,qlen,size,ans,aut,add,flags,family,ttl,namelen,instancelen = struct.unpack_from("!16siIIHHHHBBBB", data, offset)
-
-        # get the variable length ampname string that follows the data
-        assert(namelen > 0 and namelen < 255)
-        offset += item_len
-        if len(data[offset:]) < namelen:
-            print "%s: not enough data to unpack name", __file__
-            return results
-        (name,) = struct.unpack_from("!%ds" % namelen, data, offset)
-        offset += namelen
-        assert(namelen == len(name))
-
-        if instancelen > 0:
-            # get the variable length instance string that follows the data
-            assert(instancelen > 0 and instancelen < 255)
-            if len(data[offset:]) < instancelen:
-                print "%s: not enough data to unpack instance", __file__
-                return results
-            (instance,) = struct.unpack_from("!%ds" % instancelen, data, offset)
-            offset += instancelen
-            assert(instancelen == len(instance))
-        else:
-            # otherwise no specific instance name, just use the server name
-            instance = name
-
-        if family == socket.AF_INET:
-            addr = socket.inet_ntop(family, addr[:4])
-        elif family == socket.AF_INET6:
-            addr = socket.inet_ntop(family, addr)
-        else:
-            #print "Unknown address family %d" % family
-            raise ValueError
-
-        results.append(
-		{
-		    "destination": name.rstrip("\0"),
-		    "instance": instance.rstrip("\0"),
-		    "address": addr,
-                    "rtt": rtt if rtt >= 0 else None,
-		    "query_len": qlen,
-		    "response_size": size if rtt >= 0 else None,
-		    "total_answer": ans if rtt >= 0 else None,
-		    "total_authority": aut if rtt >= 0 else None,
-		    "total_additional": add if rtt >= 0 else None,
-		    "flags": {
-			"rd": bool(flags & 0x0100),
-			"tc": bool(flags & 0x0200),
-			"aa": bool(flags & 0x0400),
-			"opcode": int(flags & 0x7800),
-			"qr": bool(flags & 0x8000),
-			"rcode": int(flags & 0x000f),
-			"cd": bool(flags & 0x0010),
-			"ad": bool(flags & 0x0020),
-			"ra": bool(flags & 0x0080),
-		    } if rtt >= 0 else {},
-		    "ttl": ttl if rtt >= 0 else None,
-		    }
-		)
-        count -= 1
-
-    return {
-	"query": query.rstrip("\0"),
-	"query_type": get_query_type(qtype),
-	"query_class": get_query_class(qclass),
-	"udp_payload_size": payload,
-	"recurse": bool(opts & 0x01),
-	"dnssec": bool(opts & 0x02),
-	"nsid": bool(opts & 0x04),
-	"results": results,
-    }
+import ampsave.tests.dns_pb2
+from ampsave.common import getPrintableAddress
 
 def get_data(data):
     """
-    Extract the DNS test results from the data blob.
-
-    The test result data consists of a single dns_report header_t followed
-    by a number of dns_report_item_t structures with the individual test
-    results. Both of these are described in src/tests/dns/dns.h
+    Extract the DNS test results from the protocol buffer data
     """
 
-    # check the version number first before looking at anything else
-    if len(data) < struct.calcsize("!I"):
-        print "%s: not enough data to unpack version number", __file__
-        return None
-    version, = struct.unpack_from("!I", data, 0)
+    results = []
+    msg = ampsave.tests.dns_pb2.Report()
+    msg.ParseFromString(data)
 
-    # deal with the old version, which isn't byte swapped
-    if version == socket.htonl(2013022000):
-        return data_2013022000(data)
+    for i in msg.reports:
+        # should probably check this has sensible values
+        if len(i.instance) > 0:
+            instance = i.instance
+        elif len(i.name) > 0:
+            instance = i.name
+        else:
+            instance = "unknown"
 
-    # deal with the current version, which is what we should be using
-    if version == 2014020400:
-        return data_2014020400(data)
+        # build the result structure based on what fields were present
+        results.append(
+            {
+                "destination": i.name if len(i.name) > 0 else "unknown",
+                "instance": instance,
+                "address": getPrintableAddress(i.family, i.address),
+                "rtt": i.rtt if i.HasField("rtt") else None,
+                "query_len": i.query_length,
+                "response_size": i.response_size if i.HasField("response_size") else None,
+                "total_answer": i.total_answer if i.HasField("total_answer") else None,
+                "total_authority": i.total_authority if i.HasField("total_authority") else None,
+                "total_additional": i.total_additional if i.HasField("total_additional") else None,
+                "flags": {
+                    "rd": i.flags.rd,
+                    "tc": i.flags.tc,
+                    "aa": i.flags.aa,
+                    "opcode": i.flags.opcode,
+                    "qr": i.flags.qr,
+                    "rcode": i.flags.rcode,
+                    "cd": i.flags.cd,
+                    "ad": i.flags.ad,
+                    "ra": i.flags.ra,
+                } if i.HasField("rtt") and i.HasField("flags") else {},
+                "ttl": i.ttl if i.HasField("ttl") else None,
+                }
+            )
 
-    raise AmpTestVersionMismatch(version, AMP_DNS_TEST_VERSION)
+    return {
+	"query": msg.header.query,
+	"query_type": get_query_type(msg.header.query_type),
+	"query_class": get_query_class(msg.header.query_class),
+	"udp_payload_size": msg.header.udp_payload_size,
+	"recurse": msg.header.recurse,
+	"dnssec": msg.header.dnssec,
+	"nsid": msg.header.nsid,
+	"results": results,
+    }
 
 def get_query_class(qclass):
     if qclass == 0x01:

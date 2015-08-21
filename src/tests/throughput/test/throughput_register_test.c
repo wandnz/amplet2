@@ -19,5 +19,8 @@ int main(void) {
     assert(info->server_callback != NULL);
     assert(info->max_duration > 0);
 
+    free(info->name);
+    free(info);
+
     return 0;
 }

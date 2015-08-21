@@ -5,12 +5,10 @@
 #include <sys/socket.h>
 #include <netdb.h>
 #include <libwandevent.h>
+#include "testlib.h"
 
 /* use the current date with 2 digit count appended as version: YYYYMMDDXX */
 #define AMP_TCPPING_TEST_VERSION 2014072100
-
-/* number of results we will fit into a single result message */
-# define AMP_TCPPING_MAX_RESULTS 255
 
 /* use the same packet size as ICMP, so we're directly comparable */
 #define DEFAULT_TCPPING_SYN_LENGTH 84
@@ -29,6 +27,12 @@
 
 /* timeout in sec to wait before declaring the response lost, currently 10s */
 #define LOSS_TIMEOUT 10
+
+enum reply_type {
+    NO_REPLY = 0,
+    TCP_REPLY = 1,
+    ICMP_REPLY = 2,
+};
 
 /*
  * User defined test options to control packet size and timing.
@@ -95,37 +99,21 @@ struct info_t {
     struct timeval time_sent;   /* Time when the SYN was sent */
     uint32_t seqno;             /* Sequence number of the sent SYN */
     uint32_t delay;             /* Delay in receiving response */
-    uint8_t reply;              /* Set to 1 if the reply was a TCP packet,
-                                 * 2 if the reply was an ICMP packet */
+    enum reply_type reply;      /* Protocol of reply (TCP/ICMP) */
     uint8_t replyflags;         /* TCP control bits set in the reply */
     uint8_t icmptype;           /* ICMP type of the reply */
     uint8_t icmpcode;           /* ICMP code of the reply */
 };
-
-struct tcpping_report_item_t {
-    char address[16];
-    int32_t rtt;
-    uint16_t packet_size;
-    uint8_t family;
-    uint8_t reply;
-    uint8_t replyflags;
-    uint8_t icmptype;
-    uint8_t icmpcode;
-    uint8_t namelen;
-} __attribute__((__packed__));
-
-struct tcpping_report_header_t {
-    uint32_t version;
-    uint16_t port;
-    uint8_t random;
-    uint8_t count;
-} __attribute__((__packed__));
 
 int run_tcpping(int argc, char *argv[], int count, struct addrinfo **dests);
 int save_tcpping(char *monitor, uint64_t timestamp, void *data, uint32_t len);
 void print_tcpping(void *data, uint32_t len);
 test_t *register_test(void);
 
+#if UNIT_TEST
+void amp_test_report_results(struct timeval *start_time, int count,
+        struct info_t info[], struct opt_t *opt);
+#endif
 
 #endif
 

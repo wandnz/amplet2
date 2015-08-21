@@ -1,92 +1,37 @@
-import struct
-import socket
-from ampsave.exceptions import AmpTestVersionMismatch
-
-# version needs to match the version number in src/tests/tcpping/tcpping.h
-AMP_TCPPING_TEST_VERSION = 2014072100
+import ampsave.tests.tcpping_pb2
+from ampsave.common import getPrintableAddress
 
 def get_data(data):
     """
-    Extract the test results from the data blob.
-
-    The test result data consists of a single tcpping_report_header_t followed
-    by a number of tcpping_report_item_t structures with the individual test
-    results. Both of these are described in src/tests/tcpping/tcpping.h
+    Extract the test results from the protocol buffer data.
     """
 
-    header_len = struct.calcsize("!IhBB")
-    item_len = struct.calcsize("!16sihBBBBBB")
-
-    # Check the version number first before looking at anything else.
-    # Using the "!" format will automatically convert from network to host
-    # byte order, which is pretty cool.
-    if len(data) < header_len:
-        print "%s: not enough data to unpack header", __file__
-        return None
-    version, = struct.unpack_from("!I", data, 0)
-
-    # deal with the current version, which is what we should be using
-    if version != AMP_TCPPING_TEST_VERSION:
-        raise AmpTestVersionMismatch(version, AMP_TCPPING_TEST_VERSION)
-
-    # offset past the version number which has already been read
-    offset = struct.calcsize("!I")
-
-    # read the rest of the header that records test options
-    port,random,count = struct.unpack_from("!hBB", data, offset)
-
-    offset = header_len
     results = []
+    msg = ampsave.tests.tcpping_pb2.Report()
+    msg.ParseFromString(data)
 
-    # extract every item in the data portion of the message
-    while count > 0:
-        if len(data[offset:]) < item_len:
-            print "%s: not enough data to unpack item", __file__
-            return results
-        # "p" pascal string could be useful here, length byte before string
-        # except that they don't appear to work in any useful fashion
-        # http://bugs.python.org/issue2981
-        addr,rtt,packet_size,family,reply,replyflags,icmptype,icmpcode, \
-                namelen = struct.unpack_from("!16sihBBBBBB", data, offset)
-
-        assert(namelen > 0 and namelen < 255)
-        offset += item_len
-        if len(data[offset:]) < namelen:
-            print "%s: not enough data to unpack name", __file__
-            return results
-        (name,) = struct.unpack_from("!%ds" % namelen, data, offset)
-        offset += namelen
-
-        assert(namelen == len(name))
-
-        if family == socket.AF_INET:
-            addr = socket.inet_ntop(family, addr[:4])
-        elif family == socket.AF_INET6:
-            addr = socket.inet_ntop(family, addr)
-        else:
-            #print "Unknown address family %d" % family
-            raise ValueError
-
-        # Convert everything we can here so that the database insertion code
-        # doesn't need to figure out what fields should be interpreted based
-        # on there being a response or not. We know what we are doing at this
-        # point, so set it up properly for the next step.
+    for i in msg.reports:
         results.append(
-                {
-                    "target": name.rstrip("\0"),
-                    "port": port,
-                    "address": addr,
-                    "rtt": rtt if rtt >= 0 else None,
-                    "reply": reply,
-                    "replyflags": replyflags if reply == 1 else None,
-                    "icmptype": icmptype if reply == 2 else None,
-                    "icmpcode": icmptype if reply == 2 else None,
-                    "packet_size": packet_size,
-                    "random": random,
-                    "loss": 1 if reply == 0 else 0,
-                }
-            )
-        count -= 1
+            {
+                "target": i.name if len(i.name) > 0 else "unknown",
+                "port": msg.header.port,
+                "address": getPrintableAddress(i.family, i.address),
+                "rtt": i.rtt if i.HasField("rtt") else None,
+                "replyflags": {
+                    "fin": i.flags.fin,
+                    "syn": i.flags.syn,
+                    "rst": i.flags.rst,
+                    "psh": i.flags.psh,
+                    "ack": i.flags.ack,
+                    "urg": i.flags.urg,
+                } if i.HasField("rtt") else None,
+                "icmptype": i.icmptype if i.HasField("icmptype") else None,
+                "icmpcode": i.icmpcode if i.HasField("icmpcode") else None,
+                "packet_size": msg.header.packet_size,
+                "random": msg.header.random,
+                "loss": 0 if i.HasField("rtt") or i.HasField("icmptype") or i.HasField("icmpcode") else 1
+            }
+        )
 
     return results
 

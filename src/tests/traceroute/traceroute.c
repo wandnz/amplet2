@@ -25,6 +25,7 @@
 #include "traceroute.h"
 #include "libwandevent.h"
 #include "as.h"
+#include "traceroute.pb-c.h"
 
 #include "global.h"
 #include "ampresolv.h"
@@ -1059,91 +1060,77 @@ static int open_sockets(struct socket_t *icmp_sockets,
 }
 
 
-/* XXX TODO library function, lots of tests will use this */
-static void extract_address(void *dst, const struct addrinfo *src) {
-    assert(src);
-    assert(dst);
-    memset(dst, 0, sizeof(struct in6_addr));
-
-    switch ( src->ai_family ) {
-        case AF_INET:
-            memcpy(dst, &((struct sockaddr_in*) src->ai_addr)->sin_addr,
-                    sizeof(struct in_addr));
-            break;
-        case AF_INET6:
-            memcpy(dst, &((struct sockaddr_in6*) src->ai_addr)->sin6_addr,
-                    sizeof(struct in6_addr));
-            break;
-        default:
-            Log(LOG_WARNING, "Unknown address family %d\n", src->ai_family);
-            break;
-    };
-}
-
-
 
 /*
  *
  */
-static char *report_destination(struct dest_info_t *item, char *buffer,
-        int *length) {
+static Amplet2__Traceroute__Item* report_destination(struct dest_info_t *info,
+        struct opt_t *opt) {
 
-    int offset;
-    int hopcount;
-    struct traceroute_report_path_t *path;
-    struct traceroute_report_hop_t *hop;
+    int i;
     char addrstr[INET6_ADDRSTRLEN];
-    char *ampname = address_to_name(item->addr);
+    Amplet2__Traceroute__Item *item =
+        (Amplet2__Traceroute__Item*)malloc(sizeof(Amplet2__Traceroute__Item));
 
-    assert(ampname);
-    assert(strlen(ampname) < MAX_STRING_FIELD);
+    /* fill the report item with results of a test */
+    amplet2__traceroute__item__init(item);
+    item->has_family = 1;
+    item->family = info->addr->ai_family;
+    item->name = address_to_name(info->addr);
+    item->has_address = copy_address_to_protobuf(&item->address, info->addr);
+    item->n_path = info->path_length;
 
-    /* add in space for the path header and its hops */
-    offset = *length;
-    *length += (sizeof(struct traceroute_report_path_t)) +
-        (item->path_length * sizeof(struct traceroute_report_hop_t)) +
-        (strlen(ampname) + 1);
-    buffer = realloc(buffer, *length);
-
-    /* global information regarding this particular path */
-    path = (struct traceroute_report_path_t *)(buffer + offset);
-    offset += sizeof(struct traceroute_report_path_t);
-
-    path->family = item->addr->ai_family;
-    path->length = item->path_length;
-    path->err_code = item->err_code;
-    path->err_type = item->err_type;
-    extract_address(&path->address, item->addr);
-
-    /* add variable length ampname onto the buffer, after the path item */
-    path->namelen = strlen(ampname) + 1;
-    strncpy(buffer + offset, ampname, path->namelen);
-    offset += path->namelen;
-
-    inet_ntop(path->family, path->address, addrstr, INET6_ADDRSTRLEN);
-    Log(LOG_DEBUG, "path result %d: %d hops to %s\n", item->id,
-            path->length, addrstr);
-
-    /* per-hop information for this path */
-    for ( hopcount = 0; hopcount < path->length; hopcount++ ) {
-        hop = (struct traceroute_report_hop_t *)(buffer + offset);
-        offset += sizeof(struct traceroute_report_hop_t);
-
-        if ( item->hop[hopcount].addr == NULL ) {
-            memset(hop->address, 0, sizeof(hop->address));
-            hop->rtt = htonl(-1);
-        } else {
-            extract_address(hop->address, item->hop[hopcount].addr);
-            hop->rtt = htonl(item->hop[hopcount].delay);
-        }
-
-        hop->as = htobe64(item->hop[hopcount].as);
-        inet_ntop(path->family, hop->address, addrstr, INET6_ADDRSTRLEN);
-        Log(LOG_DEBUG, " %d: %s %d AS%d\n", hopcount+1, addrstr,
-                ntohl(hop->rtt), be64toh(hop->as));
+    if ( info->err_type > 0 ) {
+        item->has_err_type = 1;
+        item->err_type = info->err_type;
+        item->has_err_code = 1;
+        item->err_code = info->err_code;
+    } else {
+        item->has_err_type = 0;
+        item->has_err_code = 0;
     }
 
-    return buffer;
+    item->path = malloc(sizeof(Amplet2__Traceroute__Hop*) * info->path_length);
+
+    Log(LOG_DEBUG, "path result %d: %d hops to %s", info->id, info->path_length,
+            item->name);
+
+    /* fill in the details of each hop in the path */
+    for ( i = 0; i < info->path_length; i++ ) {
+        item->path[i] = (Amplet2__Traceroute__Hop*)malloc(
+                sizeof(Amplet2__Traceroute__Hop));
+        amplet2__traceroute__hop__init(item->path[i]);
+
+        if ( opt->ip ) {
+            /* only try to give an address if full ip pathing is requested */
+            item->path[i]->has_address =
+                copy_address_to_protobuf(&item->path[i]->address,
+                        info->hop[i].addr);
+
+            if ( item->path[i]->has_address ) {
+                /* rtt is only available if we got a response from an address */
+                item->path[i]->has_rtt = 1;
+                item->path[i]->rtt = info->hop[i].delay;
+
+                /* save an address string for debug output */
+                inet_ntop(item->family, item->path[i]->address.data, addrstr,
+                        INET6_ADDRSTRLEN);
+            }
+        }
+
+        if ( opt->as ) {
+            /* if requested the asn will always be set (even with no address) */
+            item->path[i]->has_asn = 1;
+            item->path[i]->asn = info->hop[i].as;
+        }
+
+        Log(LOG_DEBUG, " %d: %s %d AS%d\n", i+1,
+                item->path[i]->has_address ? addrstr : "unknown",
+                item->path[i]->has_rtt ? (int)item->path[i]->rtt : -1,
+                item->path[i]->has_asn ? (int)item->path[i]->asn : -1);
+    }
+
+    return item;
 }
 
 
@@ -1152,50 +1139,65 @@ static char *report_destination(struct dest_info_t *item, char *buffer,
  *
  */
 static void report_results(struct timeval *start_time, int count,
-	struct dest_info_t* info, struct opt_t *opt) {
-    char *buffer = NULL;
-    struct traceroute_report_header_t *header = NULL;
-    struct dest_info_t *item;
-    int len = 0;
+	struct dest_info_t *info, struct opt_t *opt) {
+
     int i;
+    unsigned int j;
+    void *buffer;
+    int len = 0;
+    struct dest_info_t *result;
+
+    Amplet2__Traceroute__Report msg = AMPLET2__TRACEROUTE__REPORT__INIT;
+    Amplet2__Traceroute__Header header = AMPLET2__TRACEROUTE__HEADER__INIT;
+    Amplet2__Traceroute__Item **reports;
 
     Log(LOG_DEBUG, "Building traceroute report, count:%d, psize:%d, rand:%d\n",
 	    count, opt->packet_size, opt->random);
 
-    for ( i = 0, item = info; item != NULL; i++, item = item->next ) {
-        Log(LOG_DEBUG, "Reporting trace item %d", i);
-        if ( (i % AMP_TRACEROUTE_MAX_RESULTS) == 0 ) {
-            Log(LOG_DEBUG, "%d is first item in block, allocating space", i);
-            /* allocate space for our header */
-            len = sizeof(struct traceroute_report_header_t);
-            buffer = malloc(len);
-            memset(buffer, 0, len);
+    header.has_packet_size = 1;
+    header.packet_size = opt->packet_size;
+    header.has_random = 1;
+    header.random = opt->random;
+    header.has_ip = 1;
+    header.ip = opt->ip;
+    header.has_asn = 1;
+    header.asn = opt->as;
 
-            /* single header at start of buffer describes the test options */
-            header = (struct traceroute_report_header_t *)buffer;
-            header->version = htonl(AMP_TRACEROUTE_TEST_VERSION);
-            header->packet_size = htons(opt->packet_size);
-            header->random = opt->random;
-            header->ip = opt->ip;
-            header->as = opt->as;
-        }
-
-        /* have to pass in the whole buffer as we realloc it lots */
-        buffer = report_destination(item, buffer, &len);
-
-        /* report as we go, every 255 items or the last item */
-        if ( (i + 1) % AMP_TRACEROUTE_MAX_RESULTS == 0 || (i + 1) == count ) {
-            header = (struct traceroute_report_header_t *)buffer;
-            header->count = (i % AMP_TRACEROUTE_MAX_RESULTS) + 1;
-            Log(LOG_DEBUG, "Reporting %d traceroute results (%d/%d)",
-                    header->count, i+1, count);
-            report(AMP_TEST_TRACEROUTE,
-                    (uint64_t)start_time->tv_sec, (void*)buffer, len);
-            free(buffer);
-        }
+    /* build up the repeated reports section with each of the results */
+    reports = malloc(sizeof(Amplet2__Traceroute__Item*) * count);
+    for ( i = 0, result = info;
+            i < count && result != NULL; i++, result = result->next ) {
+        reports[i] = report_destination(result, opt);
     }
 
-    Log(LOG_DEBUG, "Done reporting results (i=%d, item=%p)", i, item);
+    assert(i == count);
+
+    /* populate the top level report object with the header and reports */
+    msg.header = &header;
+    msg.reports = reports;
+    msg.n_reports = count;
+
+    /* pack all the results into a buffer for transmitting */
+    len = amplet2__traceroute__report__get_packed_size(&msg);
+    buffer = malloc(len);
+    amplet2__traceroute__report__pack(&msg, buffer);
+
+    /* send the packed report object */
+    report(AMP_TEST_TRACEROUTE, (uint64_t)start_time->tv_sec, buffer, len);
+
+    /* free up all the memory we had to allocate to report items */
+    for ( i = 0; i < count; i++ ) {
+        if ( reports[i]->path ) {
+            for ( j = 0; j < reports[i]->n_path; j++ ) {
+                free(reports[i]->path[j]);
+            }
+            free(reports[i]->path);
+        }
+        free(reports[i]);
+    }
+
+    free(reports);
+    free(buffer);
 }
 
 
@@ -1759,72 +1761,83 @@ int run_traceroute(int argc, char *argv[], int count, struct addrinfo **dests) {
  * Print trace test results to stdout, nicely formatted for the standalone test
  */
 void print_traceroute(void *data, uint32_t len) {
-    struct traceroute_report_header_t *header =
-        (struct traceroute_report_header_t*)data;
-    struct traceroute_report_path_t *path;
-    struct traceroute_report_hop_t *hop;
+    Amplet2__Traceroute__Report *msg;
+    Amplet2__Traceroute__Item *item;
+    unsigned int i, hopcount;
     char addrstr[INET6_ADDRSTRLEN];
-    int offset;
-    uint8_t i;
-    int hopcount;
-    char *ampname;
 
     assert(data != NULL);
-    assert(len >= sizeof(struct traceroute_report_header_t));
-    assert(ntohl(header->version) == AMP_TRACEROUTE_TEST_VERSION);
+
+    /* unpack all the data */
+    msg = amplet2__traceroute__report__unpack(NULL, len, data);
+
+    assert(msg);
+    assert(msg->header);
 
     printf("\n");
-    printf("AMP traceroute test, %" PRIu8 " destinations, %u byte packets ",
-            header->count, ntohs(header->packet_size));
-    if ( header->random ) {
+    printf("AMP traceroute test, %zu destinations, %u byte packets ",
+            msg->n_reports, msg->header->packet_size);
+
+    if ( msg->header->random ) {
 	printf("(random size)\n");
     } else {
 	printf("(fixed size)\n");
     }
 
-    offset = sizeof(struct traceroute_report_header_t);
+    /* print each of the test results */
+    for ( i = 0; i < msg->n_reports; i++ ) {
+        item = msg->reports[i];
 
-    for ( i = 0; i < header->count; i++ ) {
-        /* specific path information */
-        path = (struct traceroute_report_path_t*)(data + offset);
-        offset += sizeof(struct traceroute_report_path_t);
+        printf("%s", item->name);
+        inet_ntop(item->family, item->address.data, addrstr, INET6_ADDRSTRLEN);
+        printf(" (%s)", addrstr);
 
-        ampname = (char *)data + offset;
-        offset += path->namelen;
-
-        printf("\n");
-	printf("%s", ampname);
-	inet_ntop(path->family, path->address, addrstr, INET6_ADDRSTRLEN);
-	printf(" (%s)", addrstr);
-        if ( path->err_type > 0 ) {
-            printf(" error: %d/%d", path->err_type, path->err_code);
+        if ( item->has_err_type && item->has_err_code ) {
+            printf(" error: %d/%d", item->err_type, item->err_code);
         }
         printf("\n");
 
         /* per-hop information for this path */
-        for ( hopcount = 0; hopcount < path->length; hopcount++ ) {
-            hop = (struct traceroute_report_hop_t*)(data + offset);
-            offset += sizeof(struct traceroute_report_hop_t);
-
+        for ( hopcount = 0; hopcount < item->n_path; hopcount++ ) {
             printf(" %.2d", hopcount+1);
-            if ( header->ip ) {
-                inet_ntop(path->family, hop->address, addrstr,INET6_ADDRSTRLEN);
-                printf("  %s", addrstr);
+
+            /* print address information if we have it */
+            if ( msg->header->ip ) {
+                if ( item->path[hopcount]->has_address ) {
+                    inet_ntop(item->family, item->path[hopcount]->address.data,
+                            addrstr, INET6_ADDRSTRLEN);
+                    printf("  %s", addrstr);
+                } else {
+                    switch ( item->family ) {
+                        case AF_INET: printf("  0.0.0.0"); break;
+                        case AF_INET6: printf("  ::"); break;
+                        default: printf(" unknown"); break;
+                    };
+                }
             }
-            if ( header->as ) {
-                switch ( be64toh(hop->as) ) {
+
+            /* print ASN information if we have it */
+            if ( msg->header->asn && item->path[hopcount]->has_asn ) {
+                switch ( item->path[hopcount]->asn ) {
                     case AS_UNKNOWN: printf("  (unknown)"); break;
                     case AS_PRIVATE: printf("  (private)"); break;
                     case AS_NULL: printf("  (no AS)"); break;
-                    default: printf("  (AS%" PRId64 ")", be64toh(hop->as));
-                             break;
+                    default:
+                        printf("  (AS%" PRId64 ")", item->path[hopcount]->asn);
+                        break;
                 };
             }
-            printf(" %dus\n", ntohl(hop->rtt));
+
+            /* print RTT information if we have it */
+            if ( item->path[hopcount]->has_rtt ) {
+                printf(" %dus", item->path[hopcount]->rtt);
+            }
+            printf("\n");
         }
     }
     printf("\n");
 
+    amplet2__traceroute__report__free_unpacked(msg, NULL);
 }
 
 
