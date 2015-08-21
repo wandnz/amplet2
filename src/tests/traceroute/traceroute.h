@@ -16,8 +16,8 @@
 #define MIN_TRACEROUTE_PROBE_LEN (sizeof(struct ip6_hdr) + \
         sizeof(struct udphdr) + sizeof(struct ipv6_body_t))
 
-/* timeout in seconds to wait before declaring a response lost, currently 3s */
-#define LOSS_TIMEOUT 3
+/* timeout in seconds to wait before declaring a response lost, currently 2s */
+#define LOSS_TIMEOUT 2
 #define LOSS_TIMEOUT_US (LOSS_TIMEOUT * 1000000)
 
 /* TODO we can do this better than a fixed size buffer */
