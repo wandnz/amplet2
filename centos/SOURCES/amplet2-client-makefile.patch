@@ -1,37 +1,25 @@
---- a/src/tests/python/Makefile.am      2015-08-21 18:09:57.023519530 +1200
-+++ b/src/tests/python/Makefile.am      2015-08-21 18:15:05.803029405 +1200
-@@ -5,13 +5,9 @@
-
- # https://blog.kevin-brown.com/programming/2014/09/24/combining-autotools-and-setuptools.html
+--- a/src/tests/python/Makefile.am	2015-08-24 16:48:59.000000000 +1200
++++ b/src/tests/python/Makefile.am	2015-08-24 19:07:47.953931377 +1200
+@@ -7,8 +7,7 @@
  install-exec-local:
-+       mkdir -p $(DESTDIR)/$(pythondir)/
-        PYTHONPATH=$(DESTDIR)/$(pythondir)/ \
--        python setup.py install \
--            --prefix=$(DESTDIR)/$(prefix) \
--            --install-layout=deb \
--            --single-version-externally-managed \
--            --record $(DESTDIR)/$(pythondir)/ampsave/install_files.txt \
--            --verbose
-+               python setup.py install --prefix=$(DESTDIR)/$(prefix)
-
+ 	mkdir -p $(DESTDIR)/$(pythondir)/
+ 	PYTHONPATH=$(DESTDIR)/$(pythondir)/ \
+-	    python setup.py install --prefix=$(DESTDIR)/$(prefix) \
+-            $(DEB_PYTHON_INSTALL_ARGS)
++	    python setup.py install --prefix=$(DESTDIR)/$(prefix)
+ 
  clean-local:
-        python setup.py clean --all
+ 	python setup.py clean --all
 
---- a/src/tests/python/Makefile.in      2015-08-21 17:54:38.000000000 +1200
-+++ b/src/tests/python/Makefile.in      2015-08-21 18:15:36.422278239 +1200
-@@ -372,13 +372,9 @@
-
- # https://blog.kevin-brown.com/programming/2014/09/24/combining-autotools-and-setuptools.html
+--- a/src/tests/python/Makefile.in	2015-08-24 16:49:07.000000000 +1200
++++ b/src/tests/python/Makefile.in	2015-08-24 19:05:20.249728192 +1200
+@@ -374,8 +374,7 @@
  install-exec-local:
-+       mkdir -p $(DESTDIR)/$(pythondir)/
-        PYTHONPATH=$(DESTDIR)/$(pythondir)/ \
--        python setup.py install \
--            --prefix=$(DESTDIR)/$(prefix) \
--            --install-layout=deb \
--            --single-version-externally-managed \
--            --record $(DESTDIR)/$(pythondir)/ampsave/install_files.txt \
--            --verbose
-+               python setup.py install --prefix=$(DESTDIR)/$(prefix)
-
+ 	mkdir -p $(DESTDIR)/$(pythondir)/
+ 	PYTHONPATH=$(DESTDIR)/$(pythondir)/ \
+-	    python setup.py install --prefix=$(DESTDIR)/$(prefix) \
+-            $(DEB_PYTHON_INSTALL_ARGS)
++	    python setup.py install --prefix=$(DESTDIR)/$(prefix)
+ 
  clean-local:
-        python setup.py clean --all
+ 	python setup.py clean --all
