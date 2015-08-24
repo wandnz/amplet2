@@ -902,7 +902,7 @@ int run_dns(int argc, char *argv[], int count, struct addrinfo **dests) {
                 }
 
                 /* need a name to report the results under, use the address */
-                addr->ai_canonname = strdup(nameserver);
+                addr->ai_canonname = strdup(LOCALDNS_REPORT_NAME);
 
                 /* just put the first resolved address in the dest list */
                 dests = realloc(dests, (count + 1) * sizeof(struct addrinfo*));
