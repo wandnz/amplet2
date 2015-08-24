@@ -1032,6 +1032,7 @@ test_t *register_test() {
     new_test->id = AMP_TEST_TCPPING;
     new_test->name = strdup("tcpping");
     new_test->max_targets = 0;
+    new_test->min_targets = 1;
     new_test->max_duration = 120;
     new_test->run_callback = run_tcpping;
     new_test->print_callback = print_tcpping;

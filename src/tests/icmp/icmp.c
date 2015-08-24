@@ -770,6 +770,9 @@ test_t *register_test() {
     /* how many targets a single instance of this test can have */
     new_test->max_targets = 0;
 
+    /* minimum number of targets required to run this test */
+    new_test->min_targets = 1;
+
     /* maximum duration this test should take before being killed */
     new_test->max_duration = 120;
 

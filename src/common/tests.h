@@ -45,6 +45,14 @@ typedef struct test {
     uint16_t max_targets;
 
     /*
+     * Minimum number of targets this test needs before it will run. Some tests
+     * have default values that will automatically add targets if there are
+     * none configured, other tests receive their targets through command line
+     * arguments and don't require normal destinations.
+     */
+    uint16_t min_targets;
+
+    /*
      * Maximum duration in seconds that this test can run for. If the test runs
      * for longer than this it will be killed with a SIGKILL.
      */

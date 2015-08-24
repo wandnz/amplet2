@@ -656,7 +656,7 @@ static char **populate_target_lists(test_schedule_item_t *test,
     test->dest_count = 0;
 
     /* for every address in the list, find it in nametable or set to resolve */
-    for ( ; *targets != NULL && (max_targets == 0 ||
+    for ( ; targets != NULL && *targets != NULL && (max_targets == 0 ||
             (test->dest_count + test->resolve_count) < max_targets);
             targets++ ) {
         addr_str = strtok(*targets, ":");
@@ -863,12 +863,22 @@ static test_schedule_item_t *create_and_schedule_test(
          */
         remaining = populate_target_lists(test, remaining);
 
+        /* don't bother scheduling any tests without valid destinations */
+        if ( (test->dest_count + test->resolve_count) <
+                amp_tests[test->test_id]->min_targets ) {
+            Log(LOG_WARNING, "%s test scheduled with too few targets, ignoring",
+                    testname);
+            free_test_schedule_item(test);
+            break;
+        }
+
         /*
          * See if we can merge this test with an existing one. Obviously if
          * there are still outstanding targets then the test is maxed out and
          * there is no room for more destinations.
          */
-        if ( *remaining == NULL && amp_tests[test->test_id]->max_targets != 1 ){
+        if ( remaining != NULL && *remaining == NULL &&
+                amp_tests[test->test_id]->max_targets != 1 ) {
             /* check if this test at this time already exists */
             if ( merge_scheduled_tests(ev_hdl, test) ) {
                 /* remove pointer to names, merged test owns it */
@@ -893,7 +903,7 @@ static test_schedule_item_t *create_and_schedule_test(
             Log(LOG_ALERT, "Failed to schedule %s test", testname);
         }
 
-    } while ( *remaining != NULL );
+    } while ( remaining != NULL && *remaining != NULL );
 
 end:
     if ( targets ) {
