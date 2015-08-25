@@ -65,17 +65,20 @@ By default the IPv6 address of the outgoing interface will be used.
 .SH FILES AND DIRECTORIES
 .\" TODO Give these relative to ${prefix} etc?
 .TP
-.I /etc/amplet2/client.conf
+.I /etc/amplet2/clients/
+Default client configuration directory.
+.TP
+.I /etc/amplet2/clients/default.conf
 Default client configuration file.
 .TP
-.I /etc/amplet2/nametable
-Default client nametable file.
+.I /etc/amplet2/nametables/
+Default client nametable directory.
 .TP
 .I /etc/amplet2/keys/
 Default location for client SSL keys/certificates.
 .TP
-.I /etc/amplet2/schedule.d/
-Default location for test schedule files.
+.I /etc/amplet2/schedules/
+Default client schedule directory.
 .\".TP
 .\".I /lib/amplet2/tests/
 .\"Default location for test object files.

@@ -22,6 +22,8 @@
 #define INVALID     2
 #define NOTFOUND    3
 
+/* name to use when reporting on local DNS servers from /etc/resolv.conf */
+#define LOCALDNS_REPORT_NAME "localdns"
 
 
 /*

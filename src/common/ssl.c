@@ -220,7 +220,7 @@ int matches_common_name(const char *hostname, const X509 *cert) {
  * Initialise the SSL context and load all the keys that we will be using.
  */
 int initialise_ssl(amp_ssl_opt_t *sslopts, char *collector) {
-    Log(LOG_INFO, "Initialising global SSL options");
+    Log(LOG_DEBUG, "Initialising global SSL options");
 
     /*
      * "OpenSSL will attempt to seed the random number generator
@@ -283,7 +283,7 @@ SSL_CTX* initialise_ssl_context(amp_ssl_opt_t *sslopts) {
     DH *dh;
     int codes = 0;
 
-    Log(LOG_INFO, "Initialising SSL context");
+    Log(LOG_DEBUG, "Initialising SSL context");
 
     if ( sslopts->cacert == NULL || sslopts->cert == NULL ||
             sslopts->key == NULL ) {

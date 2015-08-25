@@ -28,7 +28,7 @@ TCP Ping test. It attempts to measure latency by sending a TCP SYN packet
 to a destination and waiting for a response (which might be a SYN ACK, a RST
 or an ICMP error). This test is particularly useful for measuring latency
 for paths where ICMP is blocked or rate-limited. Like the AMP ICMP test, this
-test can measure latency for multiple destinations simultaneously. All 
+test can measure latency for multiple destinations simultaneously. All
 destinations listed on the command line will be tested to. Any destinations
 that are hostnames will be resolved and every address that the name resolves
 to will be tested.
@@ -43,7 +43,7 @@ Specifies the interface (device) that tests should use when sending packets.
 By default the interface will be selected according to the routing table.
 .TP
 \fB-P, --port \fIportnumber\fB\fR
-The destination port number to send the SYN packets to. The default port 
+The destination port number to send the SYN packets to. The default port
 number is 80 (i.e. the www port).
 .TP
 \fB-p, --perturbate \fImilliseconds\fB\fR

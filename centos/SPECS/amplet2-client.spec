@@ -1,19 +1,19 @@
 Name: amplet2
-Version: 0.4.8
+Version: 0.5.0
 Release: 1%{?dist}
 Summary: AMP Network Performance Measurement Suite - Client Tools
 
 Group: Applications/Internet
 License: AMP
 URL: http://research.wand.net.nz/software/amp.php
-Source0: http://research.wand.net.nz/software/amp/amplet2-0.4.8.tar.gz
+Source0: http://research.wand.net.nz/software/amp/amplet2-0.5.0.tar.gz
 Patch0: amplet2-client-init.patch
 Patch1: amplet2-client-default.patch
 Patch2: amplet2-client-makefile.patch
 BuildRoot:	%(mktemp -ud %{_tmppath}/%{name}-%{version}-%{release}-XXXXXX)
 
-BuildRequires: openssl-devel libconfuse-devel libwandevent-devel >= 3.0.1 libcurl-devel unbound-devel libpcap-devel
-Requires: rabbitmq-server >= 3.1.5 librabbitmq-amp >= 0.4.0 libwandevent >= 3.0.1 libcurl unbound-libs libpcap rsyslog
+BuildRequires: openssl-devel libconfuse-devel libwandevent-devel >= 3.0.1 libcurl-devel unbound-devel libpcap-devel protobuf-c-devel
+Requires: rabbitmq-server >= 3.1.5 librabbitmq-amp >= 0.4.0 libwandevent >= 3.0.1 libcurl unbound-libs libpcap rsyslog protobuf-c
 
 %description
 This package contains the client tools for the AMP Measurement Suite.
@@ -193,6 +193,9 @@ fi
 
 
 %changelog
+* Fri Aug 21 2015 Brendon Jones <brendonj@waikato.ac.nz> 0.5.0-1
+- Use Google protocol buffers when reporting test results.
+
 * Tue Jul 21 2015 Brendon Jones <brendonj@waikato.ac.nz> 0.4.8-1
 - Rewrite ASN lookups to deal better with whois server issues.
 - More debug around ASN lookups during traceroute test.

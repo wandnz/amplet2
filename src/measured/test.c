@@ -42,7 +42,8 @@ static void run_test(const test_schedule_item_t * const item) {
     assert(item);
     assert(item->test_id < AMP_TEST_LAST);
     assert(amp_tests[item->test_id]);
-    assert((item->dest_count + item->resolve_count) > 0);
+    assert((item->dest_count + item->resolve_count) >=
+            amp_tests[item->test_id]->min_targets);
 
     /*
      * seed the random number generator, has to be after the fork() or each
@@ -181,8 +182,12 @@ static void run_test(const test_schedule_item_t * const item) {
     Log(LOG_DEBUG, "Final destination count = %d\n",
 	    item->dest_count + total_resolve_count);
 
-    /* only perform the test if there are actually destinations to test to */
-    if ( item->dest_count + total_resolve_count > 0 ) {
+    /*
+     * Only perform the test if there are enough destinations available. Some
+     * tests need at least 1 valid destination, others don't require that any
+     * destinations are specified.
+     */
+    if ( item->dest_count + total_resolve_count >= test->min_targets ) {
 	//Log(LOG_DEBUG, "dest%d: %s\n", offset,
 	//	    address_to_name(item->dests[offset]));
 

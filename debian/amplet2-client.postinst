@@ -25,7 +25,6 @@ case "$1" in
         # Debian packaging will create the directory with standard permissions
         chown -R rabbitmq:root /etc/${PACKAGE}/keys
         chmod 700 /etc/${PACKAGE}/keys
-        # TODO fetch the keys somehow and save them here
 
         # restart rsyslog, we've installed a new config file for it
         if [ -x "`which invoke-rc.d 2>/dev/null`" ]; then
@@ -52,11 +51,6 @@ case "$1" in
                 echo "Can't enable shovel plugin, aborting"
                 exit 1
             fi
-
-            # Most of the configuration (vhost/user/shovel/etc) will be done
-            # by puppet. Basic steps are:
-            # 1. edit the configuration files
-            # 2. run `amplet2 -f` to configure rabbitmq based on the config
         fi
     ;;
 

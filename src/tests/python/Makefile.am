@@ -5,13 +5,10 @@ all-local:
 
 # https://blog.kevin-brown.com/programming/2014/09/24/combining-autotools-and-setuptools.html
 install-exec-local:
+	mkdir -p $(DESTDIR)/$(pythondir)/
 	PYTHONPATH=$(DESTDIR)/$(pythondir)/ \
-        python setup.py install \
-            --prefix=$(DESTDIR)/$(prefix) \
-            --install-layout=deb \
-            --single-version-externally-managed \
-            --record $(DESTDIR)/$(pythondir)/ampsave/install_files.txt \
-            --verbose
+	    python setup.py install --prefix=$(DESTDIR)/$(prefix) \
+            $(DEB_PYTHON_INSTALL_ARGS)
 
 clean-local:
 	python setup.py clean --all

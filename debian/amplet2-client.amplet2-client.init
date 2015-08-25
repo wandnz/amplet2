@@ -45,12 +45,17 @@ PIDDIR=/var/run/amplet2
 . /lib/lsb/init-functions
 
 #
-# Simple function to check if an item is contained within a space seperated list
+# Simple function to check if an item is contained within a list. The first
+# argument is the item to search for, the rest of the arguments are the
+# haystack to search.
 #
 contains()
 {
-    for item in $1; do
-        if [ $item = $2 ]; then
+    first=1
+    for item in $@; do
+        if [ $first -eq 1 ]; then
+            first=0
+        elif [ $item = $1 ]; then
             return 0
         fi
     done
@@ -79,7 +84,7 @@ do_start()
         PIDFILE=${PIDDIR}/${NAME%.conf}.pid
 
         # Start the client if no client is specified, or if it matches
-        if ([ $# -eq 0 ] || contains $@ $NAME); then
+        if ([ $# -eq 0 ] || contains $NAME $@); then
             # TODO return appropriate thing if already running
             # use start-stop-daemon --test?
             start-stop-daemon --start --quiet --exec $DAEMON \
@@ -121,7 +126,7 @@ do_stop()
         NAME=${NAME%.pid}
 
         # Stop the client if no client is specified, or if it matches
-        if ([ $# -eq 0 ] || contains $@ $NAME); then
+        if ([ $# -eq 0 ] || contains $NAME $@); then
             start-stop-daemon --stop --quiet --retry=TERM/30/KILL/5 \
                     --name $DAEMON_NAME --pidfile $pidfile
 	    start-stop-daemon --stop --quiet --oknodo  --retry=0/30/KILL/5 \
@@ -161,7 +166,7 @@ do_status() {
         PIDFILE=${PIDDIR}/${NAME%.conf}.pid
 
         # Query the client if no client is specified, or if it matches
-        if ([ $# -eq 0 ] || contains $@ $NAME); then
+        if ([ $# -eq 0 ] || contains $NAME $@); then
             status_of_proc -p $PIDFILE "$DAEMON" "$NAME"
             if [ $? -gt 0 ]; then
                 RETVAL=2
@@ -186,7 +191,7 @@ do_reload() {
         PIDFILE=${PIDDIR}/${NAME%.conf}.pid
 
         # Reload the client if no client is specified, or if it matches
-        if ([ $# -eq 0 ] || contains $@ $NAME); then
+        if ([ $# -eq 0 ] || contains $NAME $@); then
             start-stop-daemon --stop --signal 1 --quiet --pidfile $PIDFILE \
                 --name $DAEMON_NAME
 
