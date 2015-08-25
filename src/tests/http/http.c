@@ -38,6 +38,7 @@ static struct option long_options[] = {
     {"cached", no_argument, 0, 'c'},
     {"help", no_argument, 0, 'h'},
     {"interface", required_argument, 0, 'I'},
+    {"interpacketgap", required_argument, 0, 'Z'},
     {"no-keep-alive", no_argument, 0, 'k'},
     {"max-con", required_argument, 0, 'm'},
     {"pipeline", no_argument, 0, 'p'},
@@ -1331,6 +1332,7 @@ static void usage(char *prog) {
     printf("  -c\t\tAllow cached content (def:false)\n");
     /* TODO libcurl 7.34.0 or newer opens up other ssl version options */
     printf("  -S <version>\tForce SSL version (valid options are sslv3, tlsv1)\n");
+    printf("  -x\t\tEnable debug output\n");
 }
 
 
@@ -1378,9 +1380,10 @@ int run_http(int argc, char *argv[], __attribute__((unused))int count,
     options.sourcev6 = NULL;
     options.sslversion = CURL_SSLVERSION_DEFAULT;
 
-    while ( (opt = getopt_long(argc, argv, "u:km:s:o:pr:cz:hvI:4:6:dS:",
+    while ( (opt = getopt_long(argc, argv, "u:km:s:o:pr:cz:hvI:4:6:dS:Z:",
                     long_options, NULL)) != -1 ) {
 	switch ( opt ) {
+            case 'Z': /* option does nothing for this test */ break;
             case 'I': options.device = optarg; break;
             case '4': options.sourcev4 = optarg; break;
             case '6': options.sourcev6 = optarg; break;

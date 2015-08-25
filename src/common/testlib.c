@@ -224,7 +224,7 @@ int get_packet(struct socket_t *sockets, char *buf, int buflen,
  * time to wait (in microseconds).
  */
 int delay_send_packet(int sock, char *packet, int size, struct addrinfo *dest,
-        struct timeval *sent) {
+        uint32_t inter_packet_delay, struct timeval *sent) {
 
     int bytes_sent;
     static struct timeval last = {0, 0};
@@ -239,8 +239,8 @@ int delay_send_packet(int sock, char *packet, int size, struct addrinfo *dest,
     gettimeofday(&now, NULL);
 
     /* determine how much time is left to wait until the minimum delay */
-    if ( last.tv_sec != 0 && DIFF_TV_US(now, last) < vars.inter_packet_delay ) {
-	delay = vars.inter_packet_delay - DIFF_TV_US(now, last);
+    if ( last.tv_sec != 0 && DIFF_TV_US(now, last) < inter_packet_delay ) {
+	delay = inter_packet_delay - DIFF_TV_US(now, last);
     } else {
 	delay = 0;
 	last.tv_sec = now.tv_sec;

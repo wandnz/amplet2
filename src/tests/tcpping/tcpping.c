@@ -28,6 +28,7 @@
 static struct option long_options[] = {
     {"help", no_argument, 0, 'h'},
     {"interface", required_argument, 0, 'I'},
+    {"interpacketgap", required_argument, 0, 'Z'},
     {"perturbate", required_argument, 0, 'p'},
     {"port", required_argument, 0, 'P'},
     {"random", no_argument, 0, 'r'},
@@ -646,8 +647,8 @@ nextdest:
         tp->nextpackettimer = NULL;
     } else {
         tp->nextpackettimer = wand_add_timer(ev_hdl,
-                (int) (vars.inter_packet_delay / 1000000),
-                (vars.inter_packet_delay % 1000000),
+                (int) (tp->options.inter_packet_delay / 1000000),
+                (tp->options.inter_packet_delay % 1000000),
                 tp, send_packet);
     }
 
@@ -832,14 +833,15 @@ static void usage(char *prog) {
     fprintf(stderr, "Usage: %s [-P port] [-r] [-p perturbate] [-s packetsize]\n", prog);
     fprintf(stderr, "\n");
     fprintf(stderr, "Options:\n");
-    fprintf(stderr, "  -P, --port                 The port number to probe on the target host\n");
-    fprintf(stderr, "  -r, --random               Use a random packet size for each test\n");
-    fprintf(stderr, "  -p, --perturbate <ms>      Maximum number of milliseconds to delay test\n");
-    fprintf(stderr, "  -s, --size       <bytes>   Amount of additional payload to append to the SYN\n");
-    fprintf(stderr, "  -I, --interface  <iface>   Source interface name\n");
-    fprintf(stderr, "  -4, --ipv4       <address> Source IPv4 address\n");
-    fprintf(stderr, "  -6, --ipv6       <address> Source IPv6 address\n");
-    fprintf(stderr, "  -x, --debug                Enable debug output\n");
+    fprintf(stderr, "  -P, --port                     The port number to probe on the target host\n");
+    fprintf(stderr, "  -r, --random                   Use a random packet size for each test\n");
+    fprintf(stderr, "  -p, --perturbate     <ms>      Maximum number of milliseconds to delay test\n");
+    fprintf(stderr, "  -s, --size           <bytes>   Amount of additional payload to append to the SYN\n");
+    fprintf(stderr, "  -I, --interface      <iface>   Source interface name\n");
+    fprintf(stderr, "  -Z, --interpacketgap <usec>    Minimum number of microseconds between packets\n");
+    fprintf(stderr, "  -4, --ipv4           <address> Source IPv4 address\n");
+    fprintf(stderr, "  -6, --ipv6           <address> Source IPv6 address\n");
+    fprintf(stderr, "  -x, --debug                    Enable debug output\n");
 }
 
 static void version(char *prog) {
@@ -860,6 +862,7 @@ int run_tcpping(int argc, char *argv[], int count, struct addrinfo **dests) {
     globals = (struct tcppingglobals *)malloc(sizeof(struct tcppingglobals));
 
     /* Set defaults before processing options */
+    globals->options.inter_packet_delay = MIN_INTER_PACKET_DELAY;
     globals->options.packet_size = 0;
     globals->options.random = 0;
     globals->options.perturbate = 0;
@@ -868,7 +871,7 @@ int run_tcpping(int argc, char *argv[], int count, struct addrinfo **dests) {
     globals->sourcev6 = NULL;
     globals->device = NULL;
 
-    while ( (opt = getopt_long(argc, argv, "hvI:p:P:rs:S:4:6:",
+    while ( (opt = getopt_long(argc, argv, "hvI:p:P:rs:S:4:6:Z:",
                 long_options, NULL)) != -1 ) {
         switch (opt) {
             case '4':
@@ -876,6 +879,7 @@ int run_tcpping(int argc, char *argv[], int count, struct addrinfo **dests) {
             case '6':
                 globals->sourcev6 = get_numeric_address(optarg, NULL); break;
             case 'I': globals->device = strdup(optarg); break;
+            case 'Z': globals->options.inter_packet_delay = atoi(optarg); break;
             case 'p': globals->options.perturbate = atoi(optarg); break;
             case 'P': globals->options.port = atoi(optarg); break;
             case 'r': globals->options.random = 1; break;

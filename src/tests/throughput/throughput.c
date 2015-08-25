@@ -21,6 +21,7 @@ struct option long_options[] =
         {"time", required_argument, 0, 't'},
         {"version", no_argument, 0, 'v'},
         {"interface", required_argument, 0, 'I'},
+        {"interpacketgap", required_argument, 0, 'Z'},
         {"ipv4", required_argument, 0, '4'},
         {"ipv6", required_argument, 0, '6'},
 /*      {"c2s-time", required_argument, 0, 'T'},
@@ -72,6 +73,7 @@ void usage(char *prog) {
     fprintf(stderr, "Miscellaneous:\n");
     fprintf(stderr, "  -h, --help               print this help\n");
     fprintf(stderr, "  -v, --version            print version information\n");
+    fprintf(stderr, "  -x, --debug              enable debug output\n");
     fprintf(stderr, "\n");
 
 
@@ -121,7 +123,7 @@ int run_throughput(int argc, char *argv[], int count, struct addrinfo **dests) {
     Log(LOG_DEBUG, "Starting throughput test");
 
     /* XXX this option string needs to be up to date with server and client? */
-    while ( (opt = getopt_long(argc, argv, "?hvp:P:rsz:o:i:Nm:wS:c:d:4:6:I:t:",
+    while ( (opt = getopt_long(argc, argv,"?hvp:P:rsz:o:i:Nm:wS:c:d:4:6:I:t:Z:",
                     long_options, &option_index)) != -1 ) {
         switch ( opt ) {
             case 's': server_flag_index = optind - 1; break;

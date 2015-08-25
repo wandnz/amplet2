@@ -24,7 +24,6 @@ struct amp_global_t {
     int asnsock_fd;
     char **argv;
     int argc;
-    uint32_t inter_packet_delay;
 };
 
 struct amp_global_t vars;

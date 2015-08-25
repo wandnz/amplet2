@@ -632,10 +632,11 @@ int run_throughput_client(int argc, char *argv[], int count,
 
     memset(&meta, 0, sizeof(meta));
 
-    while ( (opt = getopt_long(argc, argv, "?hp:P:rz:o:i:Nm:wS:c:d:4:6:I:t:",
+    while ( (opt = getopt_long(argc, argv, "?hp:P:rz:o:i:Nm:wS:c:d:4:6:I:t:Z:",
                     long_options, &option_index)) != -1 ) {
 
         switch ( opt ) {
+            case 'Z': /* option does nothing for this test */ break;
             case '4': options.sourcev4 = get_numeric_address(optarg, NULL);
                       meta.sourcev4 = optarg;
                       break;

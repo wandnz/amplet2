@@ -21,6 +21,7 @@
 #include "global.h" /* hopefully temporary, just to get source iface/address */
 #include "ampresolv.h"
 #include "ssl.h"
+#include "testlib.h" /* only for MIN_INTER_PACKET_DELAY, can we move it? */
 
 
 
@@ -38,6 +39,7 @@ static void run_test(const test_schedule_item_t * const item) {
     struct addrinfo *addrlist = NULL;
     struct addrinfo **destinations = NULL;
     int total_resolve_count = 0;
+    char *packet_delay_str = NULL;
 
     assert(item);
     assert(item->test_id < AMP_TEST_LAST);
@@ -55,6 +57,23 @@ static void run_test(const test_schedule_item_t * const item) {
 
     test = amp_tests[item->test_id];
     argv[argc++] = test->name;
+
+    /*
+     * TODO should command line arguments clobber any per-test arguments?
+     * Currently any arguments set in the schedule file will take precedence.
+     */
+
+    /* set the inter packet delay if configured at the global level */
+    if ( item->meta->inter_packet_delay != MIN_INTER_PACKET_DELAY ) {
+        argv[argc++] = "-Z";
+        if ( asprintf(&packet_delay_str, "%u",
+                    item->meta->inter_packet_delay) < 0 ) {
+            Log(LOG_WARNING, "Failed to build packet delay string, aborting");
+            return;
+        }
+
+        argv[argc++] = packet_delay_str;
+    }
 
     /* set the outgoing interface if configured at the global level */
     if ( item->meta->interface != NULL ) {
@@ -211,6 +230,11 @@ static void run_test(const test_schedule_item_t * const item) {
 	if ( destinations != NULL ) {
 	    free(destinations);
 	}
+    }
+
+    /* free any command line arguments we had to convert to strings */
+    if ( packet_delay_str ) {
+        free(packet_delay_str);
     }
 
     /* done running the test, exit */

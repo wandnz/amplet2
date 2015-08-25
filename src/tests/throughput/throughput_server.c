@@ -471,9 +471,10 @@ void run_throughput_server(int argc, char *argv[], SSL *ssl) {
     portmax = MAX_CONTROL_PORT;
 
     /* TODO server should take long options too */
-    while ( (opt = getopt_long(argc, argv, "?hp:4:6:I:",
+    while ( (opt = getopt_long(argc, argv, "?hp:4:6:I:Z:",
                     long_options, NULL)) != -1 ) {
         switch ( opt ) {
+            case 'Z': /* option does nothing for this test */ break;
             case '4': sourcev4 = optarg; break;
             case '6': sourcev6 = optarg; break;
             case 'I': sockopts.device = optarg; break;

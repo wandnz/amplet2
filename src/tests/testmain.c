@@ -97,8 +97,6 @@ int main(int argc, char *argv[]) {
     ns_flag_index = 0;
 
     /* set this manually, normally done when parsing config */
-    /* TODO allow setting from the command line */
-    vars.inter_packet_delay = MIN_INTER_PACKET_DELAY;
     meta.interface = NULL;
     meta.sourcev4 = NULL;
     meta.sourcev6 = NULL;

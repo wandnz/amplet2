@@ -322,11 +322,12 @@ int main(int argc, char *argv[]) {
     cfg_t *cfg;
 
     memset(&meta, 0, sizeof(meta));
+    meta.inter_packet_delay = MIN_INTER_PACKET_DELAY;
 
     while ( 1 ) {
 
 	int opt_ind = 0;
-	int c = getopt_long(argc, argv, "dhp:vxc:rI:4:6:",
+	int c = getopt_long(argc, argv, "dhp:vxc:rZ:I:4:6:",
                 long_options, &opt_ind);
 	if ( c == -1 )
 	    break;
@@ -364,6 +365,10 @@ int main(int argc, char *argv[]) {
             case 'I':
                 /* override config settings and set the source interface */
                 meta.interface = optarg;
+                break;
+            case 'Z':
+                /* override config settings and set the interpacket delay */
+                meta.inter_packet_delay = atoi(optarg);
                 break;
             case '4':
                 /* override config settings and set the source IPv4 address */
