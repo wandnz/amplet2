@@ -277,6 +277,7 @@ static void free_local_meta_vars(amp_test_meta_t *meta) {
     if ( meta->interface ) free(meta->interface);
     if ( meta->sourcev4 ) free(meta->sourcev4);
     if ( meta->sourcev6 ) free(meta->sourcev6);
+    if ( meta->nssock ) free(meta->nssock);
     /* meta->ampname is a pointer to the global variable, leave it */;
 }
 
@@ -301,7 +302,6 @@ static void free_global_vars(struct amp_global_t *vars) {
     if ( vars->amqp_ssl.cacert ) free(vars->amqp_ssl.cacert);
     if ( vars->amqp_ssl.cert ) free(vars->amqp_ssl.cert);
     if ( vars->amqp_ssl.key ) free(vars->amqp_ssl.key);
-    if ( vars->nssock ) free(vars->nssock);
     if ( vars->asnsock ) free(vars->asnsock);
 }
 
@@ -526,8 +526,7 @@ int main(int argc, char *argv[]) {
     assert(ev_hdl);
 
     /* construct our custom, per-client nameserver socket */
-    if ( asprintf(&vars.nssock, "%s/%s.sock", AMP_RUN_DIR,
-                vars.ampname) < 0 ) {
+    if ( asprintf(&meta.nssock, "%s/%s.sock", AMP_RUN_DIR, vars.ampname) < 0 ) {
         Log(LOG_ALERT, "Failed to build local resolve socket path");
 	cfg_free(cfg);
         return -1;
@@ -557,7 +556,7 @@ int main(int argc, char *argv[]) {
     wand_add_signal(SIGCHLD, NULL, child_reaper);
 
     /* create the resolver/cache unix socket and add event listener for it */
-    if ( (vars.nssock_fd = initialise_local_socket(vars.nssock)) < 0 ) {
+    if ( (vars.nssock_fd = initialise_local_socket(meta.nssock)) < 0 ) {
         Log(LOG_ALERT, "Failed to initialise local resolver, aborting");
 	cfg_free(cfg);
         return -1;

@@ -30,6 +30,7 @@ typedef struct amp_test_meta {
     char *sourcev4;
     char *sourcev6;
     char *ampname;
+    char *nssock;
     int control_port;
 } amp_test_meta_t;
 

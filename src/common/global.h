@@ -19,7 +19,6 @@ struct amp_global_t {
     int control_port;
     amp_ssl_opt_t amqp_ssl;
     struct ub_ctx *ctx;
-    char *nssock;
     char *asnsock;
     int nssock_fd;
     int asnsock_fd;

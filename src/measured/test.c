@@ -138,7 +138,7 @@ static void run_test(const test_schedule_item_t * const item) {
         }
 
         /* connect to the local amp resolver/cache */
-        if ( (resolver_fd = amp_resolver_connect(vars.nssock)) < 0 ) {
+        if ( (resolver_fd = amp_resolver_connect(item->meta->nssock)) < 0 ) {
             Log(LOG_ALERT, "TODO tidy up nicely after failing resolving");
             assert(0);
         }
