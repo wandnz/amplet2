@@ -269,6 +269,11 @@ static void debug_dump(wand_event_handler_t *ev_hdl, int signum,
  *
  */
 static void free_local_meta_vars(amp_test_meta_t *meta) {
+    if ( meta == NULL ) {
+        Log(LOG_WARNING, "Attempting to free NULL test meta variables");
+        return;
+    }
+
     if ( meta->interface ) free(meta->interface);
     if ( meta->sourcev4 ) free(meta->sourcev4);
     if ( meta->sourcev6 ) free(meta->sourcev6);
@@ -281,6 +286,11 @@ static void free_local_meta_vars(amp_test_meta_t *meta) {
  *
  */
 static void free_global_vars(struct amp_global_t *vars) {
+    if ( vars == NULL ) {
+        Log(LOG_WARNING, "Attempting to free NULL global variables");
+        return;
+    }
+
     if ( vars->ampname ) free(vars->ampname);
     if ( vars->local ) free(vars->local);
     if ( vars->collector ) free(vars->collector);
