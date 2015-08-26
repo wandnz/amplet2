@@ -542,6 +542,7 @@ static void usage(char *prog) {
     fprintf(stderr, "  -4, --ipv4           <address> Source IPv4 address\n");
     fprintf(stderr, "  -6, --ipv6           <address> Source IPv6 address\n");
     fprintf(stderr, "  -x, --debug                    Enable debug output\n");
+    fprintf(stderr, "  -v, --version                  Print version information and exit\n");
 }
 
 
@@ -587,7 +588,7 @@ int run_icmp(int argc, char *argv[], int count, struct addrinfo **dests) {
     sourcev6 = NULL;
     device = NULL;
 
-    while ( (opt = getopt_long(argc, argv, "hvI:Z:p:rs:S:4:6:",
+    while ( (opt = getopt_long(argc, argv, "hvI:Z:p:rs:4:6:",
                     long_options, NULL)) != -1 ) {
 	switch ( opt ) {
             case '4': sourcev4 = get_numeric_address(optarg, NULL); break;

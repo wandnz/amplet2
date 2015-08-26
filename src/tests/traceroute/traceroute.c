@@ -1209,7 +1209,7 @@ static void report_results(struct timeval *start_time, int count,
  *
  */
 static void usage(char *prog) {
-    fprintf(stderr, "Usage: %s [-afr] [-p perturbate] [-s packetsize]\n", prog);
+    fprintf(stderr, "Usage: %s [-abfr] [-p perturbate] [-s packetsize]\n",prog);
     fprintf(stderr, "\n");
     fprintf(stderr, "Options:\n");
     fprintf(stderr, "  -a\t\tLookup AS numbers for all addresses\n");
@@ -1223,6 +1223,7 @@ static void usage(char *prog) {
     fprintf(stderr, "  -4 <address>\tSource IPv4 address\n");
     fprintf(stderr, "  -6 <address>\tSource IPv6 address\n");
     fprintf(stderr, "  -x\t\tEnable debug output\n");
+    fprintf(stderr, "  -v\t\tPrint version information and exit\n");
 }
 
 
@@ -1539,7 +1540,7 @@ int run_traceroute(int argc, char *argv[], int count, struct addrinfo **dests) {
     sourcev6 = NULL;
     device = NULL;
 
-    while ( (opt = getopt_long(argc, argv, "hvI:abfp:rs:S:4:6:Z:",
+    while ( (opt = getopt_long(argc, argv, "hvI:abfp:rs:4:6:Z:",
                     long_options, NULL)) != -1 ) {
 	switch ( opt ) {
             case '4': sourcev4 = get_numeric_address(optarg, NULL); break;

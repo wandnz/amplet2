@@ -35,6 +35,8 @@ struct opt_t options;
 
 
 static struct option long_options[] = {
+    {"url", required_argument, 0, 'u'},
+    {"dontparse", no_argument, 0, 'd'},
     {"cached", no_argument, 0, 'c'},
     {"help", no_argument, 0, 'h'},
     {"interface", required_argument, 0, 'I'},
@@ -1318,9 +1320,6 @@ static void usage(char *prog) {
     printf("Usage: %s -u <url> [OPTIONS]\n", prog);
     printf("\n");
     printf("Options:\n");
-    printf("  -I <iface>\tSource interface name\n");
-    printf("  -4 <address>\tSource IPv4 address\n");
-    printf("  -6 <address>\tSource IPv6 address\n");
     printf("  -u <url>\tURL of the page to fetch\n");
     printf("  -k \t\tDisable keep-alives (def:enabled)\n");
     printf("  -m <max>\tMaximum number of connections (def:24)\n");
@@ -1332,7 +1331,12 @@ static void usage(char *prog) {
     printf("  -c\t\tAllow cached content (def:false)\n");
     /* TODO libcurl 7.34.0 or newer opens up other ssl version options */
     printf("  -S <version>\tForce SSL version (valid options are sslv3, tlsv1)\n");
+    printf("  -d\t\tDon't parse the fetched URL for more objects (images, css, etc)\n");
+    printf("  -I <iface>\tSource interface name\n");
+    printf("  -4 <address>\tSource IPv4 address\n");
+    printf("  -6 <address>\tSource IPv6 address\n");
     printf("  -x\t\tEnable debug output\n");
+    printf("  -v\t\tPrint version information and exit\n");
 }
 
 

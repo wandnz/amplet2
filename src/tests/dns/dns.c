@@ -803,6 +803,7 @@ static void usage(char *prog) {
     fprintf(stderr, "  -4 <address>\tSource IPv4 address\n");
     fprintf(stderr, "  -6 <address>\tSource IPv6 address\n");
     fprintf(stderr, "  -x\t\tEnable debug output\n");
+    fprintf(stderr, "  -v\t\tPrint version information and exit\n");
 }
 
 
@@ -855,7 +856,7 @@ int run_dns(int argc, char *argv[], int count, struct addrinfo **dests) {
     device = NULL;
     local_resolv = 0;
 
-    while ( (opt = getopt_long(argc, argv, "hvI:q:t:c:z:rsn4:6:Z:",
+    while ( (opt = getopt_long(argc, argv, "hvI:q:t:c:z:rsn4:6:Z:p:",
                     long_options, NULL)) != -1 ) {
 	switch ( opt ) {
             case '4': sourcev4 = get_numeric_address(optarg, NULL); break;

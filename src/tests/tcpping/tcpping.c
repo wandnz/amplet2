@@ -830,7 +830,7 @@ static void halt_test(wand_event_handler_t *ev_hdl, void *evdata) {
  *
  */
 static void usage(char *prog) {
-    fprintf(stderr, "Usage: %s [-P port] [-r] [-p perturbate] [-s packetsize]\n", prog);
+    fprintf(stderr, "Usage: %s [-r] [-P port] [-p perturbate] [-s packetsize]\n", prog);
     fprintf(stderr, "\n");
     fprintf(stderr, "Options:\n");
     fprintf(stderr, "  -P, --port                     The port number to probe on the target host\n");
@@ -842,6 +842,7 @@ static void usage(char *prog) {
     fprintf(stderr, "  -4, --ipv4           <address> Source IPv4 address\n");
     fprintf(stderr, "  -6, --ipv6           <address> Source IPv6 address\n");
     fprintf(stderr, "  -x, --debug                    Enable debug output\n");
+    fprintf(stderr, "  -v, --version                  Print version information and exit\n");
 }
 
 static void version(char *prog) {
@@ -871,7 +872,7 @@ int run_tcpping(int argc, char *argv[], int count, struct addrinfo **dests) {
     globals->sourcev6 = NULL;
     globals->device = NULL;
 
-    while ( (opt = getopt_long(argc, argv, "hvI:p:P:rs:S:4:6:Z:",
+    while ( (opt = getopt_long(argc, argv, "hvI:p:P:rs:4:6:Z:",
                 long_options, NULL)) != -1 ) {
         switch (opt) {
             case '4':
