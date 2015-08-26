@@ -84,11 +84,7 @@ int main(int argc, char *argv[]) {
     /* load information about the test, including the callback functions */
     test_info = get_test_info();
 
-    /*
-     * FIXME is this the best way to get this looking like it does when
-     * run through measured? Just filling in the one value that we know we
-     * will be looking at later when reporting.
-     */
+    /* fill in just our test info, we don't need all the others */
     amp_tests[test_info->id] = test_info;
 
     /* suppress "invalid argument" errors from getopt */
@@ -108,15 +104,16 @@ int main(int argc, char *argv[]) {
     while ( (opt = getopt(argc, argv, "-xD:4:6:")) != -1 ) {
 	/* generally do nothing, just use up arguments until the -- marker */
         switch ( opt ) {
-            /* -x is the only option we care about for now - enable debug */
+            /* -x is an option only we care about for now - enable debug */
             case 'x': log_level = LOG_DEBUG;
                       log_level_override = 1;
                       log_flag_index = optind - 1;
                       break;
-            /* set these in global vars array so start_remote_server works */
+            /* nameserver config is also only for us and not passed on */
+            case 'D': nameserver = optarg; ns_flag_index = optind - 2; break;
+            /* use these for nameserver config, but also pass onto the test */
             case '4': sourcev4 = optarg; break;
             case '6': sourcev6 = optarg; break;
-            case 'D': nameserver = optarg; ns_flag_index = optind - 2; break;
             default: /* do nothing */ break;
         };
     }
