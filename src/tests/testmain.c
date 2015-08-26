@@ -78,7 +78,8 @@ int main(int argc, char *argv[]) {
     char *nameserver = NULL;
     int remaining = 0;
     pthread_mutex_t addrlist_lock;
-    amp_test_meta_t meta;
+    char *sourcev4 = NULL;
+    char *sourcev6 = NULL;
 
     /* load information about the test, including the callback functions */
     test_info = get_test_info();
@@ -96,11 +97,6 @@ int main(int argc, char *argv[]) {
     log_flag_index = 0;
     ns_flag_index = 0;
 
-    /* set this manually, normally done when parsing config */
-    meta.interface = NULL;
-    meta.sourcev4 = NULL;
-    meta.sourcev6 = NULL;
-
     /*
      * deal with command line arguments - split them into actual arguments
      * and destinations in the style the AMP tests want. Using "-" as the
@@ -109,7 +105,7 @@ int main(int argc, char *argv[]) {
      * to the end of the list). All test arguments will be preserved, and the
      * destinations listed after the -- marker can be removed easily.
      */
-    while ( (opt = getopt(argc, argv, "-xD:I:4:6:")) != -1 ) {
+    while ( (opt = getopt(argc, argv, "-xD:4:6:")) != -1 ) {
 	/* generally do nothing, just use up arguments until the -- marker */
         switch ( opt ) {
             /* -x is the only option we care about for now - enable debug */
@@ -118,9 +114,8 @@ int main(int argc, char *argv[]) {
                       log_flag_index = optind - 1;
                       break;
             /* set these in global vars array so start_remote_server works */
-            case 'I': meta.interface = optarg; break;
-            case '4': meta.sourcev4 = optarg; break;
-            case '6': meta.sourcev6 = optarg; break;
+            case '4': sourcev4 = optarg; break;
+            case '6': sourcev6 = optarg; break;
             case 'D': nameserver = optarg; ns_flag_index = optind - 2; break;
             default: /* do nothing */ break;
         };
@@ -129,11 +124,9 @@ int main(int argc, char *argv[]) {
     /* set the nameserver to our custom one if specified */
     if ( nameserver ) {
         /* TODO we could parse the string and get up to MAXNS servers */
-        vars.ctx = amp_resolver_context_init(&nameserver, 1, meta.sourcev4,
-                meta.sourcev6);
+        vars.ctx = amp_resolver_context_init(&nameserver, 1, sourcev4,sourcev6);
     } else {
-        vars.ctx = amp_resolver_context_init(NULL, 0, meta.sourcev4,
-                meta.sourcev6);
+        vars.ctx = amp_resolver_context_init(NULL, 0, sourcev4, sourcev6);
     }
 
     if ( vars.ctx == NULL ) {
