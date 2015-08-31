@@ -124,4 +124,9 @@ test_t *register_test(void);
 CURL *pipeline_next_object(struct server_stats_t *server);
 struct server_stats_t *add_object(char *url, int parse);
 
+
+#if UNIT_TEST
+void amp_test_http_split_url(char *orig_url, char *server, char *path, int set);
+#endif
+
 #endif
