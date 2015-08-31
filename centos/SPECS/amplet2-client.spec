@@ -193,8 +193,10 @@ fi
 
 
 %changelog
-* Fri Aug 21 2015 Brendon Jones <brendonj@waikato.ac.nz> 0.5.0-1
+* Mon Aug 31 2015 Brendon Jones <brendonj@waikato.ac.nz> 0.5.0-1
 - Use Google protocol buffers when reporting test results.
+- Allow tests to accept zero targets if they have default behaviour.
+- Lower traceroute timeout from 3s to 2s to speed up tests.
 
 * Tue Jul 21 2015 Brendon Jones <brendonj@waikato.ac.nz> 0.4.8-1
 - Rewrite ASN lookups to deal better with whois server issues.

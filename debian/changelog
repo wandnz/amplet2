@@ -1,8 +1,10 @@
 amplet2 (0.5.0-1) unstable; urgency=low
 
   * Use Google protocol buffers when reporting test results.
+  * Allow tests to accept zero targets if they have default behaviour.
+  * Lower traceroute timeout from 3s to 2s to speed up tests.
 
- -- Brendon Jones <brendonj@waikato.ac.nz>  Fri, 21 Aug 2015 14:49:28 +1200
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Mon, 31 Aug 2015 14:53:23 +1200
 
 amplet2 (0.4.8-1) unstable; urgency=low
 
