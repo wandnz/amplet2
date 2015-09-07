@@ -18,7 +18,7 @@
 .SH NAME
 amplet2 \- AMP measurement daemon
 .SH SYNOPSIS
-\fBamplet2\fR [\fB-dhrvx\fR] [\fB-c \fIconfig\fB\fR] [\fB-I \fIiface\fB\fR] [\fB-4 \fIaddress\fB\fR] [\fB-6 \fIaddress\fB\fR]
+\fBamplet2\fR [\fB-dhrvx\fR] [\fB-c \fIconfig\fB\fR] [\fB-I \fIiface\fB\fR] [\fB-4 \fIaddress\fB\fR] [\fB-6 \fIaddress\fB\fR] [\fB-Z \fImicroseconds\fB\fR]
 .SH DESCRIPTION
 .\" TeX users may be more comfortable with the \fB<whatever>\fP and
 .\" \fI<whatever>\fP escape sequences to invode bold face and italics,
@@ -51,6 +51,9 @@ Show version of program.
 .TP
 \fB-x, --debug\fR
 Enable extra debugging output.
+.TP
+\fB-Z, --interpacketgap \fImicroseconds\fB\fR
+Minimum number of microseconds between sending probe/query packets.
 .TP
 \fB-4, --ipv4 \fIa.b.c.d\fB\fR
 Specifies the source IPv4 address that tests should use when sending packets to

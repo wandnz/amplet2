@@ -18,7 +18,7 @@
 .SH NAME
 amp-dns \- AMP standalone DNS lookup test
 .SH SYNOPSIS
-\fBamp-dns\fR [\fB-hnrsx\fR] [\fB-p \fImilliseconds\fB\fR] [\fB-t \fItype\fB\fR] [\fB-c \fIclass\fB\fR] [\fB-z \fIsize\fB\fR] [\fB-I \fIiface\fB\fR] [\fB-4 \fIaddress\fB\fR] [\fB-6 \fIaddress\fB\fR] \fB-q \fIquery\fB\fR -- \fIdestination1\fR [\fIdestination2\fR \fI...\fR]
+\fBamp-dns\fR [\fB-hnrsx\fR] [\fB-p \fImilliseconds\fB\fR] [\fB-t \fItype\fB\fR] [\fB-c \fIclass\fB\fR] [\fB-z \fIsize\fB\fR] [\fB-I \fIiface\fB\fR] [\fB-4 \fIaddress\fB\fR] [\fB-6 \fIaddress\fB\fR] [\fB-Z \fImicroseconds\fB\fR] \fB-q \fIquery\fB\fR -- \fIdestination1\fR [\fIdestination2\fR \fI...\fR]
 .SH DESCRIPTION
 .\" TeX users may be more comfortable with the \fB<whatever>\fP and
 .\" \fI<whatever>\fP escape sequences to invode bold face and italics,
@@ -67,6 +67,9 @@ Show version of program.
 .TP
 \fB-x, --debug\fR
 Enable extra debugging output.
+.TP
+\fB-Z, --interpacketgap \fImicroseconds\fB\fR
+Minimum number of microseconds between sending probe/query packets.
 .TP
 \fB-z, --payload \fIsize\fB\fR
 Specifies the UDP payload buffer size for DNSSEC or NSID messages. The default
