@@ -61,6 +61,7 @@ static struct option long_options[] = {
     {"interface", required_argument, 0, 'I'},
     {"ipv4", required_argument, 0, '4'},
     {"ipv6", required_argument, 0, '6'},
+    {"interpacketgap", required_argument, 0, 'Z'},
     {0, 0, 0, 0}
 };
 
@@ -75,14 +76,15 @@ static void usage(void) {
             "               [-4 <address>] [-6 <address>]\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "Options:\n");
-    fprintf(stderr, "  -d, --daemonise           Detach and run in background\n");
-    fprintf(stderr, "  -v, --version             Print version information and exit\n");
-    fprintf(stderr, "  -x, --debug               Enable extra debug output\n");
-    fprintf(stderr, "  -c, --config    <config>  Specify config file\n");
-    fprintf(stderr, "  -r, --noremote            Don't fetch remote schedules\n");
-    fprintf(stderr, "  -I, --interface <iface>   Override source interface name\n");
-    fprintf(stderr, "  -4, --ipv4      <address> Override source IPv4 address\n");
-    fprintf(stderr, "  -6, --ipv6      <address> Override source IPv6 address\n");
+    fprintf(stderr, "  -d, --daemonise                Detach and run in background\n");
+    fprintf(stderr, "  -v, --version                  Print version information and exit\n");
+    fprintf(stderr, "  -x, --debug                    Enable extra debug output\n");
+    fprintf(stderr, "  -c, --config         <config>  Specify config file\n");
+    fprintf(stderr, "  -r, --noremote                 Don't fetch remote schedules\n");
+    fprintf(stderr, "  -I, --interface      <iface>   Override source interface name\n");
+    fprintf(stderr, "  -Z, --interpacketgap <usec>    Minimum number of microseconds between packets\n");
+    fprintf(stderr, "  -4, --ipv4           <address> Override source IPv4 address\n");
+    fprintf(stderr, "  -6, --ipv6           <address> Override source IPv6 address\n");
 }
 
 
