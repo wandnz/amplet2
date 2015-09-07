@@ -205,7 +205,7 @@ static void process_packet(char *packet, uint16_t ident, struct timeval *now,
 
     /* make sure the id field in this packet matches our request */
     if ( recv_ident < ident || recv_ident - ident > count ) {
-	Log(LOG_WARNING, "Incoming DNS packet with invalid ID number");
+	Log(LOG_DEBUG, "Incoming DNS packet with invalid ID number");
 	return;
     }
 
