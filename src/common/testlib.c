@@ -224,7 +224,7 @@ int get_packet(struct socket_t *sockets, char *buf, int buflen,
  * time to wait (in microseconds).
  */
 int delay_send_packet(int sock, char *packet, int size, struct addrinfo *dest,
-        struct timeval *sent) {
+        uint32_t inter_packet_delay, struct timeval *sent) {
 
     int bytes_sent;
     static struct timeval last = {0, 0};
@@ -239,8 +239,8 @@ int delay_send_packet(int sock, char *packet, int size, struct addrinfo *dest,
     gettimeofday(&now, NULL);
 
     /* determine how much time is left to wait until the minimum delay */
-    if ( last.tv_sec != 0 && DIFF_TV_US(now, last) < vars.inter_packet_delay ) {
-	delay = vars.inter_packet_delay - DIFF_TV_US(now, last);
+    if ( last.tv_sec != 0 && DIFF_TV_US(now, last) < inter_packet_delay ) {
+	delay = inter_packet_delay - DIFF_TV_US(now, last);
     } else {
 	delay = 0;
 	last.tv_sec = now.tv_sec;
@@ -419,11 +419,12 @@ int send_server_port(SSL *ssl, uint16_t port) {
  * server for a particular test. This will return the port number that the
  * server is running on.
  */
-uint16_t start_remote_server(test_type_t type, struct addrinfo *dest) {
+uint16_t start_remote_server(test_type_t type, struct addrinfo *dest,
+        amp_test_meta_t *meta) {
     SSL *ssl;
     X509 *server_cert;
     int sock;
-    uint16_t bytes, server_port, control_port;
+    uint16_t bytes, server_port;
     int res;
     int attempts;
 
@@ -438,14 +439,12 @@ uint16_t start_remote_server(test_type_t type, struct addrinfo *dest) {
 
     Log(LOG_DEBUG, "Starting remote server for test type %d", type);
 
-    /* vars.control_port is a char*, cause getaddrinfo needs that elsewhere */
-    control_port = atol(vars.control_port);
     switch ( dest->ai_family ) {
         case AF_INET: ((struct sockaddr_in *)dest->ai_addr)->sin_port =
-                      htons(control_port);
+                      htons(vars.control_port);
                       break;
         case AF_INET6: ((struct sockaddr_in6 *)dest->ai_addr)->sin6_port =
-                       htons(control_port);
+                       htons(vars.control_port);
                        break;
         default: return 0;
     };
@@ -456,19 +455,19 @@ uint16_t start_remote_server(test_type_t type, struct addrinfo *dest) {
         return 0;
     }
 
-    if ( vars.interface ) {
-        if ( bind_socket_to_device(sock, vars.interface) < 0 ) {
+    if ( meta->interface ) {
+        if ( bind_socket_to_device(sock, meta->interface) < 0 ) {
             return 0;
         }
     }
 
-    if ( vars.sourcev4 || vars.sourcev6 ) {
+    if ( meta->sourcev4 || meta->sourcev6 ) {
         struct addrinfo *addr;
 
         switch ( dest->ai_family ) {
-            case AF_INET: addr = get_numeric_address(vars.sourcev4, NULL);
+            case AF_INET: addr = get_numeric_address(meta->sourcev4, NULL);
                           break;
-            case AF_INET6: addr = get_numeric_address(vars.sourcev6, NULL);
+            case AF_INET6: addr = get_numeric_address(meta->sourcev6, NULL);
                            break;
             default: return 0;
         };

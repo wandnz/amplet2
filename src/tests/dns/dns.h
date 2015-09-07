@@ -152,6 +152,7 @@ struct opt_t {
     int dnssec;
     int nsid;
     int perturbate;
+    uint32_t inter_packet_delay;
 };
 
 

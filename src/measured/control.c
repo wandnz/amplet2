@@ -19,117 +19,7 @@
 #include "watchdog.h"
 #include "modules.h"
 #include "testlib.h"
-#include "global.h"
 #include "ssl.h"
-
-
-/*
- * Create the control socket and start it listening for connections. We
- * use separate sockets for IPv4 and IPv6 so that we can have each of them
- * listening on specific, different addresses.
- */
-int initialise_control_socket(struct socket_t *sockets, char *iface,
-        char *ipv4, char* ipv6, char *port) {
-
-    struct addrinfo *addr4, *addr6;
-    int one = 1;
-    char addrstr[INET6_ADDRSTRLEN];
-
-    Log(LOG_DEBUG, "Creating control socket");
-
-    assert(sockets);
-    sockets->socket = -1;
-    sockets->socket6 = -1;
-
-    if ( (sockets->socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0 ) {
-        Log(LOG_WARNING, "Failed to open IPv4 control socket: %s",
-                strerror(errno));
-    }
-    if ( (sockets->socket6 = socket(AF_INET6, SOCK_STREAM, IPPROTO_TCP)) < 0 ) {
-        Log(LOG_WARNING, "Failed to open IPv6 control socket: %s",
-                strerror(errno));
-    }
-
-    /* make sure that at least one of them was opened ok */
-    if ( sockets->socket < 0 && sockets->socket6 < 0 ) {
-        return -1;
-    }
-
-    /* set socket options */
-    if ( sockets->socket > 0 ) {
-        if ( setsockopt(sockets->socket, SOL_SOCKET, SO_REUSEADDR, &one,
-                    sizeof(int)) < 0 ) {
-            close(sockets->socket);
-            sockets->socket = -1;
-        }
-    }
-
-    if ( sockets->socket6 > 0 ) {
-        /* IPV6_V6ONLY prevents it trying to listen on IPv4 as well */
-        if ( setsockopt(sockets->socket6, IPPROTO_IPV6, IPV6_V6ONLY, &one,
-                    sizeof(one)) < 0 ) {
-            close(sockets->socket6);
-            sockets->socket6 = -1;
-        } else {
-            if ( setsockopt(sockets->socket6, SOL_SOCKET, SO_REUSEADDR, &one,
-                        sizeof(int)) < 0 ) {
-                close(sockets->socket6);
-                sockets->socket6 = -1;
-            }
-        }
-    }
-
-    /* bind them to interfaces and addresses if required */
-    if ( iface && bind_sockets_to_device(sockets, iface) < 0 ) {
-        Log(LOG_ERR, "Unable to bind control socket to device, disabling");
-        return -1;
-    }
-
-    addr4 = get_numeric_address(ipv4, port);
-    addr6 = get_numeric_address(ipv6, port);
-
-    if ( bind_sockets_to_address(sockets, addr4, addr6) < 0 ) {
-        Log(LOG_ERR,"Unable to bind control socket to address, disabling");
-        freeaddrinfo(addr4);
-        freeaddrinfo(addr6);
-        return -1;
-    }
-
-    /* Start listening for control connections on the active sockets */
-    if ( sockets->socket > 0 ) {
-        if ( listen(sockets->socket, 16) < 0 ) {
-            Log(LOG_WARNING, "Failed to listen on IPv4 control socket: %s",
-                    strerror(errno));
-            close(sockets->socket);
-            sockets->socket = -1;
-        } else {
-            Log(LOG_INFO, "Control socket listening on %s:%s",
-                    amp_inet_ntop(addr4, addrstr), port);
-        }
-    }
-
-    if ( sockets->socket6 > 0 ) {
-        if ( listen(sockets->socket6, 16) < 0 ) {
-            Log(LOG_WARNING, "Failed to listen on IPv6 control socket: %s",
-                    strerror(errno));
-            close(sockets->socket6);
-            sockets->socket6 = -1;
-        } else {
-            Log(LOG_INFO, "Control socket listening on %s:%s",
-                    amp_inet_ntop(addr6, addrstr), port);
-        }
-    }
-
-    freeaddrinfo(addr4);
-    freeaddrinfo(addr6);
-
-    /* make sure that at least one of them is listening ok */
-    if ( sockets->socket < 0 && sockets->socket6 < 0 ) {
-        return -1;
-    }
-
-    return 0;
-}
 
 
 
@@ -303,8 +193,8 @@ static void control_read_callback(wand_event_handler_t *ev_hdl, int fd,
  * A connection has been made on our control port. Accept it and set up an
  * event for when data arrives on this connection.
  */
-void control_establish_callback(wand_event_handler_t *ev_hdl, int eventfd,
-        __attribute__((unused))void *data,
+static void control_establish_callback(wand_event_handler_t *ev_hdl,
+        int eventfd, __attribute__((unused))void *data,
         __attribute__((unused))enum wand_eventtype_t ev) {
 
     int fd;
@@ -322,4 +212,149 @@ void control_establish_callback(wand_event_handler_t *ev_hdl, int eventfd,
     wand_add_fd(ev_hdl, fd, EV_READ, NULL, control_read_callback);
 
     return;
+}
+
+
+
+/*
+ * Create the control socket and start it listening for connections. We
+ * use separate sockets for IPv4 and IPv6 so that we can have each of them
+ * listening on specific, different addresses.
+ */
+int initialise_control_socket(wand_event_handler_t *ev_hdl,
+        amp_control_t *control) {
+
+    struct addrinfo *addr4, *addr6;
+    int one = 1;
+    char addrstr[INET6_ADDRSTRLEN];
+    struct socket_t sockets;
+
+    Log(LOG_DEBUG, "Creating control socket");
+
+    if ( control == NULL ) {
+        Log(LOG_WARNING, "No control socket configuration");
+        return -1;
+    }
+
+    sockets.socket = -1;
+    sockets.socket6 = -1;
+
+    if ( (sockets.socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0 ) {
+        Log(LOG_WARNING, "Failed to open IPv4 control socket: %s",
+                strerror(errno));
+    }
+    if ( (sockets.socket6 = socket(AF_INET6, SOCK_STREAM, IPPROTO_TCP)) < 0 ) {
+        Log(LOG_WARNING, "Failed to open IPv6 control socket: %s",
+                strerror(errno));
+    }
+
+    /* make sure that at least one of them was opened ok */
+    if ( sockets.socket < 0 && sockets.socket6 < 0 ) {
+        return -1;
+    }
+
+    /* set socket options */
+    if ( sockets.socket > 0 ) {
+        if ( setsockopt(sockets.socket, SOL_SOCKET, SO_REUSEADDR, &one,
+                    sizeof(int)) < 0 ) {
+            close(sockets.socket);
+            sockets.socket = -1;
+        }
+    }
+
+    if ( sockets.socket6 > 0 ) {
+        /* IPV6_V6ONLY prevents it trying to listen on IPv4 as well */
+        if ( setsockopt(sockets.socket6, IPPROTO_IPV6, IPV6_V6ONLY, &one,
+                    sizeof(one)) < 0 ) {
+            close(sockets.socket6);
+            sockets.socket6 = -1;
+        } else {
+            if ( setsockopt(sockets.socket6, SOL_SOCKET, SO_REUSEADDR, &one,
+                        sizeof(int)) < 0 ) {
+                close(sockets.socket6);
+                sockets.socket6 = -1;
+            }
+        }
+    }
+
+    /* bind them to interfaces and addresses if required */
+    if ( control->interface &&
+            bind_sockets_to_device(&sockets, control->interface) < 0 ) {
+        Log(LOG_ERR, "Unable to bind control socket to device, disabling");
+        return -1;
+    }
+
+    addr4 = get_numeric_address(control->ipv4, control->port);
+    addr6 = get_numeric_address(control->ipv6, control->port);
+
+    if ( bind_sockets_to_address(&sockets, addr4, addr6) < 0 ) {
+        Log(LOG_ERR,"Unable to bind control socket to address, disabling");
+        freeaddrinfo(addr4);
+        freeaddrinfo(addr6);
+        return -1;
+    }
+
+    /* Start listening for control connections on the active sockets */
+    if ( sockets.socket > 0 ) {
+        if ( listen(sockets.socket, 16) < 0 ) {
+            Log(LOG_WARNING, "Failed to listen on IPv4 control socket: %s",
+                    strerror(errno));
+            close(sockets.socket);
+            sockets.socket = -1;
+        } else {
+            Log(LOG_INFO, "Control socket listening on %s:%s",
+                    amp_inet_ntop(addr4, addrstr), control->port);
+        }
+    }
+
+    if ( sockets.socket6 > 0 ) {
+        if ( listen(sockets.socket6, 16) < 0 ) {
+            Log(LOG_WARNING, "Failed to listen on IPv6 control socket: %s",
+                    strerror(errno));
+            close(sockets.socket6);
+            sockets.socket6 = -1;
+        } else {
+            Log(LOG_INFO, "Control socket listening on %s:%s",
+                    amp_inet_ntop(addr6, addrstr), control->port);
+        }
+    }
+
+    freeaddrinfo(addr4);
+    freeaddrinfo(addr6);
+
+    /* make sure that at least one of them is listening ok */
+    if ( sockets.socket < 0 && sockets.socket6 < 0 ) {
+        return -1;
+    }
+
+    /* if we have an ipv4 socket then set up the event listener */
+    if ( sockets.socket > 0 ) {
+        wand_add_fd(ev_hdl, sockets.socket, EV_READ, NULL,
+                control_establish_callback);
+    }
+
+    /* if we have an ipv6 socket then set up the event listener */
+    if ( sockets.socket6 > 0 ) {
+        wand_add_fd(ev_hdl, sockets.socket6, EV_READ, NULL,
+                control_establish_callback);
+    }
+
+    return 0;
+}
+
+
+
+/*
+ *
+ */
+void free_control_config(amp_control_t *control) {
+    if ( control == NULL ) {
+        return;
+    }
+
+    if ( control->interface ) free(control->interface);
+    if ( control->ipv4 ) free(control->ipv4);
+    if ( control->ipv6 ) free(control->ipv6);
+    if ( control->port ) free(control->port);
+    free(control);
 }

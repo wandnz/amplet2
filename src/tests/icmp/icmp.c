@@ -31,6 +31,7 @@
 static struct option long_options[] = {
     {"help", no_argument, 0, 'h'},
     {"interface", required_argument, 0, 'I'},
+    {"interpacketgap", required_argument, 0, 'Z'},
     {"perturbate", required_argument, 0, 'p'},
     {"random", no_argument, 0, 'r'},
     {"size", required_argument, 0, 's'},
@@ -372,7 +373,8 @@ static void send_packet(struct socket_t *raw_sockets, int seq, uint16_t ident,
 
     /* send packet with appropriate inter packet delay */
     while ( (delay = delay_send_packet(sock, packet, opt->packet_size-h_len,
-		    dest, &(info[seq].time_sent))) > 0 ) {
+		    dest, opt->inter_packet_delay,
+                    &(info[seq].time_sent))) > 0 ) {
 	/* check for responses while we wait out the interpacket delay */
 	harvest(raw_sockets, ident, delay, -1, count, info);
     }
@@ -532,13 +534,15 @@ static void usage(char *prog) {
     fprintf(stderr, "Usage: %s [-r] [-p perturbate] [-s packetsize]\n", prog);
     fprintf(stderr, "\n");
     fprintf(stderr, "Options:\n");
-    fprintf(stderr, "  -r, --random               Use a random packet size for each test\n");
-    fprintf(stderr, "  -p, --perturbate <ms>      Maximum number of milliseconds to delay test\n");
-    fprintf(stderr, "  -s, --size       <bytes>   Fixed packet size to use for each test\n");
-    fprintf(stderr, "  -I, --interface  <iface>   Source interface name\n");
-    fprintf(stderr, "  -4, --ipv4       <address> Source IPv4 address\n");
-    fprintf(stderr, "  -6, --ipv6       <address> Source IPv6 address\n");
-    fprintf(stderr, "  -x, --debug                Enable debug output\n");
+    fprintf(stderr, "  -r, --random                   Use a random packet size for each test\n");
+    fprintf(stderr, "  -p, --perturbate     <msec>    Maximum number of milliseconds to delay test\n");
+    fprintf(stderr, "  -s, --size           <bytes>   Fixed packet size to use for each test\n");
+    fprintf(stderr, "  -I, --interface      <iface>   Source interface name\n");
+    fprintf(stderr, "  -Z, --interpacketgap <usec>    Minimum number of microseconds between packets\n");
+    fprintf(stderr, "  -4, --ipv4           <address> Source IPv4 address\n");
+    fprintf(stderr, "  -6, --ipv6           <address> Source IPv6 address\n");
+    fprintf(stderr, "  -x, --debug                    Enable debug output\n");
+    fprintf(stderr, "  -v, --version                  Print version information and exit\n");
 }
 
 
@@ -576,6 +580,7 @@ int run_icmp(int argc, char *argv[], int count, struct addrinfo **dests) {
     Log(LOG_DEBUG, "Starting ICMP test");
 
     /* set some sensible defaults */
+    options.inter_packet_delay = MIN_INTER_PACKET_DELAY;
     options.packet_size = DEFAULT_ICMP_ECHO_REQUEST_LEN;
     options.random = 0;
     options.perturbate = 0;
@@ -583,12 +588,13 @@ int run_icmp(int argc, char *argv[], int count, struct addrinfo **dests) {
     sourcev6 = NULL;
     device = NULL;
 
-    while ( (opt = getopt_long(argc, argv, "hvI:p:rs:S:4:6:",
+    while ( (opt = getopt_long(argc, argv, "hvI:Z:p:rs:4:6:",
                     long_options, NULL)) != -1 ) {
 	switch ( opt ) {
             case '4': sourcev4 = get_numeric_address(optarg, NULL); break;
             case '6': sourcev6 = get_numeric_address(optarg, NULL); break;
             case 'I': device = optarg; break;
+            case 'Z': options.inter_packet_delay = atoi(optarg); break;
 	    case 'p': options.perturbate = atoi(optarg); break;
 	    case 'r': options.random = 1; break;
 	    case 's': options.packet_size = atoi(optarg); break;

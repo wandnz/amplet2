@@ -79,11 +79,13 @@ int main(int argc, char *argv[]) {
     char *nameserver = NULL;
     int remaining = 0;
     pthread_mutex_t addrlist_lock;
+    char *sourcev4 = NULL;
+    char *sourcev6 = NULL;
 
     /* load information about the test, including the callback functions */
     test_info = get_test_info();
 
-    /* * Just fill in the one value for this particular test */
+    /* fill in just our test info, we don't need all the others */
     amp_tests[test_info->id] = test_info;
 
     /* suppress "invalid argument" errors from getopt */
@@ -91,10 +93,6 @@ int main(int argc, char *argv[]) {
 
     log_flag_index = 0;
     ns_flag_index = 0;
-
-    /* set this manually, normally done when parsing config */
-    /* TODO allow setting from the command line */
-    vars.inter_packet_delay = MIN_INTER_PACKET_DELAY;
 
     /*
      * deal with command line arguments - split them into actual arguments
@@ -104,19 +102,19 @@ int main(int argc, char *argv[]) {
      * to the end of the list). All test arguments will be preserved, and the
      * destinations listed after the -- marker can be removed easily.
      */
-    while ( (opt = getopt(argc, argv, "-xD:I:4:6:")) != -1 ) {
+    while ( (opt = getopt(argc, argv, "-xD:4:6:")) != -1 ) {
 	/* generally do nothing, just use up arguments until the -- marker */
         switch ( opt ) {
-            /* -x is the only option we care about for now - enable debug */
+            /* -x is an option only we care about for now - enable debug */
             case 'x': log_level = LOG_DEBUG;
                       log_level_override = 1;
                       log_flag_index = optind - 1;
                       break;
-            /* set these in global vars array so start_remote_server works */
-            case 'I': vars.interface = optarg; break;
-            case '4': vars.sourcev4 = optarg; break;
-            case '6': vars.sourcev6 = optarg; break;
+            /* nameserver config is also only for us and not passed on */
             case 'D': nameserver = optarg; ns_flag_index = optind - 2; break;
+            /* use these for nameserver config, but also pass onto the test */
+            case '4': sourcev4 = optarg; break;
+            case '6': sourcev6 = optarg; break;
             default: /* do nothing */ break;
         };
     }
@@ -124,11 +122,9 @@ int main(int argc, char *argv[]) {
     /* set the nameserver to our custom one if specified */
     if ( nameserver ) {
         /* TODO we could parse the string and get up to MAXNS servers */
-        vars.ctx = amp_resolver_context_init(&nameserver, 1, vars.sourcev4,
-                vars.sourcev6);
+        vars.ctx = amp_resolver_context_init(&nameserver, 1, sourcev4,sourcev6);
     } else {
-        vars.ctx = amp_resolver_context_init(NULL, 0, vars.sourcev4,
-                vars.sourcev6);
+        vars.ctx = amp_resolver_context_init(NULL, 0, sourcev4, sourcev6);
     }
 
     if ( vars.ctx == NULL ) {

@@ -38,10 +38,11 @@ enum reply_type {
  * User defined test options to control packet size and timing.
  */
 struct opt_t {
-    int random;             /* Use random packet sizes (bytes) */
-    int perturbate;         /* Delay sending by up to this time (usec) */
-    uint16_t packet_size;   /* Use this particular packet size (bytes) */
-    uint16_t port;          /* Target port number */
+    int random;                 /* Use random packet sizes (bytes) */
+    int perturbate;             /* Delay sending by up to this time (usec) */
+    uint16_t packet_size;       /* Use this particular packet size (bytes) */
+    uint16_t port;              /* Target port number */
+    uint32_t inter_packet_delay;/* minimum gap between packets (usec) */
 };
 
 struct tcppingglobals {

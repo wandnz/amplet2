@@ -69,6 +69,7 @@ typedef struct test_schedule_item {
     uint32_t resolve_count;	    /* max possible count of dests to resolve */
     struct addrinfo **dests;	    /* all current destinations */
     resolve_dest_t *resolve;	    /* list of destination names to resolve */
+    amp_test_meta_t *meta;          /* which interface/addresses to use */
     char **params;		    /* test parameters in execv format */
     /* TODO chaining? */
 
@@ -124,14 +125,15 @@ typedef struct schedule_item {
 
 void dump_schedule(wand_event_handler_t *ev_hdl, FILE *out);
 void clear_test_schedule(wand_event_handler_t *ev_hdl, int all);
-void read_schedule_dir(wand_event_handler_t *ev_hdl, char *directory);
-void setup_schedule_refresh(wand_event_handler_t *ev_hdl);
+void read_schedule_dir(wand_event_handler_t *ev_hdl, char *directory,
+        amp_test_meta_t *meta);
 struct timeval get_next_schedule_time(wand_event_handler_t *ev_hdl,
         schedule_period_t period, uint64_t start, uint64_t end,
         uint64_t frequency, int run, struct timeval *abstime);
 int update_remote_schedule(char *dir, char *server, char *cacert, char *cert,
         char *key);
-void remote_schedule_callback(wand_event_handler_t *ev_hdl, void *data);
+int enable_remote_schedule_fetch(wand_event_handler_t *ev_hdl,
+        fetch_schedule_item_t *fetch, amp_test_meta_t *meta);
 #if UNIT_TEST
 time_t amp_test_get_period_max_value(char repeat);
 int64_t amp_test_check_time_range(int64_t value, schedule_period_t period);

@@ -18,7 +18,7 @@
 .SH NAME
 amp-trace \- AMP standalone UDP traceroute test
 .SH SYNOPSIS
-\fBamp-trace\fR [\fB-hrx\fR] [\fB-p \fImilliseconds\fB\fR] [\fB-s \fIpacketsize\fB\fR] [\fB-I \fIiface\fB\fR] [\fB-4 \fIaddress\fB\fR] [\fB-6 \fIaddress\fB\fR] -- \fIdestination1\fR [\fIdestination2\fR \fI...\fR]
+\fBamp-trace\fR [\fB-abfhrx\fR] [\fB-p \fImilliseconds\fB\fR] [\fB-s \fIpacketsize\fB\fR] [\fB-I \fIiface\fB\fR] [\fB-4 \fIaddress\fB\fR] [\fB-6 \fIaddress\fB\fR] [\fB-Z \fImicroseconds\fB\fR] -- \fIdestination1\fR [\fIdestination2\fR \fI...\fR]
 .SH DESCRIPTION
 .\" TeX users may be more comfortable with the \fB<whatever>\fP and
 .\" \fI<whatever>\fP escape sequences to invode bold face and italics,
@@ -30,6 +30,15 @@ test to multiple destinations simultaneously. All destinations listed on the
 command line will be tested to. Any destinations that are hostnames will be
 resolved, and every address that they resolve to will be tested.
 .SH OPTIONS
+.TP
+\fB-a, --asn\fR
+Lookup AS numbers for all addresses using http://www.team-cymru.org/IP-ASN-mapping.html
+.TP
+\fB-b, --noip\fR
+Don't report IP addresses for each hop in the path.
+.TP
+\fB-f, --probeall\fR
+Disable the doubletree-like algorithm and probe every hop in the path.
 .TP
 \fB-h, --help\fR
 Show summary of options.
@@ -53,6 +62,9 @@ Show version of program.
 .TP
 \fB-x, --debug\fR
 Enable extra debugging output.
+.TP
+\fB-Z, --interpacketgap \fImicroseconds\fB\fR
+Minimum number of microseconds between sending probe/query packets.
 .TP
 \fB-4, --ipv4 \fIa.b.c.d\fB\fR
 Specifies the source IPv4 address that tests should use when sending packets to

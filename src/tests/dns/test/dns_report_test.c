@@ -215,25 +215,25 @@ int main(void) {
     struct addrinfo *addr = get_numeric_address("192.168.0.254", NULL);
     struct opt_t full_options[] = {
         /* query, type, class, size, recurse, dnssec, nsid */
-        {"www.example.com", 0x0, 0x0, 0, 0, 0, 0, 0},
-        {"www.example.com", 0x1, 0x1, 512, 0, 0, 0, 1},
-        {"www.example.com", 0x1c, 0x1, 1280, 0, 0, 1, 0},
-        {"www.example.com", 0xff, 0xff, 4096, 0, 0, 1, 1},
-        {"www.example.com", 0x8001, 0xffff, 8192, 0, 1, 0, 0},
+        {"www.example.com", 0x0, 0x0, 0, 0, 0, 0, 0, 0},
+        {"www.example.com", 0x1, 0x1, 512, 0, 0, 0, 1, 0},
+        {"www.example.com", 0x1c, 0x1, 1280, 0, 0, 1, 0, 0},
+        {"www.example.com", 0xff, 0xff, 4096, 0, 0, 1, 1, 0},
+        {"www.example.com", 0x8001, 0xffff, 8192, 0, 1, 0, 0, 0},
 
-        {"www.example.org", 0x0, 0x0, 0, 0, 1, 0, 1},
-        {"www.example.org", 0x1, 0x1, 511, 0, 1, 1, 0},
-        {"www.example.org", 0x1c, 0x1, 1279, 0, 1, 1, 1},
-        {"www.example.org", 0xff, 0xff, 4095, 1, 0, 0, 0},
-        {"www.example.org", 0x8001, 0xffff, 8191, 1, 0, 0, 1},
+        {"www.example.org", 0x0, 0x0, 0, 0, 1, 0, 1, 0},
+        {"www.example.org", 0x1, 0x1, 511, 0, 1, 1, 0, 0},
+        {"www.example.org", 0x1c, 0x1, 1279, 0, 1, 1, 1, 0},
+        {"www.example.org", 0xff, 0xff, 4095, 1, 0, 0, 0, 0},
+        {"www.example.org", 0x8001, 0xffff, 8191, 1, 0, 0, 1, 0},
 
-        {"example.com", 0x0, 0x1, 0, 1, 0, 1, 0},
-        {"example.com", 0x1, 0x1, 513, 1, 0, 1, 1},
-        {"example.com", 0x1c, 0x1, 1281, 1, 1, 0, 0},
-        {"example.com", 0xff, 0xff, 4097, 1, 1, 0, 1},
-        {"example.com", 0x8001, 0xffff, 8193, 1, 1, 1, 0},
+        {"example.com", 0x0, 0x1, 0, 1, 0, 1, 0, 0},
+        {"example.com", 0x1, 0x1, 513, 1, 0, 1, 1, 0},
+        {"example.com", 0x1c, 0x1, 1281, 1, 1, 0, 0, 0},
+        {"example.com", 0xff, 0xff, 4097, 1, 1, 0, 1, 0},
+        {"example.com", 0x8001, 0xffff, 8193, 1, 1, 1, 0, 0},
 
-        {"www.example.com", 0xffff, 0x1, 8192, 1, 1, 1, 1},
+        {"www.example.com", 0xffff, 0x1, 8192, 1, 1, 1, 1, 0},
     };
 
     addr->ai_canonname = strdup("foo.bar.baz");

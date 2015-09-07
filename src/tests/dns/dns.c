@@ -27,6 +27,7 @@ static struct option long_options[] = {
     {"class", required_argument, 0, 'c'},
     {"help", no_argument, 0, 'h'},
     {"interface", required_argument, 0, 'I'},
+    {"interpacketgap", required_argument, 0, 'Z'},
     {"nsid", no_argument, 0, 'n'},
     {"perturbate", required_argument, 0, 'p'},
     {"query", required_argument, 0, 'q'},
@@ -464,7 +465,8 @@ static void send_packet(struct socket_t *sockets, uint16_t seq, uint16_t ident,
     qbuf = create_dns_query(seq + ident, &(info[seq].query_length), opt);
 
     while ( (delay = delay_send_packet(sock, qbuf, info[seq].query_length,
-                    &tmpdst, &(info[seq].time_sent))) > 0 ) {
+                    &tmpdst, opt->inter_packet_delay,
+                    &(info[seq].time_sent))) > 0 ) {
 	harvest(sockets, ident, delay, count, info, opt);
     }
 
@@ -796,6 +798,12 @@ static void usage(char *prog) {
     fprintf(stderr, "  -r\t\tAllow recursive queries (default: false)\n");
     fprintf(stderr, "  -s\t\tUse DNSSEC (default: false)\n");
     fprintf(stderr, "  -n\t\tDo NSID query (default: false)\n");
+    fprintf(stderr, "  -I <iface>\tSource interface name\n");
+    fprintf(stderr, "  -Z <usec>\tMinimum number of microseconds between packets\n");
+    fprintf(stderr, "  -4 <address>\tSource IPv4 address\n");
+    fprintf(stderr, "  -6 <address>\tSource IPv6 address\n");
+    fprintf(stderr, "  -x\t\tEnable debug output\n");
+    fprintf(stderr, "  -v\t\tPrint version information and exit\n");
 }
 
 
@@ -842,17 +850,19 @@ int run_dns(int argc, char *argv[], int count, struct addrinfo **dests) {
     options.dnssec = 0;
     options.nsid = 0;
     options.perturbate = 0;
+    options.inter_packet_delay = MIN_INTER_PACKET_DELAY;
     sourcev4 = NULL;
     sourcev6 = NULL;
     device = NULL;
     local_resolv = 0;
 
-    while ( (opt = getopt_long(argc, argv, "hvI:q:t:c:z:rsn4:6:",
+    while ( (opt = getopt_long(argc, argv, "hvI:q:t:c:z:rsn4:6:Z:p:",
                     long_options, NULL)) != -1 ) {
 	switch ( opt ) {
             case '4': sourcev4 = get_numeric_address(optarg, NULL); break;
             case '6': sourcev6 = get_numeric_address(optarg, NULL); break;
             case 'I': device = optarg; break;
+            case 'Z': options.inter_packet_delay = atoi(optarg); break;
 	    case 'q': options.query_string = strdup(optarg); break;
 	    case 't': options.query_type = get_query_type(optarg); break;
 	    case 'c': options.query_class = get_query_class(optarg); break;

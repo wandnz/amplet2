@@ -14,7 +14,6 @@
 #include "tests.h"
 #include "debug.h"
 #include "testlib.h"
-#include "global.h"
 
 int run_remoteskeleton(int argc, char *argv[], int count,
         struct addrinfo **dests);
@@ -41,13 +40,19 @@ int run_remoteskeleton(int argc, char *argv[], int count,
     uint32_t result;
     int opt;
     uint16_t remote;
+    amp_test_meta_t meta;
 
     printf("remote skeleton test\n");
 
+    memset(&meta, 0, sizeof(meta));
+
     /* use getopt to check for -h first, then fall through to dump all args */
-    while ( (opt = getopt(argc, argv, "h")) != -1 ) {
+    while ( (opt = getopt(argc, argv, "hI:4:6:")) != -1 ) {
 	switch ( opt ) {
 	    case 'h': usage(argv[0]); exit(0);
+            case 'I': meta.interface = optarg; break;
+            case '4': meta.sourcev4 = optarg; break;
+            case '6': meta.sourcev6 = optarg; break;
             default: /* pass through */ break;
 	};
     }
@@ -83,7 +88,7 @@ int run_remoteskeleton(int argc, char *argv[], int count,
     }
 
     if ( (remote = start_remote_server(AMP_TEST_REMOTE_SKELETON,
-                    dests[0])) == 0 ) {
+                    dests[0], &meta)) == 0 ) {
         Log(LOG_WARNING, "Failed to start remote server, aborting test");
         return -1;
     }

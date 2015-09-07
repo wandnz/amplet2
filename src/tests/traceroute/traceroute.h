@@ -89,6 +89,7 @@ struct opt_t {
     int ip;                     /* report the IP address of each hop */
     int as;                     /* lookup the AS number of each address */
     uint16_t packet_size;	/* use this packet size (bytes) */
+    uint32_t inter_packet_delay;/* minimum gap between packets (usec) */
 };
 
 /*

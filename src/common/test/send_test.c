@@ -32,12 +32,6 @@ int main(void) {
     uint64_t duration;
 
     /*
-     * Set this manually to the default value as we have skipped the normal
-     * configuration process
-     */
-    vars.inter_packet_delay = MIN_INTER_PACKET_DELAY;
-
-    /*
      * use a pair of unix sockets to test sending data without relying on
      * the network being present/sane/etc.
      */
@@ -59,7 +53,7 @@ int main(void) {
 
         /* loop until the packet is allowed to be sent or errors */
         while ( (delay = delay_send_packet(sockets[0], out_packet, length,
-                        &dest, NULL)) > 0 ) {
+                        &dest, MIN_INTER_PACKET_DELAY, NULL)) > 0 ) {
             assert(delay < MIN_INTER_PACKET_DELAY);
             usleep(delay);
         }

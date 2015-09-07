@@ -21,6 +21,7 @@
 #include "global.h" /* hopefully temporary, just to get source iface/address */
 #include "ampresolv.h"
 #include "ssl.h"
+#include "testlib.h" /* only for MIN_INTER_PACKET_DELAY, can we move it? */
 
 
 
@@ -38,6 +39,7 @@ static void run_test(const test_schedule_item_t * const item) {
     struct addrinfo *addrlist = NULL;
     struct addrinfo **destinations = NULL;
     int total_resolve_count = 0;
+    char *packet_delay_str = NULL;
 
     assert(item);
     assert(item->test_id < AMP_TEST_LAST);
@@ -56,22 +58,39 @@ static void run_test(const test_schedule_item_t * const item) {
     test = amp_tests[item->test_id];
     argv[argc++] = test->name;
 
+    /*
+     * TODO should command line arguments clobber any per-test arguments?
+     * Currently any arguments set in the schedule file will take precedence.
+     */
+
+    /* set the inter packet delay if configured at the global level */
+    if ( item->meta->inter_packet_delay != MIN_INTER_PACKET_DELAY ) {
+        argv[argc++] = "-Z";
+        if ( asprintf(&packet_delay_str, "%u",
+                    item->meta->inter_packet_delay) < 0 ) {
+            Log(LOG_WARNING, "Failed to build packet delay string, aborting");
+            return;
+        }
+
+        argv[argc++] = packet_delay_str;
+    }
+
     /* set the outgoing interface if configured at the global level */
-    if ( vars.interface != NULL ) {
+    if ( item->meta->interface != NULL ) {
         argv[argc++] = "-I";
-        argv[argc++] = vars.interface;
+        argv[argc++] = item->meta->interface;
     }
 
     /* set the outgoing source v4 address if configured at the global level */
-    if ( vars.sourcev4 != NULL ) {
+    if ( item->meta->sourcev4 != NULL ) {
         argv[argc++] = "-4";
-        argv[argc++] = vars.sourcev4;
+        argv[argc++] = item->meta->sourcev4;
     }
 
     /* set the outgoing source v6 if configured at the global level */
-    if ( vars.sourcev6 != NULL ) {
+    if ( item->meta->sourcev6 != NULL ) {
         argv[argc++] = "-6";
-        argv[argc++] = vars.sourcev6;
+        argv[argc++] = item->meta->sourcev6;
     }
 
     /* add in any of the test parameters from the schedule file */
@@ -122,8 +141,8 @@ static void run_test(const test_schedule_item_t * const item) {
             seen_ipv6 = 0;
             for ( ifa = ifaddrlist; ifa != NULL; ifa = ifa->ifa_next ) {
                 /* ignore other interfaces if the source interface is set */
-                if ( vars.interface != NULL &&
-                        strcmp(vars.interface, ifa->ifa_name) != 0 ) {
+                if ( item->meta->interface != NULL &&
+                        strcmp(item->meta->interface, ifa->ifa_name) != 0 ) {
                     continue;
                 }
 
@@ -138,7 +157,7 @@ static void run_test(const test_schedule_item_t * const item) {
         }
 
         /* connect to the local amp resolver/cache */
-        if ( (resolver_fd = amp_resolver_connect(vars.nssock)) < 0 ) {
+        if ( (resolver_fd = amp_resolver_connect(item->meta->nssock)) < 0 ) {
             Log(LOG_ALERT, "TODO tidy up nicely after failing resolving");
             assert(0);
         }
@@ -211,6 +230,11 @@ static void run_test(const test_schedule_item_t * const item) {
 	if ( destinations != NULL ) {
 	    free(destinations);
 	}
+    }
+
+    /* free any command line arguments we had to convert to strings */
+    if ( packet_delay_str ) {
+        free(packet_delay_str);
     }
 
     /* done running the test, exit */

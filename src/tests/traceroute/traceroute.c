@@ -34,6 +34,7 @@
 static struct option long_options[] = {
     {"help", no_argument, 0, 'h'},
     {"interface", required_argument, 0, 'I'},
+    {"interpacketgap", required_argument, 0, 'Z'},
     {"asn", no_argument, 0, 'a'},
     {"noip", no_argument, 0, 'b'},
     {"probeall", no_argument, 0, 'f'},
@@ -104,7 +105,8 @@ static int build_ipv6_probe(void *packet, uint16_t packet_size, int id,
  * Send the next probe packet towards a given destination.
  */
 static int send_probe(struct socket_t *ip_sockets, uint16_t ident,
-        uint16_t packet_size, struct dest_info_t *info) {
+        uint16_t packet_size, uint32_t inter_packet_delay,
+        struct dest_info_t *info) {
 
     char packet[packet_size];
     long int delay;
@@ -146,6 +148,7 @@ static int send_probe(struct socket_t *ip_sockets, uint16_t ident,
 
     /* send packet with appropriate inter packet delay */
     while ( (delay = delay_send_packet(sock, packet, length, info->addr,
+                    inter_packet_delay,
                     &(info->hop[info->ttl - 1].time_sent))) > 0 ) {
         Log(LOG_DEBUG, "Sleeping for %ldus - send event triggered early",delay);
         usleep(delay);
@@ -1206,7 +1209,7 @@ static void report_results(struct timeval *start_time, int count,
  *
  */
 static void usage(char *prog) {
-    fprintf(stderr, "Usage: %s [-afr] [-p perturbate] [-s packetsize]\n", prog);
+    fprintf(stderr, "Usage: %s [-abfr] [-p perturbate] [-s packetsize]\n",prog);
     fprintf(stderr, "\n");
     fprintf(stderr, "Options:\n");
     fprintf(stderr, "  -a\t\tLookup AS numbers for all addresses\n");
@@ -1215,6 +1218,12 @@ static void usage(char *prog) {
     fprintf(stderr, "  -r\t\tUse a random packet size for each test\n");
     fprintf(stderr, "  -p <ms>\tMaximum number of milliseconds to delay test\n");
     fprintf(stderr, "  -s <bytes>\tFixed packet size to use for each test\n");
+    fprintf(stderr, "  -I <iface>\tSource interface name\n");
+    fprintf(stderr, "  -Z <usec>\tMinimum number of microseconds between packets\n");
+    fprintf(stderr, "  -4 <address>\tSource IPv4 address\n");
+    fprintf(stderr, "  -6 <address>\tSource IPv6 address\n");
+    fprintf(stderr, "  -x\t\tEnable debug output\n");
+    fprintf(stderr, "  -v\t\tPrint version information and exit\n");
 }
 
 
@@ -1252,7 +1261,8 @@ static void send_probe_callback(wand_event_handler_t *ev_hdl, void *data) {
 
     /* send probe to the destination at the appropriate TTL */
     if ( send_probe(probelist->sockets, probelist->ident,
-                probelist->opts->packet_size, item) < 0 ) {
+                probelist->opts->packet_size,
+                probelist->opts->inter_packet_delay, item) < 0 ) {
         item->next = probelist->done;
         probelist->done = item;
         probelist->done_count++;
@@ -1279,8 +1289,10 @@ static void send_probe_callback(wand_event_handler_t *ev_hdl, void *data) {
 
     /* schedule the next probe to be sent */
     if ( probelist->ready != NULL ) {
-        wand_add_timer(ev_hdl, 0, vars.inter_packet_delay, data,
-                send_probe_callback);
+        wand_add_timer(ev_hdl,
+                (int) (probelist->opts->inter_packet_delay / 1000000),
+                (probelist->opts->inter_packet_delay % 1000000),
+                data, send_probe_callback);
     }
 }
 
@@ -1303,8 +1315,10 @@ static void recv_probe4_callback(wand_event_handler_t *ev_hdl,
     gettimeofday(&now, NULL);
     if ( process_packet(AF_INET, (struct sockaddr*)&addr, packet, now,
                 data) > 0 ) {
-        wand_add_timer(ev_hdl, 0, vars.inter_packet_delay, data,
-                send_probe_callback);
+        wand_add_timer(ev_hdl,
+                (int) (probelist->opts->inter_packet_delay / 1000000),
+                (probelist->opts->inter_packet_delay % 1000000),
+                data, send_probe_callback);
     }
 
     if ( probelist->outstanding == NULL ) {
@@ -1338,8 +1352,10 @@ static void recv_probe6_callback(wand_event_handler_t *ev_hdl,
     /* TODO get a full ipv6 header so we can treat them the same? */
     if ( process_packet(AF_INET6, (struct sockaddr*)&addr, packet, now,
                 data) > 0 ) {
-        wand_add_timer(ev_hdl, 0, vars.inter_packet_delay, data,
-                send_probe_callback);
+        wand_add_timer(ev_hdl,
+                (int) (probelist->opts->inter_packet_delay / 1000000),
+                (probelist->opts->inter_packet_delay % 1000000),
+                data, send_probe_callback);
     }
 
     if ( probelist->outstanding == NULL ) {
@@ -1384,8 +1400,10 @@ static void probe_timeout_callback(wand_event_handler_t *ev_hdl, void *data) {
 
         if ( append_ready_item(probelist, item) ) {
             /* XXX in 100usec, or just do it now? or always have timer firing */
-            wand_add_timer(ev_hdl, 0, vars.inter_packet_delay, data,
-                    send_probe_callback);
+            wand_add_timer(ev_hdl,
+                    (int) (probelist->opts->inter_packet_delay / 1000000),
+                    (probelist->opts->inter_packet_delay % 1000000),
+                    data, send_probe_callback);
         }
     } else {
         /* no response at first hop, stop probing backwards */
@@ -1395,8 +1413,10 @@ static void probe_timeout_callback(wand_event_handler_t *ev_hdl, void *data) {
         probelist->done_count++;
 
         if ( enqueue_next_pending(probelist) ) {
-            wand_add_timer(ev_hdl, 0, vars.inter_packet_delay, data,
-                    send_probe_callback);
+            wand_add_timer(ev_hdl,
+                    (int) (probelist->opts->inter_packet_delay / 1000000),
+                    (probelist->opts->inter_packet_delay % 1000000),
+                    data, send_probe_callback);
         }
     }
 
@@ -1509,6 +1529,7 @@ int run_traceroute(int argc, char *argv[], int count, struct addrinfo **dests) {
     Log(LOG_DEBUG, "Starting TRACEROUTE test");
 
     /* set some sensible defaults */
+    options.inter_packet_delay = MIN_INTER_PACKET_DELAY;
     options.packet_size = DEFAULT_TRACEROUTE_PROBE_LEN;
     options.random = 0;
     options.perturbate = 0;
@@ -1519,12 +1540,13 @@ int run_traceroute(int argc, char *argv[], int count, struct addrinfo **dests) {
     sourcev6 = NULL;
     device = NULL;
 
-    while ( (opt = getopt_long(argc, argv, "hvI:abfp:rs:S:4:6:",
+    while ( (opt = getopt_long(argc, argv, "hvI:abfp:rs:4:6:Z:",
                     long_options, NULL)) != -1 ) {
 	switch ( opt ) {
             case '4': sourcev4 = get_numeric_address(optarg, NULL); break;
             case '6': sourcev6 = get_numeric_address(optarg, NULL); break;
             case 'I': device = optarg; break;
+            case 'Z': options.inter_packet_delay = atoi(optarg); break;
 	    case 'a': options.as = 1; break;
 	    case 'b': options.ip = 0; break;
 	    case 'f': options.probeall = 1; break;
@@ -1645,8 +1667,10 @@ int run_traceroute(int argc, char *argv[], int count, struct addrinfo **dests) {
             recv_probe6_callback);
 
     /* set up timer to send packets */
-    wand_add_timer(ev_hdl, 0, vars.inter_packet_delay, &probelist,
-            send_probe_callback);
+    wand_add_timer(ev_hdl,
+            (int) (options.inter_packet_delay / 1000000),
+            (options.inter_packet_delay % 1000000),
+            &probelist, send_probe_callback);
 
     wand_event_run(ev_hdl);
 
