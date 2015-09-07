@@ -20,9 +20,9 @@ def schedule_to_test_params(schedule):
 
 
 def direction_to_string(direction):
-    if direction == ampsave.tests.throughput_pb2.Item.Direction.Value("CLIENT_TO_SERVER"):
+    if direction == ampsave.tests.throughput_pb2.Item.CLIENT_TO_SERVER:
         return "out"
-    if direction == ampsave.tests.throughput_pb2.Item.Direction.Value("SERVER_TO_CLIENT"):
+    if direction == ampsave.tests.throughput_pb2.Item.SERVER_TO_CLIENT:
         return "in"
     return "unknown"
 

@@ -1499,3 +1499,10 @@ test_t *register_test() {
 
     return new_test;
 }
+
+
+#if UNIT_TEST
+void amp_test_http_split_url(char *orig_url, char *server, char *path, int set){
+    split_url(orig_url, server, path, set);
+}
+#endif
