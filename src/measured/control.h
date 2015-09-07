@@ -4,7 +4,6 @@
 #include <libwandevent.h>
 #include "testlib.h"
 
-// TODO good default values for these things
 /* control port is a string that gets given to getaddrinfo() */
 #define CONTROL_PORT "8869"
 

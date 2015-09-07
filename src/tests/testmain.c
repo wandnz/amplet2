@@ -83,11 +83,7 @@ int main(int argc, char *argv[]) {
     /* load information about the test, including the callback functions */
     test_info = get_test_info();
 
-    /*
-     * FIXME is this the best way to get this looking like it does when
-     * run through measured? Just filling in the one value that we know we
-     * will be looking at later when reporting.
-     */
+    /* * Just fill in the one value for this particular test */
     amp_tests[test_info->id] = test_info;
 
     /* suppress "invalid argument" errors from getopt */
@@ -145,7 +141,6 @@ int main(int argc, char *argv[]) {
     pthread_mutex_init(&addrlist_lock, NULL);
 
     /* process all destinations */
-    /* TODO prevent duplicate destinations? */
     for ( i=optind; i<argc; i++ ) {
 	/* check if adding the new destination would be allowed by the test */
 	if ( test_info->max_targets > 0 &&
