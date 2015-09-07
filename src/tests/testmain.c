@@ -15,6 +15,7 @@
 #include "messaging.h" /* just for temporary ssl testing stuff */
 #include "ampresolv.h"
 #include "testlib.h"
+#include "../measured/control.h" /* just for CONTROL_PORT */
 
 
 
@@ -194,7 +195,7 @@ int main(int argc, char *argv[]) {
          */
         vars.amqp_ssl.keys_dir = AMP_KEYS_DIR "/default";
         vars.collector = "default";
-        vars.control_port = "8869"; /* XXX */
+        vars.control_port = CONTROL_PORT;
 
         if ( initialise_ssl(&vars.amqp_ssl, vars.collector) < 0 ) {
             Log(LOG_ALERT, "Failed to initialise SSL, aborting");
