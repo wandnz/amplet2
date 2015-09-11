@@ -186,7 +186,7 @@ int main(int argc, char *argv[]) {
          */
         vars.amqp_ssl.keys_dir = AMP_KEYS_DIR "/default";
         vars.collector = "default";
-        vars.control_port = CONTROL_PORT;
+        vars.control_port = atol(CONTROL_PORT);
 
         if ( initialise_ssl(&vars.amqp_ssl, vars.collector) < 0 ) {
             Log(LOG_ALERT, "Failed to initialise SSL, aborting");
