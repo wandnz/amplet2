@@ -6,14 +6,12 @@ CLEANFILES=traceroute.pb-c.c traceroute.pb-c.h
 testdir=$(libdir)/$(PACKAGE)/tests
 
 bin_PROGRAMS=amp-trace
-amp_trace_SOURCES=traceroute.c as.c ../testmain.c
-nodist_amp_trace_SOURCES=traceroute.pb-c.c
-amp_trace_LDADD=-L../../common/ -lamp -lwandevent -lpthread -lunbound -lprotobuf-c
+amp_trace_SOURCES=../testmain.c
+amp_trace_LDADD=trace.la -L../../common/ -lamp -lwandevent -lpthread -lunbound -lprotobuf-c
 
 test_LTLIBRARIES=trace.la
 trace_la_SOURCES=traceroute.c as.c
 nodist_trace_la_SOURCES=traceroute.pb-c.c
-trace_la_CFLAGS=-rdynamic
 trace_la_LDFLAGS=-module -avoid-version -L../../common/ -lamp -lwandevent -lpthread -lunbound -lprotobuf-c
 
 INCLUDES=-I../ -I../../common/
