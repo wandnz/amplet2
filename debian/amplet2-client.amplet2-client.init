@@ -63,6 +63,29 @@ contains()
 }
 
 #
+# Wait for the pidfile to be populated and to contain a running pid
+#
+do_wait()
+{
+    attempt=0
+    while [ $attempt -lt 100 ]; do
+        attempt=$((attempt+1))
+        if [ -f $1 ]; then
+            # check if valid, running pid
+            ps -p `cat $PIDFILE` > /dev/null
+            if [ $? -eq 0 ]; then
+                # return success, amplet2 client started ok
+                return 0
+            fi
+        fi
+        sleep 0.1
+    done
+    # return failure, for some reason it didn't start properly
+    return 2
+}
+
+
+#
 # Function that starts the daemon/service
 #
 do_start()
@@ -89,6 +112,13 @@ do_start()
             # use start-stop-daemon --test?
             start-stop-daemon --start --quiet --exec $DAEMON \
                     --pidfile $PIDFILE -- $DAEMON_OPTS -c $client -p $PIDFILE
+
+            # if the client was started right now then wait for the pidfile
+            # to be correct before continuing (makes sure puppet doesn't try
+            # to start extra copies thinking it isn't running ok).
+            if [ $? -eq 0 ]; then
+                do_wait $PIDFILE
+            fi
 
             case "$?" in
 		0|1) SUCCESS=$((SUCCESS+1)); \
