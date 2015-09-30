@@ -926,7 +926,9 @@ int run_tcpping(int argc, char *argv[], int count, struct addrinfo **dests) {
      * for sending the next packet and a fd callback for any response.
      */
     if (count > 0) {
-        send_packet(ev_hdl, globals);
+        /* add first probe at time 0, it will happen immediately on run */
+        globals->nextpackettimer = wand_add_timer(ev_hdl, 0, 0, globals,
+                send_packet);
         globals->losstimer = wand_add_timer(ev_hdl, LOSS_TIMEOUT, 0, globals,
                 halt_test);
 
