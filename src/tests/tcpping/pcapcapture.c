@@ -106,12 +106,44 @@ static int create_pcap_filter(struct pcapdevice *p, uint16_t srcportv4,
     char pcaperr[PCAP_ERRBUF_SIZE];
     char filterstring[1024];
 
+#if HAVE_PCAP_IMMEDIATE_MODE
+    p->pcap = pcap_create(device, pcaperr);
+#else
     /* XXX Hard-coded snaplen -- be wary if repurposing for other tests */
     p->pcap = pcap_open_live(device, 200, 0, 10, pcaperr);
+#endif
+
     if (p->pcap == NULL) {
         Log(LOG_ERR, "Failed to open live pcap: %s", pcaperr);
         return 0;
     }
+
+#if HAVE_PCAP_IMMEDIATE_MODE
+    if ( pcap_set_immediate_mode(p->pcap, 1) != 0 ) {
+        Log(LOG_ERR, "Failed to set pcap immediate mode");
+        return 0;
+    }
+    /* XXX Hard-coded snaplen -- be wary if repurposing for other tests */
+    if ( pcap_set_snaplen(p->pcap, 200) != 0 ) {
+        Log(LOG_ERR, "Failed to set pcap snaplen");
+        return 0;
+    }
+
+    if ( pcap_set_promisc(p->pcap, 0) != 0 ) {
+        Log(LOG_ERR, "Failed to disable promiscuous mode");
+        return 0;
+    }
+
+    if ( pcap_set_timeout(p->pcap, 10) != 0 ) {
+        Log(LOG_ERR, "Failed to set pcap read timeout");
+        return 0;
+    }
+
+    if ( pcap_activate(p->pcap) != 0 ) {
+        Log(LOG_ERR, "Failed to activate pcap handle:%s", pcap_geterr(p->pcap));
+        return 0;
+    }
+#endif
 
     snprintf(filterstring, 1024-1,
             //"(tcp and (dst port %d or dst port %d) and src port %d)",

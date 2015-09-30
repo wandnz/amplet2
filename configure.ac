@@ -222,9 +222,15 @@ AM_CONDITIONAL(WANT_TCPPING_TEST,
 	[test x"$want_tcpping_test" = xtrue])
 
 if test x"$want_tcpping_test" = xtrue; then
-    AC_CHECK_LIB([pcap], [pcap_next],pcap_found=1,pcap_found=0)
+    AC_CHECK_LIB([pcap], [pcap_next], pcap_found=1, pcap_found=0)
+    AC_CHECK_LIB([pcap], [pcap_set_immediate_mode], pcap_imm_found=1, pcap_imm_found=0)
+
     if test "$pcap_found" = 0; then
-       AC_MSG_ERROR(libpcap is required for tcpping but not found; use LDFLAGS to specify library location or disable tcpping test by setting --enable-tcpping=no)
+        AC_MSG_ERROR(libpcap is required for tcpping but not found; use LDFLAGS to specify library location or disable tcpping test by setting --enable-tcpping=no)
+    fi
+
+    if test "$pcap_imm_found" = 1; then
+        AC_DEFINE([HAVE_PCAP_IMMEDIATE_MODE], [1], [Define to 1 if you have the libpcap pcap_set_immediate_mode function])
     fi
 fi
 
