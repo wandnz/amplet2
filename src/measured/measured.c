@@ -174,7 +174,7 @@ static void stop_running(wand_event_handler_t *ev_hdl,
         __attribute__((unused))int signum,
         __attribute__((unused))void *data) {
 
-    Log(LOG_INFO, "Received SIGINT, exiting event loop");
+    Log(LOG_DEBUG, "Received signal, exiting event loop");
     ev_hdl->running = false;
 }
 
@@ -556,8 +556,9 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    /* set up a handler to deal with SIGINT so we can shutdown nicely */
+    /* set up a handler to deal with SIGINT/SIGTERM so we can shutdown nicely */
     wand_add_signal(SIGINT, NULL, stop_running);
+    wand_add_signal(SIGTERM, NULL, stop_running);
 
     /* set up handler to deal with SIGCHLD so we can tidy up after tests */
     wand_add_signal(SIGCHLD, NULL, child_reaper);
@@ -623,6 +624,7 @@ int main(int argc, char *argv[]) {
     wand_event_run(ev_hdl);
 
 
+    Log(LOG_INFO, "Shutting down");
 
     /* if we get control back then it's time to tidy up */
     Log(LOG_DEBUG, "Clearing test schedules");
@@ -668,7 +670,7 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    Log(LOG_INFO, "Shutting down");
+    Log(LOG_DEBUG, "Shutdown complete");
 
     return 0;
 }
