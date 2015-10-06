@@ -19,7 +19,8 @@ CHAR	    [a-zA-Z0-9_ ]
     struct server_stats_t;
 
     extern struct server_stats_t *add_object(char *url, int parse);
-    extern void* pipeline_next_object(struct server_stats_t *server);
+    extern void* pipeline_next_object(CURLM *multi, struct server_stats_t *server);
+    extern CURLM *multi;
 
 %}
 
@@ -129,8 +130,9 @@ static void parsed_complete_object(char *url) {
 
     server = add_object(url, 0);
 
-    if(server != NULL)
-	pipeline_next_object(server);
+    if ( server != NULL ) {
+	pipeline_next_object(multi, server);
+    }
 }
 
 int yyerror(char *s) {

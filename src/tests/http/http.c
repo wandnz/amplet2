@@ -26,6 +26,7 @@
 #include "curl/curl.h"
 
 
+CURLM *multi;
 CURLSH *share_handle = NULL;
 struct server_stats_t *server_list = NULL;
 int total_pipelines;
@@ -754,7 +755,7 @@ static int select_pipeline(struct server_stats_t *server, uint32_t threshold) {
  *
  * TODO Pipeline selection algorithms might need some work.
  */
-CURL *pipeline_next_object(struct server_stats_t *server) {
+CURL *pipeline_next_object(CURLM *multi, struct server_stats_t *server) {
 
     struct object_stats_t *object;
     int pipeline;
@@ -848,18 +849,6 @@ CURL *pipeline_next_object(struct server_stats_t *server) {
     curl_easy_setopt(object->handle, CURLOPT_USERAGENT, "AMP HTTP test agent");
     curl_easy_setopt(object->handle, CURLOPT_SSLVERSION, options.sslversion);
 
-    if ( server->multi[pipeline] == 0 ) {
-        if ( !(server->multi[pipeline] = curl_multi_init()) ) {
-            Log(LOG_ERR, "Failed to initialise CURL, aborting\n");
-            exit(1);
-        }
-#if LIBCURL_VERSION_NUM >= 0x071000
-        if ( options.pipelining ) {
-            curl_multi_setopt(server->multi[pipeline], CURLMOPT_PIPELINING, 1);
-        }
-#endif
-    }
-
     /* save the time that this server became active */
     gettimeofday(&object->start, NULL);
     if ( server->start.tv_sec == 0 && server->start.tv_usec == 0 ) {
@@ -867,7 +856,7 @@ CURL *pipeline_next_object(struct server_stats_t *server) {
         server->start.tv_usec = object->start.tv_usec;
     }
 
-    if ( curl_multi_add_handle(server->multi[pipeline], object->handle) != 0 ) {
+    if ( curl_multi_add_handle(multi, object->handle) != 0 ) {
         Log(LOG_ERR, "Failed to add multi handle, aborting\n");
         exit(1);
     }
@@ -877,7 +866,7 @@ CURL *pipeline_next_object(struct server_stats_t *server) {
 
 
 
-static struct object_stats_t *save_stats(CURL *handle, int pipeline) {
+static struct object_stats_t *save_stats(CURL *handle) {
     char *url;
     struct timeval end;
     struct object_stats_t *object;
@@ -964,7 +953,7 @@ static struct object_stats_t *save_stats(CURL *handle, int pipeline) {
     object->size = bytes;
     object->connect_count = connect_count;
     object->code = code;
-    object->pipeline = pipeline;
+    object->pipeline = i;
     server->finished = add_object_to_queue(object, server->finished);
 
     curl_slist_free_all(object->slist);
@@ -976,7 +965,7 @@ static struct object_stats_t *save_stats(CURL *handle, int pipeline) {
 /*
  *
  */
-static void check_messages(CURLM *multi, int *running_handles, int pipeline) {
+static void check_messages(CURLM *multi, int *running_handles) {
     CURLMsg *msg;
     int msg_queue;
     struct server_stats_t *server;
@@ -986,6 +975,7 @@ static void check_messages(CURLM *multi, int *running_handles, int pipeline) {
     CURL *handle;
     char host[MAX_DNS_NAME_LEN];
     char path[MAX_PATH_LEN];
+    struct server_stats_t *redirect = NULL;
 
     /* check for messages from the transfers - errors or completed transfers */
     while ( (msg = curl_multi_info_read(multi, &msg_queue)) ) {
@@ -1019,7 +1009,7 @@ static void check_messages(CURLM *multi, int *running_handles, int pipeline) {
             }
         }
 
-        object = save_stats(msg->easy_handle, pipeline);
+        object = save_stats(msg->easy_handle);
         curl_multi_remove_handle(multi, handle);
 
         /* split the url before we cleanup the handle (and lose the pointer) */
@@ -1037,222 +1027,131 @@ static void check_messages(CURLM *multi, int *running_handles, int pipeline) {
             /* add the new location to the queue to be fetched */
             Log(LOG_DEBUG, "Following %d redirect to %s", object->code,
                     object->location);
-            add_object(object->location, object->parse);
+            redirect = add_object(object->location, object->parse);
         }
 
-        /* queue any more objects that we have for that server */
         get_server(host, server_list, &server);
         if ( server == NULL ) {
             Log(LOG_ERR, "getServer() failed for '%s'\n", host);
             exit(1);
         }
 
-        /* add another object if there are more to come */
-        if ( pipeline_next_object(server) != NULL ) {
+        /* queue the redirected item if it is from another server */
+        if ( redirect != server ) {
+            if ( pipeline_next_object(multi, redirect) != NULL ) {
+                (*running_handles)++;
+            }
+        }
+
+        /* queue any more objects that we have for this server */
+        if ( pipeline_next_object(multi, server) != NULL ) {
             (*running_handles)++;
         }
     }
 }
 
 
+
 /*
- * TODO this function is way too long
+ * Ask curl how long we should wait
+ */
+static long get_wait_timeout(CURLM *multi) {
+    long wait;
+
+#if HAVE_CURL_MULTI_TIMEOUT
+    if ( curl_multi_timeout(multi, &wait) ) {
+        Log(LOG_ERR, "error calling curl_multi_timeout!\n");
+        exit(-1);
+    }
+
+    /* it's polite to wait at least a short time */
+    if ( wait < 0 ) {
+        wait = 100;
+    }
+#else
+    wait = 100;
+#endif
+
+    return wait;
+}
+
+
+
+/*
+ *
  */
 static int fetch(char *url) {
     struct server_stats_t *server;
     int running_handles = -1;
-    int data_outstanding;
     int max_fd;
     struct timeval timeout;
     fd_set read_fdset, write_fdset, except_fdset;
-    CURLM *multi;
     int result = 0;
     long wait;
-    int index;
-    int j;
-
-    /*
-     * Setup a share handle to share the dns cache between all handles. Don't
-     * bother with setting lock functions as this test is single threaded, we
-     * won't be accessing share_handle in multiple locations at the same time.
-     */
-    share_handle = curl_share_init();
-    curl_share_setopt(share_handle, CURLSHOPT_SHARE, CURL_LOCK_DATA_DNS);
 
     /* add the primary server/path that is being fetched */
     add_object(url, 1);
 
-    pipeline_next_object(server_list);
-
     while ( running_handles ) {
-        /* call curl_multi_perform() until it no longer wants to be run.
-         * XXX thought it might be useful to round-robin it across all
-         * connections, but now I'm not sure that offers any advantage over
-         * dealing with each one in turn
-         */
-        data_outstanding = 1;
-        while ( data_outstanding ) {
-            data_outstanding = 0;
-            /* check each server to find running handles */
-            for ( server = server_list; server != NULL; server=server->next ) {
-                /* force start any new connections that need it */
-                pipeline_next_object(server);
-
-                /* check each multi handle the server has */
-                for ( index = 0; index < server->num_pipelines; index++ ) {
-                    multi = server->multi[index];
-                    /* not all of them will always be connected */
-                    if ( multi == NULL ) {
-                        continue;
-                    }
-                    /* set flag if we need to call curl_multi_perform again */
-                    if ( curl_multi_perform(multi,
-                                &server->running_handles[index]) ==
-                            CURLM_CALL_MULTI_PERFORM ) {
-                        data_outstanding = 1;
-                    }
-                }
-            }
-        }
-
-        /* fill the FD sets for each server and count the running handles */
-        running_handles = 0;
+        /* force start any connections that need it */
         for ( server = server_list; server != NULL; server = server->next ) {
-            /* for each multi handle the server has */
-            for ( index = 0; index < server->num_pipelines; index++ ) {
-                multi = server->multi[index];
-                running_handles += server->running_handles[index];
-
-                /* zero fdsets regardless of there being running handles */
-                FD_ZERO(&server->read_fdset[index]);
-                FD_ZERO(&server->write_fdset[index]);
-                FD_ZERO(&server->except_fdset[index]);
-
-                /* add any running file descriptors to the lists */
-                if ( server->running_handles[index] ) {
-                    /* get curl file descriptors */
-                    if ( curl_multi_fdset(multi, &server->read_fdset[index],
-                                &server->write_fdset[index],
-                                &server->except_fdset[index],
-                                &server->max_fd[index])) {
-                        Log(LOG_ERR, "error calling curl_multi_fdset!\n");
-                        exit(-1);
-                    }
-                }
-            }
+            pipeline_next_object(multi, server);
         }
 
+        /* call curl_multi_perform() until it no longer wants to be run */
+        while ( curl_multi_perform(multi, &running_handles) ==
+                CURLM_CALL_MULTI_PERFORM ) {
+            /* keep calling curl_multi_perform() */
+        }
 
+        /*
+         * If there are any running handles then determine which file handles
+         * involved are ready for reading/writing
+         */
         if ( running_handles ) {
-            /* select on all running descriptors to find ones that are ready */
             do {
                 FD_ZERO(&read_fdset);
                 FD_ZERO(&write_fdset);
                 FD_ZERO(&except_fdset);
                 max_fd = -1;
 
-                /* add all the file descriptors */
-                for ( server=server_list; server != NULL; server=server->next) {
-                    for ( index = 0; index < server->num_pipelines; index++ ) {
-                        if ( server->pipelines[index] != NULL ) {
-                            if ( server->max_fd[index] > max_fd ) {
-                                max_fd = server->max_fd[index];
-                            }
-
-                            for ( j = 0; j < server->max_fd[index] + 1; j++ ) {
-                                if ( FD_ISSET(j, &server->read_fdset[index])) {
-                                    FD_SET(j, &read_fdset);
-                                }
-                                if ( FD_ISSET(j, &server->write_fdset[index])) {
-                                    FD_SET(j, &write_fdset);
-                                }
-                                if ( FD_ISSET(j,&server->except_fdset[index])) {
-                                    FD_SET(j, &except_fdset);
-                                }
-                            }
-                        }
-                    }
-                }
-
-                if ( max_fd < 0 ) {
-                    Log(LOG_ERR, "max_fd not set!\n");
+                /* add any running file descriptors to the lists */
+                if ( curl_multi_fdset(multi, &read_fdset, &write_fdset,
+                            &except_fdset, &max_fd)) {
+                    Log(LOG_ERR, "error calling curl_multi_fdset!\n");
                     exit(-1);
                 }
 
                 /* check how long we should be waiting for before timing out */
-#if HAVE_CURL_MULTI_TIMEOUT
-                //TODO: check other timeouts, currently using first, regardless
-                if ( curl_multi_timeout(server_list->multi[0], &wait) ) {
-                    Log(LOG_ERR, "error calling curl_multi_timeout!\n");
-                    exit(-1);
+                wait = get_wait_timeout(multi);
+
+                /* if there are no descriptors, sleep and skip the select */
+                if ( max_fd < 0 ) {
+                    usleep(wait / 1000);
+                    break;
                 }
 
-                /* it's polite to wait at least a short time */
-                if(wait < 0)
-                    wait = 1000;
-#else
-                wait = 1000;
-#endif
-                /* TODO:
-                 * update timeout values if interrupted. Not too worried about
-                 * this just now...
-                 */
+                /* TODO update timeout values if interrupted */
                 timeout.tv_sec = wait / 1000;
                 timeout.tv_usec = (wait % 1000) * 1000;
 
                 result = select(max_fd + 1, &read_fdset, &write_fdset,
                         &except_fdset, &timeout);
+
             } while ( result < 0 && errno == EINTR );
 
             if ( result < 0 ) {
-                Log(LOG_ERR, "error in select: %i (%s)\n", errno,
-                        strerror(errno));
+                Log(LOG_ERR, "error calling select(): %s", strerror(errno));
                 exit(-1);
             }
         }
 
-        /* XXX this is identical to the first block except it checks msgs */
-        /* call curl_multi_perform() until it no longer wants to be run.
-         * XXX thought it might be useful to round-robin it across all
-         * connections, but now I'm not sure that offers any advantage over
-         * dealing with each one in turn
-         */
-        data_outstanding = 1;
-        while ( data_outstanding ) {
-            running_handles = 0;
-            data_outstanding = 0;
-            for ( server=server_list; server != NULL; server=server->next) {
-                //XXX new to force start new connections once an initial
-                //response has been received
-                pipeline_next_object(server);
-                for ( index = 0; index < server->num_pipelines; index++) {
-                    if ( server->multi[index] == NULL ) {
-                        continue;
-                    }
-                    if ( curl_multi_perform(server->multi[index],
-                                &server->running_handles[index]) ==
-                            CURLM_CALL_MULTI_PERFORM ) {
-                        data_outstanding = 1;
-                    }
-                    check_messages(server->multi[index],
-                            &server->running_handles[index], index);
-
-                    running_handles += server->running_handles[index];
-                }
-            }
-        }
+        /* check if there are any completed transfers */
+        check_messages(multi, &running_handles);
     }
 
-    /* clean up all the connections we opened */
-    for(server = server_list; server != NULL; server = server->next) {
-        for ( index = 0; index < server->num_pipelines; index++ ) {
-            if ( server->multi[index] != NULL ) {
-                curl_multi_cleanup(server->multi[index]);
-            }
-        }
-    }
+    curl_multi_cleanup(multi);
 
-    curl_share_cleanup(share_handle);
     return result;
 }
 
@@ -1428,7 +1327,29 @@ int run_http(int argc, char *argv[], __attribute__((unused))int count,
     }
 
     curl_global_init(CURL_GLOBAL_ALL);
+
+    if ( !(multi = curl_multi_init()) ) {
+        Log(LOG_ERR, "Failed to initialise CURL multi handle, aborting\n");
+        exit(1);
+    }
+#if LIBCURL_VERSION_NUM >= 0x071000
+    if ( options.pipelining ) {
+        curl_multi_setopt(multi, CURLMOPT_PIPELINING, 1);
+    }
+#endif
+
+    /*
+     * Setup a share handle to share the dns cache between all handles. Don't
+     * bother with setting lock functions as this test is single threaded, we
+     * won't be accessing share_handle in multiple locations at the same time.
+     */
+    //XXX move one level up as well? all global...
+    share_handle = curl_share_init();
+    curl_share_setopt(share_handle, CURLSHOPT_SHARE, CURL_LOCK_DATA_DNS);
+
     fetch(options.path);
+
+    curl_share_cleanup(share_handle);
     curl_global_cleanup();
 
     /*

@@ -18,32 +18,15 @@ static struct server_stats_t *create_server(char *name, int pipelines) {
     memset(server, 0, sizeof(struct server_stats_t));
     strncpy(server->server_name, name, MAX_DNS_NAME_LEN);
     strcpy(server->address, "0.0.0.0");
+
     server->pipelining_maxrequests = 1;
     server->pipelines = malloc(pipelines * sizeof(struct object_stats_t*));
-
-    /* per connection multi handles */
-    server->multi = malloc(pipelines * sizeof(CURLM *));
-    memset(server->multi, 0, pipelines * sizeof(CURLM*));
-
-    /* fd_set per multi handle */
-    server->read_fdset = malloc(pipelines * sizeof(fd_set));
-    server->write_fdset = malloc(pipelines * sizeof(fd_set));
-    server->except_fdset = malloc(pipelines * sizeof(fd_set));
-
-    /* supporting info for performing select() */
-    server->running_handles = malloc(pipelines * sizeof(int));
-    server->max_fd = malloc(pipelines * sizeof(int));
     server->pipelen = malloc(pipelines * sizeof(int));
-
     server->num_pipelines = pipelines;
+
     for ( i = 0; i < pipelines; i++ ) {
         server->pipelines[i] = NULL;
-        server->max_fd[i] = -1;
-        server->running_handles[i] = 0;
         server->pipelen[i] = 0;
-        FD_ZERO(&server->read_fdset[i]);
-        FD_ZERO(&server->write_fdset[i]);
-        FD_ZERO(&server->except_fdset[i]);
     }
 
     global.servers++;
