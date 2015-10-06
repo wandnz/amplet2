@@ -65,6 +65,8 @@ CHAR	    [a-zA-Z0-9_ ]
 <linktag,style>"href=\'"	{ yy_push_state(squote); };
 <linktag,style>\n		{ };
 <linktag,style>"r"		{ /* eat 'r' that isn't rel='stylesheet' */ };
+<linktag,style>"h"		{ /* eat 'h' that isn't href= */ };
+
 <linktag>("rel=\"stylesheet\"")|("rel=\'stylesheet\'") {
 
 				    if ( url_index > 0 ) {
