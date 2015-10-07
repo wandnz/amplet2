@@ -172,8 +172,7 @@ AC_ARG_ENABLE(icmp,
     esac],
     [want_icmp_test=true])
 # using AM_CONDITIONAL propagates this value through to all Makefile.am files
-AM_CONDITIONAL(WANT_ICMP_TEST,
-	[test x"$want_icmp_test" = xtrue])
+AM_CONDITIONAL(WANT_ICMP_TEST, [test x"$want_icmp_test" = xtrue])
 
 AC_ARG_ENABLE(traceroute,
     AC_HELP_STRING([--enable-traceroute],
@@ -187,8 +186,7 @@ AC_ARG_ENABLE(traceroute,
     esac],
     [want_traceroute_test=true])
 # using AM_CONDITIONAL propagates this value through to all Makefile.am files
-AM_CONDITIONAL(WANT_TRACEROUTE_TEST,
-	[test x"$want_traceroute_test" = xtrue])
+AM_CONDITIONAL(WANT_TRACEROUTE_TEST, [test x"$want_traceroute_test" = xtrue])
 
 AC_ARG_ENABLE(dns,
     AC_HELP_STRING([--enable-dns],
@@ -202,8 +200,7 @@ AC_ARG_ENABLE(dns,
     esac],
     [want_dns_test=true])
 # using AM_CONDITIONAL propagates this value through to all Makefile.am files
-AM_CONDITIONAL(WANT_DNS_TEST,
-	[test x"$want_dns_test" = xtrue])
+AM_CONDITIONAL(WANT_DNS_TEST, [test x"$want_dns_test" = xtrue])
 
 AC_ARG_ENABLE(throughput,
     AC_HELP_STRING([--enable-throughput],
@@ -217,8 +214,7 @@ AC_ARG_ENABLE(throughput,
     esac],
     [want_throughput_test=true])
 # using AM_CONDITIONAL propagates this value through to all Makefile.am files
-AM_CONDITIONAL(WANT_THROUGHPUT_TEST,
-	[test x"$want_throughput_test" = xtrue])
+AM_CONDITIONAL(WANT_THROUGHPUT_TEST, [test x"$want_throughput_test" = xtrue])
 
 AC_ARG_ENABLE(tcpping,
     AC_HELP_STRING([--enable-tcpping],
@@ -232,8 +228,7 @@ AC_ARG_ENABLE(tcpping,
     esac],
     [want_tcpping_test=true])
 # using AM_CONDITIONAL propagates this value through to all Makefile.am files
-AM_CONDITIONAL(WANT_TCPPING_TEST,
-	[test x"$want_tcpping_test" = xtrue])
+AM_CONDITIONAL(WANT_TCPPING_TEST, [test x"$want_tcpping_test" = xtrue])
 
 if test x"$want_tcpping_test" = xtrue; then
     AC_CHECK_LIB([pcap], [pcap_next], pcap_found=1, pcap_found=0)
@@ -260,8 +255,7 @@ AC_ARG_ENABLE(http,
     esac],
     [want_http_test=true])
 # using AM_CONDITIONAL propagates this value through to all Makefile.am files
-AM_CONDITIONAL(WANT_HTTP_TEST,
-	[test x"$want_http_test" = xtrue])
+AM_CONDITIONAL(WANT_HTTP_TEST, [test x"$want_http_test" = xtrue])
 if test x"$want_http_test" = xtrue; then
     # check there is a lexer to build the scanner
     AM_PROG_LEX
