@@ -24,7 +24,7 @@
 static void add_parsed_line(struct amp_asn_info *info, struct iptrie *result,
         char *line) {
 
-    char *asptr, *addrptr, *addrstr;
+    char *asptr = NULL, *addrptr = NULL, *addrstr = NULL;
     struct sockaddr_storage addr;
     uint64_t as;
     uint8_t prefix;
