@@ -2,7 +2,7 @@ testdir=$(libdir)/$(PACKAGE)/tests
 
 bin_PROGRAMS=amp-remoteskeleton
 amp_remoteskeleton_SOURCES=remoteskeleton.c ../testmain.c
-amp_remoteskeleton_LDADD=-L../../common/ -lamp
+amp_remoteskeleton_LDADD=-L../../common/ -lamp -lunbound
 
 test_LTLIBRARIES=remoteskeleton.la
 remoteskeleton_la_SOURCES=remoteskeleton.c

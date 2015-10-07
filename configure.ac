@@ -25,6 +25,20 @@ if test "$GCC" = "yes"; then
 fi
 
 # Checks for library functions.
+
+# TODO might be able to tidy up some of these? If every program links with the
+# same library then just leave the action-if-found empty so it gets added to
+# the global $LIBS
+AC_CHECK_LIB([crypto], [EVP_DigestInit_ex],crypto_found=1,crypto_found=0)
+if test "$crypto_found" = 0; then
+    AC_MSG_ERROR(Required library libcrypto not found; use LDFLAGS to specify library location)
+fi
+
+AC_CHECK_LIB([ssl], [SSL_library_init],ssl_found=1,ssl_found=0)
+if test "$ssl_found" = 0; then
+    AC_MSG_ERROR(Required library libssl not found; use LDFLAGS to specify library location)
+fi
+
 AC_CHECK_LIB([confuse], [cfg_init],confuse_found=1,confuse_found=0)
 if test "$confuse_found" = 0; then
     AC_MSG_ERROR(Required library libconfuse not found; use LDFLAGS to specify library location)

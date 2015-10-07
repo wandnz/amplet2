@@ -7,7 +7,7 @@ testdir=$(libdir)/$(PACKAGE)/tests
 
 bin_PROGRAMS=amp-tcpping
 amp_tcpping_SOURCES=../testmain.c
-amp_tcpping_LDADD=tcpping.la -L../../common/ -lamp -lwandevent -lpcap -lprotobuf-c
+amp_tcpping_LDADD=tcpping.la -L../../common/ -lamp -lwandevent -lpcap -lprotobuf-c -lunbound
 
 test_LTLIBRARIES=tcpping.la
 tcpping_la_SOURCES=pcapcapture.c tcpping.c

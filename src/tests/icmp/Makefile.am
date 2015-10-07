@@ -7,7 +7,7 @@ testdir=$(libdir)/$(PACKAGE)/tests
 
 bin_PROGRAMS=amp-icmp
 amp_icmp_SOURCES=../testmain.c
-amp_icmp_LDADD=icmp.la -L../../common/ -lamp -lprotobuf-c
+amp_icmp_LDADD=icmp.la -L../../common/ -lamp -lprotobuf-c -lunbound
 
 test_LTLIBRARIES=icmp.la
 icmp_la_SOURCES=icmp.c

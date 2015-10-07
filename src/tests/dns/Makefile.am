@@ -7,7 +7,7 @@ testdir=$(libdir)/$(PACKAGE)/tests
 
 bin_PROGRAMS=amp-dns
 amp_dns_SOURCES=../testmain.c
-amp_dns_LDADD=dns.la -L../../common/ -lamp -lprotobuf-c
+amp_dns_LDADD=dns.la -L../../common/ -lamp -lprotobuf-c -lunbound
 
 test_LTLIBRARIES=dns.la
 dns_la_SOURCES=dns.c
