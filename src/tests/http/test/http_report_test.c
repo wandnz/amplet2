@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
+#include <math.h>
 
 #include "modules.h"
 #include "testlib.h"
@@ -20,6 +21,7 @@
 #define MAX_HOST_PART_LEN 63
 #define MAX_PATH_PARTS 20
 #define MAX_PATH_PART_LEN 127
+#define EPSILON 0.000001
 
 /* these are globals as we need to get them into the print callback */
 int option_count = 0;
@@ -59,9 +61,20 @@ struct opt_t options[] = {
     {{"http://foo.bar.baz.example.org"},
         {0}, {0}, 1, 2048, 1024, 512, 1, 256, 1, 0, 0, 0, 0, 0, 0},
     {{"http://foo.bar.baz.wand.net.nz/a/b/c/d/e.fgh"},
-        {0}, {0}, 1, 2147483648, 2147483648, 2147483648, 1, 2147483648,
+        {0}, {0}, 1, 2147483647, 2147483647, 2147483647, 1, 2147483647,
         1, 0, 0, 0, 0, 0, 0},
 };
+
+
+
+/*
+ * Check if two floating point values are close enough to be considered the
+ * same value. In our case we are only checking start/end times that are at
+ * timeval precision but are converted into doubles to transmit on the network.
+ */
+static int is_almost_equal(double a, double b) {
+    return fabs(a - b) < EPSILON;
+}
 
 
 
@@ -205,11 +218,13 @@ static void verify_header(struct opt_t *a, Amplet2__Http__Header *b) {
 static void verify_object(struct object_stats_t *a, Amplet2__Http__Object *b) {
     assert(strcmp(a->path, b->path) == 0);
     assert(b->has_start);
-    assert((double)a->start.tv_sec + ((double)a->start.tv_usec / 1000000.0) ==
-            b->start);
+    assert(is_almost_equal(
+                (double)a->start.tv_sec + ((double)a->start.tv_usec/1000000.0),
+                b->start));
     assert(b->has_end);
-    assert((double)a->end.tv_sec + ((double)a->end.tv_usec / 1000000.0) ==
-            b->end);
+    assert(is_almost_equal(
+                (double)a->end.tv_sec + ((double)a->end.tv_usec / 1000000.0),
+                b->end));
 
     assert(b->has_lookup);
     assert(a->lookup == b->lookup);
@@ -287,11 +302,13 @@ static void verify_server(struct server_stats_t *a, Amplet2__Http__Server *b) {
 
     assert(strcmp(a->server_name, b->hostname) == 0);
     assert(b->has_start);
-    assert((double)a->start.tv_sec + ((double)a->start.tv_usec / 1000000.0) ==
-            b->start);
+    assert(is_almost_equal(
+                (double)a->start.tv_sec + ((double)a->start.tv_usec/1000000.0),
+                b->start));
     assert(b->has_end);
-    assert((double)a->end.tv_sec + ((double)a->end.tv_usec / 1000000.0) ==
-            b->end);
+    assert(is_almost_equal(
+                (double)a->end.tv_sec + ((double)a->end.tv_usec / 1000000.0),
+                b->end));
     assert(strcmp(a->address, b->address) == 0);
     assert(b->has_total_bytes);
     assert(a->bytes == b->total_bytes);
