@@ -1108,7 +1108,7 @@ int update_remote_schedule(char *dir, char *url, char *cacert, char *cert,
         char *key) {
     CURL *curl;
 
-    Log(LOG_INFO, "Fetching remote schedule file from %s", url);
+    Log(LOG_DEBUG, "Fetching remote schedule file from %s", url);
 
     curl = curl_easy_init();
 
@@ -1252,7 +1252,7 @@ int update_remote_schedule(char *dir, char *url, char *cacert, char *cert,
 
         /* if a new file was fetched then move it into position */
         if ( code == 200 && cond_unmet == 0 && length > 0 ) {
-            Log(LOG_INFO, "New schedule file fetched!");
+            Log(LOG_INFO, "New schedule file fetched from %s", url);
             if ( rename(tmp_sched_file, sched_file) < 0 ) {
                 Log(LOG_WARNING, "Error moving fetched schedule file %s to %s",
                         tmp_sched_file, sched_file);
@@ -1261,7 +1261,7 @@ int update_remote_schedule(char *dir, char *url, char *cacert, char *cert,
             return 1;
         }
 
-        Log(LOG_INFO, "No new schedule file available");
+        Log(LOG_DEBUG, "No new schedule file available");
         return 0;
     }
 
