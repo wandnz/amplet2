@@ -34,10 +34,19 @@ def get_data(data):
             hopitem = {}
             if msg.header.ip and hop.HasField("rtt"):
                 hopitem["rtt"] = hop.rtt
+            elif msg.header.ip:
+                hopitem["rtt"] = None
+
             if msg.header.ip and hop.HasField("address"):
                 hopitem["address"] = getPrintableAddress(i.family, hop.address)
+            elif msg.header.ip:
+                hopitem["address"] = None
+
             if msg.header.asn and hop.HasField("asn"):
                 hopitem["as"] = hop.asn
+            elif msg.header.asn:
+                hopitem["as"] = None
+
             result["hops"].append(hopitem)
 
         # Add this whole path with hops to the results
