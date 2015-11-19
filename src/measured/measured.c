@@ -426,6 +426,20 @@ int main(int argc, char *argv[]) {
         log_level = get_loglevel_config(cfg);
     }
 
+    /*
+     * TODO do we always want to create the pidfile, or only when daemonised?
+     * or only when explicitly set?
+     * TODO is this the best location to create the pidfile? After parsing
+     * configuration so we can log at the right level, but before doing any
+     * real work -- especially important that it is before checking SSL keys
+     * and certs, which can block waiting on them to be signed.
+     */
+    if ( pidfile && create_pidfile(pidfile) < 0 ) {
+        Log(LOG_WARNING, "Failed to create pidfile %s, aborting", pidfile);
+        cfg_free(cfg);
+        return -1;
+    }
+
     /* update the iface structure with any interface config from config file */
     get_interface_config(cfg, &meta);
     meta.ampname = vars.ampname;
@@ -515,16 +529,6 @@ int main(int argc, char *argv[]) {
          * we can't really configure from here.
          */
         Log(LOG_DEBUG, "vialocal = false, no local configuration");
-    }
-
-    /*
-     * TODO do we always want to create the pidfile, or only when daemonised?
-     * or only when explicitly set?
-     */
-    if ( pidfile && create_pidfile(pidfile) < 0 ) {
-        Log(LOG_WARNING, "Failed to create pidfile %s, aborting", pidfile);
-        cfg_free(cfg);
-        return -1;
     }
 
     /* set up event handlers */
