@@ -80,7 +80,7 @@ if test "$curl_h_found" = 0; then
 fi
 
 # make sure google protocol buffer C libraries exist
-AC_CHECK_LIB(protobuf-c, protobuf_c_out_of_memory, libprotobufc_found=1, libprotobufc_found=0)
+AC_CHECK_LIB(protobuf-c, protobuf_c_message_pack, libprotobufc_found=1, libprotobufc_found=0)
 if test "$libprotobufc_found" = 0; then
     AC_MSG_ERROR(Required library libprotobuf-c not found; use LDFLAGS to specify library location)
 fi
