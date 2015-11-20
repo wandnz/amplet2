@@ -1,4 +1,4 @@
-EXTRA_DIST=setup.py ampsave ampsave.tests
+EXTRA_DIST=setup.py ampsave
 
 all-local:
 	python setup.py build
@@ -13,4 +13,4 @@ install-exec-local:
 clean-local:
 	python setup.py clean --all
 	-rm -rf build dist ampsave.egg-info
-	-rm ampsave.tests/*_pb2.py
+	-rm ampsave/tests/*_pb2.py

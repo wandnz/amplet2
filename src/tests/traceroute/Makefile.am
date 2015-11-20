@@ -18,4 +18,4 @@ INCLUDES=-I../ -I../../common/
 
 traceroute.pb-c.c: Makefile
 	protoc-c --c_out=. traceroute.proto
-	protoc --python_out=../python/ampsave.tests/ traceroute.proto
+	protoc --python_out=../python/ampsave/tests/ traceroute.proto

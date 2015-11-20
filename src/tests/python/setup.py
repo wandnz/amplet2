@@ -10,8 +10,8 @@ setup(name="ampsave",
     author_email='contact@wand.net.nz',
     url='http://www.wand.net.nz',
     packages=['ampsave', 'ampsave.tests'],
-    package_dir = { \
-	'ampsave':'ampsave', \
-	'ampsave.tests':'ampsave.tests' \
+    package_dir = {
+	'ampsave':'ampsave',
+	'ampsave.tests':'ampsave/tests',
 	},
     )

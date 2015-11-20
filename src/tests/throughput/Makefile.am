@@ -24,4 +24,4 @@ endif
 
 throughput.pb-c.c: Makefile
 	protoc-c --c_out=. throughput.proto
-	protoc --python_out=../python/ampsave.tests/ throughput.proto
+	protoc --python_out=../python/ampsave/tests/ throughput.proto

@@ -18,4 +18,4 @@ INCLUDES=-I../ -I../../common/
 
 http.pb-c.c: Makefile
 	protoc-c --c_out=. http.proto
-	protoc --python_out=../python/ampsave.tests/ http.proto
+	protoc --python_out=../python/ampsave/tests/ http.proto

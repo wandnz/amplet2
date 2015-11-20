@@ -18,4 +18,4 @@ INCLUDES=-I../ -I../../common/
 
 dns.pb-c.c: Makefile
 	protoc-c --c_out=. dns.proto
-	protoc --python_out=../python/ampsave.tests/ dns.proto
+	protoc --python_out=../python/ampsave/tests/ dns.proto
