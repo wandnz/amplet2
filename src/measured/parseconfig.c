@@ -3,6 +3,7 @@
 #include <assert.h>
 #include <limits.h>
 #include <unistd.h>
+#include <errno.h>
 
 #include "debug.h"
 #include "schedule.h"
@@ -61,6 +62,63 @@ static int callback_verify_packet_delay(cfg_t *cfg, cfg_opt_t *opt) {
         return -1;
     }
     return 0;
+}
+
+
+
+/*
+ * ampname has not been set by the user, so try to use the hostname instead
+ */
+static char* guess_ampname(void) {
+    struct addrinfo hints, *addrinfo, *tmpaddr;
+    char hostname[HOST_NAME_MAX + 1];
+    char *ampname;
+
+    /* hostname() will return just the hostname portion */
+    memset(hostname, 0, HOST_NAME_MAX + 1);
+    if ( gethostname(hostname, HOST_NAME_MAX) < 0 || strlen(hostname) == 0 ) {
+        Log(LOG_ALERT, "Failed to get hostname: %s", strerror(errno));
+        return NULL;
+    }
+
+    memset(&hints, 0, sizeof(hints));
+    hints.ai_family = AF_UNSPEC;
+    hints.ai_socktype = SOCK_STREAM;
+    hints.ai_flags = AI_CANONNAME;
+
+    /*
+     * Try to find the FQDN based on the hostname - this should hit
+     * /etc/hosts if the host is configured sensibly, but it could end up
+     * asking a remote name server (and not one that AMP has configured).
+     * Manually set an ampname if you don't like it.
+     */
+    if ( getaddrinfo(hostname, NULL, &hints, &addrinfo) < 0 ) {
+        return strdup(hostname);
+    }
+
+    /*
+     * Not sure if it is even possible for this to be NULL, but check
+     * all the results until we find a non-null canonical name
+     */
+    for ( tmpaddr = addrinfo; tmpaddr != NULL; tmpaddr = tmpaddr->ai_next ) {
+        if ( tmpaddr->ai_canonname != NULL &&
+                strlen(tmpaddr->ai_canonname) > 0 ) {
+            /* stop as soon as we find the first valid canonical name */
+            break;
+        }
+    }
+
+    if ( tmpaddr == NULL ) {
+        /* no valid canonical name found, use the hostname we found earlier */
+        ampname = strdup(hostname);
+    } else {
+        /* take the first non-null result, though there may be others */
+        ampname = strdup(tmpaddr->ai_canonname);
+    }
+
+    freeaddrinfo(addrinfo);
+
+    return ampname;
 }
 
 
@@ -377,13 +435,7 @@ cfg_t* parse_config(char *filename, struct amp_global_t *vars) {
         /* ampname has been set by the user, use it as is */
         vars->ampname = strdup(cfg_getstr(cfg, "ampname"));
     } else {
-        /* ampname has not been set by the user, use the hostname instead */
-        char hostname[HOST_NAME_MAX + 1];
-        memset(hostname, 0, HOST_NAME_MAX + 1);
-        if ( gethostname(hostname, HOST_NAME_MAX) == 0 ) {
-            vars->ampname = strdup(hostname);
-        } else {
-            Log(LOG_ALERT, "Failed to guess ampname from hostname, aborting.");
+        if ( (vars->ampname = guess_ampname()) == NULL ) {
             cfg_free(cfg);
             return NULL;
         }
