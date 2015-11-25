@@ -140,7 +140,8 @@ static RSA *create_new_key_file(char *filename) {
         return NULL;
     }
 
-    oldmask = umask(0077);
+    /* restrict access outside user and group (either root or rabbitmq) */
+    oldmask = umask(0027);
     if ( (privfile = fopen(filename, "w")) == NULL ) {
         Log(LOG_WARNING, "Failed to open key file: %s", strerror(errno));
         RSA_free(key);
