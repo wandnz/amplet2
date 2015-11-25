@@ -7,7 +7,7 @@ amplet2 (0.5.2-1) unstable; urgency=low
   * Exit main event loop on SIGTERM so we can log shutdown messages.
   * Updated documentation.
 
- -- Brendon Jones <brendonj@waikato.ac.nz>  Thu, 27 Aug 2015 14:12:47 +1200
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Tue, 27 Oct 2015 14:12:47 +1300
 
 amplet2 (0.5.0-1) unstable; urgency=low
 
