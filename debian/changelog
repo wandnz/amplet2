@@ -1,3 +1,12 @@
+amplet2 (0.5.3-1) unstable; urgency=low
+
+  * Smarter default configuration for ampname.
+  * Fixed permissions for downloaded certificates.
+  * Quieten some unnecessary log messages.
+  * Write pidfile earlier to help prevent puppet starting multiple instances.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Tue,  1 Dec 2015 10:34:51 +1300
+
 amplet2 (0.5.2-1) unstable; urgency=low
 
   * Init script should wait for each client to start before continuing.
