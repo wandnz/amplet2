@@ -140,6 +140,11 @@ static void run_test(const test_schedule_item_t * const item) {
             seen_ipv4 = 0;
             seen_ipv6 = 0;
             for ( ifa = ifaddrlist; ifa != NULL; ifa = ifa->ifa_next ) {
+                /* some interfaces (e.g. ppp) sometimes won't have an address */
+                if ( ifa->ifa_addr == NULL ) {
+                    continue;
+                }
+
                 /* ignore other interfaces if the source interface is set */
                 if ( item->meta->interface != NULL &&
                         strcmp(item->meta->interface, ifa->ifa_name) != 0 ) {
