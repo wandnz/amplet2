@@ -34,11 +34,11 @@
 # this on startup). A diskless/lightweight client may want to forgoe some
 # reliability and report directly to a remote collector.
 collector {
-    vialocal = false
-    address = prophet.cms.waikato.ac.nz
+    vialocal = true
+    address = amp.example.com
     vhost = /
     exchange = amp_exchange
-    routingkey = test
+    routingkey = amp
     port = 5671
     ssl = true
 #    cacert = /etc/amplet2/keys/cacert.pem
@@ -67,7 +67,7 @@ control {
 # the ampname of this client as a GET parameter.
 remotesched {
     fetch = false
-#    url = https://example.com/schedule
+#    url = https://amp.example.com/schedule
 #    identify = true
 #    frequency = 3600
 #    cacert = /etc/amplet2/keys/cacert.pem
