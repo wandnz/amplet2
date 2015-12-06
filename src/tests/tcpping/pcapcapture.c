@@ -33,13 +33,18 @@ static int get_interface_addresses(void) {
 
     /* Loop over address list and skip past all the AF_PACKET addresses */
     for (ifa = ifaddrorig; ifa != NULL; ifa = ifa->ifa_next) {
-        int family = ifa->ifa_addr->sa_family;
+        int family;
+
+        if ( ifa->ifa_addr == NULL ) {
+            continue;
+        }
+
+        family = ifa->ifa_addr->sa_family;
 
         if (family == AF_INET || family == AF_INET6) {
             ifaddrlist = ifa;
             break;
         }
-
     }
 
     /*
@@ -74,8 +79,13 @@ static char *find_address_interface(struct sockaddr *sin) {
     struct ifaddrs *ifa;
 
     for (ifa = ifaddrlist; ifa != NULL; ifa = ifa->ifa_next) {
-        if (ifa->ifa_addr->sa_family != sin->sa_family)
+        if ( ifa->ifa_addr == NULL ) {
             continue;
+        }
+
+        if (ifa->ifa_addr->sa_family != sin->sa_family) {
+            continue;
+        }
 
         if (ifa->ifa_addr->sa_family == AF_INET) {
             struct sockaddr_in *sin4 = (struct sockaddr_in *)sin;
