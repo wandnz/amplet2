@@ -175,9 +175,11 @@ static int create_pcap_filter(struct pcapdevice *p, uint16_t srcportv4,
         return 0;
     }
 
+    /* once it has been installed then the filter program can be freed */
+    pcap_freecode(&fcode);
+
     p->pcap_fd = pcap_fileno(p->pcap);
     return p->pcap_fd;
-
 }
 
 int find_source_address(char *device, struct addrinfo *dest,
