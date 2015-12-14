@@ -13,6 +13,7 @@
 #include <pcap.h>
 #include <unistd.h>
 #include <errno.h>
+#include <pcap/sll.h>
 
 #include "config.h"
 #include "testlib.h"
@@ -320,11 +321,12 @@ struct pcaptransport pcap_transport_header(struct pcapdevice *p) {
 
     char *packet = NULL;
     struct pcap_pkthdr header;
-    struct ether_header *eth;
     struct iphdr *ip;
     struct ip6_hdr *ip6;
     struct pcaptransport tranny;
     int remaining;
+    int datalink;
+    int ethertype;
 
     tranny.header = NULL;
     tranny.protocol = 0;
@@ -333,32 +335,59 @@ struct pcaptransport pcap_transport_header(struct pcapdevice *p) {
     tranny.ts.tv_usec = 0;
 
     packet = (char *)pcap_next(p->pcap, &header);
-    if (packet == NULL) {
-        Log(LOG_DEBUG, "Null result from pcap_next() -- packet was probably filtered");
+    if ( packet == NULL ) {
+        Log(LOG_DEBUG,
+                "Null result from pcap_next() -- packet was probably filtered");
         return tranny;
     }
-    tranny.ts = header.ts;
 
+    tranny.ts = header.ts;
     remaining = header.len;
 
-    if (remaining < (int)sizeof(struct ether_header)) {
-        Log(LOG_WARNING, "Insufficient payload captured for Ethernet header");
-        return tranny;
-    }
+    datalink = pcap_datalink(p->pcap);
 
-    eth = (struct ether_header *)packet;
-    remaining -= sizeof(struct ether_header);
-    packet += sizeof(struct ether_header);
-
-    if (ntohs(eth->ether_type) == ETHERTYPE_IP) {
-        ip = (struct iphdr *)packet;
-        if (remaining < (int)sizeof(struct iphdr)) {
-            Log(LOG_WARNING, "Insufficient payload captured for IPv4 header");
+    /* find the start of the packet, which depends on the link layer */
+    if ( datalink == DLT_EN10MB ) {
+        struct ether_header *eth;
+        /* this is an ethernet interface, expect an ethernet header */
+        if ( remaining < (int)sizeof(struct ether_header) ) {
+            Log(LOG_WARNING, "Too few bytes captured for Ethernet header");
             return tranny;
         }
 
-        if (remaining < ip->ihl * 4) {
-            Log(LOG_WARNING, "Insufficient payload captured for IPv4 header");
+        eth = (struct ether_header *)packet;
+        remaining -= sizeof(struct ether_header);
+        packet += sizeof(struct ether_header);
+        ethertype = ntohs(eth->ether_type);
+
+    } else if ( datalink == DLT_LINUX_SLL ) {
+        struct sll_header *sll;
+        /* this is a linux sll interface (probably ppp), expect sll header */
+        if ( remaining < (int)sizeof(struct sll_header) ) {
+            Log(LOG_WARNING, "Too few bytes captured for SLL header");
+            return tranny;
+        }
+
+        sll = (struct sll_header *)packet;
+        remaining -= sizeof(struct sll_header);
+        packet += sizeof(struct sll_header);
+        ethertype = ntohs(sll->sll_protocol);
+
+    } else {
+        Log(LOG_DEBUG, "Unknown PCAP link layer %u", datalink);
+        return tranny;
+    }
+
+    /* process any ipv4 or ipv6 packets, ignore everything else */
+    if ( ethertype == ETHERTYPE_IP ) {
+        ip = (struct iphdr *)packet;
+        if ( remaining < (int)sizeof(struct iphdr) ) {
+            Log(LOG_WARNING, "Too few bytes captured for IPv4 header");
+            return tranny;
+        }
+
+        if ( remaining < ip->ihl * 4 ) {
+            Log(LOG_WARNING, "Too few bytes captured for IPv4 header");
             return tranny;
         }
 
@@ -369,11 +398,11 @@ struct pcaptransport pcap_transport_header(struct pcapdevice *p) {
         tranny.remaining = remaining;
         tranny.protocol = ip->protocol;
 
-    } else if (ntohs(eth->ether_type) == ETHERTYPE_IPV6) {
+    } else if ( ethertype == ETHERTYPE_IPV6 ) {
 
         ip6 = (struct ip6_hdr *)packet;
-        if (remaining < (int)sizeof(struct ip6_hdr)) {
-            Log(LOG_WARNING, "Insufficient payload captured for IPv6 header");
+        if ( remaining < (int)sizeof(struct ip6_hdr) ) {
+            Log(LOG_WARNING, "Too few bytes captured for IPv6 header");
             return tranny;
         }
 
@@ -386,16 +415,14 @@ struct pcaptransport pcap_transport_header(struct pcapdevice *p) {
 
     } else {
         /*
-         * We can sometimes catch other, non-IP traffic before the filter gets
-         * applied (e.g. for some reason we are frequently seeing packets with
-         * ethertype 0x100 (vlans).
+         * We can sometimes catch other, non-IP traffic before the filter
+         * gets applied (e.g. for some reason we are frequently seeing
+         * packets with ethertype 0x100 (vlans).
          */
-        Log(LOG_DEBUG, "Captured a non IP packet: %u", ntohs(eth->ether_type));
-        return tranny;
+        Log(LOG_DEBUG, "Captured a non IP packet: %u", ethertype);
     }
 
     return tranny;
-
 }
 
 void pcap_cleanup(wand_event_handler_t *ev_hdl) {
