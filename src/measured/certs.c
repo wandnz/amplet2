@@ -589,7 +589,7 @@ static int check_key_directories(char *keydir) {
         Log(LOG_DEBUG, "Top level key directory doesn't exist, creating %s",
                 AMP_KEYS_DIR);
         /* doesn't exist, try to create it */
-        if ( mkdir(AMP_KEYS_DIR, 0700) < 0 ) {
+        if ( mkdir(AMP_KEYS_DIR, 0750) < 0 ) {
             Log(LOG_WARNING, "Failed to create key directory %s: %s",
                     AMP_KEYS_DIR, strerror(errno));
             return -1;
@@ -606,7 +606,7 @@ static int check_key_directories(char *keydir) {
     if ( stat_result < 0 && errno == ENOENT) {
         Log(LOG_DEBUG, "Key directory doesn't exist, creating %s", keydir);
         /* doesn't exist, try to create it */
-        if ( mkdir(keydir, 0700) < 0 ) {
+        if ( mkdir(keydir, 0750) < 0 ) {
             Log(LOG_WARNING, "Failed to create key directory %s: %s", keydir,
                     strerror(errno));
             return -1;
