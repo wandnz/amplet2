@@ -44,7 +44,7 @@ collector {
 #    cacert = /etc/amplet2/keys/cacert.pem
 #    cert = /etc/amplet2/keys/cert.pem
 #    key = /etc/amplet2/keys/key.pem
-    waitforcert = -1
+    waitforcert = true
 }
 
 # The control interface is used by other amplets to request test servers be

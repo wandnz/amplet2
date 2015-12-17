@@ -164,7 +164,7 @@ int should_wait_for_cert(cfg_t *cfg) {
     cfg_sub = cfg_getsec(cfg, "collector");
 
     if ( cfg_sub ) {
-        return cfg_getint(cfg_sub, "waitforcert");
+        return cfg_getbool(cfg_sub, "waitforcert");
     }
 
     return 0;
@@ -373,7 +373,7 @@ cfg_t* parse_config(char *filename, struct amp_global_t *vars) {
         CFG_STR("cacert", NULL, CFGF_NONE),
         CFG_STR("key", NULL, CFGF_NONE),
         CFG_STR("cert", NULL, CFGF_NONE),
-        CFG_INT("waitforcert", -1, CFGF_NONE),
+        CFG_BOOL("waitforcert", cfg_true, CFGF_NONE),
         CFG_END()
     };
 

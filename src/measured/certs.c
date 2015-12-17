@@ -624,31 +624,18 @@ static int check_key_directories(char *keydir) {
 
 
 /*
- * A negative timeout will wait forever, 0 won't wait at all,
- * any positive timeout will wait that many seconds. The timeout is the
- * maximum time to wait, it will check periodically at the
- * AMP_PKI_QUERY_INTERVAL to see if the certificate has been signed.
+ * Exponentially backoff the timeout values so we can initially query often
+ * to see if the certificate has been signed, but without hammering the server
+ * in the long term.
  */
-static int sleep_interval(int timeout) {
-    int duration;
-
-    /* no timeout, don't sleep at all and just return immediately */
-    if ( timeout == 0 ) {
-        return 0;
-    }
-
-    if ( timeout < 0 ) {
-        duration = AMP_PKI_QUERY_INTERVAL;
-    } else if ( timeout < AMP_PKI_QUERY_INTERVAL ) {
-        duration = timeout;
-        timeout = 0;
+static int get_next_timeout(int timeout) {
+    if ( timeout < AMP_MIN_PKI_QUERY_INTERVAL ) {
+        timeout = AMP_MIN_PKI_QUERY_INTERVAL;
+    } else if ( timeout > AMP_MAX_PKI_QUERY_INTERVAL ) {
+        timeout = AMP_MAX_PKI_QUERY_INTERVAL;
     } else {
-        duration = AMP_PKI_QUERY_INTERVAL;
-        timeout -= AMP_PKI_QUERY_INTERVAL;
+        timeout = timeout << 1;
     }
-
-    Log(LOG_INFO, "Sleeping for %d seconds before trying again", duration);
-    sleep(duration);
 
     return timeout;
 }
@@ -661,10 +648,11 @@ static int sleep_interval(int timeout) {
  * as we can.
  */
 int get_certificate(amp_ssl_opt_t *sslopts, char *ampname, char *collector,
-        int timeout) {
+        int waitforcert) {
     X509_REQ *request = NULL;
     RSA *key;
     int res;
+    int timeout;
 
     /* if the private key and certificate exist then thats all we need */
     if ( check_exists(sslopts->key, 0) == 0 &&
@@ -704,20 +692,23 @@ int get_certificate(amp_ssl_opt_t *sslopts, char *ampname, char *collector,
 
     /*
      * If we didn't get a certificate then try to send a certificate signing
-     * request until the server accepts it or we run out of time.
+     * request until the server accepts it.
      * TODO if we fail to connect to the server above, maybe we should sleep
      * instead of immediately sending the CSR to a server we know is down?
      */
+    timeout = AMP_MIN_PKI_QUERY_INTERVAL;
     while ( (res = send_csr(request, collector, sslopts->cacert)) > 0 &&
-            timeout != 0 ) {
-        timeout = sleep_interval(timeout);
+            waitforcert ) {
+        Log(LOG_INFO, "Sleeping for %d seconds before trying again", timeout);
+        sleep(timeout);
+        timeout = get_next_timeout(timeout);
     }
 
     X509_REQ_free(request);
 
     /*
-     * We got an error that we can't easily recover from, or we are still
-     * getting soft failures and ran out of time, abort.
+     * We got an error that we can't easily recover from, or we only wanted
+     * to try once and that failed, abort.
      */
     if ( res != 0 ) {
         return -1;
@@ -727,9 +718,12 @@ int get_certificate(amp_ssl_opt_t *sslopts, char *ampname, char *collector,
      * Now query for the signed certificate in response to our CSR until we
      * get one or we run out of time
      */
+    timeout = AMP_MIN_PKI_QUERY_INTERVAL;
     while ( (res = fetch_certificate(sslopts, ampname, collector)) > 0 &&
-            timeout != 0 ) {
-        timeout = sleep_interval(timeout);
+            waitforcert ) {
+        Log(LOG_INFO, "Sleeping for %d seconds before trying again", timeout);
+        sleep(timeout);
+        timeout = get_next_timeout(timeout);
     }
 
     return res;
