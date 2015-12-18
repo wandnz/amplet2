@@ -811,7 +811,7 @@ CURL *pipeline_next_object(CURLM *multi, struct server_stats_t *server) {
      * creation function to deal with it. Could pass in the options struct,
      * but it is currently global anyway.
      */
-    if ( options.device || options.sourcev4 || options.sourcev4 ) {
+    if ( options.device || options.sourcev4 || options.sourcev6 ) {
         //curl_easy_setopt(object->handle, CURLOPT_OPENSOCKETDATA, &options);
         curl_easy_setopt(object->handle, CURLOPT_OPENSOCKETFUNCTION,
                 open_socket);
