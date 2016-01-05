@@ -27,7 +27,7 @@ int main(void) {
     int sockets[2];
     char out_packet[MAX_PACKET_LEN];
     char in_packet[MAX_PACKET_LEN];
-    int delay, result, length, i;
+    int delay, length, i;
     struct timeval start, end;
     uint64_t duration;
 
@@ -64,8 +64,7 @@ int main(void) {
         }
 
         /* try to read the packet that we just sent */
-        if ( (result = recv(sockets[1], in_packet, MAX_PACKET_LEN, 0)) !=
-                length ) {
+        if ( recv(sockets[1], in_packet, MAX_PACKET_LEN, 0) != length ) {
             fprintf(stderr, "Failed to receive packet: %s\n", strerror(errno));
             return -1;
         }

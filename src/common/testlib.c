@@ -489,8 +489,8 @@ uint16_t start_remote_server(test_type_t type, struct addrinfo *dest,
     /* Try a few times to connect, but give up after failing too many times */
     attempts = 0;
     do {
-        char addrstr[INET6_ADDRSTRLEN];
         if ( (res = connect(sock, dest->ai_addr, dest->ai_addrlen)) < 0 ) {
+            char addrstr[INET6_ADDRSTRLEN];
             attempts++;
 
             /*

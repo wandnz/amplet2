@@ -30,7 +30,6 @@ struct ub_ctx *amp_resolver_context_init(char *servers[], int nscount,
         char *sourcev4, char *sourcev6) {
 
     struct ub_ctx *ctx;
-    int i;
 
     Log(LOG_DEBUG, "Initialising nameserver context with %d servers", nscount);
 
@@ -51,6 +50,7 @@ struct ub_ctx *amp_resolver_context_init(char *servers[], int nscount,
         Log(LOG_DEBUG, "Using default nameservers from /etc/resolv.conf");
         ub_ctx_resolvconf(ctx, NULL);
     } else {
+        int i;
         /* set the nameservers that we should query, if they are specified */
         for ( i = 0; i < nscount; i++ ) {
             Log(LOG_DEBUG, "Adding %s as nameserver", servers[i]);

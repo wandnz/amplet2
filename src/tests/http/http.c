@@ -305,7 +305,7 @@ static void report_results(struct timeval *start_time,
 
 /*
  * Split URL into server and path components. Based on code originally from
- * the first HTTP test in AMP. 
+ * the first HTTP test in AMP.
  */
 static void split_url(char *orig_url, char *server, char *path, int set) {
     static char *base_server = NULL;

@@ -261,6 +261,7 @@ fetch_schedule_item_t* get_remote_schedule_config(cfg_t *cfg) {
                 if ( asprintf(&fetch->schedule_url, "%s%s",
                             cfg_getstr(cfg_sub, "url"), vars.ampname) < 0 ) {
                     Log(LOG_ALERT, "Failed to build schedule fetching url");
+                    free(fetch);
                     return NULL;
                 }
             } else {

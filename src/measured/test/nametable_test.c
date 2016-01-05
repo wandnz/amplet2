@@ -18,7 +18,6 @@ static void check_name_response(nametable_t *name_item, char *name, int count,
         struct addrinfo *addr1, struct addrinfo *addr2) {
 
     struct addrinfo *tmpaddr;
-    struct addrinfo *required;
 
     /* check parts of the nametable_t response */
     assert(name_item);
@@ -38,6 +37,8 @@ static void check_name_response(nametable_t *name_item, char *name, int count,
         assert(memcmp(tmpaddr->ai_addr, addr1->ai_addr,
                     get_addr_len(tmpaddr->ai_family)) == 0);
     } else {
+        struct addrinfo *required;
+
         assert(tmpaddr->ai_family == addr1->ai_family ||
                 tmpaddr->ai_family == addr2->ai_family);
 

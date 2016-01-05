@@ -164,7 +164,7 @@ static DH *get_dh1024(void) {
  * has a valid cert, but is not issued to them!
  */
 int matches_common_name(const char *hostname, const X509 *cert) {
-    int common_name_loc = -1;
+    int common_name_loc;
     X509_NAME_ENTRY *common_name_entry = NULL;
     ASN1_STRING *common_name_asn1 = NULL;
     char *common_name_str = NULL;

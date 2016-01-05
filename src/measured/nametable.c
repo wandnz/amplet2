@@ -101,10 +101,10 @@ static void dump_nametable(void) {
  * will do all the hard work.
  */
 void clear_nametable() {
-    nametable_t *item;
-    nametable_t *tmp;
-
     if ( name_table != NULL ) {
+        nametable_t *item;
+        nametable_t *tmp;
+
         for ( item=name_table; item != NULL; /* increment in body */ ) {
             /* free addresses for current item */
             if ( item->addr != NULL ) {
@@ -156,7 +156,6 @@ static void read_nametable_file(char *filename) {
     char line[MAX_NAMETABLE_LINE];
     struct addrinfo hint;
     struct addrinfo *addrinfo;
-    int res;
 
     Log(LOG_INFO, "Loading nametable from %s", filename);
 
@@ -191,7 +190,7 @@ static void read_nametable_file(char *filename) {
 	hint.ai_canonname = NULL;
 	hint.ai_next = NULL;
 	addrinfo = NULL;
-	if ( (res = getaddrinfo(address, NULL, &hint, &addrinfo)) != 0 ) {
+	if ( getaddrinfo(address, NULL, &hint, &addrinfo) != 0 ) {
 	    Log(LOG_WARNING, "Failed to load address info for %s (%s)",
 		    name, address);
 	    continue;

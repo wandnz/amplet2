@@ -462,7 +462,7 @@ static void *amp_asn_worker_thread(void *thread_data) {
             if ( write_asn_request(whois_fd, list->address) < 0 ) {
                 close(whois_fd);
                 whois_fd = WHOIS_UNAVAILABLE;
-                if ( list ) list = list->next;
+                list = list->next;
                 outstanding = 0;
                 continue;
             }
