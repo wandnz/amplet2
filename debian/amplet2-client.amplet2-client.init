@@ -27,7 +27,7 @@ CONFDIR=/etc/amplet2/clients
 PIDDIR=/var/run/amplet2
 
 # Exit if the package is not installed
-[ -x $DAEMON ] || exit 0
+[ -x $DAEMON ] || exit 5
 
 # Read configuration variable file if it is present
 [ -r /etc/default/$PKG_NAME ] && . /etc/default/$PKG_NAME
@@ -35,7 +35,7 @@ PIDDIR=/var/run/amplet2
 # Don't start the daemon unless it has been manually enabled in
 # /etc/default/amplet2. There is too much configuration required
 # to assume it can be started initially.
-[ $START_DAEMON -gt 0 ] || exit 0
+[ $START_DAEMON -gt 0 ] || exit 6
 
 # Load the VERBOSE setting and other rcS variables
 . /lib/init/vars.sh
@@ -199,7 +199,7 @@ do_status() {
         if ([ $# -eq 0 ] || contains $NAME $@); then
             status_of_proc -p $PIDFILE "$DAEMON" "$NAME"
             if [ $? -gt 0 ]; then
-                RETVAL=2
+                RETVAL=1
             fi
         fi
     done
