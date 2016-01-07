@@ -23,8 +23,8 @@ PACKAGE="amplet2"
 case "$1" in
     configure)
         # Debian packaging will create the directory with standard permissions
-        chown -R rabbitmq:rabbitmq /etc/${PACKAGE}/keys
-        chmod -R 2750 /etc/${PACKAGE}/keys
+        chown root:rabbitmq /etc/${PACKAGE}/keys
+        chmod 2750 /etc/${PACKAGE}/keys
 
         # restart rsyslog, we've installed a new config file for it
         if [ -x "`which invoke-rc.d 2>/dev/null`" ]; then
