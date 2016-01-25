@@ -1,0 +1,732 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <sys/socket.h>
+#include <netdb.h>
+#include <sys/time.h>
+#include <errno.h>
+#include <assert.h>
+#include <string.h>
+#include <sys/ioctl.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+
+#include <amqp.h>
+#include <amqp_framing.h>
+
+#include <google/protobuf-c/protobuf-c.h>
+
+#include "testlib.h"
+#include "debug.h"
+#include "tests.h"
+#include "modules.h"
+#include "messaging.h"
+#include "ssl.h"
+#include "global.h"
+#include "serverlib.h"
+
+#include "servers.pb-c.h"
+
+
+static int write_control_packet2(int sock, void *data, uint32_t len) {
+    int result;
+    uint32_t total_written = 0;
+    uint32_t datalen = ntohl(len);
+
+    printf("sending %d bytes\n", sizeof(datalen));
+    do {
+        result = write(sock, (uint8_t *)&datalen + total_written,
+                sizeof(datalen) - total_written);
+
+        if ( result < 0 && errno == EINTR ) {
+            continue;
+        }
+
+        if ( result < 0 ) {
+            Log(LOG_WARNING, "Failed to write server control packet length");
+            return -1;
+        }
+
+        total_written += result;
+
+    } while ( total_written < sizeof(datalen));
+
+    assert(total_written == sizeof(datalen));
+
+    total_written = 0;
+
+    printf("sending %d bytes\n", len);
+    do {
+        result = write(sock, (uint8_t *)data+total_written, len-total_written);
+
+        if ( result < 0 && errno == EINTR ) {
+            continue;
+        }
+
+        if ( result < 0 ) {
+            Log(LOG_WARNING, "Failed to write server control packet length");
+            return -1;
+        }
+
+        total_written += result;
+
+    } while ( total_written < len );
+
+    assert(total_written == len);
+
+    return total_written;
+}
+
+
+
+/*
+ *
+ */
+static int write_control_packet(int sock, struct packet_t *packet) {
+    int res;
+    int total_written = 0;
+    int total_size = packet->header.size + sizeof(struct packet_t);
+
+    do {
+        res = write(sock, (void*)packet+total_written,
+                total_size-total_written);
+
+        if ( res > 0 ) {
+            total_written += res;
+        }
+
+        /*
+         * Keep trying to write until we have sent everything we have or we
+         * get a real error. An interrupted write that has sent data won't
+         * give an EINTR, it will just return less than the full number of
+         * bytes it was meant to send.
+         */
+    } while ( (res > 0 && total_written < total_size) ||
+            ( res < 0 && errno == EINTR ) );
+
+    if ( total_written != total_size ) {
+        Log(LOG_WARNING, "write return %d, total %d (not %d): %s\n", res,
+                total_written, total_size, strerror(errno));
+        return -1;
+    }
+
+    return total_written;
+}
+
+
+
+int read_control_packet2(int sock, void **data) {
+    int result;
+    uint32_t datalen = 0;
+    uint32_t bytes_read = 0;
+
+    /* read the length of the following protocol buffer object */
+    do {
+        result = read(sock, ((uint8_t *)&datalen) + bytes_read,
+                sizeof(datalen) - bytes_read);
+
+        if ( result < 0 && errno == EINTR ) {
+            continue;
+        }
+
+        if ( result < 0 ) {
+            Log(LOG_WARNING, "Failed to read server control packet length");
+            return -1;
+        }
+
+        if ( result == 0 ) {
+            Log(LOG_WARNING, "Server control connection closed unexpectedly");
+            return -1;
+        }
+
+        bytes_read += result;
+
+    } while ( bytes_read < sizeof(datalen) );
+
+    assert(bytes_read == sizeof(datalen));
+
+    printf("read %d bytes, expect %d more to follow\n", bytes_read,
+            ntohl(datalen));
+
+    bytes_read = 0;
+    datalen = ntohl(datalen);
+    *data = calloc(1, datalen);
+
+    /* read the protocol buffer object from the stream */
+    do {
+        result = read(sock, ((uint8_t *)*data)+bytes_read, datalen-bytes_read);
+
+        if ( result < 0 && errno == EINTR ) {
+            continue;
+        }
+
+        if ( result < 0 ) {
+            Log(LOG_WARNING, "Failed to read server control packet data");
+            return -1;
+        }
+
+        if ( result == 0 ) {
+            Log(LOG_WARNING, "Server control connection closed unexpectedly");
+            return -1;
+        }
+
+        bytes_read += result;
+
+    } while ( bytes_read < datalen );
+
+    assert(datalen == bytes_read);
+
+    printf("read object of %d bytes\n", datalen);
+
+    return datalen;
+}
+
+/*
+ *
+ */
+int read_control_packet(int sock, struct packet_t *packet, char **additional) {
+    int result;
+    uint32_t bytes_read;
+    char buf[1024];//XXX
+
+    bytes_read = 0;
+
+    /* Read in the packet_t first, so we can get the packet size */
+    do {
+        result = read(sock, ((uint8_t *) packet) + bytes_read,
+                sizeof(struct packet_t) - bytes_read);
+
+        if ( result == -1 && errno == EINTR ) {
+            continue;
+        }
+        if ( result == -1 ) {
+            Log(LOG_WARNING, "read() on socket failed : %s" , strerror(errno));
+            return -1;
+        }
+        if ( result == 0 ) {
+            /* EOF */
+            return 0;
+        }
+        bytes_read += result;
+    } while ( bytes_read < sizeof(struct packet_t));
+
+    /* Fix endianness */
+    //betohPacket(packet); //XXX
+
+    /* packet->header.size excludes it's own size */
+    bytes_read = 0;
+
+    if ( additional ) {
+        if ( packet->header.size > 0 && packet->header.size < MAX_MALLOC ) {
+            *additional = malloc(packet->header.size);
+        } else {
+            *additional = NULL;
+        }
+    }
+
+    /* Dump out the rest of the packet */
+    while ( bytes_read < packet->header.size ) {
+        if ( additional == NULL || *additional == NULL ) {
+            /* Throw away */
+            result = read(sock, buf,
+                    MIN(packet->header.size-bytes_read, sizeof(buf)));
+        } else {
+            /* Store in our buffer */
+            result = read(sock, *additional + bytes_read,
+                    packet->header.size-bytes_read);
+        }
+
+        if ( result == -1 && errno == EINTR ) {
+            continue;
+        }
+        if ( result == -1 ) {
+            Log(LOG_WARNING, "read() on socket failed : %s" , strerror(errno));
+            return -1;
+        }
+        if ( result == 0 ) {
+            Log(LOG_WARNING,
+                    "EOF found before the end of the packet additional data");
+            return -1;
+        }
+        bytes_read += result;
+    }
+
+    return bytes_read + sizeof(struct packet_t);
+}
+
+
+
+/*
+ *
+ */
+int send_control_hello(int sock, struct temp_sockopt_t_xxx *options) {
+    int len;
+    void *buffer;
+    int result;
+    Amplet2__Servers__Control msg = AMPLET2__SERVERS__CONTROL__INIT;
+    Amplet2__Servers__Hello hello = AMPLET2__SERVERS__HELLO__INIT;
+
+    printf("sending hello\n");
+
+    hello.has_test_port = 1;
+    hello.test_port = options->tport;
+    msg.hello = &hello;
+    msg.has_type = 1;
+    msg.type = AMPLET2__SERVERS__CONTROL__TYPE__HELLO;
+
+    len = amplet2__servers__control__get_packed_size(&msg);
+    buffer = malloc(len);
+    amplet2__servers__control__pack(&msg, buffer);
+
+    result = write_control_packet2(sock, buffer, len);
+
+    free(buffer);
+
+    return result;
+
+#if 0
+    struct packet_t p;
+    memset(&p, 0, sizeof(p));
+    p.header.type = CONTROL_PACKET_HELLO;
+    p.header.size = 0;
+    p.types.hello.version = AMP_UDPSTREAM_TEST_VERSION;
+#if 0
+    /* Flags Only 1 byte of these */
+    if ( options->sock_disable_nagle ) {
+        p.types.hello.flags |= TPUT_PKT_FLAG_NO_NAGLE;
+    }
+    if ( options->disable_web10g ) {
+        p.types.hello.flags |= TPUT_PKT_FLAG_NO_WEB10G;
+    }
+    if ( options->randomise ) {
+        p.types.hello.flags |= TPUT_PKT_FLAG_RANDOMISE;
+    }
+#endif
+    p.types.hello.tport = options->tport;
+#if 0
+    p.types.hello.mss = options->sock_mss;
+    p.types.hello.sock_rcvbuf = options->sock_rcvbuf;
+    p.types.hello.sock_sndbuf = options->sock_sndbuf;
+#endif
+    printf("sending hello\n");
+
+    return write_control_packet(sock, &p);
+#endif
+}
+
+
+
+/*
+ *
+ */
+int send_control_ready(int sock, uint16_t port) {
+    struct packet_t packet;
+    memset(&packet, 0, sizeof(packet));
+    packet.header.type = CONTROL_PACKET_READY;
+    packet.header.size = 0;
+    packet.types.ready.tport = port;
+    printf("sending ready\n");
+    return write_control_packet(sock, &packet);
+}
+
+
+
+/*
+ *
+ */
+int send_control_receive(int sock, uint32_t packet_count) {
+    int len;
+    void *buffer;
+    int result;
+    Amplet2__Servers__Control msg = AMPLET2__SERVERS__CONTROL__INIT;
+    Amplet2__Servers__Receive receive = AMPLET2__SERVERS__RECEIVE__INIT;
+
+    printf("sending receive\n");
+
+    receive.has_packet_count = 1;
+    receive.packet_count = packet_count;
+    msg.receive = &receive;
+    msg.has_type = 1;
+    msg.type = AMPLET2__SERVERS__CONTROL__TYPE__RECEIVE;
+
+    len = amplet2__servers__control__get_packed_size(&msg);
+    buffer = malloc(len);
+    amplet2__servers__control__pack(&msg, buffer);
+
+    result = write_control_packet2(sock, buffer, len);
+
+    free(buffer);
+
+    return result;
+}
+
+
+
+/*
+ *
+ */
+ /*
+int send_control_send(int sock, uint16_t port) {
+    struct packet_t packet;
+    memset(&packet, 0, sizeof(packet));
+    packet.header.type = UDPSTREAM_PACKET_SEND;
+    packet.header.size = 0;
+
+    printf("sending send command\n");
+
+    return write_control_packet(sock, &packet);
+}
+*/
+
+/*
+ *
+ */
+/*
+int send_control_start(int sock) {
+    struct packet_t packet;
+    memset(&packet, 0, sizeof(packet));
+    packet.header.type = CONTROL_PACKET_START;
+    packet.header.size = 0;
+    packet.types.ready.tport = port;
+    return write_control_packet(sock, &packet);
+}
+*/
+
+
+int parse_control_hello(void *data, uint32_t len,
+        struct temp_sockopt_t_xxx *options) {
+
+    Amplet2__Servers__Control *msg;
+
+    assert(data);
+    assert(options);
+
+    /* unpack all the data */
+    msg = amplet2__servers__control__unpack(NULL, len, data);
+
+    if ( !msg->has_type ||
+            msg->type != AMPLET2__SERVERS__CONTROL__TYPE__HELLO ) {
+        Log(LOG_WARNING, "Not a HELLO packet, aborting");
+        printf("type:%d\n", msg->type);
+        amplet2__servers__control__free_unpacked(msg, NULL);
+        return -1;
+    }
+
+    if ( !msg || !msg->hello || !msg->hello->has_test_port ) {
+        Log(LOG_WARNING, "Malformed HELLO packet, aborting");
+        amplet2__servers__control__free_unpacked(msg, NULL);
+        return -1;
+    }
+
+    options->tport = msg->hello->test_port;
+
+    /* TODO other test options */
+
+    amplet2__servers__control__free_unpacked(msg, NULL);
+
+    return 0;
+}
+
+
+
+int read_control_hello2(int sock, struct temp_sockopt_t_xxx *options) {
+    void *data;
+    int len;
+
+    if ( (len=read_control_packet2(sock, &data)) < 0 ) {
+        Log(LOG_WARNING, "Failed to read HELLO packet");
+        return -1;
+    }
+
+    if ( parse_control_hello(data, len, options) < 0 ) {
+        Log(LOG_WARNING, "Failed to parse HELLO packet");
+        return -1;
+    }
+
+    return 0;
+}
+
+
+
+/*
+ *
+ */
+int read_control_hello(int sock, struct temp_sockopt_t_xxx *options) {
+    struct packet_t packet;
+
+    if ( read_control_packet(sock, &packet, NULL) < 0 ) {
+        Log(LOG_ERR, "Failed to read hello packet");
+        return -1;
+    }
+
+    if ( packet.header.type != CONTROL_PACKET_HELLO ) {
+        Log(LOG_ERR, "Required a hello packet but got type %d instead",
+                packet.header.type);
+        return -1;
+    }
+
+    // TODO check version number
+    //p->types.hello.version;
+
+    options->tport = packet.types.hello.tport;
+#if 0
+    options->sock_mss = p->types.hello.mss;
+    options->sock_rcvbuf = p->types.hello.sock_rcvbuf;
+    options->sock_sndbuf = p->types.hello.sock_sndbuf;
+
+    if ( p->types.hello.flags & TPUT_PKT_FLAG_NO_NAGLE ) {
+        options->sock_disable_nagle = 1;
+    }
+    if ( p->types.hello.flags & TPUT_PKT_FLAG_NO_WEB10G ) {
+        options->disable_web10g = 1;
+    }
+    if ( p->types.hello.flags & TPUT_PKT_FLAG_RANDOMISE ) {
+        options->randomise = 1;
+    }
+#endif
+
+    return 0;
+}
+
+
+
+/*
+ *
+ */
+int read_control_ready(int sock) {
+    struct packet_t packet;
+
+    if ( read_control_packet(sock, &packet, NULL) < 0 ) {
+        Log(LOG_ERR, "Failed to read ready packet");
+        return -1;
+    }
+
+    if ( packet.header.type != CONTROL_PACKET_READY ) {
+        Log(LOG_ERR, "Required a ready packet but got type %d instead",
+                packet.header.type);
+        return -1;
+    }
+
+    return packet.types.ready.tport;
+}
+
+
+
+/**
+ * Start listening on the given port for incoming tests
+ *
+ * @param port
+ *              The port to listen for incoming connections
+ *
+ * @return the bound socket or return -1 if this fails
+ */
+int start_listening(struct socket_t *sockets, int port,
+        struct temp_sockopt_t_xxx *sockopts) {
+
+    assert(sockets);
+    assert(sockopts);
+
+    sockets->socket = -1;
+    sockets->socket6 =  -1;
+
+    printf("start listening\n");
+
+    /* open an ipv4 and an ipv6 socket so we can configure them individually */
+    if ( sockopts->sourcev4 &&
+            (sockets->socket=socket(AF_INET, sockopts->socktype, sockopts->protocol)) < 0 ) {
+        Log(LOG_WARNING, "Failed to open socket for IPv4: %s", strerror(errno));
+    }
+
+    if ( sockopts->sourcev6 &&
+            (sockets->socket6=socket(AF_INET6, sockopts->socktype, sockopts->protocol)) < 0 ){
+        Log(LOG_WARNING, "Failed to open socket for IPv6: %s", strerror(errno));
+    }
+
+    /* make sure that at least one of them was opened ok */
+    if ( sockets->socket < 0 && sockets->socket6 < 0 ) {
+        Log(LOG_WARNING, "No sockets opened");
+        return -1;
+    }
+
+    /* set all the socket options that have been asked for */
+    if ( sockets->socket >= 0 ) {
+        //doSocketSetup(sockopts, sockets->socket); XXX
+        ((struct sockaddr_in*)
+         (sockopts->sourcev4->ai_addr))->sin_port = ntohs(port);
+    }
+
+    if ( sockets->socket6 >= 0 ) {
+        int one = 1;
+        //doSocketSetup(sockopts, sockets->socket6); XXX
+        /*
+         * If we dont set IPV6_V6ONLY this socket will try to do IPv4 as well
+         * and it will fail.
+         */
+        setsockopt(sockets->socket6, IPPROTO_IPV6, IPV6_V6ONLY, &one,
+                sizeof(one));
+        ((struct sockaddr_in6*)
+         (sockopts->sourcev6->ai_addr))->sin6_port = ntohs(port);
+    }
+
+    /* bind them to interfaces and addresses as required */
+    if ( sockopts->device &&
+            bind_sockets_to_device(sockets, sockopts->device) < 0 ) {
+        Log(LOG_ERR, "Unable to bind sockets to device, aborting test");
+        return -1;
+    }
+
+    if ( bind_sockets_to_address(sockets, sockopts->sourcev4,
+                sockopts->sourcev6) < 0 ) {
+        /* XXX can we trust errno to always be set correctly at this point? */
+        int error = errno;
+
+        /* close any sockets that might have been open and bound ok */
+        if ( sockets->socket >= 0 ) {
+            close(sockets->socket);
+        }
+        if ( sockets->socket6 >= 0 ) {
+            close(sockets->socket6);
+        }
+
+        /* if we got an EADDRINUSE we report it so a new port can be tried */
+        if ( error == EADDRINUSE ) {
+            return EADDRINUSE;
+        }
+
+        Log(LOG_ERR,"Unable to bind socket to address, aborting test");
+        return -1;
+    }
+
+    /* Start listening for at most 1 connection, we don't want a huge queue */
+    if ( sockets->socket >= 0 && sockopts->socktype == SOCK_STREAM ) {
+        if ( listen(sockets->socket, 1) < 0 ) {
+            int error = errno;
+            Log(LOG_DEBUG, "Failed to listen on IPv4 socket: %s",
+                    strerror(errno));
+
+            /* close the failed ipv4 socket */
+            close(sockets->socket);
+            sockets->socket = -1;
+
+            /* we'll try again if the address was already in use */
+            if ( error == EADDRINUSE ) {
+                /* close the ipv6 socket as well if it was opened */
+                if ( sockets->socket6 >= 0 ) {
+                    close(sockets->socket6);
+                    sockets->socket6 = -1;
+                }
+                return EADDRINUSE;
+            }
+        }
+    }
+
+    if ( sockets->socket6 >= 0 && sockopts->socktype == SOCK_STREAM ) {
+        if ( listen(sockets->socket6, 1) < 0 ) {
+            int error = errno;
+            Log(LOG_DEBUG, "Failed to listen on IPv6 socket: %s",
+                    strerror(errno));
+
+            /* close the failed ipv6 socket */
+            close(sockets->socket6);
+            sockets->socket6 = -1;
+
+            /* we'll try again if the address was already in use */
+            if ( error == EADDRINUSE ) {
+                /* close the ipv4 socket as well if it was opened */
+                if ( sockets->socket >= 0 ) {
+                    close(sockets->socket);
+                    sockets->socket = -1;
+                }
+                return EADDRINUSE;
+            }
+        }
+    }
+
+    /*
+     * If the ports are free, make sure at least one was opened ok. For now,
+     * we'll assume that if both were meant to open but one didn't then it
+     * isn't anything we can fix by trying again.
+     */
+    if ( sockets->socket < 0 && sockets->socket6 < 0 ) {
+        Log(LOG_WARNING, "No sockets listening");
+        return -1;
+    }
+
+    Log(LOG_DEBUG, "Successfully listening on port %d", port);
+    return 0;
+}
+
+
+
+/*
+ * XXX should port be included in options?
+ */
+int connect_to_server(struct addrinfo *server,
+        struct temp_sockopt_t_xxx *options, int port) {
+
+    int sock;
+
+    //XXX why SOCK_STREAM? needs to able to do DGRAM too, and change protocols
+    sock = socket(server->ai_family, options->socktype, options->protocol);
+
+    if ( sock < 0 ) {
+        Log(LOG_WARNING, "Failed to create control socket:%s", strerror(errno));
+        return -1;
+    }
+
+    //XXX do socket setup
+
+    /*
+     * Set options that are at the AMP test level rather than specific
+     * to this test. We need to know what address family we
+     * are connecting to, which doSocketSetup doesn't know.XXX
+     */
+    if ( options->device ) {
+        if ( bind_socket_to_device(sock, options->device) < 0 ) {
+            printf("bind to device\n");
+            return -1;
+        }
+    }
+
+#if 0
+    if ( options->sourcev4 || options->sourcev6 ) {
+        struct addrinfo *addr;
+
+        switch ( server->ai_family ) {
+            case AF_INET: addr = options->sourcev4; break;
+            case AF_INET6: addr = options->sourcev6; break;
+            default: printf("get address to bind with\n"); return -1;
+        };
+
+        /*
+         * Only bind if we have a specific source with the same address
+         * family as the destination, otherwise leave it default.
+         */
+        if ( addr && bind_socket_to_address(sock, addr) < 0 ) {
+            printf("bind to address\n");
+            return -1;
+        }
+    }
+#endif
+    /*
+     * It should be safe to use the IPv4 structure here since the port is in
+     * the same place in both headers.
+     */
+     //XXX why not make this the only code path? are we setting port in the
+     // structure earlier?
+    //if ( port > 0 ) {
+        printf("setting port to %d\n", port);
+        ((struct sockaddr_in *)server->ai_addr)->sin_port = htons(port);
+    //}
+
+    if ( connect(sock, server->ai_addr, server->ai_addrlen) < 0 ) {
+        Log(LOG_WARNING, "Failed to connect to server: %s", strerror(errno));
+        close(sock);
+        return -1;
+    }
+
+    //XXX why is this done?
+    ((struct sockaddr_in *)server->ai_addr)->sin_port = 0;
+
+    return sock;
+}

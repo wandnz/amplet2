@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.67])
-AC_INIT([amplet2], [0.5.5], [amp@wand.net.nz])
+AC_INIT([amplet2], [0.5.6], [amp@wand.net.nz])
 #AC_CONFIG_SRCDIR([src/measured/measured.c])
 AM_INIT_AUTOMAKE
 AC_CONFIG_HEADERS([config.h])
@@ -44,15 +44,15 @@ if test "$confuse_found" = 0; then
     AC_MSG_ERROR(Required library libconfuse not found; use LDFLAGS to specify library location)
 fi
 
-AC_CHECK_LIB([wandevent], [wand_add_fd],event_found=1,event_found=0)
-if test "$event_found" = 0; then
-    AC_MSG_ERROR(Required library libwandevent3 not found; use LDFLAGS to specify library location)
-fi
+#AC_CHECK_LIB([wandevent], [wand_add_fd],event_found=1,event_found=0)
+#if test "$event_found" = 0; then
+#    AC_MSG_ERROR(Required library libwandevent3 not found; use LDFLAGS to specify library location)
+#fi
 
-AC_CHECK_LIB([rabbitmq], [amqp_new_connection],rabbit_found=1,rabbit_found=0)
-if test "$rabbit_found" = 0; then
-    AC_MSG_ERROR(Required library librabbitmq not found; use LDFLAGS to specify library location)
-fi
+#AC_CHECK_LIB([rabbitmq], [amqp_new_connection],rabbit_found=1,rabbit_found=0)
+#if test "$rabbit_found" = 0; then
+#    AC_MSG_ERROR(Required library librabbitmq not found; use LDFLAGS to specify library location)
+#fi
 
 AC_CHECK_LIB([pthread], [pthread_create],pthread_found=1,pthread_found=0)
 if test "$pthread_found" = 0; then
@@ -64,10 +64,10 @@ if test "$yaml_found" = 0; then
     AC_MSG_ERROR(Required library libyaml not found; use LDFLAGS to specify library location)
 fi
 
-AC_CHECK_LIB([unbound], [ub_ctx_create],unbound_found=1,unbound_found=0)
-if test "$unbound_found" = 0; then
-    AC_MSG_ERROR(Required library libunbound not found; use LDFLAGS to specify library location)
-fi
+#AC_CHECK_LIB([unbound], [ub_ctx_create],unbound_found=1,unbound_found=0)
+#if test "$unbound_found" = 0; then
+#    AC_MSG_ERROR(Required library libunbound not found; use LDFLAGS to specify library location)
+#fi
 
 # we use libcurl to fetch remote schedules and to perform the http test
 AC_CHECK_LIB(curl, curl_global_init, libcurl_found=1, libcurl_found=0)
@@ -80,14 +80,14 @@ if test "$curl_h_found" = 0; then
 fi
 
 # make sure google protocol buffer C libraries exist
-AC_CHECK_LIB(protobuf-c, protobuf_c_message_pack, libprotobufc_found=1, libprotobufc_found=0)
-if test "$libprotobufc_found" = 0; then
-    AC_MSG_ERROR(Required library libprotobuf-c not found; use LDFLAGS to specify library location)
-fi
-AC_CHECK_HEADER(google/protobuf-c/protobuf-c.h, protobuf_h_found=1, protobuf_h_found=0)
-if test "$protobuf_h_found" = 0; then
-    AC_MSG_ERROR(Required headers for protobuf-c not found; use CLFAGS to specify header location)
-fi
+#AC_CHECK_LIB(protobuf-c, protobuf_c_message_pack, libprotobufc_found=1, libprotobufc_found=0)
+#if test "$libprotobufc_found" = 0; then
+#    AC_MSG_ERROR(Required library libprotobuf-c not found; use LDFLAGS to specify library location)
+#fi
+#AC_CHECK_HEADER(google/protobuf-c/protobuf-c.h, protobuf_h_found=1, protobuf_h_found=0)
+#if test "$protobuf_h_found" = 0; then
+#    AC_MSG_ERROR(Required headers for protobuf-c not found; use CLFAGS to specify header location)
+#fi
 
 # check if we have the web10g library, it's ok for it to be missing
 AC_CHECK_LIB([estats], [estats_nl_client_init],
@@ -265,6 +265,20 @@ if test x"$want_http_test" = xtrue; then
 
 fi
 
+AC_ARG_ENABLE(udpstream,
+    AC_HELP_STRING([--enable-udpstream],
+	[Enable the udpstream test (default: no)]),
+    [case "${enableval}" in
+    true) ;&
+    yes) want_udpstream_test=true ;;
+    false) ;&
+    no)	 want_udpstream_test=false ;;
+    *) AC_MSG_ERROR(bad value ${enableval} for --enable-udpstream) ;;
+    esac],
+    [want_udpstream_test=false])
+# using AM_CONDITIONAL propagates this value through to all Makefile.am files
+AM_CONDITIONAL(WANT_UDPSTREAM_TEST, [test x"$want_udpstream_test" = xtrue])
+
 # Set default CFLAGS including the AMP_CONFIG_DIR and AMP_TEST_DIR
 AC_SUBST([AM_CFLAGS], ["-rdynamic -g -Wall -W -D_GNU_SOURCE -DAMP_CONFIG_DIR=\\\"\$(sysconfdir)/\$(PACKAGE)\\\" -DAMP_TEST_DIRECTORY=\\\"\$(libdir)/\$(PACKAGE)/tests\\\" -DAMP_LOG_DIR=\\\"\$(localstatedir)/log/\\\""])
 
@@ -291,7 +305,8 @@ AC_CONFIG_FILES([Makefile
                  src/tests/http/test/Makefile
                  src/tests/throughput/Makefile
                  src/tests/throughput/test/Makefile
-                 src/tests/remoteskeleton/Makefile])
+                 src/tests/remoteskeleton/Makefile
+                 src/tests/udpstream/Makefile])
 AC_OUTPUT
 
 reportopt() {
@@ -311,3 +326,4 @@ reportopt "Compiled with dns test support" $want_dns_test
 reportopt "Compiled with http test support" $want_http_test
 reportopt "Compiled with throughput test support" $want_throughput_test
 reportopt "Compiled with tcpping test support" $want_tcpping_test
+reportopt "Compiled with udpstream test support" $want_udpstream_test

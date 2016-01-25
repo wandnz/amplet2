@@ -35,3 +35,7 @@ endif
 if WANT_REMOTESKELETON_TEST
 SUBDIRS+=remoteskeleton
 endif
+
+if WANT_UDPSTREAM_TEST
+SUBDIRS+=udpstream
+endif

@@ -1,0 +1,43 @@
+package amplet2.servers;
+
+message Control {
+        enum Type {
+                HELLO = 2;
+                READY = 3;
+                RECEIVE = 4;
+        }
+
+        optional Type type = 1;
+
+        optional Hello hello = 2;
+        optional Ready ready = 3;
+        optional Receive receive = 4;
+}
+
+message Hello {
+        optional uint32 test_port = 1;
+}
+
+message Ready {
+        optional uint32 test_port = 1;
+}
+
+message Receive {
+        optional uint32 packet_count = 1 [default = 10];
+}
+
+
+message Header {
+	optional uint32 packet_size = 1 [default = 84];
+	optional bool random = 2 [default = false];
+}
+
+message Item {
+	optional bytes address = 1;
+	optional int32 family = 2;
+	optional uint32 rtt = 3;
+	optional uint32 err_type = 4;
+	optional uint32 err_code = 5;
+	optional uint32 ttl = 6;
+	optional string name = 7;
+}

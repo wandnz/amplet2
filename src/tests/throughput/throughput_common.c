@@ -953,6 +953,7 @@ int readHelloPacket(const struct packet_t *p, struct opt_t *sockopts,
                 p->header.type);
         return -1;
     }
+
     sockopts->tport = p->types.hello.tport;
     sockopts->sock_mss = p->types.hello.mss;
     sockopts->sock_rcvbuf = p->types.hello.sock_rcvbuf;
