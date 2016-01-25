@@ -194,7 +194,7 @@ int send_control_ready(int sock, uint16_t port) {
     Amplet2__Servers__Control msg = AMPLET2__SERVERS__CONTROL__INIT;
     Amplet2__Servers__Ready ready = AMPLET2__SERVERS__READY__INIT;
 
-    printf("sending ready\n");
+    printf("sending ready with port %d\n", port);
 
     ready.has_test_port = 1;
     ready.test_port = port;
@@ -342,6 +342,7 @@ int parse_control_ready(void *data, uint32_t len,
     }
 
     options->tport = msg->ready->test_port;
+    printf("got control ready with test port %d\n", options->tport);
 
     /* TODO other test options */
 

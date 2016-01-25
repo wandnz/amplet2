@@ -129,10 +129,10 @@ static int serve_test(int control_sock, struct sockaddr_storage *remote,
         switch ( msg->type ) {
             case AMPLET2__SERVERS__CONTROL__TYPE__READY:
                 /* send the data stream to the client on the port specified */
-                printf("got ready command\n");
+                printf("got ready command with port %d\n", msg->ready->test_port);
                 //XXX parse_control_ready or just use it?
                 //XXX at least check it's valid etc...
-                ((struct sockaddr_in*)remote)->sin_port = msg->ready->test_port;
+                ((struct sockaddr_in*)remote)->sin_port = ntohs(msg->ready->test_port);
                 send_udp_stream(test_sock, &client, &options);
                 break;
 
