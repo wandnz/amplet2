@@ -28,7 +28,10 @@
 #include "servers.pb-c.h"
 
 
-static int write_control_packet2(int sock, void *data, uint32_t len) {
+/*
+ *
+ */
+static int write_control_packet(int sock, void *data, uint32_t len) {
     int result;
     uint32_t total_written = 0;
     uint32_t datalen = ntohl(len);
@@ -82,40 +85,7 @@ static int write_control_packet2(int sock, void *data, uint32_t len) {
 /*
  *
  */
-static int write_control_packet(int sock, struct packet_t *packet) {
-    int res;
-    int total_written = 0;
-    int total_size = packet->header.size + sizeof(struct packet_t);
-
-    do {
-        res = write(sock, (void*)packet+total_written,
-                total_size-total_written);
-
-        if ( res > 0 ) {
-            total_written += res;
-        }
-
-        /*
-         * Keep trying to write until we have sent everything we have or we
-         * get a real error. An interrupted write that has sent data won't
-         * give an EINTR, it will just return less than the full number of
-         * bytes it was meant to send.
-         */
-    } while ( (res > 0 && total_written < total_size) ||
-            ( res < 0 && errno == EINTR ) );
-
-    if ( total_written != total_size ) {
-        Log(LOG_WARNING, "write return %d, total %d (not %d): %s\n", res,
-                total_written, total_size, strerror(errno));
-        return -1;
-    }
-
-    return total_written;
-}
-
-
-
-int read_control_packet2(int sock, void **data) {
+int read_control_packet(int sock, void **data) {
     int result;
     uint32_t datalen = 0;
     uint32_t bytes_read = 0;
@@ -181,79 +151,6 @@ int read_control_packet2(int sock, void **data) {
     return datalen;
 }
 
-/*
- *
- */
-int read_control_packet(int sock, struct packet_t *packet, char **additional) {
-    int result;
-    uint32_t bytes_read;
-    char buf[1024];//XXX
-
-    bytes_read = 0;
-
-    /* Read in the packet_t first, so we can get the packet size */
-    do {
-        result = read(sock, ((uint8_t *) packet) + bytes_read,
-                sizeof(struct packet_t) - bytes_read);
-
-        if ( result == -1 && errno == EINTR ) {
-            continue;
-        }
-        if ( result == -1 ) {
-            Log(LOG_WARNING, "read() on socket failed : %s" , strerror(errno));
-            return -1;
-        }
-        if ( result == 0 ) {
-            /* EOF */
-            return 0;
-        }
-        bytes_read += result;
-    } while ( bytes_read < sizeof(struct packet_t));
-
-    /* Fix endianness */
-    //betohPacket(packet); //XXX
-
-    /* packet->header.size excludes it's own size */
-    bytes_read = 0;
-
-    if ( additional ) {
-        if ( packet->header.size > 0 && packet->header.size < MAX_MALLOC ) {
-            *additional = malloc(packet->header.size);
-        } else {
-            *additional = NULL;
-        }
-    }
-
-    /* Dump out the rest of the packet */
-    while ( bytes_read < packet->header.size ) {
-        if ( additional == NULL || *additional == NULL ) {
-            /* Throw away */
-            result = read(sock, buf,
-                    MIN(packet->header.size-bytes_read, sizeof(buf)));
-        } else {
-            /* Store in our buffer */
-            result = read(sock, *additional + bytes_read,
-                    packet->header.size-bytes_read);
-        }
-
-        if ( result == -1 && errno == EINTR ) {
-            continue;
-        }
-        if ( result == -1 ) {
-            Log(LOG_WARNING, "read() on socket failed : %s" , strerror(errno));
-            return -1;
-        }
-        if ( result == 0 ) {
-            Log(LOG_WARNING,
-                    "EOF found before the end of the packet additional data");
-            return -1;
-        }
-        bytes_read += result;
-    }
-
-    return bytes_read + sizeof(struct packet_t);
-}
-
 
 
 /*
@@ -278,40 +175,11 @@ int send_control_hello(int sock, struct temp_sockopt_t_xxx *options) {
     buffer = malloc(len);
     amplet2__servers__control__pack(&msg, buffer);
 
-    result = write_control_packet2(sock, buffer, len);
+    result = write_control_packet(sock, buffer, len);
 
     free(buffer);
 
     return result;
-
-#if 0
-    struct packet_t p;
-    memset(&p, 0, sizeof(p));
-    p.header.type = CONTROL_PACKET_HELLO;
-    p.header.size = 0;
-    p.types.hello.version = AMP_UDPSTREAM_TEST_VERSION;
-#if 0
-    /* Flags Only 1 byte of these */
-    if ( options->sock_disable_nagle ) {
-        p.types.hello.flags |= TPUT_PKT_FLAG_NO_NAGLE;
-    }
-    if ( options->disable_web10g ) {
-        p.types.hello.flags |= TPUT_PKT_FLAG_NO_WEB10G;
-    }
-    if ( options->randomise ) {
-        p.types.hello.flags |= TPUT_PKT_FLAG_RANDOMISE;
-    }
-#endif
-    p.types.hello.tport = options->tport;
-#if 0
-    p.types.hello.mss = options->sock_mss;
-    p.types.hello.sock_rcvbuf = options->sock_rcvbuf;
-    p.types.hello.sock_sndbuf = options->sock_sndbuf;
-#endif
-    printf("sending hello\n");
-
-    return write_control_packet(sock, &p);
-#endif
 }
 
 
@@ -320,13 +188,29 @@ int send_control_hello(int sock, struct temp_sockopt_t_xxx *options) {
  *
  */
 int send_control_ready(int sock, uint16_t port) {
-    struct packet_t packet;
-    memset(&packet, 0, sizeof(packet));
-    packet.header.type = CONTROL_PACKET_READY;
-    packet.header.size = 0;
-    packet.types.ready.tport = port;
+    int len;
+    void *buffer;
+    int result;
+    Amplet2__Servers__Control msg = AMPLET2__SERVERS__CONTROL__INIT;
+    Amplet2__Servers__Ready ready = AMPLET2__SERVERS__READY__INIT;
+
     printf("sending ready\n");
-    return write_control_packet(sock, &packet);
+
+    ready.has_test_port = 1;
+    ready.test_port = port;
+    msg.ready = &ready;
+    msg.has_type = 1;
+    msg.type = AMPLET2__SERVERS__CONTROL__TYPE__READY;
+
+    len = amplet2__servers__control__get_packed_size(&msg);
+    buffer = malloc(len);
+    amplet2__servers__control__pack(&msg, buffer);
+
+    result = write_control_packet(sock, buffer, len);
+
+    free(buffer);
+
+    return result;
 }
 
 
@@ -353,7 +237,7 @@ int send_control_receive(int sock, uint32_t packet_count) {
     buffer = malloc(len);
     amplet2__servers__control__pack(&msg, buffer);
 
-    result = write_control_packet2(sock, buffer, len);
+    result = write_control_packet(sock, buffer, len);
 
     free(buffer);
 
@@ -429,11 +313,53 @@ int parse_control_hello(void *data, uint32_t len,
 
 
 
-int read_control_hello2(int sock, struct temp_sockopt_t_xxx *options) {
+/*
+ *
+ */
+int parse_control_ready(void *data, uint32_t len,
+        struct temp_sockopt_t_xxx *options) {
+
+    Amplet2__Servers__Control *msg;
+
+    assert(data);
+    assert(options);
+
+    /* unpack all the data */
+    msg = amplet2__servers__control__unpack(NULL, len, data);
+
+    if ( !msg->has_type ||
+            msg->type != AMPLET2__SERVERS__CONTROL__TYPE__READY ) {
+        Log(LOG_WARNING, "Not a READY packet, aborting");
+        printf("type:%d\n", msg->type);
+        amplet2__servers__control__free_unpacked(msg, NULL);
+        return -1;
+    }
+
+    if ( !msg || !msg->ready || !msg->ready->has_test_port ) {
+        Log(LOG_WARNING, "Malformed READY packet, aborting");
+        amplet2__servers__control__free_unpacked(msg, NULL);
+        return -1;
+    }
+
+    options->tport = msg->ready->test_port;
+
+    /* TODO other test options */
+
+    amplet2__servers__control__free_unpacked(msg, NULL);
+
+    return 0;
+}
+
+
+
+/*
+ *
+ */
+int read_control_hello(int sock, struct temp_sockopt_t_xxx *options) {
     void *data;
     int len;
 
-    if ( (len=read_control_packet2(sock, &data)) < 0 ) {
+    if ( (len=read_control_packet(sock, &data)) < 0 ) {
         Log(LOG_WARNING, "Failed to read HELLO packet");
         return -1;
     }
@@ -451,63 +377,21 @@ int read_control_hello2(int sock, struct temp_sockopt_t_xxx *options) {
 /*
  *
  */
-int read_control_hello(int sock, struct temp_sockopt_t_xxx *options) {
-    struct packet_t packet;
+int read_control_ready(int sock, struct temp_sockopt_t_xxx *options) {
+    void *data;
+    int len;
 
-    if ( read_control_packet(sock, &packet, NULL) < 0 ) {
-        Log(LOG_ERR, "Failed to read hello packet");
+    if ( (len=read_control_packet(sock, &data)) < 0 ) {
+        Log(LOG_ERR, "Failed to read READY packet");
         return -1;
     }
 
-    if ( packet.header.type != CONTROL_PACKET_HELLO ) {
-        Log(LOG_ERR, "Required a hello packet but got type %d instead",
-                packet.header.type);
+    if ( parse_control_ready(data, len, options) < 0 ) {
+        Log(LOG_WARNING, "Failed to parse READY packet");
         return -1;
     }
-
-    // TODO check version number
-    //p->types.hello.version;
-
-    options->tport = packet.types.hello.tport;
-#if 0
-    options->sock_mss = p->types.hello.mss;
-    options->sock_rcvbuf = p->types.hello.sock_rcvbuf;
-    options->sock_sndbuf = p->types.hello.sock_sndbuf;
-
-    if ( p->types.hello.flags & TPUT_PKT_FLAG_NO_NAGLE ) {
-        options->sock_disable_nagle = 1;
-    }
-    if ( p->types.hello.flags & TPUT_PKT_FLAG_NO_WEB10G ) {
-        options->disable_web10g = 1;
-    }
-    if ( p->types.hello.flags & TPUT_PKT_FLAG_RANDOMISE ) {
-        options->randomise = 1;
-    }
-#endif
 
     return 0;
-}
-
-
-
-/*
- *
- */
-int read_control_ready(int sock) {
-    struct packet_t packet;
-
-    if ( read_control_packet(sock, &packet, NULL) < 0 ) {
-        Log(LOG_ERR, "Failed to read ready packet");
-        return -1;
-    }
-
-    if ( packet.header.type != CONTROL_PACKET_READY ) {
-        Log(LOG_ERR, "Required a ready packet but got type %d instead",
-                packet.header.type);
-        return -1;
-    }
-
-    return packet.types.ready.tport;
 }
 
 

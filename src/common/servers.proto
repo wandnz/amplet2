@@ -14,6 +14,7 @@ message Control {
         optional Receive receive = 4;
 }
 
+# TODO how are hello and ready different? are there more arguments to come?
 message Hello {
         optional uint32 test_port = 1;
 }

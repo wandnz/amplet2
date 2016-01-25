@@ -31,7 +31,7 @@ static int serve_test(int control_sock, struct sockaddr_storage *remote,
 
     printf("SERVING TEST\n");
 
-    if ( read_control_hello2(control_sock, sockopts) < 0 ) {
+    if ( read_control_hello(control_sock, sockopts) < 0 ) {
         Log(LOG_WARNING, "Got bad HELLO packet, shutting down test server");
         return -1;
     }
@@ -121,7 +121,7 @@ static int serve_test(int control_sock, struct sockaddr_storage *remote,
     options.packet_count = 10;//XXX
     options.packet_spacing = 100;//XXX
 
-    while ( (bytes=read_control_packet2(control_sock, &data)) > 0 ) {
+    while ( (bytes=read_control_packet(control_sock, &data)) > 0 ) {
         Amplet2__Servers__Control *msg;
         printf("read %d bytes\n", bytes);
         msg = amplet2__servers__control__unpack(NULL, bytes, data);
@@ -130,6 +130,8 @@ static int serve_test(int control_sock, struct sockaddr_storage *remote,
             case AMPLET2__SERVERS__CONTROL__TYPE__READY:
                 /* send the data stream to the client on the port specified */
                 printf("got ready command\n");
+                //XXX parse_control_ready or just use it?
+                //XXX at least check it's valid etc...
                 ((struct sockaddr_in*)remote)->sin_port = msg->ready->test_port;
                 send_udp_stream(test_sock, &client, &options);
                 break;

@@ -60,12 +60,12 @@ int send_control_receive(int sock, uint32_t packet_count);
 int send_control_send(int sock/*, uint16_t port*/);
 
 int read_control_hello(int sock, struct temp_sockopt_t_xxx *options);
-int read_control_ready(int sock);
-int read_control_packet(int sock, struct packet_t *packet, char **additional);
-int read_control_packet2(int sock, void **data);
-int read_control_hello2(int sock, struct temp_sockopt_t_xxx *options);
+int read_control_ready(int sock, struct temp_sockopt_t_xxx *options);
+int read_control_packet(int sock, void **data);
 
 int parse_control_hello(void *data, uint32_t len,
+        struct temp_sockopt_t_xxx *options);
+int parse_control_ready(void *data, uint32_t len,
         struct temp_sockopt_t_xxx *options);
 
 int start_listening(struct socket_t *sockets, int port,

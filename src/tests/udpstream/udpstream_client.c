@@ -74,15 +74,16 @@ static int run_test(struct addrinfo *server, struct opt_t *options,
     /* TODO instruct server to send otherwise send data */
     send_control_receive(control_socket, options->packet_count);
 
-    if ( (test_port = read_control_ready(control_socket)) < 0 ) {
-        Log(LOG_WARNING, "Failed to send READY packet, aborting");
+    if ( read_control_ready(control_socket, socket_options) < 0 ) {
+        Log(LOG_WARNING, "Failed to read READY packet, aborting");
         close(control_socket);
         return -1;
     }
 
     //XXX
-    printf("test port = %d\n", test_port);
-    ((struct sockaddr_in *)server->ai_addr)->sin_port = ntohs(test_port);
+    printf("test port = %d\n", socket_options->tport);
+    ((struct sockaddr_in *)server->ai_addr)->sin_port =
+        ntohs(socket_options->tport);
 
     send_udp_stream(test_socket, server, options);
 
