@@ -11,8 +11,6 @@
 
 
 //TODO make error messages make sense and not duplicated at all levels
-//XXX TODO who should close sockets etc. next level up can close control, this
-// function can close the test socket?
 // XXX can any of this move into a library function?
 //XXX need remote when it can be extracted from control sock?
 static int serve_test(int control_sock, struct sockaddr_storage *remote,
@@ -20,11 +18,8 @@ static int serve_test(int control_sock, struct sockaddr_storage *remote,
     struct socket_t sockets;
     uint16_t portmax;
     int test_sock;
-    struct sockaddr_storage client_addr;
-    socklen_t client_addrlen = sizeof(client_addr);
     int res;
     int bytes;
-    struct packet_t packet;
     struct addrinfo client;
     struct opt_t options;
     void *data;
@@ -81,30 +76,6 @@ static int serve_test(int control_sock, struct sockaddr_storage *remote,
     }
 
     /* XXX expect some magic passphrase exchanged via secure tcp connection */
-
-
-    /* XXX this is a datagram protocol, don't need to do this */
-#if 0
-    do {
-        test_sock = accept(listen_sock,
-                (struct sockaddr*) &client_addr, &client_addrlen);
-    } while (test_sock == -1 && errno == EINTR ); /* Repeat if interrupted */
-
-    close(listen_sock);
-
-    if ( test_sock < 0 ) {
-        Log(LOG_WARNING, "Failed to accept() test connection: %s",
-                strerror(errno));
-        return -1;
-    }
-#endif
-    // TODO switch based on schedule
-    /*
-    if ( read_control_start(control_sock) < 0 ) {
-        Log(LOG_WARNING, "Failed to get START message, aborting");
-        return -1;
-    }
-    */
 
     //XXX this is all only used when sending
     client.ai_flags = 0;
@@ -205,7 +176,6 @@ void run_udpstream_server(int argc, char *argv[], SSL *ssl) {
             case '4': sourcev4 = optarg; break;
             case '6': sourcev6 = optarg; break;
             case 'I': sockopts.device = optarg; break;
-            /* case 'B': for iperf compatability? */
             case 'p': port = atoi(optarg); portmax = port; break;
             case 'h':
             case '?':
