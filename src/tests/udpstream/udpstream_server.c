@@ -160,6 +160,8 @@ static int serve_test(int control_sock, struct sockaddr_storage *remote,
         amplet2__servers__control__free_unpacked(msg, NULL);
     }
 
+    close(test_sock);
+
     return 0;
 }
 
