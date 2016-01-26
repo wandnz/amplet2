@@ -136,7 +136,7 @@ int run_udpstream_client(int argc, char *argv[], int count,
     client = NULL;
 
     /* TODO udp port */
-    while ( (opt = getopt_long(argc, argv, "hvI:Z:p:rs:c:n:4:6:",
+    while ( (opt = getopt_long(argc, argv, "hvI:Z:p:rz:c:n:4:6:",
                     long_options, NULL)) != -1 ) {
 	switch ( opt ) {
             case '4':
@@ -149,7 +149,7 @@ int run_udpstream_client(int argc, char *argv[], int count,
             case 'c': client = optarg; break;
             case 'Z': test_options.packet_spacing = atoi(optarg); break;
 	    case 'p': test_options.perturbate = atoi(optarg); break;
-	    case 's': test_options.packet_size = atoi(optarg); break;
+	    case 'z': test_options.packet_size = atoi(optarg); break;
 	    case 'n': test_options.packet_count = atoi(optarg); break;
             case 'v': version(argv[0]); exit(0);
 	    case 'h':
@@ -201,14 +201,12 @@ int run_udpstream_client(int argc, char *argv[], int count,
         exit(1);
     }
 
-#if 0
     /* make sure that the packet size is big enough for our data */
-    if ( options.packet_size < MIN_PACKET_LEN ) {
+    if ( test_options.packet_size < MINIMUM_UDPSTREAM_PACKET_LENGTH ) {
 	Log(LOG_WARNING, "Packet size %d below minimum size, raising to %d",
-		options.packet_size, MIN_PACKET_LEN);
-	options.packet_size = MIN_PACKET_LEN;
+		test_options.packet_size, MINIMUM_UDPSTREAM_PACKET_LENGTH);
+	test_options.packet_size = MINIMUM_UDPSTREAM_PACKET_LENGTH;
     }
-#endif
 
     /* delay the start by a random amount of perturbate is set */
     if ( test_options.perturbate ) {

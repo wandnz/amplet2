@@ -3,6 +3,8 @@
 
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <netinet/ip6.h>
+#include <netinet/udp.h>
 #include <netdb.h>
 #include <errno.h>
 
@@ -21,6 +23,8 @@
 #define DEFAULT_TPUT_PAUSE  10000
 #define DEFAULT_TEST_DURATION 10 /* iperf default: 10s */
 
+#define MINIMUM_UDPSTREAM_PACKET_LENGTH ( \
+        sizeof(struct ip6_hdr) + sizeof(struct udphdr) + sizeof(uint32_t))
 #define DEFAULT_UDPSTREAM_PACKET_LENGTH 100
 #define DEFAULT_UDPSTREAM_PACKET_COUNT 10
 
