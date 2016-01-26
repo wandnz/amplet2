@@ -29,6 +29,7 @@ struct temp_sockopt_t_xxx {
     uint16_t cport; // XXX both ports probably not needed in same struct?
     uint16_t tport;
     char *device;
+    uint32_t packet_count;
 };
 
 struct packet_t {
@@ -66,6 +67,8 @@ int read_control_packet(int sock, void **data);
 int parse_control_hello(void *data, uint32_t len,
         struct temp_sockopt_t_xxx *options);
 int parse_control_ready(void *data, uint32_t len,
+        struct temp_sockopt_t_xxx *options);
+int parse_control_receive(void *data, uint32_t len,
         struct temp_sockopt_t_xxx *options);
 
 int start_listening(struct socket_t *sockets, int port,

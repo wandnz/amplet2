@@ -93,7 +93,7 @@ static int run_test(struct addrinfo *server, struct opt_t *options,
     send_control_ready(control_socket, ntohs(((struct sockaddr_in *)&ss)->sin_port));
 
     /* wait for the data stream from the server */
-    receive_udp_stream(test_socket);
+    receive_udp_stream(test_socket, options->packet_count);
 
     /* report results */
 

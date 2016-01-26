@@ -138,10 +138,15 @@ static int serve_test(int control_sock, struct sockaddr_storage *remote,
 
             case AMPLET2__SERVERS__CONTROL__TYPE__RECEIVE:
                 printf("got receive packet\n");
+                //XXX parse function takes inconsistent args
+                //XXX unpacked vs packed
+                if ( parse_control_receive(data, bytes, sockopts) < 0 ) {
+                    return -1;
+                }
                 /* tell the client what port the test server is running on */
                 send_control_ready(control_sock, sockopts->tport);
                 /* wait for the data stream from the client */
-                receive_udp_stream(test_sock);
+                receive_udp_stream(test_sock, sockopts->packet_count);
                 break;
 
             default: printf("unhandled type %d\n", msg->type); break;

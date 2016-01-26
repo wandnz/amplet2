@@ -32,9 +32,9 @@ int send_udp_stream(int sock, struct addrinfo *remote, struct opt_t *options) {
 
 
 /*
- *
+ * XXX packet_count or a full options struct?
  */
-int receive_udp_stream(int sock) {
+int receive_udp_stream(int sock, uint32_t packet_count) {
     struct timeval *times;
     char buffer[4096];//XXX
     int timeout = 10000000;//XXX
@@ -45,10 +45,9 @@ int receive_udp_stream(int sock) {
     sockets.socket = sock;//XXX
     sockets.socket6 = -1;//XXX
 
-    int packet_count = 10;//XXX
-
     printf("receive udp stream\n");
 
+    //XXX never gets freed
     times = calloc(packet_count, sizeof(struct timeval));
 
     for ( i = 0; i < packet_count; i++ ) {

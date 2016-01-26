@@ -78,6 +78,6 @@ void print_udpstream(void *data, uint32_t len);
 void usage(char *prog);
 void version(char *prog);
 int send_udp_stream(int sock, struct addrinfo *remote, struct opt_t *options);
-int receive_udp_stream(int sock);
+int receive_udp_stream(int sock, uint32_t packet_count);
 
 #endif

@@ -352,6 +352,44 @@ int parse_control_ready(void *data, uint32_t len,
 }
 
 
+//XXX parse function takes inconsistent args
+//XXX unpacked vs packed
+int parse_control_receive(void *data, uint32_t len,
+        struct temp_sockopt_t_xxx *options) {
+
+    Amplet2__Servers__Control *msg;
+
+    assert(data);
+    assert(options);
+
+    /* unpack all the data */
+    msg = amplet2__servers__control__unpack(NULL, len, data);
+
+    if ( !msg->has_type ||
+            msg->type != AMPLET2__SERVERS__CONTROL__TYPE__RECEIVE ) {
+        Log(LOG_WARNING, "Not a RECEIVE packet, aborting");
+        printf("type:%d\n", msg->type);
+        amplet2__servers__control__free_unpacked(msg, NULL);
+        return -1;
+    }
+
+    if ( !msg || !msg->receive || !msg->receive->has_packet_count ) {
+        Log(LOG_WARNING, "Malformed RECEIVE packet, aborting");
+        amplet2__servers__control__free_unpacked(msg, NULL);
+        return -1;
+    }
+
+    options->packet_count = msg->receive->packet_count;
+    printf("got control receive with packet count %d\n", options->packet_count);
+
+    /* TODO other test options */
+
+    amplet2__servers__control__free_unpacked(msg, NULL);
+
+    return 0;
+}
+
+
 
 /*
  *
