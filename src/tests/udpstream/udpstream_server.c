@@ -44,10 +44,13 @@ static int serve_test(int control_sock, struct sockaddr_storage *remote,
     if ( sockopts->tport == DEFAULT_TEST_PORT ) {
         portmax = MAX_TEST_PORT;
     } else {
+        if ( sockopts->tport < IPPORT_RESERVED ) {
+            Log(LOG_WARNING, "Not allowing test ports < 1024");
+            return -1;
+        }
         portmax = sockopts->tport;
     }
 
-    //XXX enforce sensible port ranges so we don't clobber well known ones
     printf("port:%d portmax:%d\n", sockopts->tport, portmax);
     sockopts->socktype = SOCK_DGRAM;
     sockopts->protocol = IPPROTO_UDP;
