@@ -12,11 +12,15 @@ message Control {
         optional Hello hello = 2;
         optional Ready ready = 3;
         optional Receive receive = 4;
+        optional Send send = 5;
 }
 
-# TODO how are hello and ready different? are there more arguments to come?
 message Hello {
         optional uint32 test_port = 1;
+        optional uint32 packet_size = 2 [default = 100];
+        optional uint32 packet_count = 3 [default = 11];
+        optional uint32 packet_spacing = 4 [default = 1000];
+        optional uint32 percentile_count = 5 [default = 10];
 }
 
 message Ready {

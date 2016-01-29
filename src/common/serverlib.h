@@ -29,7 +29,10 @@ struct temp_sockopt_t_xxx {
     uint16_t cport; // XXX both ports probably not needed in same struct?
     uint16_t tport;
     char *device;
+    uint16_t packet_size;
     uint32_t packet_count;
+    uint32_t packet_spacing; //XXX inter_packet_delay;
+    uint32_t percentile_count;
 };
 
 struct packet_t {

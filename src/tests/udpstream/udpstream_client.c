@@ -23,6 +23,11 @@ static int run_test(struct addrinfo *server, struct opt_t *options,
     printf("run test\n");
     socket_options->cport = options->cport;//XXX
     socket_options->tport = options->tport;//XXX
+    socket_options->packet_size = options->packet_size;//XXX
+    socket_options->packet_count = options->packet_count;//XXX
+    socket_options->packet_spacing = options->packet_spacing;//XXX
+    socket_options->percentile_count = options->percentile_count;//XXX
+
     socket_options->socktype = SOCK_STREAM;
     socket_options->protocol = IPPROTO_TCP;
 
@@ -123,10 +128,10 @@ int run_udpstream_client(int argc, char *argv[], int count,
 
     /* set some sensible defaults */
     //XXX set better inter packet delay, using MIN as a floor?
-    //test_options.inter_packet_delay = MIN_INTER_PACKET_DELAY;
     test_options.packet_spacing = MIN_INTER_PACKET_DELAY;
     test_options.packet_size = DEFAULT_UDPSTREAM_PACKET_LENGTH;
     test_options.packet_count = DEFAULT_UDPSTREAM_PACKET_COUNT;
+    test_options.percentile_count = DEFAULT_UDPSTREAM_PERCENTILE_COUNT;
     test_options.cport = DEFAULT_CONTROL_PORT;
     test_options.tport = DEFAULT_TEST_PORT;
     test_options.perturbate = 0;

@@ -167,6 +167,21 @@ int send_control_hello(int sock, struct temp_sockopt_t_xxx *options) {
 
     hello.has_test_port = 1;
     hello.test_port = options->tport;
+    hello.has_packet_size = 1;
+    hello.packet_size = options->packet_size;
+    hello.has_packet_count = 1;
+    hello.packet_count = options->packet_count;
+    hello.has_packet_spacing = 1;
+    hello.packet_spacing = options->packet_spacing;
+    hello.has_percentile_count = 1;
+    hello.percentile_count = options->percentile_count;
+
+    printf(" - test port %d\n", options->tport);
+    printf(" - packet size %d\n", options->packet_size);
+    printf(" - packet count %d\n", options->packet_count);
+    printf(" - packet spacing %d\n", options->packet_spacing);
+    printf(" - percentiles %d\n", options->percentile_count);
+
     msg.hello = &hello;
     msg.has_type = 1;
     msg.type = AMPLET2__SERVERS__CONTROL__TYPE__HELLO;
@@ -303,8 +318,17 @@ int parse_control_hello(void *data, uint32_t len,
     }
 
     options->tport = msg->hello->test_port;
+    options->packet_size = msg->hello->packet_size;
+    options->packet_count = msg->hello->packet_count;
+    options->packet_spacing = msg->hello->packet_spacing;
+    options->percentile_count = msg->hello->percentile_count;
 
-    /* TODO other test options */
+    printf("read HELLO packet\n");
+    printf(" - test port %d\n", options->tport);
+    printf(" - packet size %d\n", options->packet_size);
+    printf(" - packet count %d\n", options->packet_count);
+    printf(" - packet spacing %d\n", options->packet_spacing);
+    printf(" - percentiles %d\n", options->percentile_count);
 
     amplet2__servers__control__free_unpacked(msg, NULL);
 

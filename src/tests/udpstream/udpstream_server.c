@@ -31,6 +31,10 @@ static int serve_test(int control_sock, struct sockaddr_storage *remote,
         return -1;
     }
 
+    options.packet_size = sockopts->packet_size;//XXX
+    options.packet_count = sockopts->packet_count;//XXX
+    options.packet_spacing = sockopts->packet_spacing;//XXX
+
     /*
      * Try to create the test server on the appropriate port. If test port has
      * been manually set, only try that port. If it is still the default, try
