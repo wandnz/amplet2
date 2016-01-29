@@ -264,6 +264,37 @@ int send_control_receive(int sock, uint32_t packet_count) {
 /*
  *
  */
+int send_control_send(int sock, uint16_t port) {
+    int len;
+    void *buffer;
+    int result;
+    Amplet2__Servers__Control msg = AMPLET2__SERVERS__CONTROL__INIT;
+    Amplet2__Servers__Send send = AMPLET2__SERVERS__SEND__INIT;
+
+    printf("sending send\n");
+
+    send.has_test_port = 1;
+    send.test_port = port;
+    msg.send = &send;
+    msg.has_type = 1;
+    msg.type = AMPLET2__SERVERS__CONTROL__TYPE__SEND;
+
+    len = amplet2__servers__control__get_packed_size(&msg);
+    buffer = malloc(len);
+    amplet2__servers__control__pack(&msg, buffer);
+
+    result = write_control_packet(sock, buffer, len);
+
+    free(buffer);
+
+    return result;
+}
+
+
+
+/*
+ *
+ */
  /*
 int send_control_send(int sock, uint16_t port) {
     struct packet_t packet;

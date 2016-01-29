@@ -23,10 +23,13 @@
 #define DEFAULT_TPUT_PAUSE  10000
 #define DEFAULT_TEST_DURATION 10 /* iperf default: 10s */
 
+//XXX 32bit timeval problems
 #define MINIMUM_UDPSTREAM_PACKET_LENGTH ( \
-        sizeof(struct ip6_hdr) + sizeof(struct udphdr) + sizeof(uint32_t))
+        sizeof(struct ip6_hdr) + sizeof(struct udphdr) + \
+        sizeof(uint32_t) + sizeof(struct timeval))
 #define DEFAULT_UDPSTREAM_PACKET_LENGTH 100
-#define DEFAULT_UDPSTREAM_PACKET_COUNT 10
+#define DEFAULT_UDPSTREAM_PACKET_COUNT 11
+#define DEFAULT_UDPSTREAM_PERCENTILE_COUNT 10
 
 
 /*
@@ -47,6 +50,7 @@ struct opt_t {
     uint16_t packet_size;
     uint16_t packet_count;
     uint32_t packet_spacing; //XXX inter_packet_delay;
+    uint32_t percentile_count;
     //char *textual_schedule;
     //struct test_request_t *schedule; /* The test sequence */
     //char *device;
@@ -82,6 +86,6 @@ void print_udpstream(void *data, uint32_t len);
 void usage(char *prog);
 void version(char *prog);
 int send_udp_stream(int sock, struct addrinfo *remote, struct opt_t *options);
-int receive_udp_stream(int sock, uint32_t packet_count);
+int receive_udp_stream(int sock, uint32_t packet_count, struct timeval *times);
 
 #endif

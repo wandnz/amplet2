@@ -23,6 +23,7 @@ static int serve_test(int control_sock, struct sockaddr_storage *remote,
     struct addrinfo client;
     struct opt_t options;
     void *data;
+    struct timeval *times = NULL;
 
     printf("SERVING TEST\n");
 
@@ -95,22 +96,24 @@ static int serve_test(int control_sock, struct sockaddr_storage *remote,
     client.ai_canonname = NULL;
     client.ai_next = NULL;
 
-    options.packet_size = 64;//XXX
-    options.packet_count = 10;//XXX
-    options.packet_spacing = 100;//XXX
-
     while ( (bytes=read_control_packet(control_sock, &data)) > 0 ) {
         Amplet2__Servers__Control *msg;
         printf("read %d bytes\n", bytes);
         msg = amplet2__servers__control__unpack(NULL, bytes, data);
 
         switch ( msg->type ) {
-            case AMPLET2__SERVERS__CONTROL__TYPE__READY:
+            case AMPLET2__SERVERS__CONTROL__TYPE__SEND:
                 /* send the data stream to the client on the port specified */
-                printf("got ready command with port %d\n", msg->ready->test_port);
+                printf("got SEND command with port %d\n", msg->send->test_port);
                 //XXX parse_control_ready or just use it?
                 //XXX at least check it's valid etc...
-                ((struct sockaddr_in*)remote)->sin_port = ntohs(msg->ready->test_port);
+                //if ( parse_control_send(data, bytes, sockopts) < 0 ) {
+                //    return -1;
+                //}
+
+                // XXX client.ai_addr points at this, maybe should update that
+                // directly so it is obvious?
+                ((struct sockaddr_in*)remote)->sin_port = ntohs(msg->send->test_port);
                 send_udp_stream(test_sock, &client, &options);
                 break;
 
@@ -124,7 +127,8 @@ static int serve_test(int control_sock, struct sockaddr_storage *remote,
                 /* tell the client what port the test server is running on */
                 send_control_ready(control_sock, sockopts->tport);
                 /* wait for the data stream from the client */
-                receive_udp_stream(test_sock, sockopts->packet_count);
+                times = calloc(sockopts->packet_count, sizeof(struct timeval));
+                receive_udp_stream(test_sock, sockopts->packet_count, times);
                 break;
 
             default: printf("unhandled type %d\n", msg->type); break;

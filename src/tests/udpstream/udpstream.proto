@@ -6,16 +6,26 @@ message Report {
 }
 
 message Header {
-	optional uint32 packet_size = 1 [default = 84];
-	optional bool random = 2 [default = false];
+        optional bytes address = 1;
+        optional int32 family = 2;
+        optional string schedule = 3;
+	optional uint32 packet_size = 4 [default = 100];
+	optional uint32 packet_spacing = 5 [default = 100];
+	optional uint32 packet_count = 6 [default = 11];
+        optional uint32 percentile_count = 7 [default = 10];
+        optional string name = 8;
 }
 
 message Item {
-	optional bytes address = 1;
-	optional int32 family = 2;
-	optional uint32 rtt = 3;
-	optional uint32 err_type = 4;
-	optional uint32 err_code = 5;
-	optional uint32 ttl = 6;
-	optional string name = 7;
+        enum Direction {
+            NULL = 0;
+            SERVER_TO_CLIENT = 1;
+            CLIENT_TO_SERVER = 2;
+        }
+        optional Direction direction = 1;
+        optional int32 maximum = 2;
+        optional int32 minimum = 3;
+        optional int32 median = 4;
+        optional uint32 packets_received = 5;
+        repeated int32 percentiles = 6;
 }

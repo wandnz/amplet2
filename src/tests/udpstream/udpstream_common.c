@@ -1,3 +1,5 @@
+#include <unistd.h>
+
 #include "udpstream.h"
 
 
@@ -5,8 +7,9 @@
  *
  */
 int send_udp_stream(int sock, struct addrinfo *remote, struct opt_t *options) {
+    struct timeval now;
     char *payload;
-    int i;
+    uint32_t i;
 
     printf("send udp stream\n");
 
@@ -17,12 +20,20 @@ int send_udp_stream(int sock, struct addrinfo *remote, struct opt_t *options) {
 
     for ( i = 0; i < options->packet_count; i++ ) {
         //TODO update payload with packet number
+        //TODO update payload with timestamp it was sent
         printf("sending %d\n", i);
+
+        gettimeofday(&now, NULL);
+        memcpy(payload, &i, sizeof(i));
+        //XXX won't work on 32 bit machines with 32bit timevals
+        memcpy(payload + sizeof(i), &now, sizeof(now));
+
         if ( sendto(sock, payload, options->packet_size, 0,
                     remote->ai_addr, remote->ai_addrlen) < 0 ) {
             Log(LOG_WARNING, "Error sending udpstream packet, aborting");
             return -1;
         }
+        /* TODO not accurate, but good enough for now */
         usleep(options->packet_spacing);
     }
 
@@ -34,12 +45,13 @@ int send_udp_stream(int sock, struct addrinfo *remote, struct opt_t *options) {
 /*
  * XXX packet_count or a full options struct?
  */
-int receive_udp_stream(int sock, uint32_t packet_count) {
-    struct timeval *times;
+int receive_udp_stream(int sock, uint32_t packet_count, struct timeval *times) {
     char buffer[4096];//XXX
     int timeout = 10000000;//XXX
     int bytes;
     int i;
+    uint32_t id;
+    struct timeval sent_time;
 
     struct socket_t sockets;//XXX
     sockets.socket = sock;//XXX
@@ -48,16 +60,23 @@ int receive_udp_stream(int sock, uint32_t packet_count) {
     printf("receive udp stream\n");
 
     //XXX never gets freed
-    times = calloc(packet_count, sizeof(struct timeval));
+    //times = calloc(packet_count, sizeof(struct timeval));
 
     for ( i = 0; i < packet_count; i++ ) {
         printf("waiting for %d\n", i);
         if ( (bytes = get_packet(&sockets, buffer, sizeof(buffer), NULL,
                     &timeout, &times[i])) > 0 ) {
-            //XXX times[i] might be wrong packet, wait to get id from payload
-            printf("got packet %d\n", i);
+            memcpy(&id, buffer, sizeof(id));
+            memcpy(&sent_time, buffer + sizeof(id), sizeof(sent_time));
+            printf("got packet %d (%d)\n", i, id);
+            printf("%d.%d bytes = %d\n", times[i].tv_sec, times[i].tv_usec,
+                    bytes);
+            printf("%d.%d\n", sent_time.tv_sec, sent_time.tv_usec);
+            timersub(&times[i], &sent_time, &times[i]);
+            printf("%d.%06d\n", times[i].tv_sec, times[i].tv_usec);
+        } else {
+            printf("packet didn't arrive\n");
         }
-        printf("%d.%d bytes = %d\n", times[i].tv_sec, times[i].tv_usec, bytes);
     }
 
     return 0;

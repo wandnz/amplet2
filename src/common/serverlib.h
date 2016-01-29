@@ -61,7 +61,7 @@ struct packet_t {
 int send_control_hello(int sock_fd, struct temp_sockopt_t_xxx *options);
 int send_control_ready(int sock, uint16_t port);
 int send_control_receive(int sock, uint32_t packet_count);
-int send_control_send(int sock/*, uint16_t port*/);
+int send_control_send(int sock, uint16_t port);
 
 int read_control_hello(int sock, struct temp_sockopt_t_xxx *options);
 int read_control_ready(int sock, struct temp_sockopt_t_xxx *options);
