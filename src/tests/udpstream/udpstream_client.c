@@ -12,17 +12,6 @@
 
 static int cmp(const void *a, const void *b) {
     return ( *(uint32_t*)a - *(uint32_t*)b );
-    /*
-    if ( *(double*)a < *(double*)b ) {
-        return -1;
-    }
-
-    if ( *(double*)a > *(double*)b ) {
-        return 1;
-    }
-
-    return 0;
-    */
 }
 
 
@@ -32,10 +21,7 @@ static Amplet2__Udpstream__Item* report_stream(struct timeval *times,
     /* XXX need direction information and stuff */
     Amplet2__Udpstream__Item *item =
         (Amplet2__Udpstream__Item*)malloc(sizeof(Amplet2__Udpstream__Item));
-    //struct timeval first = {0, 0};
     uint32_t i;
-    //struct timeval *prev = NULL;
-    struct timeval tmp_testing_xxx;
     int32_t total_diff = 0;
     uint32_t count = 0, received = 0;
     int32_t current, prev;
@@ -44,12 +30,8 @@ static Amplet2__Udpstream__Item* report_stream(struct timeval *times,
     int32_t percentiles[10];
 
     printf("report stream\n");
-    //struct timeval *min, *max;
 
-    //XXX is this worthy of a function? yeah cause we might have more packets
-    // than percentiles and then we actually have to do it properly
     //XXX do we want to know exactly which packets were dropped?
-    /* find the earliest packet arrival to use as the zero point */
     for ( i = 0; i < options->packet_count; i++ ) {
         //XXX this check doesn't properly work to prevent unset timevals?
         if ( !timerisset(&times[i]) ) {
@@ -62,32 +44,13 @@ static Amplet2__Udpstream__Item* report_stream(struct timeval *times,
             //XXX won't work with loss
         if ( !foo ) {
             printf("%d %ld.%06ld\n", i, times[i].tv_sec, times[i].tv_usec);
-            //prev = &times[i];
             prev = (times[i].tv_sec * 1000000) + times[i].tv_usec;
             foo = 1;
             continue;
         }
 
-        //printf("%d actual %ld.%06ld\n", i, times[i].tv_sec, times[i].tv_usec);
-        //printf("%d prev   %ld.%06ld\n", i, prev->tv_sec, prev->tv_usec);
-
         current = (times[i].tv_sec * 1000000) + times[i].tv_usec;
-#if 0
-        if ( timercmp(&times[i], prev, <) ) {
-            timersub(prev, &times[i], &tmp_testing_xxx);
-        } else {
-            timersub(&times[i], prev, &tmp_testing_xxx);
-        }
-        printf("%d ipdv   %ld.%06ld\n", i, tmp_testing_xxx.tv_sec,
-                tmp_testing_xxx.tv_usec);
-        //printf("%d        %f\n", i,
-        //        tmp_testing_xxx.tv_sec + (tmp_testing_xxx.tv_usec / 1000000.0));
 
-        prev = &times[i];
-#endif
-
-        //total_diff += tmp_testing_xxx.tv_sec +
-        //    (tmp_testing_xxx.tv_usec / 1000000.0);
         ipdv[count] = current - prev;
         total_diff += (current - prev);
         printf("%d ipdv %d\n", i, current - prev);
@@ -105,7 +68,15 @@ static Amplet2__Udpstream__Item* report_stream(struct timeval *times,
     }
 
     amplet2__udpstream__item__init(item);
-    item->n_percentiles = MIN(options->percentile_count, count);
+
+    /*
+     * Base the number of percentiles around the minimum of what the user
+     * wanted, and the number of measurements we have. Also we can get away
+     * without sending the largest and smallest measurements because they are
+     * already being sent.
+     */
+    //XXX very low numbers could overflow, prevent this
+    item->n_percentiles = MIN(options->percentile_count - 1, count - 2);
 
     /* XXX 100% percentile is pointless */
     for ( i = 0; i < item->n_percentiles; i++ ) {
@@ -135,13 +106,13 @@ static Amplet2__Udpstream__Item* report_stream(struct timeval *times,
 
 
 static void report_results(uint64_t start_time, struct addrinfo *dest,
-        struct opt_t *options, struct timeval *in_times) {
+        struct opt_t *options, struct timeval *in_times,
+        Amplet2__Udpstream__Item *server_report) {
 
     Amplet2__Udpstream__Report msg = AMPLET2__UDPSTREAM__REPORT__INIT;
     Amplet2__Udpstream__Header header = AMPLET2__UDPSTREAM__HEADER__INIT;
     Amplet2__Udpstream__Item **reports = NULL;
-    //struct test_request_t *item;
-    unsigned int i;
+    unsigned int i = 0;
     void *buffer;
     int len;
 
@@ -160,33 +131,28 @@ static void report_results(uint64_t start_time, struct addrinfo *dest,
     header.name = address_to_name(dest);
     header.has_address = copy_address_to_protobuf(&header.address, dest);
 
-    //i = 0;
-    //reports = realloc(reports, sizeof(Amplet2__Udpstream__Item*) * (i+1));
-    //reports[i] = report_stream(times[i], options);
-    reports = calloc(2, sizeof(Amplet2__Udpstream__Item*));
-    reports[0] = report_stream(in_times, options);
-#if 0
-    /* build up the repeated reports section with each of the results */
-    for ( i = 0, item = options->schedule; item != NULL; item = item->next ) {
-        /* only report on schedule items that send data */
-        if ( item->type != TPUT_2_CLIENT && item->type != TPUT_2_SERVER ) {
-            continue;
-        }
-
-        if ( item->c_result == NULL || item->s_result == NULL ) {
-            continue;
-        }
-
-        reports = realloc(reports, sizeof(Amplet2__Udpstream__Item*) * (i+1));
-        reports[i] = report_schedule(item);
-        i++;
+    /* only report the results that are available */
+    if ( in_times && server_report ) {
+        msg.n_reports = 2;
+    } else if ( in_times || server_report ) {
+        msg.n_reports = 1;
+    } else {
+        assert(0);
     }
-#endif
+
+    reports = calloc(msg.n_reports, sizeof(Amplet2__Udpstream__Item*));
+
+    if ( in_times ) {
+        reports[i++] = report_stream(in_times, options);
+    }
+
+    if ( server_report ) {
+        reports[i++] = server_report;
+    }
 
     /* populate the top level report object with the header and reports */
     msg.header = &header;
     msg.reports = reports;
-    msg.n_reports = 1;//XXX
 
     /* pack all the results into a buffer for transmitting */
     len = amplet2__udpstream__report__get_packed_size(&msg);
@@ -212,7 +178,6 @@ static void report_results(uint64_t start_time, struct addrinfo *dest,
  */
 static int run_test(struct addrinfo *server, struct opt_t *options,
         struct temp_sockopt_t_xxx *socket_options) {
-    uint16_t test_port;//XXX int? needs values less than zero
     int control_socket, test_socket;
     //struct temp_sockopt_t_xxx optxxx;
     struct sockaddr_storage ss;
@@ -248,30 +213,6 @@ static int run_test(struct addrinfo *server, struct opt_t *options,
         return -1;
     }
 
-
-    /* read port */
-    // XXX test_port or options->tport?
-    /*
-    if ( (test_port = read_control_ready(control_socket)) < 0 ) {
-        Log(LOG_WARNING, "Failed to send READY packet, aborting");
-        close(control_socket);
-        return -1;
-    }
-
-    //XXX
-    printf("test port = %d\n", test_port);
-    ((struct sockaddr_in *)server->ai_addr)->sin_port = ntohs(test_port);
-*/
-
-
-    /* connect the test socket */
-#if 0
-    /* XXX don't connect the udp sockets, we want to create it sooner */
-    optxxx.socktype = SOCK_DGRAM;
-    optxxx.protocol = IPPROTO_UDP;
-    test_socket = connect_to_server(server, &optxxx, test_port);
-#endif
-
     /* run the test schedule */
     // TODO switch based on schedule
 
@@ -304,11 +245,11 @@ static int run_test(struct addrinfo *server, struct opt_t *options,
     receive_udp_stream(test_socket, options->packet_count, in_times);
     printf("intimes[0]: %d.%d\n", in_times[0].tv_sec, in_times[0].tv_usec);
 
-    // TODO get results from server
+    // TODO get results from server - this could be a protobuf message!
     // out_times =
 
     /* report results */
-    report_results(12345, server, options, in_times);
+    report_results(12345, server, options, in_times, NULL);
 
     return 0;
 }
@@ -459,6 +400,9 @@ int run_udpstream_client(int argc, char *argv[], int count,
 
 
 
+/*
+ *
+ */
 static void print_item(Amplet2__Udpstream__Item *item, uint32_t packet_count) {
     int i;
 
@@ -475,32 +419,23 @@ static void print_item(Amplet2__Udpstream__Item *item, uint32_t packet_count) {
         //return;
     }
 
-    printf("count %d\n", packet_count);
-    printf("has %d\n", item->has_packets_received);
-    printf("received %d\n", item->packets_received);
-
     printf("%d packets transmitted, %d received, %.02f%% packet loss\n",
             packet_count, item->packets_received,
             100 - ((double)item->packets_received / (double)packet_count*100));
-    /*
-    printf("delay variation min/median/max = %d/%d/%d\n",
-            item->minimum, item->median, item->maximum);
-    */
+
     printf("delay variation min/median/max = %d/%d/%d\n",
             item->minimum, item->median, item->maximum);
 
-    printf("%d percentiles\n", item->n_percentiles);
     for ( i = 0; i < item->n_percentiles; i++ ) {
-        printf("%d %d\n", (i+1) * 10, item->percentiles[i]);
+        printf("percentiles: %d:%d", (i+1) * 10, item->percentiles[i]);
     }
-    //printf("10:%d 20:%d 30:%d 40:%d 50:%d 60:%d 70:%d 80:%d 90:%d\n");
+    printf("\n");
 }
 
 
 
 void print_udpstream(void *data, uint32_t len) {
     Amplet2__Udpstream__Report *msg;
-    Amplet2__Udpstream__Item *item;
     unsigned int i;
     char addrstr[INET6_ADDRSTRLEN];
 

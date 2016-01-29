@@ -19,8 +19,6 @@ int send_udp_stream(int sock, struct addrinfo *remote, struct opt_t *options) {
     sleep(2);//XXX
 
     for ( i = 0; i < options->packet_count; i++ ) {
-        //TODO update payload with packet number
-        //TODO update payload with timestamp it was sent
         printf("sending %d\n", i);
 
         gettimeofday(&now, NULL);
@@ -47,7 +45,7 @@ int send_udp_stream(int sock, struct addrinfo *remote, struct opt_t *options) {
  */
 int receive_udp_stream(int sock, uint32_t packet_count, struct timeval *times) {
     char buffer[4096];//XXX
-    int timeout = 10000000;//XXX
+    int timeout;
     int bytes;
     int i;
     uint32_t id;
@@ -64,6 +62,7 @@ int receive_udp_stream(int sock, uint32_t packet_count, struct timeval *times) {
 
     for ( i = 0; i < packet_count; i++ ) {
         printf("waiting for %d\n", i);
+        timeout = UDPSTREAM_LOSS_TIMEOUT;
         if ( (bytes = get_packet(&sockets, buffer, sizeof(buffer), NULL,
                     &timeout, &times[i])) > 0 ) {
             memcpy(&id, buffer, sizeof(id));

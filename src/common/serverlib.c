@@ -295,34 +295,6 @@ int send_control_send(int sock, uint16_t port) {
 /*
  *
  */
- /*
-int send_control_send(int sock, uint16_t port) {
-    struct packet_t packet;
-    memset(&packet, 0, sizeof(packet));
-    packet.header.type = UDPSTREAM_PACKET_SEND;
-    packet.header.size = 0;
-
-    printf("sending send command\n");
-
-    return write_control_packet(sock, &packet);
-}
-*/
-
-/*
- *
- */
-/*
-int send_control_start(int sock) {
-    struct packet_t packet;
-    memset(&packet, 0, sizeof(packet));
-    packet.header.type = CONTROL_PACKET_START;
-    packet.header.size = 0;
-    packet.types.ready.tport = port;
-    return write_control_packet(sock, &packet);
-}
-*/
-
-
 int parse_control_hello(void *data, uint32_t len,
         struct temp_sockopt_t_xxx *options) {
 
