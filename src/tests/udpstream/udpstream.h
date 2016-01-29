@@ -33,6 +33,24 @@
 #define UDPSTREAM_LOSS_TIMEOUT 2000000
 
 
+enum udpstream_schedule_direction {
+    DIRECTION_NOT_SET = -1,
+    CLIENT_TO_SERVER = 0,
+    SERVER_TO_CLIENT = 1,
+    CLIENT_THEN_SERVER = 2,
+    SERVER_THEN_CLIENT = 3,
+};
+
+enum udpstream_direction {
+    UDPSTREAM_TO_CLIENT = 1,
+    UDPSTREAM_TO_SERVER = 2,
+};
+
+struct test_request_t {
+    enum udpstream_direction direction;
+    struct test_request_t *next;
+};
+
 /*
  * User defined test options that control packet size and timing.
  */
@@ -52,6 +70,7 @@ struct opt_t {
     uint16_t packet_count;
     uint32_t packet_spacing; //XXX inter_packet_delay;
     uint32_t percentile_count;
+    enum udpstream_schedule_direction direction;
     //char *textual_schedule;
     //struct test_request_t *schedule; /* The test sequence */
     //char *device;

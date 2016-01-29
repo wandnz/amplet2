@@ -14,6 +14,7 @@ message Control {
         optional Ready ready = 3;
         optional Receive receive = 4;
         optional Send send = 5;
+        optional Result result = 6;
 }
 
 message Hello {
@@ -34,4 +35,7 @@ message Receive {
 
 message Send {
         optional uint32 test_port = 1;
+}
+
+message Result {
 }

@@ -183,6 +183,7 @@ static int run_test(struct addrinfo *server, struct opt_t *options,
     struct sockaddr_storage ss;
     socklen_t socklen = sizeof(ss);
     struct timeval *in_times = NULL, *out_times = NULL;
+    struct test_request_t *schedule, *current;
 
     printf("run test\n");
     socket_options->cport = options->cport;//XXX
@@ -214,36 +215,74 @@ static int run_test(struct addrinfo *server, struct opt_t *options,
     }
 
     /* run the test schedule */
-    // TODO switch based on schedule
+    switch ( options->direction ) {
+        case CLIENT_TO_SERVER:
+            printf("CLIENT TO SERVER SCHEDULE\n");
+            schedule = calloc(1, sizeof(struct test_request_t));
+            schedule->direction = UDPSTREAM_TO_SERVER;
+            break;
 
-    /* TODO instruct server to send otherwise send data */
-    send_control_receive(control_socket, options->packet_count);
+        case SERVER_TO_CLIENT:
+            printf("SERVER TO CLIENT SCHEDULE\n");
+            schedule = calloc(1, sizeof(struct test_request_t));
+            schedule->direction = UDPSTREAM_TO_CLIENT;
+            break;
 
-    if ( read_control_ready(control_socket, socket_options) < 0 ) {
-        Log(LOG_WARNING, "Failed to read READY packet, aborting");
-        close(control_socket);
-        return -1;
+        case SERVER_THEN_CLIENT:
+            printf("SERVER THEN CLIENT SCHEDULE\n");
+            schedule = calloc(2, sizeof(struct test_request_t));
+            schedule[0].direction = UDPSTREAM_TO_CLIENT;
+            schedule[0].next = &schedule[1];
+            schedule[1].direction = UDPSTREAM_TO_SERVER;
+            break;
+
+        case CLIENT_THEN_SERVER:
+            printf("CLIENT THEN SERVER SCHEDULE\n");
+            schedule = calloc(2, sizeof(struct test_request_t));
+            schedule[0].direction = UDPSTREAM_TO_SERVER;
+            schedule[0].next = &schedule[1];
+            schedule[1].direction = UDPSTREAM_TO_CLIENT;
+            break;
+    };
+
+    for ( current = schedule; current != NULL; current = current->next ) {
+        printf("SCHEDULE ITEM START\n");
+        switch ( current->direction ) {
+            case UDPSTREAM_TO_SERVER:
+                send_control_receive(control_socket, options->packet_count);
+
+                if ( read_control_ready(control_socket, socket_options) < 0 ) {
+                    Log(LOG_WARNING, "Failed to read READY packet, aborting");
+                    close(control_socket);
+                    return -1;
+                }
+                //XXX
+                printf("test port = %d\n", socket_options->tport);
+                ((struct sockaddr_in *)server->ai_addr)->sin_port =
+                    ntohs(socket_options->tport);
+
+                send_udp_stream(test_socket, server, options);
+                break;
+
+            case UDPSTREAM_TO_CLIENT:
+                in_times = calloc(options->packet_count, sizeof(struct timeval));
+                /* bind test socket to same address as the control socket */
+                getsockname(control_socket, (struct sockaddr *)&ss, &socklen);
+                bind(test_socket, (struct sockaddr *)&ss, socklen);
+                /* get the local port number so we can tell the remote host */
+                getsockname(test_socket, (struct sockaddr *)&ss, &socklen);
+                socket_options->tport = ntohs(((struct sockaddr_in *)&ss)->sin_port);
+
+                send_control_send(control_socket,
+                        ntohs(((struct sockaddr_in *)&ss)->sin_port));
+
+                /* wait for the data stream from the server */
+                receive_udp_stream(test_socket, options->packet_count, in_times);
+                break;
+        };
     }
 
-    //XXX
-    printf("test port = %d\n", socket_options->tport);
-    ((struct sockaddr_in *)server->ai_addr)->sin_port =
-        ntohs(socket_options->tport);
 
-    send_udp_stream(test_socket, server, options);
-
-    //XXX after sending data we have a bound port
-    /* get the local port number so we can tell the remote host */
-    getsockname(test_socket, (struct sockaddr *)&ss, &socklen);
-    socket_options->tport = ntohs(((struct sockaddr_in *)&ss)->sin_port);
-
-    //send_control_send(control_socket/*, sockopts->tport*/);
-    send_control_send(control_socket, ntohs(((struct sockaddr_in *)&ss)->sin_port));
-
-    /* wait for the data stream from the server */
-    in_times = calloc(options->packet_count, sizeof(struct timeval));
-    receive_udp_stream(test_socket, options->packet_count, in_times);
-    printf("intimes[0]: %d.%d\n", in_times[0].tv_sec, in_times[0].tv_usec);
 
     // TODO get results from server - this could be a protobuf message!
     // out_times =
@@ -284,13 +323,14 @@ int run_udpstream_client(int argc, char *argv[], int count,
     test_options.cport = DEFAULT_CONTROL_PORT;
     test_options.tport = DEFAULT_TEST_PORT;
     test_options.perturbate = 0;
+    test_options.direction = CLIENT_THEN_SERVER;
     socket_options.sourcev4 = NULL;
     socket_options.sourcev6 = NULL;
     socket_options.device = NULL;
     client = NULL;
 
     /* TODO udp port */
-    while ( (opt = getopt_long(argc, argv, "hvI:Z:p:rz:c:n:4:6:",
+    while ( (opt = getopt_long(argc, argv, "hvI:Z:p:rz:c:d:n:4:6:",
                     long_options, NULL)) != -1 ) {
 	switch ( opt ) {
             case '4':
@@ -305,7 +345,7 @@ int run_udpstream_client(int argc, char *argv[], int count,
 	    case 'p': test_options.perturbate = atoi(optarg); break;
 	    case 'z': test_options.packet_size = atoi(optarg); break;
 	    case 'n': test_options.packet_count = atoi(optarg); break;
-            /*case 'd': direction = atoi(optarg); break; */
+            case 'd': test_options.direction = atoi(optarg); break;
             case 'v': version(argv[0]); exit(0);
 	    case 'h':
 	    default: usage(argv[0]); exit(0);
@@ -404,7 +444,7 @@ int run_udpstream_client(int argc, char *argv[], int count,
  *
  */
 static void print_item(Amplet2__Udpstream__Item *item, uint32_t packet_count) {
-    int i;
+    uint32_t i;
 
     assert(item);
 
@@ -426,8 +466,9 @@ static void print_item(Amplet2__Udpstream__Item *item, uint32_t packet_count) {
     printf("delay variation min/median/max = %d/%d/%d\n",
             item->minimum, item->median, item->maximum);
 
+    printf("percentiles:");
     for ( i = 0; i < item->n_percentiles; i++ ) {
-        printf("percentiles: %d:%d", (i+1) * 10, item->percentiles[i]);
+        printf(" %d:%d", (i+1) * 10, item->percentiles[i]);
     }
     printf("\n");
 }

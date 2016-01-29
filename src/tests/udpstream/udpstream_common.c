@@ -47,7 +47,7 @@ int receive_udp_stream(int sock, uint32_t packet_count, struct timeval *times) {
     char buffer[4096];//XXX
     int timeout;
     int bytes;
-    int i;
+    uint32_t i;
     uint32_t id;
     struct timeval sent_time;
 
