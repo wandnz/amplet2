@@ -6,8 +6,10 @@
 #include "udpstream.h"
 
 
+
 /*
- *
+ * Send a stream of UDP packets towards the remote target, with the given
+ * test options (size, spacing and count).
  */
 int send_udp_stream(int sock, struct addrinfo *remote, struct opt_t *options) {
     struct timeval now;
@@ -15,7 +17,9 @@ int send_udp_stream(int sock, struct addrinfo *remote, struct opt_t *options) {
     uint32_t i;
     size_t payload_len;
 
-    printf("send udp stream\n");
+    Log(LOG_DEBUG, "Sending UDP stream, packets:%d size:%d spacing:%d",
+            options->packet_count, options->packet_size,
+            options->packet_spacing);
 
     //XXX put a pattern in the payload?
     /* the packet size option includes headers, so subtract them */
@@ -28,8 +32,10 @@ int send_udp_stream(int sock, struct addrinfo *remote, struct opt_t *options) {
     payload_len -= sizeof(struct udphdr);
     payload = (char *)calloc(1, payload_len);
 
+    for ( i = 0; i < options->packet_count; i++ ) {
         gettimeofday(&now, NULL);
         memcpy(payload, &i, sizeof(i));
+        //XXX could gettimeofday() straight into payload area
         //XXX won't work on 32 bit machines with 32bit timevals
         memcpy(payload + sizeof(i), &now, sizeof(now));
 
@@ -38,6 +44,7 @@ int send_udp_stream(int sock, struct addrinfo *remote, struct opt_t *options) {
             Log(LOG_WARNING, "Error sending udpstream packet, aborting");
             return -1;
         }
+
         /* TODO not accurate, but good enough for now */
         usleep(options->packet_spacing);
     }
@@ -49,6 +56,7 @@ int send_udp_stream(int sock, struct addrinfo *remote, struct opt_t *options) {
 
 /*
  * XXX packet_count or a full options struct?
+ * Receive a stream of UDP packets, expecting the specified number of packets.
  */
 int receive_udp_stream(int sock, uint32_t packet_count, struct timeval *times) {
     char buffer[4096];//XXX
@@ -62,26 +70,21 @@ int receive_udp_stream(int sock, uint32_t packet_count, struct timeval *times) {
     sockets.socket = sock;//XXX
     sockets.socket6 = -1;//XXX
 
-    printf("receive udp stream: %d packets\n", packet_count);
-
-    //XXX never gets freed
-    //times = calloc(packet_count, sizeof(struct timeval));
+    Log(LOG_DEBUG, "Receiving UDP stream, packets:%d", packet_count);
 
     for ( i = 0; i < packet_count; i++ ) {
-        printf("waiting for %d\n", i);
+        /* reset timeout per packet, consider some global timer also? */
         timeout = UDPSTREAM_LOSS_TIMEOUT;
+
         if ( (bytes = get_packet(&sockets, buffer, sizeof(buffer), NULL,
                     &timeout, &times[i])) > 0 ) {
             memcpy(&id, buffer, sizeof(id));
             memcpy(&sent_time, buffer + sizeof(id), sizeof(sent_time));
-            printf("got packet %d (%d)\n", i, id);
-            printf("%d.%d bytes = %d\n", times[i].tv_sec, times[i].tv_usec,
-                    bytes);
-            printf("%d.%d\n", sent_time.tv_sec, sent_time.tv_usec);
             timersub(&times[i], &sent_time, &times[i]);
-            printf("%d.%06d\n", times[i].tv_sec, times[i].tv_usec);
+            Log(LOG_DEBUG, "Got UDP stream packet %d (id:%d)", i, id);
+            /* TODO check that the packet belongs to our stream */
         } else {
-            printf("packet didn't arrive\n");
+            Log(LOG_DEBUG, "UDP stream packet didn't arrive in time");
         }
     }
 
@@ -91,7 +94,7 @@ int receive_udp_stream(int sock, uint32_t packet_count, struct timeval *times) {
 
 
 /*
- *
+ * Compare two unsigned 32bit integers, used to quicksort the ipdv array.
  */
 static int cmp(const void *a, const void *b) {
     return ( *(uint32_t*)a - *(uint32_t*)b );
@@ -111,9 +114,8 @@ Amplet2__Udpstream__Item* report_stream(enum udpstream_direction direction,
     uint32_t count = 0, received = 0;
     int32_t current, prev;
     int32_t ipdv[options->packet_count];
-    //int32_t percentiles[10];
 
-    printf("report stream\n");
+    Log(LOG_DEBUG, "Reporting udpstream results");
 
     //XXX do we want to know exactly which packets were dropped?
     for ( i = 0; i < options->packet_count; i++ ) {
@@ -122,6 +124,7 @@ Amplet2__Udpstream__Item* report_stream(enum udpstream_direction direction,
             continue;
         }
 
+        /* packet was received ok, and has a timestamp */
         received++;
 
         if ( received < 2 ) {
@@ -166,16 +169,13 @@ Amplet2__Udpstream__Item* report_stream(enum udpstream_direction direction,
     printf("report item: %p\n", item);
     printf("reporting %d percentiles\n", item->n_percentiles);
 
-    /* XXX 100% percentile is pointless */
     for ( i = 0; i < item->n_percentiles; i++ ) {
         printf("storing %d (%d): %d\n", i,
                 (int)(count / item->n_percentiles * (i+1)) - 1,
                 ipdv[(int)(count / item->n_percentiles * (i+1)) - 1]);
         item->percentiles[i] = ipdv[(int)
             (count / item->n_percentiles * (i+1)) - 1];
-        //XXX of by one
     }
-
 
     item->has_direction = 1;
     item->direction = direction;
@@ -193,10 +193,6 @@ Amplet2__Udpstream__Item* report_stream(enum udpstream_direction direction,
     }
     item->has_packets_received = 1;
     item->packets_received = received;
-    //item->percentiles = percentiles;
-
-    printf("item packed size: %d\n",
-            amplet2__udpstream__item__get_packed_size(item));
 
     return item;
 }
