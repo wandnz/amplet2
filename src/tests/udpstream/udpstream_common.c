@@ -17,8 +17,6 @@ int send_udp_stream(int sock, struct addrinfo *remote, struct opt_t *options) {
     //XXX put a pattern in the payload?
     payload = (char *)calloc(1, options->packet_size); //XXX subtract headers?
 
-    sleep(2);//XXX
-
     for ( i = 0; i < options->packet_count; i++ ) {
         printf("sending %d\n", i);
 
@@ -56,7 +54,7 @@ int receive_udp_stream(int sock, uint32_t packet_count, struct timeval *times) {
     sockets.socket = sock;//XXX
     sockets.socket6 = -1;//XXX
 
-    printf("receive udp stream\n");
+    printf("receive udp stream: %d packets\n", packet_count);
 
     //XXX never gets freed
     //times = calloc(packet_count, sizeof(struct timeval));
