@@ -46,7 +46,8 @@ static int write_control_packet(int sock, void *data, uint32_t len) {
         }
 
         if ( result < 0 ) {
-            Log(LOG_WARNING, "Failed to write server control packet length");
+            Log(LOG_WARNING, "Failed to write server control packet length: %s",
+                    strerror(errno));
             return -1;
         }
 
@@ -293,6 +294,38 @@ int send_control_send(int sock, uint16_t port) {
 
 
 /*
+ * TODO how do extensions and things work? Better way to stick a specific
+ * test report packet into a message than as a byte array?
+ */
+int send_control_result(int sock, ProtobufCBinaryData *data) {
+    int len;
+    void *buffer;
+    int result;
+    Amplet2__Servers__Control msg = AMPLET2__SERVERS__CONTROL__INIT;
+    Amplet2__Servers__Result resmsg = AMPLET2__SERVERS__RESULT__INIT;
+
+    printf("sending results, data length %d\n", data->len);
+
+    resmsg.result = *data;
+    resmsg.has_result = 1;
+    msg.result = &resmsg;
+    msg.has_type = 1;
+    msg.type = AMPLET2__SERVERS__CONTROL__TYPE__RESULT;
+
+    len = amplet2__servers__control__get_packed_size(&msg);
+    buffer = malloc(len);
+    amplet2__servers__control__pack(&msg, buffer);
+
+    result = write_control_packet(sock, buffer, len);
+
+    free(buffer);
+
+    return result;
+}
+
+
+
+/*
  *
  */
 int parse_control_hello(void *data, uint32_t len,
@@ -306,7 +339,7 @@ int parse_control_hello(void *data, uint32_t len,
     /* unpack all the data */
     msg = amplet2__servers__control__unpack(NULL, len, data);
 
-    if ( !msg->has_type ||
+    if ( !msg || !msg->has_type ||
             msg->type != AMPLET2__SERVERS__CONTROL__TYPE__HELLO ) {
         Log(LOG_WARNING, "Not a HELLO packet, aborting");
         printf("type:%d\n", msg->type);
@@ -314,7 +347,7 @@ int parse_control_hello(void *data, uint32_t len,
         return -1;
     }
 
-    if ( !msg || !msg->hello || !msg->hello->has_test_port ) {
+    if ( !msg->hello || !msg->hello->has_test_port ) {
         Log(LOG_WARNING, "Malformed HELLO packet, aborting");
         amplet2__servers__control__free_unpacked(msg, NULL);
         return -1;
@@ -354,7 +387,7 @@ int parse_control_ready(void *data, uint32_t len,
     /* unpack all the data */
     msg = amplet2__servers__control__unpack(NULL, len, data);
 
-    if ( !msg->has_type ||
+    if ( !msg || !msg->has_type ||
             msg->type != AMPLET2__SERVERS__CONTROL__TYPE__READY ) {
         Log(LOG_WARNING, "Not a READY packet, aborting");
         printf("type:%d\n", msg->type);
@@ -362,7 +395,7 @@ int parse_control_ready(void *data, uint32_t len,
         return -1;
     }
 
-    if ( !msg || !msg->ready || !msg->ready->has_test_port ) {
+    if ( !msg->ready || !msg->ready->has_test_port ) {
         Log(LOG_WARNING, "Malformed READY packet, aborting");
         amplet2__servers__control__free_unpacked(msg, NULL);
         return -1;
@@ -392,7 +425,7 @@ int parse_control_receive(void *data, uint32_t len,
     /* unpack all the data */
     msg = amplet2__servers__control__unpack(NULL, len, data);
 
-    if ( !msg->has_type ||
+    if ( !msg || !msg->has_type ||
             msg->type != AMPLET2__SERVERS__CONTROL__TYPE__RECEIVE ) {
         Log(LOG_WARNING, "Not a RECEIVE packet, aborting");
         printf("type:%d\n", msg->type);
@@ -400,7 +433,7 @@ int parse_control_receive(void *data, uint32_t len,
         return -1;
     }
 
-    if ( !msg || !msg->receive || !msg->receive->has_packet_count ) {
+    if ( !msg->receive || !msg->receive->has_packet_count ) {
         Log(LOG_WARNING, "Malformed RECEIVE packet, aborting");
         amplet2__servers__control__free_unpacked(msg, NULL);
         return -1;
@@ -410,6 +443,46 @@ int parse_control_receive(void *data, uint32_t len,
     printf("got control receive with packet count %d\n", options->packet_count);
 
     /* TODO other test options */
+
+    amplet2__servers__control__free_unpacked(msg, NULL);
+
+    return 0;
+}
+
+
+
+/*
+ *
+ */
+static int parse_control_result(void *data, uint32_t len,
+        ProtobufCBinaryData *results ) {
+    Amplet2__Servers__Control *msg;
+
+    assert(data);
+    //assert(options);
+
+    /* unpack all the data */
+    msg = amplet2__servers__control__unpack(NULL, len, data);
+
+    if ( !msg || !msg->has_type ||
+            msg->type != AMPLET2__SERVERS__CONTROL__TYPE__RESULT ) {
+        Log(LOG_WARNING, "Not a RESULT packet, aborting");
+        printf("type:%d\n", msg->type);
+        amplet2__servers__control__free_unpacked(msg, NULL);
+        return -1;
+    }
+
+    if ( !msg->result || !msg->result->has_result/*|| !msg->result->result*/ ) {
+        Log(LOG_WARNING, "Malformed RESULT packet, aborting");
+        amplet2__servers__control__free_unpacked(msg, NULL);
+        return -1;
+    }
+
+    printf("got result packet, data has length %d\n", msg->result->result.len);
+
+    results->len = msg->result->result.len;
+    results->data = malloc(results->len);
+    memcpy(results->data, msg->result->result.data, msg->result->result.len);
 
     amplet2__servers__control__free_unpacked(msg, NULL);
 
@@ -454,6 +527,30 @@ int read_control_ready(int sock, struct temp_sockopt_t_xxx *options) {
 
     if ( parse_control_ready(data, len, options) < 0 ) {
         Log(LOG_WARNING, "Failed to parse READY packet");
+        return -1;
+    }
+
+    return 0;
+}
+
+
+
+/*
+ *
+ */
+int read_control_result(int sock, ProtobufCBinaryData *results) {
+    void *data;
+    int len;
+
+    printf("waiting for result packet\n");
+
+    if ( (len=read_control_packet(sock, &data)) < 0 ) {
+        Log(LOG_ERR, "Failed to read READY packet");
+        return -1;
+    }
+
+    if ( parse_control_result(data, len, results) < 0 ) {
+        Log(LOG_WARNING, "Failed to parse RESULT packet");
         return -1;
     }
 

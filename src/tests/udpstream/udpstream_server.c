@@ -10,6 +10,7 @@
 #include "servers.pb-c.h"
 
 
+
 //TODO make error messages make sense and not duplicated at all levels
 // XXX can any of this move into a library function?
 //XXX need remote when it can be extracted from control sock?
@@ -24,6 +25,8 @@ static int serve_test(int control_sock, struct sockaddr_storage *remote,
     struct opt_t options;
     void *data;
     struct timeval *times = NULL;
+    Amplet2__Udpstream__Item *result;
+    ProtobufCBinaryData packed;
 
     printf("SERVING TEST\n");
 
@@ -35,6 +38,7 @@ static int serve_test(int control_sock, struct sockaddr_storage *remote,
     options.packet_size = sockopts->packet_size;//XXX
     options.packet_count = sockopts->packet_count;//XXX
     options.packet_spacing = sockopts->packet_spacing;//XXX
+    options.percentile_count = sockopts->percentile_count;//XXX
 
     /*
      * Try to create the test server on the appropriate port. If test port has
@@ -80,7 +84,7 @@ static int serve_test(int control_sock, struct sockaddr_storage *remote,
         test_sock = sockets.socket6;
     }
 
-    /* XXX expect some magic passphrase exchanged via secure tcp connection */
+    /* XXX expect some magic passphrase exchanged via secure tcp connection? */
 
     //XXX this is all only used when sending
     client.ai_flags = 0;
@@ -129,6 +133,12 @@ static int serve_test(int control_sock, struct sockaddr_storage *remote,
                 /* wait for the data stream from the client */
                 times = calloc(sockopts->packet_count, sizeof(struct timeval));
                 receive_udp_stream(test_sock, sockopts->packet_count, times);
+                result = report_stream(times, &options);
+                /* pack the result for sending to the client */
+                packed.len = amplet2__udpstream__item__get_packed_size(result);
+                packed.data = malloc(packed.len);
+                amplet2__udpstream__item__pack(result, packed.data);
+                send_control_result(control_sock, &packed);
                 break;
 
             default: printf("unhandled type %d\n", msg->type); break;

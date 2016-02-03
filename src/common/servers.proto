@@ -6,6 +6,7 @@ message Control {
                 READY = 3;
                 RECEIVE = 4;
                 SEND = 5;
+                RESULT = 6;
         }
 
         optional Type type = 1;
@@ -38,4 +39,5 @@ message Send {
 }
 
 message Result {
+        optional bytes result = 1;
 }

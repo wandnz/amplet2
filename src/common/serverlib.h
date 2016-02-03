@@ -62,10 +62,12 @@ int send_control_hello(int sock_fd, struct temp_sockopt_t_xxx *options);
 int send_control_ready(int sock, uint16_t port);
 int send_control_receive(int sock, uint32_t packet_count);
 int send_control_send(int sock, uint16_t port);
+int send_control_result(int sock, ProtobufCBinaryData *data);
 
 int read_control_hello(int sock, struct temp_sockopt_t_xxx *options);
 int read_control_ready(int sock, struct temp_sockopt_t_xxx *options);
 int read_control_packet(int sock, void **data);
+int read_control_result(int sock, ProtobufCBinaryData *results);
 
 int parse_control_hello(void *data, uint32_t len,
         struct temp_sockopt_t_xxx *options);

@@ -10,101 +10,6 @@
 
 
 
-static int cmp(const void *a, const void *b) {
-    return ( *(uint32_t*)a - *(uint32_t*)b );
-}
-
-
-
-static Amplet2__Udpstream__Item* report_stream(struct timeval *times,
-        struct opt_t *options) {
-    /* XXX need direction information and stuff */
-    Amplet2__Udpstream__Item *item =
-        (Amplet2__Udpstream__Item*)malloc(sizeof(Amplet2__Udpstream__Item));
-    uint32_t i;
-    int32_t total_diff = 0;
-    uint32_t count = 0, received = 0;
-    int32_t current, prev;
-    int foo = 0;
-    int32_t ipdv[options->packet_count];
-    int32_t percentiles[10];
-
-    printf("report stream\n");
-
-    //XXX do we want to know exactly which packets were dropped?
-    for ( i = 0; i < options->packet_count; i++ ) {
-        //XXX this check doesn't properly work to prevent unset timevals?
-        if ( !timerisset(&times[i]) ) {
-            continue;
-        }
-
-        received++;
-
-        //if ( prev == NULL ) {
-            //XXX won't work with loss
-        if ( !foo ) {
-            printf("%d %ld.%06ld\n", i, times[i].tv_sec, times[i].tv_usec);
-            prev = (times[i].tv_sec * 1000000) + times[i].tv_usec;
-            foo = 1;
-            continue;
-        }
-
-        current = (times[i].tv_sec * 1000000) + times[i].tv_usec;
-
-        ipdv[count] = current - prev;
-        total_diff += (current - prev);
-        printf("%d ipdv %d\n", i, current - prev);
-
-        prev = current;
-        count++;
-    }
-
-    printf("--- %d / %d = %f ---\n", total_diff, count,
-            ((double)total_diff) / ((double)count));
-
-    qsort(&ipdv, count, sizeof(int32_t), cmp);
-    for ( i = 0; i < count; i++ ) {
-        printf(" ++ %d\n", ipdv[i]);
-    }
-
-    amplet2__udpstream__item__init(item);
-
-    /*
-     * Base the number of percentiles around the minimum of what the user
-     * wanted, and the number of measurements we have. Also we can get away
-     * without sending the largest and smallest measurements because they are
-     * already being sent.
-     */
-    //XXX very low numbers could overflow, prevent this
-    item->n_percentiles = MIN(options->percentile_count - 1, count - 2);
-
-    /* XXX 100% percentile is pointless */
-    for ( i = 0; i < item->n_percentiles; i++ ) {
-        printf("storing %d (%d): %d\n", i,
-                (int)(count / item->n_percentiles * (i+1)) - 1,
-                ipdv[(int)(count / item->n_percentiles * (i+1)) - 1]);
-        percentiles[i] = ipdv[(int)(count / item->n_percentiles * (i+1)) - 1];
-        //XXX of by one
-    }
-
-
-    item->has_direction = 1;
-    item->direction = 0;//XXX
-    item->has_maximum = 1;
-    item->maximum = ipdv[count -1];
-    item->has_minimum = 1;
-    item->minimum = ipdv[0];
-    item->has_median = 1;
-    item->median = ipdv[count / 2];//XXX
-    item->has_packets_received = 1;
-    item->packets_received = received;
-    item->percentiles = percentiles;
-
-    return item;
-}
-
-
-
 static void report_results(uint64_t start_time, struct addrinfo *dest,
         struct opt_t *options, struct timeval *in_times,
         Amplet2__Udpstream__Item *server_report) {
@@ -139,6 +44,9 @@ static void report_results(uint64_t start_time, struct addrinfo *dest,
     } else {
         assert(0);
     }
+
+    printf("local:%p server:%p n_reports:%d\n", in_times, server_report,
+            msg.n_reports);
 
     reports = calloc(msg.n_reports, sizeof(Amplet2__Udpstream__Item*));
 
@@ -183,7 +91,10 @@ static int run_test(struct addrinfo *server, struct opt_t *options,
     struct sockaddr_storage ss;
     socklen_t socklen = sizeof(ss);
     struct timeval *in_times = NULL, *out_times = NULL;
-    struct test_request_t *schedule, *current;
+    struct test_request_t *schedule = NULL, *current;
+    ProtobufCBinaryData data;
+    Amplet2__Udpstream__Item *results = NULL;
+
 
     printf("run test\n");
     socket_options->cport = options->cport;//XXX
@@ -262,6 +173,15 @@ static int run_test(struct addrinfo *server, struct opt_t *options,
                     ntohs(socket_options->tport);
 
                 send_udp_stream(test_socket, server, options);
+
+                /* wait for the results from the stream we just sent */
+                if ( read_control_result(control_socket, &data) < 0 ) {
+                    Log(LOG_WARNING, "Failed to read RESULT packet, aborting");
+                    close(control_socket);
+                    return -1;
+                }
+                results = amplet2__udpstream__item__unpack(NULL, data.len,
+                        data.data);
                 break;
 
             case UDPSTREAM_TO_CLIENT:
@@ -278,6 +198,7 @@ static int run_test(struct addrinfo *server, struct opt_t *options,
 
                 /* wait for the data stream from the server */
                 receive_udp_stream(test_socket, options->packet_count, in_times);
+
                 break;
         };
     }
@@ -288,7 +209,7 @@ static int run_test(struct addrinfo *server, struct opt_t *options,
     // out_times =
 
     /* report results */
-    report_results(12345, server, options, in_times, NULL);
+    report_results(12345, server, options, in_times, results);
 
     return 0;
 }

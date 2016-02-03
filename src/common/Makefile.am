@@ -1,4 +1,4 @@
-EXTRA_DIST=*.h
+EXTRA_DIST=*.h servers.proto
 SUBDIRS= . test
 BUILT_SOURCES=servers.pb-c.c
 CLEANFILES=servers.pb-c.c servers.pb-c.h

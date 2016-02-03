@@ -1,5 +1,6 @@
 #include <unistd.h>
 
+#include "serverlib.h"
 #include "udpstream.h"
 
 
@@ -83,4 +84,112 @@ int receive_udp_stream(int sock, uint32_t packet_count, struct timeval *times) {
 
 
 
+/*
+ *
+ */
+static int cmp(const void *a, const void *b) {
+    return ( *(uint32_t*)a - *(uint32_t*)b );
+}
 
+
+
+/*
+ *
+ */
+Amplet2__Udpstream__Item* report_stream(struct timeval *times,
+        struct opt_t *options) {
+    /* XXX need direction information and stuff */
+    Amplet2__Udpstream__Item *item =
+        (Amplet2__Udpstream__Item*)malloc(sizeof(Amplet2__Udpstream__Item));
+    uint32_t i;
+    int32_t total_diff = 0;
+    uint32_t count = 0, received = 0;
+    int32_t current, prev;
+    int foo = 0;
+    int32_t ipdv[options->packet_count];
+    //int32_t percentiles[10];
+
+    printf("report stream\n");
+
+    //XXX do we want to know exactly which packets were dropped?
+    for ( i = 0; i < options->packet_count; i++ ) {
+        //XXX this check doesn't properly work to prevent unset timevals?
+        if ( !timerisset(&times[i]) ) {
+            continue;
+        }
+
+        received++;
+
+        //if ( prev == NULL ) {
+            //XXX won't work with loss
+        if ( !foo ) {
+            printf("%d %ld.%06ld\n", i, times[i].tv_sec, times[i].tv_usec);
+            prev = (times[i].tv_sec * 1000000) + times[i].tv_usec;
+            foo = 1;
+            continue;
+        }
+
+        current = (times[i].tv_sec * 1000000) + times[i].tv_usec;
+
+        ipdv[count] = current - prev;
+        total_diff += (current - prev);
+        printf("%d ipdv %d\n", i, current - prev);
+
+        prev = current;
+        count++;
+    }
+
+    printf("--- %d / %d = %f ---\n", total_diff, count,
+            ((double)total_diff) / ((double)count));
+
+    qsort(&ipdv, count, sizeof(int32_t), cmp);
+    for ( i = 0; i < count; i++ ) {
+        printf(" ++ %d\n", ipdv[i]);
+    }
+
+    amplet2__udpstream__item__init(item);
+
+    /*
+     * Base the number of percentiles around the minimum of what the user
+     * wanted, and the number of measurements we have. Also we can get away
+     * without sending the largest and smallest measurements because they are
+     * already being sent.
+     */
+    //XXX very low numbers could overflow, prevent this
+    item->n_percentiles = MIN(options->percentile_count - 1, count - 2);
+    item->percentiles = calloc(item->n_percentiles, sizeof(int32_t));
+
+    printf("options->percentile_count: %d\n", options->percentile_count);
+    printf("count: %d\n", count);
+
+    printf("report item: %p\n", item);
+    printf("reporting %d percentiles\n", item->n_percentiles);
+
+    /* XXX 100% percentile is pointless */
+    for ( i = 0; i < item->n_percentiles; i++ ) {
+        printf("storing %d (%d): %d\n", i,
+                (int)(count / item->n_percentiles * (i+1)) - 1,
+                ipdv[(int)(count / item->n_percentiles * (i+1)) - 1]);
+        item->percentiles[i] = ipdv[(int)
+            (count / item->n_percentiles * (i+1)) - 1];
+        //XXX of by one
+    }
+
+
+    item->has_direction = 1;
+    item->direction = 0;//XXX
+    item->has_maximum = 1;
+    item->maximum = ipdv[count -1];
+    item->has_minimum = 1;
+    item->minimum = ipdv[0];
+    item->has_median = 1;
+    item->median = ipdv[count / 2];//XXX
+    item->has_packets_received = 1;
+    item->packets_received = received;
+    //item->percentiles = percentiles;
+
+    printf("item packed size: %d\n",
+            amplet2__udpstream__item__get_packed_size(item));
+
+    return item;
+}

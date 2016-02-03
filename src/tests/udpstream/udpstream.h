@@ -11,6 +11,7 @@
 #include "config.h"
 #include "tests.h"
 #include "testlib.h"
+#include "udpstream.pb-c.h"
 
 
 // TODO use different ports to the throughput test
@@ -107,5 +108,7 @@ void usage(char *prog);
 void version(char *prog);
 int send_udp_stream(int sock, struct addrinfo *remote, struct opt_t *options);
 int receive_udp_stream(int sock, uint32_t packet_count, struct timeval *times);
+Amplet2__Udpstream__Item* report_stream(struct timeval *times,
+        struct opt_t *options);
 
 #endif
