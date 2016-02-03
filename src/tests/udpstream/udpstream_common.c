@@ -110,7 +110,6 @@ Amplet2__Udpstream__Item* report_stream(enum udpstream_direction direction,
     int32_t total_diff = 0;
     uint32_t count = 0, received = 0;
     int32_t current, prev;
-    int foo = 0;
     int32_t ipdv[options->packet_count];
     //int32_t percentiles[10];
 
@@ -125,12 +124,9 @@ Amplet2__Udpstream__Item* report_stream(enum udpstream_direction direction,
 
         received++;
 
-        //if ( prev == NULL ) {
-            //XXX won't work with loss
-        if ( !foo ) {
+        if ( received < 2 ) {
             printf("%d %ld.%06ld\n", i, times[i].tv_sec, times[i].tv_usec);
             prev = (times[i].tv_sec * 1000000) + times[i].tv_usec;
-            foo = 1;
             continue;
         }
 
