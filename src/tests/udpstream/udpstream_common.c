@@ -180,7 +180,13 @@ Amplet2__Udpstream__Item* report_stream(enum udpstream_direction direction,
     item->has_minimum = 1;
     item->minimum = ipdv[0];
     item->has_median = 1;
-    item->median = ipdv[count / 2];//XXX
+    if ( count % 2 ) {
+        /* round up the difference in the middle values, so we get an integer */
+        item->median = (ipdv[count / 2] + ipdv[(count / 2) + 1]) / 2;
+    } else {
+        /* integer arithmetic and zero based arrays mean this is the middle */
+        item->median = ipdv[count / 2];
+    }
     item->has_packets_received = 1;
     item->packets_received = received;
     //item->percentiles = percentiles;
