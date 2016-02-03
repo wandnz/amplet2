@@ -94,9 +94,8 @@ static int cmp(const void *a, const void *b) {
 /*
  *
  */
-Amplet2__Udpstream__Item* report_stream(struct timeval *times,
-        struct opt_t *options) {
-    /* XXX need direction information and stuff */
+Amplet2__Udpstream__Item* report_stream(enum udpstream_direction direction,
+        struct timeval *times, struct opt_t *options) {
     Amplet2__Udpstream__Item *item =
         (Amplet2__Udpstream__Item*)malloc(sizeof(Amplet2__Udpstream__Item));
     uint32_t i;
@@ -175,7 +174,7 @@ Amplet2__Udpstream__Item* report_stream(struct timeval *times,
 
 
     item->has_direction = 1;
-    item->direction = 0;//XXX
+    item->direction = direction;
     item->has_maximum = 1;
     item->maximum = ipdv[count -1];
     item->has_minimum = 1;

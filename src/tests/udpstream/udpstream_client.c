@@ -47,7 +47,7 @@ static void report_results(struct timeval *start_time, struct addrinfo *dest,
     reports = calloc(msg.n_reports, sizeof(Amplet2__Udpstream__Item*));
 
     if ( in_times ) {
-        reports[i++] = report_stream(in_times, options);
+        reports[i++] = report_stream(UDPSTREAM_TO_CLIENT, in_times, options);
     }
 
     if ( server_report ) {
@@ -369,23 +369,22 @@ static void print_item(Amplet2__Udpstream__Item *item, uint32_t packet_count) {
 
     if ( item->direction ==
             AMPLET2__UDPSTREAM__ITEM__DIRECTION__SERVER_TO_CLIENT ) {
-        printf("  * server -> client:");
+        printf("  * server -> client\n");
     } else if ( item->direction ==
             AMPLET2__UDPSTREAM__ITEM__DIRECTION__CLIENT_TO_SERVER ) {
-        printf("  * client -> server:");
+        printf("  * client -> server\n");
     } else {
-        printf("TODO set direction\n");
-        //return;
+        return;
     }
 
-    printf("%d packets transmitted, %d received, %.02f%% packet loss\n",
+    printf("      %d packets transmitted, %d received, %.02f%% packet loss\n",
             packet_count, item->packets_received,
             100 - ((double)item->packets_received / (double)packet_count*100));
 
-    printf("delay variation min/median/max = %d/%d/%d\n",
+    printf("      delay variation min/median/max = %d/%d/%d\n",
             item->minimum, item->median, item->maximum);
 
-    printf("percentiles:");
+    printf("      percentiles:");
     for ( i = 0; i < item->n_percentiles; i++ ) {
         printf(" %d:%d", (i+1) * 10, item->percentiles[i]);
     }

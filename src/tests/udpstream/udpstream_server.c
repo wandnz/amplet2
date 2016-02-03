@@ -133,7 +133,7 @@ static int serve_test(int control_sock, struct sockaddr_storage *remote,
                 /* wait for the data stream from the client */
                 times = calloc(sockopts->packet_count, sizeof(struct timeval));
                 receive_udp_stream(test_sock, sockopts->packet_count, times);
-                result = report_stream(times, &options);
+                result = report_stream(UDPSTREAM_TO_SERVER, times, &options);
                 /* pack the result for sending to the client */
                 packed.len = amplet2__udpstream__item__get_packed_size(result);
                 packed.data = malloc(packed.len);
