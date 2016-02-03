@@ -10,7 +10,7 @@
 
 
 
-static void report_results(uint64_t start_time, struct addrinfo *dest,
+static void report_results(struct timeval *start_time, struct addrinfo *dest,
         struct opt_t *options, struct timeval *in_times,
         Amplet2__Udpstream__Item *server_report) {
 
@@ -22,7 +22,6 @@ static void report_results(uint64_t start_time, struct addrinfo *dest,
     int len;
 
     /* populate the header with all the test options */
-    //header.schedule = options->textual_schedule;
     header.has_family = 1;
     header.family = dest->ai_family;
     header.has_packet_size = 1;
@@ -45,9 +44,6 @@ static void report_results(uint64_t start_time, struct addrinfo *dest,
         assert(0);
     }
 
-    printf("local:%p server:%p n_reports:%d\n", in_times, server_report,
-            msg.n_reports);
-
     reports = calloc(msg.n_reports, sizeof(Amplet2__Udpstream__Item*));
 
     if ( in_times ) {
@@ -68,7 +64,7 @@ static void report_results(uint64_t start_time, struct addrinfo *dest,
     amplet2__udpstream__report__pack(&msg, buffer);
 
     /* send the packed report object */
-    report(AMP_TEST_UDPSTREAM, start_time, (void*)buffer, len);
+    report(AMP_TEST_UDPSTREAM, (uint64_t)start_time->tv_sec, (void*)buffer,len);
 
     /* free up all the memory we had to allocate to report items */
     for ( i = 0; i < msg.n_reports; i++ ) {
@@ -90,10 +86,11 @@ static int run_test(struct addrinfo *server, struct opt_t *options,
     //struct temp_sockopt_t_xxx optxxx;
     struct sockaddr_storage ss;
     socklen_t socklen = sizeof(ss);
-    struct timeval *in_times = NULL, *out_times = NULL;
+    struct timeval *in_times = NULL;
     struct test_request_t *schedule = NULL, *current;
     ProtobufCBinaryData data;
     Amplet2__Udpstream__Item *results = NULL;
+    struct timeval start_time;
 
 
     printf("run test\n");
@@ -117,6 +114,8 @@ static int run_test(struct addrinfo *server, struct opt_t *options,
     control_socket = connect_to_server(server, socket_options,
             options->cport);//XXX socket_options?
     printf("control = %d\n", control_socket);
+
+    gettimeofday(&start_time, NULL);
 
     /* send hello */
     if ( send_control_hello(control_socket, socket_options) < 0 ) {
@@ -153,6 +152,11 @@ static int run_test(struct addrinfo *server, struct opt_t *options,
             schedule[0].direction = UDPSTREAM_TO_SERVER;
             schedule[0].next = &schedule[1];
             schedule[1].direction = UDPSTREAM_TO_CLIENT;
+            break;
+
+        default:
+            /* XXX */
+            printf("BROKEN SCHEDULE\n");
             break;
     };
 
@@ -203,13 +207,8 @@ static int run_test(struct addrinfo *server, struct opt_t *options,
         };
     }
 
-
-
-    // TODO get results from server - this could be a protobuf message!
-    // out_times =
-
     /* report results */
-    report_results(12345, server, options, in_times, results);
+    report_results(&start_time, server, options, in_times, results);
 
     return 0;
 }
@@ -225,7 +224,6 @@ int run_udpstream_client(int argc, char *argv[], int count,
     int opt;
     struct opt_t test_options;
     struct temp_sockopt_t_xxx socket_options;
-    struct timeval start_time;
     struct info_t *info;
     struct addrinfo *sourcev4, *sourcev6;
     char *device;
