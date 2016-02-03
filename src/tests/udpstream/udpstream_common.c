@@ -1,4 +1,6 @@
 #include <unistd.h>
+#include <netinet/ip.h>
+#include <netinet/ip6.h>
 
 #include "serverlib.h"
 #include "udpstream.h"
@@ -11,21 +13,27 @@ int send_udp_stream(int sock, struct addrinfo *remote, struct opt_t *options) {
     struct timeval now;
     char *payload;
     uint32_t i;
+    size_t payload_len;
 
     printf("send udp stream\n");
 
     //XXX put a pattern in the payload?
-    payload = (char *)calloc(1, options->packet_size); //XXX subtract headers?
+    /* the packet size option includes headers, so subtract them */
+    if ( remote->ai_family == AF_INET ) {
+        payload_len = options->packet_size - sizeof(struct iphdr);
+    } else {
+        payload_len = options->packet_size - sizeof(struct ip6_hdr);
+    }
 
-    for ( i = 0; i < options->packet_count; i++ ) {
-        printf("sending %d\n", i);
+    payload_len -= sizeof(struct udphdr);
+    payload = (char *)calloc(1, payload_len);
 
         gettimeofday(&now, NULL);
         memcpy(payload, &i, sizeof(i));
         //XXX won't work on 32 bit machines with 32bit timevals
         memcpy(payload + sizeof(i), &now, sizeof(now));
 
-        if ( sendto(sock, payload, options->packet_size, 0,
+        if ( sendto(sock, payload, payload_len, 0,
                     remote->ai_addr, remote->ai_addrlen) < 0 ) {
             Log(LOG_WARNING, "Error sending udpstream packet, aborting");
             return -1;
