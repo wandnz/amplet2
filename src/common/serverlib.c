@@ -133,11 +133,13 @@ int read_control_packet(int sock, void **data) {
 
         if ( result < 0 ) {
             Log(LOG_WARNING, "Failed to read server control packet data");
+            free(data);
             return -1;
         }
 
         if ( result == 0 ) {
             Log(LOG_DEBUG, "Server control connection closed");
+            free(data);
             return -1;
         }
 
@@ -390,7 +392,6 @@ int parse_control_ready(void *data, uint32_t len,
     if ( !msg || !msg->has_type ||
             msg->type != AMPLET2__SERVERS__CONTROL__TYPE__READY ) {
         Log(LOG_WARNING, "Not a READY packet, aborting");
-        printf("type:%d\n", msg->type);
         amplet2__servers__control__free_unpacked(msg, NULL);
         return -1;
     }
@@ -402,9 +403,6 @@ int parse_control_ready(void *data, uint32_t len,
     }
 
     options->tport = msg->ready->test_port;
-    printf("got control ready with test port %d\n", options->tport);
-
-    /* TODO other test options */
 
     amplet2__servers__control__free_unpacked(msg, NULL);
 
@@ -505,8 +503,11 @@ int read_control_hello(int sock, struct temp_sockopt_t_xxx *options) {
 
     if ( parse_control_hello(data, len, options) < 0 ) {
         Log(LOG_WARNING, "Failed to parse HELLO packet");
+        free(data);
         return -1;
     }
+
+    free(data);
 
     return 0;
 }
@@ -527,8 +528,11 @@ int read_control_ready(int sock, struct temp_sockopt_t_xxx *options) {
 
     if ( parse_control_ready(data, len, options) < 0 ) {
         Log(LOG_WARNING, "Failed to parse READY packet");
+        free(data);
         return -1;
     }
+
+    free(data);
 
     return 0;
 }
@@ -551,8 +555,11 @@ int read_control_result(int sock, ProtobufCBinaryData *results) {
 
     if ( parse_control_result(data, len, results) < 0 ) {
         Log(LOG_WARNING, "Failed to parse RESULT packet");
+        free(data);
         return -1;
     }
+
+    free(data);
 
     return 0;
 }

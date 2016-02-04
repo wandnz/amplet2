@@ -51,7 +51,7 @@ static void report_results(struct timeval *start_time, struct addrinfo *dest,
     }
 
     if ( server_report ) {
-        reports[i++] = server_report;
+        reports[i] = server_report;
     }
 
     /* populate the top level report object with the header and reports */
@@ -67,12 +67,56 @@ static void report_results(struct timeval *start_time, struct addrinfo *dest,
     report(AMP_TEST_UDPSTREAM, (uint64_t)start_time->tv_sec, (void*)buffer,len);
 
     /* free up all the memory we had to allocate to report items */
-    for ( i = 0; i < msg.n_reports; i++ ) {
-        free(reports[i]);
+    if ( in_times ) {
+        free(reports[0]);
+    }
+
+    if ( server_report ) {
+        amplet2__udpstream__item__free_unpacked(server_report, NULL);
     }
 
     free(reports);
     free(buffer);
+}
+
+
+
+/*
+ *
+ */
+static struct test_request_t* build_schedule(struct opt_t *options) {
+    struct test_request_t *schedule = NULL;
+
+    switch ( options->direction ) {
+        case CLIENT_TO_SERVER:
+            schedule = calloc(1, sizeof(struct test_request_t));
+            schedule->direction = UDPSTREAM_TO_SERVER;
+            break;
+
+        case SERVER_TO_CLIENT:
+            schedule = calloc(1, sizeof(struct test_request_t));
+            schedule->direction = UDPSTREAM_TO_CLIENT;
+            break;
+
+        case SERVER_THEN_CLIENT:
+            schedule = calloc(2, sizeof(struct test_request_t));
+            schedule[0].direction = UDPSTREAM_TO_CLIENT;
+            schedule[0].next = &schedule[1];
+            schedule[1].direction = UDPSTREAM_TO_SERVER;
+            break;
+
+        case CLIENT_THEN_SERVER:
+            schedule = calloc(2, sizeof(struct test_request_t));
+            schedule[0].direction = UDPSTREAM_TO_SERVER;
+            schedule[0].next = &schedule[1];
+            schedule[1].direction = UDPSTREAM_TO_CLIENT;
+            break;
+
+        default:
+            break;
+    };
+
+    return schedule;
 }
 
 
@@ -124,42 +168,9 @@ static int run_test(struct addrinfo *server, struct opt_t *options,
         return -1;
     }
 
+    schedule = build_schedule(options);
+
     /* run the test schedule */
-    switch ( options->direction ) {
-        case CLIENT_TO_SERVER:
-            printf("CLIENT TO SERVER SCHEDULE\n");
-            schedule = calloc(1, sizeof(struct test_request_t));
-            schedule->direction = UDPSTREAM_TO_SERVER;
-            break;
-
-        case SERVER_TO_CLIENT:
-            printf("SERVER TO CLIENT SCHEDULE\n");
-            schedule = calloc(1, sizeof(struct test_request_t));
-            schedule->direction = UDPSTREAM_TO_CLIENT;
-            break;
-
-        case SERVER_THEN_CLIENT:
-            printf("SERVER THEN CLIENT SCHEDULE\n");
-            schedule = calloc(2, sizeof(struct test_request_t));
-            schedule[0].direction = UDPSTREAM_TO_CLIENT;
-            schedule[0].next = &schedule[1];
-            schedule[1].direction = UDPSTREAM_TO_SERVER;
-            break;
-
-        case CLIENT_THEN_SERVER:
-            printf("CLIENT THEN SERVER SCHEDULE\n");
-            schedule = calloc(2, sizeof(struct test_request_t));
-            schedule[0].direction = UDPSTREAM_TO_SERVER;
-            schedule[0].next = &schedule[1];
-            schedule[1].direction = UDPSTREAM_TO_CLIENT;
-            break;
-
-        default:
-            /* XXX */
-            printf("BROKEN SCHEDULE\n");
-            break;
-    };
-
     for ( current = schedule; current != NULL; current = current->next ) {
         printf("SCHEDULE ITEM START\n");
         switch ( current->direction ) {
@@ -186,6 +197,7 @@ static int run_test(struct addrinfo *server, struct opt_t *options,
                 }
                 results = amplet2__udpstream__item__unpack(NULL, data.len,
                         data.data);
+                free(data.data);
                 break;
 
             case UDPSTREAM_TO_CLIENT:
@@ -212,6 +224,13 @@ static int run_test(struct addrinfo *server, struct opt_t *options,
 
     /* report results */
     report_results(&start_time, server, options, in_times, results);
+
+    /* TODO should these be freed here or in report_results? */
+    if ( in_times ) {
+        free(in_times);
+    }
+
+    free(schedule);
 
     return 0;
 }

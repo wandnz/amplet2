@@ -139,6 +139,9 @@ static int serve_test(int control_sock, struct sockaddr_storage *remote,
                 packed.data = malloc(packed.len);
                 amplet2__udpstream__item__pack(result, packed.data);
                 send_control_result(control_sock, &packed);
+                free(times);
+                free(result);
+                free(packed.data);
                 break;
 
             default: printf("unhandled type %d\n", msg->type); break;

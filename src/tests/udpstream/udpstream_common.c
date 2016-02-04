@@ -50,6 +50,8 @@ int send_udp_stream(int sock, struct addrinfo *remote, struct opt_t *options) {
         usleep(options->packet_spacing);
     }
 
+    free(payload);
+
     return 0;
 }
 
