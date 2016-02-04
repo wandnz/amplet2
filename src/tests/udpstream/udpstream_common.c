@@ -41,7 +41,8 @@ int send_udp_stream(int sock, struct addrinfo *remote, struct opt_t *options) {
 
         if ( sendto(sock, payload, payload_len, 0,
                     remote->ai_addr, remote->ai_addrlen) < 0 ) {
-            Log(LOG_WARNING, "Error sending udpstream packet, aborting");
+            Log(LOG_WARNING, "Error sending udpstream packet: %s",
+                    strerror(errno));
             return -1;
         }
 

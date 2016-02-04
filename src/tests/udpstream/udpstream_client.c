@@ -207,6 +207,9 @@ static int run_test(struct addrinfo *server, struct opt_t *options,
         };
     }
 
+    close(control_socket);
+    close(test_socket);
+
     /* report results */
     report_results(&start_time, server, options, in_times, results);
 

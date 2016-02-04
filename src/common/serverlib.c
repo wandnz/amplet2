@@ -106,7 +106,7 @@ int read_control_packet(int sock, void **data) {
         }
 
         if ( result == 0 ) {
-            Log(LOG_WARNING, "Server control connection closed unexpectedly");
+            Log(LOG_DEBUG, "Server control connection closed");
             return -1;
         }
 
@@ -137,7 +137,7 @@ int read_control_packet(int sock, void **data) {
         }
 
         if ( result == 0 ) {
-            Log(LOG_WARNING, "Server control connection closed unexpectedly");
+            Log(LOG_DEBUG, "Server control connection closed");
             return -1;
         }
 
