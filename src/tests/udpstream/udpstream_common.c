@@ -108,6 +108,26 @@ static int cmp(const void *a, const void *b) {
 /*
  *
  */
+static Amplet2__Udpstream__Period *new_loss_period(
+        Amplet2__Udpstream__Period__Status status) {
+
+    Amplet2__Udpstream__Period *period =
+        malloc(sizeof(Amplet2__Udpstream__Period));
+
+    amplet2__udpstream__period__init(period);
+    period->has_status = 1;
+    period->status = status;
+    period->has_length = 1;
+    period->length = 1;
+
+    return period;
+}
+
+
+
+/*
+ *
+ */
 Amplet2__Udpstream__Item* report_stream(enum udpstream_direction direction,
         struct timeval *times, struct opt_t *options) {
     Amplet2__Udpstream__Item *item =
@@ -117,18 +137,56 @@ Amplet2__Udpstream__Item* report_stream(enum udpstream_direction direction,
     uint32_t count = 0, received = 0;
     int32_t current, prev;
     int32_t ipdv[options->packet_count];
+    Amplet2__Udpstream__Period *period = NULL;
 
     Log(LOG_DEBUG, "Reporting udpstream results");
 
-    //XXX do we want to know exactly which packets were dropped?
+    amplet2__udpstream__item__init(item);
+
+    item->n_loss_periods = 0;
+    item->loss_periods = NULL;
+
     for ( i = 0; i < options->packet_count; i++ ) {
         //XXX this check doesn't properly work to prevent unset timevals?
         if ( !timerisset(&times[i]) ) {
+            if ( period &&
+                 period->status == AMPLET2__UDPSTREAM__PERIOD__STATUS__LOST ) {
+                period->length++;
+                printf("loss++\n");
+            } else {
+                /* create a new period after the current one */
+                item->loss_periods =
+                    realloc(item->loss_periods, (item->n_loss_periods+1) *
+                            sizeof(Amplet2__Udpstream__Period*));
+
+                period = item->loss_periods[item->n_loss_periods] =
+                    new_loss_period(AMPLET2__UDPSTREAM__PERIOD__STATUS__LOST);
+
+                item->n_loss_periods++;
+                printf("new loss period\n");
+            }
             continue;
         }
 
         /* packet was received ok, and has a timestamp */
         received++;
+
+        if ( period &&
+             period->status == AMPLET2__UDPSTREAM__PERIOD__STATUS__RECEIVED ) {
+            period->length++;
+            printf("good++\n");
+        } else {
+            /* create a new period after the current one */
+            item->loss_periods =
+                realloc(item->loss_periods, (item->n_loss_periods+1) *
+                        sizeof(Amplet2__Udpstream__Period*));
+
+            period = item->loss_periods[item->n_loss_periods] =
+                new_loss_period(AMPLET2__UDPSTREAM__PERIOD__STATUS__RECEIVED);
+
+            item->n_loss_periods++;
+            printf("new good period\n");
+        }
 
         if ( received < 2 ) {
             printf("%d %ld.%06ld\n", i, times[i].tv_sec, times[i].tv_usec);
@@ -154,7 +212,11 @@ Amplet2__Udpstream__Item* report_stream(enum udpstream_direction direction,
         printf(" ++ %d\n", ipdv[i]);
     }
 
-    amplet2__udpstream__item__init(item);
+    printf("LOSS PERIODS (%d):\n", item->n_loss_periods);
+    for ( i = 0; i < item->n_loss_periods; i++ ) {
+        printf("%d:%d\n", item->loss_periods[i]->length,
+                item->loss_periods[i]->status);
+    }
 
     /*
      * Base the number of percentiles around the minimum of what the user

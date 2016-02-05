@@ -411,6 +411,13 @@ static void print_item(Amplet2__Udpstream__Item *item, uint32_t packet_count) {
         printf(" %d:%d", (i+1) * 10, item->percentiles[i]);
     }
     printf("\n");
+
+    printf("      loss (%d):", item->n_loss_periods);
+    for ( i = 0; i < item->n_loss_periods; i++ ) {
+        printf(" %d %s", item->loss_periods[i]->length,
+                item->loss_periods[i]->status ? "ok" : "lost");
+    }
+    printf("\n");
 }
 
 

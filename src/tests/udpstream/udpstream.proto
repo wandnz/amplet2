@@ -28,4 +28,14 @@ message Item {
         optional int32 median = 4;
         optional uint32 packets_received = 5;
         repeated int32 percentiles = 6;
+        repeated Period loss_periods = 7;
+}
+
+message Period {
+        enum Status {
+            LOST = 0;
+            RECEIVED = 1;
+        }
+        optional Status status = 1;
+        optional int32 length = 2;
 }
