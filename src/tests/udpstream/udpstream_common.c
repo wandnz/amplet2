@@ -68,10 +68,14 @@ int receive_udp_stream(int sock, uint32_t packet_count, struct timeval *times) {
     uint32_t i;
     uint32_t id;
     struct timeval sent_time;
+    struct socket_t sockets;
 
-    struct socket_t sockets;//XXX
-    sockets.socket = sock;//XXX
-    sockets.socket6 = -1;//XXX
+    /*
+     * TODO not ideal, but just put the same socket in both slots, unless we
+     * really feel like working out the address family
+     */
+    sockets.socket = sock;
+    sockets.socket6 = sock;
 
     Log(LOG_DEBUG, "Receiving UDP stream, packets:%d", packet_count);
 

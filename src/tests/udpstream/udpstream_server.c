@@ -56,8 +56,14 @@ static int serve_test(int control_sock, struct sockaddr_storage *remote,
     }
 
     printf("port:%d portmax:%d\n", sockopts->tport, portmax);
+    /* configure the new UDP test socket */
     sockopts->socktype = SOCK_DGRAM;
     sockopts->protocol = IPPROTO_UDP;
+    if ( remote->ss_family == AF_INET ) {
+        sockopts->sourcev6 = NULL;
+    } else {
+        sockopts->sourcev4 = NULL;
+    }
 
     /* No errors so far, make our new test socket with the given test options */
     do {
