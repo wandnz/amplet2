@@ -14,6 +14,8 @@
 #include "udpstream.pb-c.h"
 
 
+#define AMP_UDPSTREAM_TEST_VERSION 2016020900
+
 // TODO use different ports to the throughput test
 /* The default test port */
 #define DEFAULT_CONTROL_PORT  8815 /* Could use etc/services like old code */

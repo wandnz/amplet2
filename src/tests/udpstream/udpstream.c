@@ -37,8 +37,8 @@ void usage(char *prog) {
  */
 void version(char *prog) {
     fprintf(stderr, "%s\n", prog);
-    //fprintf(stderr, "%s, amplet version %s, protocol version %d\n", prog,
-    //        PACKAGE_STRING, AMP_ICMP_TEST_VERSION);
+    fprintf(stderr, "%s, amplet version %s, protocol version %d\n", prog,
+            PACKAGE_STRING, AMP_UDPSTREAM_TEST_VERSION);
 }
 
 
