@@ -412,7 +412,7 @@ static void print_item(Amplet2__Udpstream__Item *item, uint32_t packet_count) {
     }
     printf("\n");
 
-    printf("      loss (%d):", item->n_loss_periods);
+    printf("      loss patterns:");
     for ( i = 0; i < item->n_loss_periods; i++ ) {
         printf(" %d %s", item->loss_periods[i]->length,
                 item->loss_periods[i]->status ? "ok" : "lost");
