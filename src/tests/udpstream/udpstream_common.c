@@ -139,7 +139,7 @@ Amplet2__Udpstream__Item* report_stream(enum udpstream_direction direction,
     uint32_t i;
     int32_t total_diff = 0;
     uint32_t count = 0, received = 0;
-    int32_t current, prev;
+    int32_t current = 0, prev = 0;
     int32_t ipdv[options->packet_count];
     Amplet2__Udpstream__Period *period = NULL;
 
@@ -192,7 +192,7 @@ Amplet2__Udpstream__Item* report_stream(enum udpstream_direction direction,
             printf("new good period\n");
         }
 
-        if ( received < 2 ) {
+        if ( received == 1 ) {
             printf("%d %ld.%06ld\n", i, times[i].tv_sec, times[i].tv_usec);
             prev = (times[i].tv_sec * 1000000) + times[i].tv_usec;
             continue;
