@@ -28,8 +28,6 @@ static int serve_test(int control_sock, struct sockaddr_storage *remote,
     Amplet2__Udpstream__Item *result;
     ProtobufCBinaryData packed;
 
-    printf("SERVING TEST\n");
-
     if ( read_control_hello(control_sock, sockopts) < 0 ) {
         Log(LOG_WARNING, "Got bad HELLO packet, shutting down test server");
         return -1;
@@ -55,7 +53,6 @@ static int serve_test(int control_sock, struct sockaddr_storage *remote,
         portmax = sockopts->tport;
     }
 
-    printf("port:%d portmax:%d\n", sockopts->tport, portmax);
     /* configure the new UDP test socket */
     sockopts->socktype = SOCK_DGRAM;
     sockopts->protocol = IPPROTO_UDP;
@@ -76,7 +73,6 @@ static int serve_test(int control_sock, struct sockaddr_storage *remote,
     }
 
     assert(sockets.socket > 0 || sockets.socket6 > 0);
-    printf("socket:%d socket6:%d\n", sockets.socket, sockets.socket6);
 
     /*
      * Only a single socket should be listening now, and it should be on the
@@ -108,7 +104,6 @@ static int serve_test(int control_sock, struct sockaddr_storage *remote,
 
     while ( (bytes=read_control_packet(control_sock, &data)) > 0 ) {
         Amplet2__Servers__Control *msg;
-        printf("read %d bytes\n", bytes);
         msg = amplet2__servers__control__unpack(NULL, bytes, data);
 
         switch ( msg->type ) {
@@ -150,7 +145,8 @@ static int serve_test(int control_sock, struct sockaddr_storage *remote,
                 free(packed.data);
                 break;
 
-            default: printf("unhandled type %d\n", msg->type); break;
+            default: Log(LOG_WARNING, "Unhandled message type %d\n", msg->type);
+                     break;
         };
 
         /* both read_control_packet and unpacking the buffer allocate memory */
@@ -248,7 +244,6 @@ void run_udpstream_server(int argc, char *argv[], SSL *ssl) {
     }
 
     /* select on our listening sockets until someone connects */
-    printf("WAITING\n");
     maxwait = 60000000; /* XXX 60s, how long should this be? */
     if ( (family = wait_for_data(&listen_sockets, &maxwait)) <= 0 ) {
         Log(LOG_DEBUG, "Timeout out waiting for connection");
