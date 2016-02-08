@@ -195,7 +195,6 @@ void run_udpstream_server(int argc, char *argv[], SSL *ssl) {
     port = DEFAULT_CONTROL_PORT;
     portmax = MAX_CONTROL_PORT;
 
-    /* TODO server should take long options too */
     while ( (opt = getopt_long(argc, argv, "?hp:4:6:I:Z:",
                     long_options, NULL)) != -1 ) {
         switch ( opt ) {

@@ -9,25 +9,55 @@
 
 struct option long_options[] = {
     {"help", no_argument, 0, 'h'},
-    {"interface", required_argument, 0, 'I'},
-    {"interpacketgap", required_argument, 0, 'Z'},
-    {"perturbate", required_argument, 0, 'p'},
-    {"size", required_argument, 0, 's'},
+    {"port", required_argument, 0, 'p'},
+    {"test-port", required_argument, 0, 'P'},
+    {"size", required_argument, 0, 'z'},
+    {"server", no_argument, 0, 's'},
     {"client", required_argument, 0, 'c'},
     {"version", no_argument, 0, 'v'},
+    {"interface", required_argument, 0, 'I'},
+    {"interpacketgap", required_argument, 0, 'Z'},
     {"ipv4", required_argument, 0, '4'},
     {"ipv6", required_argument, 0, '6'},
     {NULL, 0, 0, 0}
 };
-
+//XXX perturbate vs port
 
 
 /*
  *
  */
 void usage(char *prog) {
-    printf("TODO usage, based on throughput\n");
-    fprintf(stderr, "%s\n", prog);
+    fprintf(stderr, "Usage: %s [-s] [options]\n", prog);
+    fprintf(stderr, "\n");
+
+    fprintf(stderr, "Server/Client options:\n");
+    //fprintf(stderr, "  -p, --port       <port>  port number to listen on/connect to (default %d)\n", DEFAULT_CONTROL_PORT);
+    fprintf(stderr, "  -I, --interface  <iface> source interface name\n");
+    fprintf(stderr, "  -4, --ipv4       <addr>  source IPv4 address\n");
+    fprintf(stderr, "  -6, --ipv6       <addr>  source IPv6 address\n");
+    fprintf(stderr, "\n");
+
+    fprintf(stderr, "Server specific options:\n");
+    fprintf(stderr, "  -s, --server             run in server mode\n");
+    fprintf(stderr, "\n");
+
+    fprintf(stderr, "Client specific options:\n");
+    fprintf(stderr, "  -c, --client         <host>  run in client mode, connecting to <host>\n");
+    //fprintf(stderr, "  -r, --randomise          randomise data in every packet sent\n");
+    fprintf(stderr, "  -p, --perturbate     <ms>    maximum number of milliseconds to delay test\n");
+    fprintf(stderr, "  -d, --direction      <dir>   TODO magic value describing direction\n");
+    fprintf(stderr, "  -n, --packet-count   <count> number of packet to send (default %d)\n", DEFAULT_UDPSTREAM_PACKET_COUNT);
+    fprintf(stderr, "  -P, --test-port      <port>  port number to test on (default %d)\n", DEFAULT_TEST_PORT);
+    fprintf(stderr, "  -z, --packet-size    <bytes> size of datagrams to send (default %d)\n", DEFAULT_UDPSTREAM_PACKET_LENGTH);
+    fprintf(stderr, "  -Z, --interpacketgap <usec>  minimum delay between packets (default %d)\n", MIN_INTER_PACKET_DELAY);
+    fprintf(stderr, "\n");
+
+    fprintf(stderr, "Miscellaneous:\n");
+    fprintf(stderr, "  -h, --help               print this help\n");
+    fprintf(stderr, "  -x, --debug              enable debug output\n");
+    fprintf(stderr, "  -v, --version            print version information and exit\n");
+    fprintf(stderr, "\n");
 }
 
 
@@ -55,8 +85,7 @@ int run_udpstream(int argc, char *argv[], int count, struct addrinfo **dests) {
 
     Log(LOG_DEBUG, "Starting udpstream test");
 
-    /* XXX this option string needs to be up to date with server and client? */
-    while ( (opt = getopt_long(argc, argv,"?hvp:P:rsz:o:i:Nm:n:wS:c:d:4:6:I:t:Z:",
+    while ( (opt = getopt_long(argc, argv, "?4:6:cd:hI:p:n:P:svz:Z:",
                     long_options, &option_index)) != -1 ) {
         switch ( opt ) {
             case 's': server_flag_index = optind - 1; break;

@@ -14,7 +14,7 @@
 #include "udpstream.pb-c.h"
 
 
-#define AMP_UDPSTREAM_TEST_VERSION 2016020900
+#define AMP_UDPSTREAM_TEST_VERSION 2016011800
 
 // TODO use different ports to the throughput test
 /* The default test port */

@@ -5,7 +5,6 @@
 #include "testlib.h"
 
 
-#define AMP_UDPSTREAM_TEST_VERSION 2016011800
 //XXX this should probably be a bit bigger
 #define MAX_MALLOC 4096
 #define MIN(X,Y) (((X) < (Y)) ? (X) : (Y))
