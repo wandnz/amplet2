@@ -38,16 +38,6 @@ static void htobePacket(struct packet_t *p) {
             p->types.result.bytes = htobe64(p->types.result.bytes);
             p->types.result.duration_ns = htobe64(p->types.result.duration_ns);
             break;
-        case TPUT_PKT_HELLO:
-            p->types.hello.version = htobe32(p->types.hello.version);
-            p->types.hello.mss = htobe32(p->types.hello.mss);
-            p->types.hello.sock_rcvbuf = htobe32(p->types.hello.sock_rcvbuf);
-            p->types.hello.sock_sndbuf = htobe32(p->types.hello.sock_sndbuf);
-            p->types.hello.tport = htobe16(p->types.hello.tport);
-            break;
-        case TPUT_PKT_READY:
-            p->types.ready.tport = htobe16(p->types.ready.tport);
-            break;
         case TPUT_PKT_CLOSE:
         case TPUT_PKT_RENEW_CONNECTION:
             break;
@@ -83,16 +73,6 @@ static void betohPacket(struct packet_t *p) {
             p->types.result.write_size = be32toh(p->types.result.write_size);
             p->types.result.bytes = be64toh(p->types.result.bytes);
             p->types.result.duration_ns = be64toh(p->types.result.duration_ns);
-            break;
-        case TPUT_PKT_HELLO:
-            p->types.hello.version = be32toh(p->types.hello.version);
-            p->types.hello.mss = be32toh(p->types.hello.mss);
-            p->types.hello.sock_rcvbuf = be32toh(p->types.hello.sock_rcvbuf);
-            p->types.hello.sock_sndbuf = be32toh(p->types.hello.sock_sndbuf);
-            p->types.hello.tport = be16toh(p->types.hello.tport);
-            break;
-        case TPUT_PKT_READY:
-            p->types.ready.tport = be16toh(p->types.ready.tport);
             break;
         case TPUT_PKT_CLOSE:
         case TPUT_PKT_RENEW_CONNECTION:

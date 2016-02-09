@@ -295,12 +295,6 @@ enum TPUT_PKT {
     TPUT_PKT_HELLO = 5,
     TPUT_PKT_READY = 6,
 };
-/* Flags used in hello packet */
-enum TPUT_PKT_FLAG {
-    TPUT_PKT_FLAG_NO_NAGLE = (1<<0),
-    TPUT_PKT_FLAG_NO_WEB10G = (1<<1),
-    TPUT_PKT_FLAG_RANDOMISE = (1<<2),
-};
 /* This should align correctly under
  * sizeof(struct packet_t) == 32
  */
@@ -324,18 +318,6 @@ struct packet_t {
             uint64_t  bytes;
             uint64_t  duration_ns;
         } result;
-        struct helloPacket_t {
-            uint32_t  version;
-            uint16_t  tport;
-            uint8_t   flags; /* web10g, nagle, randomise */
-            uint8_t   flags2; /* unused empty space set to 0 */
-            uint32_t  mss;
-            int32_t   sock_rcvbuf;
-            int32_t   sock_sndbuf;
-        } hello;
-        struct readyPacket_t {
-            uint16_t tport;
-        } ready;
     } types; //type union
 }; //packet_t struct
 
@@ -369,7 +351,6 @@ int readPacket(int test_socket, struct packet_t *packet,
                     char **additional);
 
 uint64_t timeNanoseconds(void);
-void doSocketSetup(struct opt_t *options, int sock_fd);
 
 /*
  * Shared function from web10g.c
