@@ -8,149 +8,8 @@
 #include <getopt.h>
 #include <assert.h>
 
+#include "serverlib.h"
 #include "throughput.h"
-
-
-
-/**
- * Start listening on the given port for incoming tests
- *
- * @param port
- *              The port to listen for incoming connections
- *
- * @return the bound socket or return -1 if this fails
- */
-static int startListening(struct socket_t *sockets, int port,
-        struct opt_t *sockopts) {
-
-    assert(sockets);
-    assert(sockopts);
-
-    sockets->socket = -1;
-    sockets->socket6 =  -1;
-
-    /* open an ipv4 and an ipv6 socket so we can configure them individually */
-    if ( sockopts->sourcev4 &&
-            (sockets->socket=socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0 ) {
-        Log(LOG_WARNING, "Failed to open socket for IPv4: %s", strerror(errno));
-    }
-
-    if ( sockopts->sourcev6 &&
-            (sockets->socket6=socket(AF_INET6,SOCK_STREAM,IPPROTO_TCP)) < 0 ) {
-        Log(LOG_WARNING, "Failed to open socket for IPv4: %s", strerror(errno));
-    }
-
-    /* make sure that at least one of them was opened ok */
-    if ( sockets->socket < 0 && sockets->socket6 < 0 ) {
-        return -1;
-    }
-
-    /* set all the socket options that have been asked for */
-    if ( sockets->socket >= 0 ) {
-        doSocketSetup(sockopts, sockets->socket);
-        ((struct sockaddr_in*)
-         (sockopts->sourcev4->ai_addr))->sin_port = ntohs(port);
-    }
-
-    if ( sockets->socket6 >= 0 ) {
-        int one = 1;
-        doSocketSetup(sockopts, sockets->socket6);
-        /*
-         * If we dont set IPV6_V6ONLY this socket will try to do IPv4 as well
-         * and it will fail.
-         */
-        setsockopt(sockets->socket6, IPPROTO_IPV6, IPV6_V6ONLY, &one,
-                sizeof(one));
-        ((struct sockaddr_in6*)
-         (sockopts->sourcev6->ai_addr))->sin6_port = ntohs(port);
-    }
-
-    /* bind them to interfaces and addresses as required */
-    if ( sockopts->device &&
-            bind_sockets_to_device(sockets, sockopts->device) < 0 ) {
-        Log(LOG_ERR, "Unable to bind sockets to device, aborting test");
-        return -1;
-    }
-
-    if ( bind_sockets_to_address(sockets, sockopts->sourcev4,
-                sockopts->sourcev6) < 0 ) {
-        /* XXX can we trust errno to always be set correctly at this point? */
-        int error = errno;
-
-        /* close any sockets that might have been open and bound ok */
-        if ( sockets->socket >= 0 ) {
-            close(sockets->socket);
-        }
-        if ( sockets->socket6 >= 0 ) {
-            close(sockets->socket6);
-        }
-
-        /* if we got an EADDRINUSE we report it so a new port can be tried */
-        if ( error == EADDRINUSE ) {
-            return EADDRINUSE;
-        }
-
-        Log(LOG_ERR,"Unable to bind socket to address, aborting test");
-        return -1;
-    }
-
-    /* Start listening for at most 1 connection, we don't want a huge queue */
-    if ( sockets->socket >= 0 ) {
-        if ( listen(sockets->socket, 1) < 0 ) {
-            int error = errno;
-            Log(LOG_DEBUG, "Failed to listen on IPv4 socket: %s",
-                    strerror(errno));
-
-            /* close the failed ipv4 socket */
-            close(sockets->socket);
-            sockets->socket = -1;
-
-            /* we'll try again if the address was already in use */
-            if ( error == EADDRINUSE ) {
-                /* close the ipv6 socket as well if it was opened */
-                if ( sockets->socket6 >= 0 ) {
-                    close(sockets->socket6);
-                    sockets->socket6 = -1;
-                }
-                return EADDRINUSE;
-            }
-        }
-    }
-
-    if ( sockets->socket6 >= 0 ) {
-        if ( listen(sockets->socket6, 1) < 0 ) {
-            int error = errno;
-            Log(LOG_DEBUG, "Failed to listen on IPv6 socket: %s",
-                    strerror(errno));
-
-            /* close the failed ipv6 socket */
-            close(sockets->socket6);
-            sockets->socket6 = -1;
-
-            /* we'll try again if the address was already in use */
-            if ( error == EADDRINUSE ) {
-                /* close the ipv4 socket as well if it was opened */
-                if ( sockets->socket >= 0 ) {
-                    close(sockets->socket);
-                    sockets->socket = -1;
-                }
-                return EADDRINUSE;
-            }
-        }
-    }
-
-    /*
-     * If the ports are free, make sure at least one was opened ok. For now,
-     * we'll assume that if both were meant to open but one didn't then it
-     * isn't anything we can fix by trying again.
-     */
-    if ( sockets->socket < 0 && sockets->socket6 < 0 ) {
-        return -1;
-    }
-
-    Log(LOG_DEBUG, "Successfully listening on port %d", port);
-    return 0;
-}
 
 
 
@@ -213,7 +72,7 @@ static struct addrinfo *getSocketAddress(int sock_fd) {
  *
  * @return 0 if successful, -1 upon error.
  */
-static int serveTest(int control_socket, struct opt_t *sockopts) {
+static int serveTest(int control_socket, struct temp_sockopt_t_xxx *sockopts) {
     struct packet_t packet;
     struct test_result_t result;
     int bytes_read;
@@ -253,7 +112,7 @@ static int serveTest(int control_socket, struct opt_t *sockopts) {
 
     /* No errors so far, make our new testsocket with the given test options */
     do {
-        res = startListening(&sockets, sockopts->tport, sockopts);
+        res = start_listening(&sockets, sockopts->tport, sockopts);
     } while ( res == EADDRINUSE && sockopts->tport++ < portmax );
 
     if ( res != 0 ) {
@@ -367,7 +226,7 @@ static int serveTest(int control_socket, struct opt_t *sockopts) {
 
                 /* Ready the listening socket again */
                 do {
-                    res = startListening(&sockets, sockopts->tport, sockopts);
+                    res = start_listening(&sockets, sockopts->tport, sockopts);
                 } while ( res == EADDRINUSE && sockopts->tport < portmax );
 
                 if ( res != 0 ) {
@@ -449,7 +308,7 @@ void run_throughput_server(int argc, char *argv[], SSL *ssl) {
     struct socket_t listen_sockets;
     int control_sock; /* Our clients control socket connection */
     int opt;
-    struct opt_t sockopts;
+    struct temp_sockopt_t_xxx sockopts;//XXX WRONG
     struct sockaddr_storage client_addr;
     socklen_t client_addrlen;
     char *sourcev4, *sourcev6;
@@ -489,15 +348,17 @@ void run_throughput_server(int argc, char *argv[], SSL *ssl) {
 
     Log(LOG_DEBUG, "Throughput server port=%d, maxport=%d", port, portmax);
 
-    /* TODO use the port number here rather than doing it in startListening() */
+    /* TODO use the port number here rather than in start_listening() */
     sockopts.sourcev4 = get_numeric_address(sourcev4, NULL);
     sockopts.sourcev6 = get_numeric_address(sourcev6, NULL);
+    sockopts.socktype = SOCK_STREAM;
+    sockopts.protocol = IPPROTO_TCP;
+    sockopts.reuse_addr = 1;
 
     /* try to open a listen port for the control connection from a client */
-    sockopts.reuse_addr = 1;
     do {
         Log(LOG_DEBUG, "Throughput server trying to listen on port %d", port);
-        res = startListening(&listen_sockets, port, &sockopts);
+        res = start_listening(&listen_sockets, port, &sockopts);
     } while ( res == EADDRINUSE && port++ < portmax );
 
     if ( res != 0 ) {

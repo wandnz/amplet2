@@ -5,21 +5,9 @@
 #include "testlib.h"
 
 
-//XXX this should probably be a bit bigger
-#define MAX_MALLOC 4096
 #define MIN(X,Y) (((X) < (Y)) ? (X) : (Y))
 #define MAXIMUM_SERVER_WAIT_TIME 60000000
 
-enum UDPSTREAM_PKT {
-    //UDPSTREAM_PACKET_HELLO = 0,
-    //UDPSTREAM_PACKET_SEND = 1,
-    UDPSTREAM_PACKET_RECEIVE = 2,
-};
-
-enum CONTROL_PACKET {
-    CONTROL_PACKET_HELLO = 0,
-    CONTROL_PACKET_READY = 1,
-};
 
 struct temp_sockopt_t_xxx {
     struct addrinfo *sourcev4;
@@ -34,34 +22,15 @@ struct temp_sockopt_t_xxx {
     uint32_t packet_spacing; //XXX inter_packet_delay;
     uint32_t percentile_count;
 
+    //XXX test opts
     int32_t sock_mss; /* Set the TCP Maximun segment size */
     uint8_t sock_disable_nagle;
     uint8_t reuse_addr;
     int32_t sock_rcvbuf;
     int32_t sock_sndbuf;
+    uint8_t randomise;
+    uint8_t disable_web10g;
 };
-
-struct packet_t {
-    struct header_t {
-        uint32_t type;
-        uint32_t size; /* Size excluding header sizeof(struct packet_t) */
-    } header;
-    //XXX TODO tidy this up and be more generic
-    union type_t {
-        struct helloPacket_t {
-            uint32_t  version;
-            uint16_t  tport;
-            uint8_t   flags; /* web10g, nagle, randomise */
-            uint8_t   flags2; /* unused empty space set to 0 */
-            uint32_t  mss;
-            int32_t   sock_rcvbuf;
-            int32_t   sock_sndbuf;
-        } hello;
-        struct readyPacket_t {
-            uint16_t tport;
-        } ready;
-    } types; //type union
-}; //packet_t struct
 
 
 int send_control_hello(int sock_fd, struct temp_sockopt_t_xxx *options);

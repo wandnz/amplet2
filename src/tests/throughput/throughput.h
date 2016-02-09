@@ -29,6 +29,7 @@
 
 #include "tests.h"
 #include "testlib.h"
+#include "serverlib.h" //XXX remove when temp_sockopt_t_xxx removed
 
 /*
  * Taken from http://stackoverflow.com/a/4410728
@@ -357,7 +358,7 @@ int sendResultPacket(int sock_fd, struct test_result_t *res,
 int readDataPacket(const struct packet_t *packet, const int write_size,
         struct test_result_t *res);
 int readResultPacket(const struct packet_t *p, struct test_result_t *res);
-int readHelloPacket(const struct packet_t *p, struct opt_t *sockopts,
+int readHelloPacket(const struct packet_t *p, struct temp_sockopt_t_xxx *sockopts,
         uint32_t *version);
 int readReadyPacket(const struct packet_t *p, uint16_t *tport);
 

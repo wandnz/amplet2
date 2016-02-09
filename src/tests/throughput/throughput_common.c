@@ -945,7 +945,7 @@ int readReadyPacket(const struct packet_t *p, uint16_t *tport) {
  *
  * @return 0 upon success, -1 upon failure such as a invalid type
  */
-int readHelloPacket(const struct packet_t *p, struct opt_t *sockopts,
+int readHelloPacket(const struct packet_t *p, struct temp_sockopt_t_xxx *sockopts,
         uint32_t *version) {
 
     if ( p->header.type != TPUT_PKT_HELLO ) {
