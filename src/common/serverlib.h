@@ -8,6 +8,7 @@
 //XXX this should probably be a bit bigger
 #define MAX_MALLOC 4096
 #define MIN(X,Y) (((X) < (Y)) ? (X) : (Y))
+#define MAXIMUM_SERVER_WAIT_TIME 60000000
 
 enum UDPSTREAM_PKT {
     //UDPSTREAM_PACKET_HELLO = 0,
