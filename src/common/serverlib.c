@@ -10,6 +10,7 @@
 #include <sys/ioctl.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <netinet/tcp.h>
 
 #include <amqp.h>
 #include <amqp_framing.h>
@@ -178,6 +179,21 @@ int send_control_hello(int sock, struct temp_sockopt_t_xxx *options) {
     hello.packet_spacing = options->packet_spacing;
     hello.has_percentile_count = 1;
     hello.percentile_count = options->percentile_count;
+
+    hello.has_mss = 1;
+    hello.mss = options->sock_mss;
+    hello.has_disable_nagle = 1;
+    hello.disable_nagle = options->sock_disable_nagle;
+    hello.has_disable_web10g = 1;
+    hello.disable_web10g = options->disable_web10g;
+    hello.has_randomise = 1;
+    hello.randomise = options->randomise;
+    hello.has_rcvbuf = 1;
+    hello.rcvbuf = options->sock_rcvbuf;
+    hello.has_sndbuf = 1;
+    hello.sndbuf = options->sock_sndbuf;
+    hello.has_reuse_addr = 1;
+    hello.reuse_addr = options->reuse_addr;
 
     printf(" - test port %d\n", options->tport);
     printf(" - packet size %d\n", options->packet_size);
@@ -360,6 +376,14 @@ int parse_control_hello(void *data, uint32_t len,
     options->packet_count = msg->hello->packet_count;
     options->packet_spacing = msg->hello->packet_spacing;
     options->percentile_count = msg->hello->percentile_count;
+
+    options->sock_mss = msg->hello->mss;
+    options->sock_disable_nagle = msg->hello->disable_nagle;
+    options->disable_web10g = msg->hello->disable_web10g;
+    options->randomise = msg->hello->randomise;
+    options->sock_rcvbuf = msg->hello->rcvbuf;
+    options->sock_sndbuf = msg->hello->sndbuf;
+    options->reuse_addr = msg->hello->reuse_addr;
 
     printf("read HELLO packet\n");
     printf(" - test port %d\n", options->tport);

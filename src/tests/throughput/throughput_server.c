@@ -81,7 +81,6 @@ static int serveTest(int control_socket, struct temp_sockopt_t_xxx *sockopts) {
     int test_socket = -1;
     struct sockaddr_storage client_addr;
     socklen_t client_addrlen = sizeof(client_addr);
-    uint32_t version = 0;
     struct socket_t sockets;
     uint16_t portmax;
     int res;
@@ -89,15 +88,8 @@ static int serveTest(int control_socket, struct temp_sockopt_t_xxx *sockopts) {
     memset(&packet, 0, sizeof(packet));
     memset(&result, 0, sizeof(result));
 
-    /* Read the hello and check we are compatable */
-    bytes_read = readPacket(control_socket, &packet, NULL);
-
-    if ( readHelloPacket(&packet, sockopts, &version) != 0 ) {
-        goto errorCleanup;
-    }
-    if ( version != AMP_THROUGHPUT_TEST_VERSION ) {
-        Log(LOG_ERR, "Wrong client version: got %d, expected %d",
-                version, AMP_THROUGHPUT_TEST_VERSION);
+    /* Read the hello and check we are compatible */
+    if ( read_control_hello(control_socket, sockopts) < 0 ) {
         goto errorCleanup;
     }
 
@@ -135,7 +127,7 @@ static int serveTest(int control_socket, struct temp_sockopt_t_xxx *sockopts) {
     }
 
     /* send a packet over the control connection containing the test port */
-    sendReadyPacket(control_socket, getSocketPort(t_listen));
+    send_control_ready(control_socket, getSocketPort(t_listen));
 
     do {
         test_socket = accept(t_listen,
@@ -157,7 +149,7 @@ static int serveTest(int control_socket, struct temp_sockopt_t_xxx *sockopts) {
         switch ( packet.header.type ) {
             case TPUT_PKT_DATA:
                 /* Send READY here so timestamp is accurate */
-                sendReadyPacket(control_socket, 0);
+                send_control_ready(control_socket, 0);
                 if ( incomingTest(test_socket, &result) != 0 ) {
                     goto errorCleanup;
                 }
@@ -247,7 +239,7 @@ static int serveTest(int control_socket, struct temp_sockopt_t_xxx *sockopts) {
                     Log(LOG_WARNING, "TPUT_NEW_CONNECTION expected the TCP connection to be closed in this direction");
                 }
                 close(test_socket);
-                sendReadyPacket(control_socket, getSocketPort(t_listen));
+                send_control_ready(control_socket, getSocketPort(t_listen));
                 do {
                     test_socket = accept(t_listen,
                                   (struct sockaddr*) &client_addr, &client_addrlen);

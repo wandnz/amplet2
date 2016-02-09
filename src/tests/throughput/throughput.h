@@ -350,17 +350,12 @@ struct packet_t {
 int sendResetPacket(int sock_fd);
 int sendFinalDataPacket(int sock_fd);
 int sendClosePacket(int sock_fd);
-int sendHelloPacket(int sock_fd, struct opt_t *opt);
-int sendReadyPacket(int sock_fd, uint16_t tport);
 int sendRequestTestPacket(int sock, const struct test_request_t *req);
 int sendResultPacket(int sock_fd, struct test_result_t *res,
         struct report_web10g_t *web10g);
 int readDataPacket(const struct packet_t *packet, const int write_size,
         struct test_result_t *res);
 int readResultPacket(const struct packet_t *p, struct test_result_t *res);
-int readHelloPacket(const struct packet_t *p, struct temp_sockopt_t_xxx *sockopts,
-        uint32_t *version);
-int readReadyPacket(const struct packet_t *p, uint16_t *tport);
 
 /* do outgoing test */
 int sendPackets(int sock_fd,

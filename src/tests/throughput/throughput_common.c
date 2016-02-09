@@ -576,45 +576,6 @@ int sendFinalDataPacket(int sock_fd) {
 
 
 /**
- * Constructs and sends a reset packet
- *
- * @param sock_fd
- *          The socket to write() the packet to
- * @param disable_web10g
- *          Disable web10g results if != 0
- *
- * @return The result of writePacket() - NOTE : The packet will always
- *         construct successfully.
- */
-int sendHelloPacket(int sock_fd, struct opt_t *opt) {
-    struct packet_t p;
-    memset(&p, 0, sizeof(p));
-    p.header.type = TPUT_PKT_HELLO;
-    p.header.size = 0;
-    p.types.hello.version = AMP_THROUGHPUT_TEST_VERSION;
-
-    /* Flags Only 1 byte of these */
-    if ( opt->sock_disable_nagle ) {
-        p.types.hello.flags |= TPUT_PKT_FLAG_NO_NAGLE;
-    }
-    if ( opt->disable_web10g ) {
-        p.types.hello.flags |= TPUT_PKT_FLAG_NO_WEB10G;
-    }
-    if ( opt->randomise ) {
-        p.types.hello.flags |= TPUT_PKT_FLAG_RANDOMISE;
-    }
-
-    p.types.hello.tport = opt->tport;
-    p.types.hello.mss = opt->sock_mss;
-    p.types.hello.sock_rcvbuf = opt->sock_rcvbuf;
-    p.types.hello.sock_sndbuf = opt->sock_sndbuf;
-
-    return writePacket(sock_fd, &p);
-}
-
-
-
-/**
  * Constructs and sends a close packet
  *
  * @param sock_fd
@@ -628,28 +589,6 @@ int sendClosePacket(int sock_fd) {
     memset(&p, 0, sizeof(p));
     p.header.type = TPUT_PKT_CLOSE;
     p.header.size = 0;
-    return writePacket(sock_fd, &p);
-}
-
-
-
-/**
- * Constructs and sends a ready packet
- *
- * @param sock_fd
- *          The socket to write() the packet to
- * @param tport
- *          The successfully connected tport number.
- *
- * @return The result of writePacket() - NOTE : The packet will always
- *         construct successfully.
- */
-int sendReadyPacket(int sock_fd, uint16_t tport) {
-    struct packet_t p;
-    memset(&p, 0, sizeof(p));
-    p.header.type = TPUT_PKT_READY;
-    p.header.size = 0;
-    p.types.ready.tport = tport;
     return writePacket(sock_fd, &p);
 }
 
@@ -709,68 +648,5 @@ int readResultPacket(const struct packet_t *p, struct test_result_t *res) {
     res->start_ns = 0;
     res->end_ns = p->types.result.duration_ns;
 
-    return 0;
-}
-
-
-
-/**
- * Constructs and sends a ready packet
- *
- * @param sock_fd
- *          The socket to write() the packet to
- * @param tport
- *          The successfully connected tport number.
- * @return 0 upon success, -1 upon failure such as a invalid type
- */
-int readReadyPacket(const struct packet_t *p, uint16_t *tport) {
-    if ( p->header.type != TPUT_PKT_READY ) {
-        Log(LOG_ERR, "Required a ready packet but type %d instead",
-                p->header.type);
-        return -1;
-    }
-    *tport = p->types.ready.tport;
-    return 0;
-}
-
-
-
-/**
- * Given a hello packet unpacks into a test_result_t structure
- *
- * @param p
- *          The previously read packet, from readPacket()
- * @param disable_web10g
- *          Set from packet
- * @param version
- *          Set from packet
- *
- * @return 0 upon success, -1 upon failure such as a invalid type
- */
-int readHelloPacket(const struct packet_t *p, struct temp_sockopt_t_xxx *sockopts,
-        uint32_t *version) {
-
-    if ( p->header.type != TPUT_PKT_HELLO ) {
-        Log(LOG_ERR, "Required a hello packet but type %d instead",
-                p->header.type);
-        return -1;
-    }
-
-    sockopts->tport = p->types.hello.tport;
-    sockopts->sock_mss = p->types.hello.mss;
-    sockopts->sock_rcvbuf = p->types.hello.sock_rcvbuf;
-    sockopts->sock_sndbuf = p->types.hello.sock_sndbuf;
-
-    if ( p->types.hello.flags & TPUT_PKT_FLAG_NO_NAGLE ) {
-        sockopts->sock_disable_nagle = 1;
-    }
-    if ( p->types.hello.flags & TPUT_PKT_FLAG_NO_WEB10G ) {
-        sockopts->disable_web10g = 1;
-    }
-    if ( p->types.hello.flags & TPUT_PKT_FLAG_RANDOMISE ) {
-        sockopts->randomise = 1;
-    }
-
-    *version = p->types.hello.version;
     return 0;
 }

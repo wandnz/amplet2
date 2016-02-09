@@ -20,10 +20,22 @@ message Control {
 
 message Hello {
         optional uint32 test_port = 1;
+
+        /* TODO these are udpstream test args, move them out */
         optional uint32 packet_size = 2 [default = 100];
         optional uint32 packet_count = 3 [default = 11];
         optional uint32 packet_spacing = 4 [default = 1000];
         optional uint32 percentile_count = 5 [default = 10];
+
+        /* TODO these are throughput test args, move them out */
+        optional uint32 mss = 6;
+        optional int32 rcvbuf = 7;
+        optional int32 sndbuf = 8;
+        optional bool disable_nagle = 9;
+        optional bool disable_web10g = 10;
+        optional bool randomise = 11;
+        optional bool reuse_addr = 12;
+        optional uint32 write_size = 13;
 }
 
 message Ready {

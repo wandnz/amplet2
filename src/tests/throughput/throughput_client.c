@@ -7,6 +7,7 @@
 #include <getopt.h>
 #include <assert.h>
 
+#include "serverlib.h"
 #include "throughput.h"
 #include "throughput.pb-c.h"
 
@@ -339,18 +340,19 @@ static int runSchedule(struct addrinfo *serv_addr, struct opt_t *options,
         goto errorCleanup;
     }
 
-    /* Send version info along with socket preference */
-    if ( sendHelloPacket(control_socket, options) < 0 ) {
+    if ( send_control_hello(control_socket, socket_options) < 0 ) {
+        Log(LOG_WARNING, "Failed to send HELLO packet, aborting");
         goto errorCleanup;
     }
+
     /* Wait test socket to become ready */
-    if ( readPacket(control_socket, &packet, NULL) == 0 ) {
-        Log(LOG_ERR, "Failed to read ready packet");
-        goto errorCleanup;
+    if ( read_control_ready(control_socket, socket_options) < 0 ) {
+        Log(LOG_WARNING, "Failed to read READY packet, aborting");
+        close(control_socket);
+        return -1;
     }
-    if ( readReadyPacket(&packet, &actual_test_port) != 0 ) {
-        goto errorCleanup;
-    }
+
+    actual_test_port = socket_options->tport;//XXX
 
     /* Connect the test socket */
     test_socket = connect_to_server(serv_addr, socket_options, actual_test_port);
@@ -386,13 +388,12 @@ static int runSchedule(struct addrinfo *serv_addr, struct opt_t *options,
                 }
                 close(test_socket);
                 /* Read the actual port to use */
-                if ( readPacket(control_socket, &packet, NULL) == 0 ) {
-                    Log(LOG_ERR, "Failed to read packet");
-                    goto errorCleanup;
+                if ( read_control_ready(control_socket, socket_options) < 0 ) {
+                    Log(LOG_WARNING, "Failed to read READY packet, aborting");
+                    close(control_socket);
+                    return -1;
                 }
-                if ( readReadyPacket(&packet , &actual_test_port) != 0 ) {
-                    goto errorCleanup;
-                }
+                actual_test_port = socket_options->tport;//XXX
                 /* Open up a new one */
                 test_socket = connect_to_server(serv_addr, socket_options,
                         actual_test_port);
@@ -445,13 +446,12 @@ static int runSchedule(struct addrinfo *serv_addr, struct opt_t *options,
                 /* Tell the server we are starting a test */
                 sendFinalDataPacket(control_socket);
                 /* Wait for it get ready */
-                if ( readPacket(control_socket, &packet, NULL) == 0 ) {
-                    Log(LOG_ERR, "Unexpected response from server");
-                    goto errorCleanup;
+                if ( read_control_ready(control_socket, socket_options) < 0 ) {
+                    Log(LOG_WARNING, "Failed to read READY packet, aborting");
+                    close(control_socket);
+                    return -1;
                 }
-                if ( readReadyPacket(&packet, &actual_test_port) != 0 ) {
-                    goto errorCleanup;
-                }
+
                 if ( sendPackets(test_socket, cur, cur->c_result) == 0 ) {
                     Log(LOG_DEBUG, "Finished sending - now getting results");
 
