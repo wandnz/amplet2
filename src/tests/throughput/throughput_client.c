@@ -184,96 +184,6 @@ static void freeSchedule(struct opt_t *options){
 
 
 
-/**
- * Makes a TCP connection to the server.
- *
- * If serv_addr contains a specific a port that is used otherwise a
- * the default port number is used.
- *
- * @param serv_addr
- *              An addrinfo describing the server
- * @param options
- *              The options structure containing the default port number to use
- * @param sendHello
- *              If we should send a hello packet, don't if we're reconnecting
- * @return a valid TCP socket connected to the server. Upon failure -1
- *         is returned.
- */
-static int connectToServer(struct addrinfo *serv_addr, struct opt_t *options,
-        int port) {
-    int sock;
-
-    /* Get a TCP socket - could be either ipv4 or ipv6 based on the addrinfo */
-    sock = socket(serv_addr->ai_family, SOCK_STREAM, 0);
-
-    if ( sock != -1 ) {
-
-        /* Set socket options - Nagle MSS, Buffersizes from setup */
-        doSocketSetup(options, sock);
-
-        /*
-         * Set options that are at the AMP test level rather than specific
-         * to the throughput test. We need to know what address family we
-         * are connecting to, which doSocketSetup doesn't know.
-         */
-        if ( options->device ) {
-            if ( bind_socket_to_device(sock, options->device) < 0 ) {
-                return -1;
-            }
-        }
-
-        if ( options->sourcev4 || options->sourcev6 ) {
-            struct addrinfo *addr;
-
-            switch ( serv_addr->ai_family ) {
-                case AF_INET: addr = options->sourcev4; break;
-                case AF_INET6: addr = options->sourcev6; break;
-                default: return -1;
-            };
-
-            /*
-             * Only bind if we have a specific source with the same address
-             * family as the destination, otherwise leave it default.
-             */
-            if ( addr && bind_socket_to_address(sock, addr) < 0 ) {
-                return -1;
-            }
-        }
-
-        /*
-         * If addrinfo has a valid port use that otherwise put in our default.
-         * It should be safe to use the IPv4 version here since IPv6 should be
-         * in the same place the sizes match
-         */
-        /* XXX this is wrong, is giving me 8869 */
-        //if ( ((struct sockaddr_in *)serv_addr->ai_addr)->sin_port == 0 ) {
-        if ( port > 0 ) {
-           ((struct sockaddr_in *)serv_addr->ai_addr)->sin_port = htons(port);
-        }
-
-        Log(LOG_DEBUG, "Connection has chosen port %d",
-                (int)ntohs(
-                    ((struct sockaddr_in *)serv_addr->ai_addr)->sin_port));
-
-        if ( connect(sock, serv_addr->ai_addr, serv_addr->ai_addrlen) == -1 ) {
-            Log(LOG_WARNING,
-                    "connectToServer failed to connect(): %s", strerror(errno));
-            close(sock);
-            /* return an error socket */
-            sock = -1;
-        }
-
-    } else {
-        Log(LOG_WARNING, "connectToServer failed to create a socket(): %s",
-                strerror(errno));
-    }
-    ((struct sockaddr_in *)serv_addr->ai_addr)->sin_port = 0;
-
-    return sock;
-}
-
-
-
 /*
  *
  */
@@ -388,12 +298,13 @@ static void report_results(uint64_t start_time, struct addrinfo *dest,
  *
  * @return 0 if successful, otherwise -1 on failure
  */
-static int runSchedule(struct addrinfo *serv_addr, struct opt_t *options) {
+static int runSchedule(struct addrinfo *serv_addr, struct opt_t *options,
+        struct temp_sockopt_t_xxx *socket_options) {
     int control_socket;
     int test_socket = -1;
     struct packet_t packet;
     uint64_t start_time_ns;
-    struct opt_t srv_opts;
+    struct temp_sockopt_t_xxx srv_opts;
     uint16_t actual_test_port = 0;
 
     /* Loop through the schedule */
@@ -404,9 +315,24 @@ static int runSchedule(struct addrinfo *serv_addr, struct opt_t *options) {
     srv_opts.device = options->device;
     srv_opts.sourcev4 = options->sourcev4;
     srv_opts.sourcev6 = options->sourcev6;
+    srv_opts.socktype = SOCK_STREAM;
+    srv_opts.protocol = IPPROTO_TCP;
+
+    //XXX i think sourcev4 and source6 and device already exist in this?
+    socket_options->cport = options->cport;//XXX
+    socket_options->tport = options->tport;//XXX
+    socket_options->sock_mss = options->sock_mss;//XXX
+    socket_options->sock_disable_nagle = options->sock_disable_nagle;//XXX
+    socket_options->sock_rcvbuf = options->sock_rcvbuf;//XXX
+    socket_options->sock_sndbuf = options->sock_sndbuf;//XXX
+    socket_options->randomise = options->randomise;//XXX
+    socket_options->disable_web10g = options->disable_web10g;//XXX
+
+    socket_options->socktype = SOCK_STREAM;
+    socket_options->protocol = IPPROTO_TCP;
 
     /* Connect to the server control socket */
-    control_socket = connectToServer(serv_addr, &srv_opts, options->cport);
+    control_socket = connect_to_server(serv_addr, &srv_opts, options->cport);
     start_time_ns = timeNanoseconds();
     if ( control_socket == -1 ) {
         Log(LOG_ERR, "Cannot connect to the server control");
@@ -427,7 +353,7 @@ static int runSchedule(struct addrinfo *serv_addr, struct opt_t *options) {
     }
 
     /* Connect the test socket */
-    test_socket = connectToServer(serv_addr, options, actual_test_port);
+    test_socket = connect_to_server(serv_addr, socket_options, actual_test_port);
     if ( test_socket == -1 ) {
         Log(LOG_ERR, "Cannot connect to the server testsocket");
         goto errorCleanup;
@@ -468,7 +394,7 @@ static int runSchedule(struct addrinfo *serv_addr, struct opt_t *options) {
                     goto errorCleanup;
                 }
                 /* Open up a new one */
-                test_socket = connectToServer(serv_addr, options,
+                test_socket = connect_to_server(serv_addr, socket_options,
                         actual_test_port);
                 if ( test_socket == -1 ) {
                     Log(LOG_ERR, "Failed to open a new connection");
@@ -599,7 +525,8 @@ errorCleanup :
  */
 int run_throughput_client(int argc, char *argv[], int count,
         struct addrinfo **dests) {
-    struct opt_t options;
+    struct opt_t test_options;
+    struct temp_sockopt_t_xxx socket_options;
     amp_test_meta_t meta;
     int opt;
     int option_index = 0;
@@ -611,23 +538,25 @@ int run_throughput_client(int argc, char *argv[], int count,
     Log(LOG_DEBUG, "Running throughput test as client");
 
     /* set some sensible defaults */
-    options.write_size = DEFAULT_WRITE_SIZE;
-    options.randomise = 0;
-    options.sock_rcvbuf = 0;
-    options.sock_sndbuf = 0;
-    options.sock_disable_nagle = 0;
-    options.sock_mss = 0;
-    options.cport = DEFAULT_CONTROL_PORT;
-    options.tport = DEFAULT_TEST_PORT;
-    options.disable_web10g = 0;
-    options.schedule = NULL;
-    options.textual_schedule = NULL;
-    options.reuse_addr = 0;
+    memset(&test_options, 0, sizeof(test_options));
+    test_options.write_size = DEFAULT_WRITE_SIZE;
+    test_options.randomise = 0;
+    test_options.sock_rcvbuf = 0;
+    test_options.sock_sndbuf = 0;
+    test_options.sock_disable_nagle = 0;
+    test_options.sock_mss = 0;
+    test_options.cport = DEFAULT_CONTROL_PORT;
+    test_options.tport = DEFAULT_TEST_PORT;
+    test_options.disable_web10g = 0;
+    test_options.schedule = NULL;
+    test_options.textual_schedule = NULL;
+    test_options.reuse_addr = 0;
 
     /* TODO free these when done? */
-    options.sourcev4 = NULL;
-    options.sourcev6 = NULL;
-    options.device = NULL;
+    memset(&socket_options, 0, sizeof(socket_options));
+    socket_options.sourcev4 = NULL;
+    socket_options.sourcev6 = NULL;
+    socket_options.device = NULL;
     client = NULL;
 
     memset(&meta, 0, sizeof(meta));
@@ -637,26 +566,28 @@ int run_throughput_client(int argc, char *argv[], int count,
 
         switch ( opt ) {
             case 'Z': /* option does nothing for this test */ break;
-            case '4': options.sourcev4 = get_numeric_address(optarg, NULL);
+            case '4': socket_options.sourcev4 =
+                            get_numeric_address(optarg, NULL);
                       meta.sourcev4 = optarg;
                       break;
-            case '6': options.sourcev6 = get_numeric_address(optarg, NULL);
+            case '6': socket_options.sourcev6 =
+                            get_numeric_address(optarg, NULL);
                       meta.sourcev4 = optarg;
                       break;
-            case 'I': options.device = meta.interface = optarg; break;
+            case 'I': socket_options.device = meta.interface = optarg; break;
             /* case 'B': for iperf compatability? */
             case 'c': client = optarg; break;
-            case 'p': options.cport = atoi(optarg); break;
-            case 'P': options.tport = atoi(optarg); break;
-            case 'r': options.randomise = 1; break;
-            case 'z': options.write_size = atoi(optarg); break;
+            case 'p': test_options.cport = atoi(optarg); break;
+            case 'P': test_options.tport = atoi(optarg); break;
+            case 'r': test_options.randomise = 1; break;
+            case 'z': test_options.write_size = atoi(optarg); break;
             /* TODO if this isn't last, some options use default values! */
-            case 'S': parseSchedule(&options, optarg); break;
-            case 'o': options.sock_sndbuf = atoi(optarg); break;
-            case 'i': options.sock_rcvbuf = atoi(optarg); break;
-            case 'N': options.sock_disable_nagle = 1; break;
-            case 'M': options.sock_mss = atoi(optarg); break;
-            case 'w': options.disable_web10g = 1; break;
+            case 'S': parseSchedule(&test_options, optarg); break;
+            case 'o': test_options.sock_sndbuf = atoi(optarg); break;
+            case 'i': test_options.sock_rcvbuf = atoi(optarg); break;
+            case 'N': test_options.sock_disable_nagle = 1; break;
+            case 'M': test_options.sock_mss = atoi(optarg); break;
+            case 'w': test_options.disable_web10g = 1; break;
             case 't': duration = atoi(optarg); break;
             case 'd': direction = atoi(optarg); break;
             case 'h':
@@ -709,15 +640,16 @@ int run_throughput_client(int argc, char *argv[], int count,
     }
 
     /* make sure write size is sensible */
-    if ( options.write_size < sizeof(struct packet_t) ||
-            options.write_size > MAX_MALLOC ) {
+    if ( test_options.write_size < sizeof(struct packet_t) ||
+            test_options.write_size > MAX_MALLOC ) {
         Log(LOG_ERR, "Write size invalid, should be %d < x < %d, got %d",
-                sizeof(struct packet_t), MAX_MALLOC, options.write_size);
+                sizeof(struct packet_t), MAX_MALLOC, test_options.write_size);
         exit(1);
     }
 
     /* schedule can't be set if direction and duration are also set */
-    if ( duration > 0 && direction != DIRECTION_NOT_SET && options.schedule ) {
+    if ( duration > 0 && direction != DIRECTION_NOT_SET &&
+            test_options.schedule ) {
         Log(LOG_ERR,
                 "Schedule string given as well as duration/direction flags");
         exit(1);
@@ -727,7 +659,7 @@ int run_throughput_client(int argc, char *argv[], int count,
      * If there is no test schedule, then try to make one from the other
      * flags that were given, or use a default schedule.
      */
-    if ( options.schedule == NULL ) {
+    if ( test_options.schedule == NULL ) {
         char sched[128];
 
         Log(LOG_DEBUG, "No test schedule, creating one");
@@ -775,11 +707,11 @@ int run_throughput_client(int argc, char *argv[], int count,
         Log(LOG_DEBUG, "Generated schedule: '%s'", sched);
 
         /* create the schedule list as if this was a normal schedule string */
-        parseSchedule(&options, sched);
+        parseSchedule(&test_options, sched);
     }
 
     /* Print out our schedule */
-    printSchedule(options.schedule);
+    printSchedule(test_options.schedule);
 
     /*
      * Only start the remote server if we expect it to be running as part
@@ -794,19 +726,19 @@ int run_throughput_client(int argc, char *argv[], int count,
         }
 
         Log(LOG_DEBUG, "Got port %d from remote server", remote_port);
-        options.cport = remote_port;
+        test_options.cport = remote_port;
     }
-    runSchedule(dests[0], &options);
+    runSchedule(dests[0], &test_options, &socket_options);
 
     if ( client != NULL ) {
         freeaddrinfo(dests[0]);
         free(dests);
     }
 
-    freeSchedule(&options);
-    if ( options.textual_schedule != NULL ) {
-        free(options.textual_schedule);
-        options.textual_schedule = NULL;
+    freeSchedule(&test_options);
+    if ( test_options.textual_schedule != NULL ) {
+        free(test_options.textual_schedule);
+        test_options.textual_schedule = NULL;
     }
 
     return 0;
