@@ -863,7 +863,7 @@ int connect_to_server(struct addrinfo *server,
         return -1;
     }
 
-    //XXX do socket setup
+    do_socket_setup(options, sock);
 
     /*
      * Set options that are at the AMP test level rather than specific
@@ -877,7 +877,6 @@ int connect_to_server(struct addrinfo *server,
         }
     }
 
-#if 0
     if ( options->sourcev4 || options->sourcev6 ) {
         struct addrinfo *addr;
 
@@ -896,17 +895,20 @@ int connect_to_server(struct addrinfo *server,
             return -1;
         }
     }
-#endif
+
     /*
      * It should be safe to use the IPv4 structure here since the port is in
      * the same place in both headers.
      */
      //XXX why not make this the only code path? are we setting port in the
      // structure earlier?
-    //if ( port > 0 ) {
-        printf("setting port to %d\n", port);
+     //if ( ((struct sockaddr_in *)serv_addr->ai_addr)->sin_port == 0 ) {
+    if ( port > 0 ) {
         ((struct sockaddr_in *)server->ai_addr)->sin_port = htons(port);
-    //}
+    }
+
+    Log(LOG_DEBUG, "Connecting using port %d", (int)ntohs(
+                ((struct sockaddr_in *)server->ai_addr)->sin_port));
 
     if ( connect(sock, server->ai_addr, server->ai_addrlen) < 0 ) {
         Log(LOG_WARNING, "Failed to connect to server: %s", strerror(errno));

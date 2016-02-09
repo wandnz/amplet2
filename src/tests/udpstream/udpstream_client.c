@@ -253,8 +253,6 @@ int run_udpstream_client(int argc, char *argv[], int count,
     amp_test_meta_t meta;
     extern struct option long_options[];
 
-    Log(LOG_DEBUG, "Starting udpstream test");
-
     /* set some sensible defaults */
     //XXX set better inter packet delay, using MIN as a floor?
     test_options.packet_spacing = MIN_INTER_PACKET_DELAY;
@@ -265,6 +263,8 @@ int run_udpstream_client(int argc, char *argv[], int count,
     test_options.tport = DEFAULT_TEST_PORT;
     test_options.perturbate = 0;
     test_options.direction = CLIENT_THEN_SERVER;
+
+    memset(&socket_options, 0, sizeof(socket_options));
     socket_options.sourcev4 = NULL;
     socket_options.sourcev6 = NULL;
     socket_options.device = NULL;
