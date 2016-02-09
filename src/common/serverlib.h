@@ -32,6 +32,12 @@ struct temp_sockopt_t_xxx {
     uint32_t packet_count;
     uint32_t packet_spacing; //XXX inter_packet_delay;
     uint32_t percentile_count;
+
+    int32_t sock_mss; /* Set the TCP Maximun segment size */
+    uint8_t sock_disable_nagle;
+    uint8_t reuse_addr;
+    int32_t sock_rcvbuf;
+    int32_t sock_sndbuf;
 };
 
 struct packet_t {

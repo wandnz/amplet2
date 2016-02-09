@@ -566,6 +566,139 @@ int read_control_result(int sock, ProtobufCBinaryData *results) {
 
 
 
+/*
+ * Set a socket option using setsockopt() and then immediately call
+ * getsockopt() to make sure that the value was set correctly.
+ */
+static int set_and_verify_sockopt(int sock, int value, int proto,
+        int opt, const char *optname) {
+
+    socklen_t size = sizeof(value);
+    int verify;
+
+    /* try setting the sockopt */
+    if ( setsockopt(sock, proto, opt, &value, size) < 0 ) {
+        Log(LOG_WARNING, "setsockopt failed to set the %s option to %d: %s",
+                optname,  value, strerror(errno));
+        return -1;
+    }
+
+    /* and then verify that it worked */
+    if ( getsockopt(sock, proto, opt, &verify, &size) < 0 ) {
+        Log(LOG_WARNING, "getsockopt failed to get the %s option: %s",
+                optname, strerror(errno));
+        return -1;
+    }
+
+    if ( proto == SOL_SOCKET && (opt == SO_RCVBUF || opt == SO_SNDBUF ||
+                opt == SO_RCVBUFFORCE || opt == SO_SNDBUFFORCE) ) {
+        /* buffer sizes will be set to twice what was asked for */
+        if ( value != verify / 2 ) {
+            Log(LOG_WARNING,
+                    "getsockopt() reports incorrect value for %s after setting:"
+                    "got %d, expected %d", optname, verify, value);
+            return -1;
+        }
+    } else if ( value != verify ) {
+        /* all other values should match what was requested */
+        Log(LOG_WARNING,
+                "getsockopt() reports incorrect value for %s after setting:"
+                "got %d, expected %d", optname, verify, value);
+        return -1;
+    }
+
+    /* Success */
+    return 0;
+}
+
+
+
+/*
+ * Set all the relevant socket options that the test is requesting be set
+ * (e.g. set buffer sizes, set MSS, disable Nagle).
+ */
+static void do_socket_setup(struct temp_sockopt_t_xxx *options, int sock) {
+
+    if ( options == NULL ) {
+        return;
+    }
+
+    /* set TCP_MAXSEG option */
+    if ( options->sock_mss > 0 ) {
+        Log(LOG_DEBUG, "Setting TCP_MAXSEG to %d", options->sock_mss);
+#ifdef TCP_MAXSEG
+        set_and_verify_sockopt(sock, options->sock_mss, IPPROTO_TCP,
+                TCP_MAXSEG, "TCP_MAXSEG");
+#else
+        Log(LOG_WARNING, "TCP_MAXSEG undefined, can not set it");
+#endif
+    }
+
+    /* set TCP_NODELAY option */
+    if ( options->sock_disable_nagle ) {
+        Log(LOG_DEBUG, "Setting TCP_NODELAY to %d",options->sock_disable_nagle);
+#ifdef TCP_NODELAY
+        set_and_verify_sockopt(sock, options->sock_disable_nagle, IPPROTO_TCP,
+                TCP_NODELAY, "TCP_NODELAY");
+#else
+        Log(LOG_WARNING, "TCP_NODELAY undefined, can not set it");
+#endif
+    }
+
+    /* set SO_RCVBUF option */
+    if ( options->sock_rcvbuf > 0 ) {
+        Log(LOG_DEBUG, "Setting SO_RCVBUF to %d", options->sock_rcvbuf);
+#ifdef SO_RCVBUF
+        if (  set_and_verify_sockopt(sock, options->sock_rcvbuf, SOL_SOCKET,
+                SO_RCVBUF, "SO_RCVBUF") < 0 ) {
+#ifdef SO_RCVBUFFORCE
+            /*
+             * Like SO_RCVBUF but if user has CAP_ADMIN privilage ignores
+             * /proc/max size
+             */
+            set_and_verify_sockopt(sock, options->sock_rcvbuf, SOL_SOCKET,
+                    SO_RCVBUFFORCE, "SO_RCVBUFFORCE");
+#endif /* SO_RCVBUFFORCE */
+        }
+#else
+        Log(LOG_WARNING, "SO_RCVBUF undefined, can not set it");
+#endif /* SO_RCVBUF */
+    }
+
+    /* set SO_SNDBUF option */
+    if ( options->sock_sndbuf > 0 ) {
+        Log(LOG_DEBUG, "Setting SO_SNDBUF to %d", options->sock_sndbuf);
+#ifdef SO_SNDBUF
+        if ( set_and_verify_sockopt(sock, options->sock_sndbuf, SOL_SOCKET,
+                SO_SNDBUF, "SO_SNDBUF") < 0 ) {
+#ifdef SO_SNDBUFFORCE
+            /*
+             * Like SO_RCVBUF but if user has CAP_ADMIN privilage ignores
+             * /proc/max size
+             */
+            set_and_verify_sockopt(sock, options->sock_sndbuf, SOL_SOCKET,
+                    SO_SNDBUFFORCE, "SO_SNDBUFFORCE");
+#endif /* SO_SNDBUFFORCE */
+        }
+#else
+        Log(LOG_WARNING, "SO_SNDBUF undefined, can not set it");
+#endif /* SO_SNDBUF */
+    }
+
+    /* set SO_REUSEADDR option */
+    if (options->reuse_addr ) {
+        Log(LOG_DEBUG, "Setting SO_REUSEADDR to %d", options->reuse_addr);
+#ifdef SO_REUSEADDR
+        set_and_verify_sockopt(sock, options->reuse_addr, SOL_SOCKET,
+                SO_REUSEADDR, "SO_REUSEADDR");
+#else
+        Log(LOG_WARNING, "SO_REUSEADDR undefined, can not set it");
+#endif
+    }
+}
+
+
+
 /**
  * Start listening on the given port for incoming tests
  *
@@ -583,16 +716,18 @@ int start_listening(struct socket_t *sockets, int port,
     sockets->socket = -1;
     sockets->socket6 =  -1;
 
-    printf("start listening\n");
+    Log(LOG_DEBUG, "Start server listening on port %d", port);
 
     /* open an ipv4 and an ipv6 socket so we can configure them individually */
     if ( sockopts->sourcev4 &&
-            (sockets->socket=socket(AF_INET, sockopts->socktype, sockopts->protocol)) < 0 ) {
+            (sockets->socket=socket(AF_INET, sockopts->socktype,
+                                    sockopts->protocol)) < 0 ) {
         Log(LOG_WARNING, "Failed to open socket for IPv4: %s", strerror(errno));
     }
 
     if ( sockopts->sourcev6 &&
-            (sockets->socket6=socket(AF_INET6, sockopts->socktype, sockopts->protocol)) < 0 ){
+            (sockets->socket6=socket(AF_INET6, sockopts->socktype,
+                                     sockopts->protocol)) < 0 ) {
         Log(LOG_WARNING, "Failed to open socket for IPv6: %s", strerror(errno));
     }
 
@@ -604,14 +739,14 @@ int start_listening(struct socket_t *sockets, int port,
 
     /* set all the socket options that have been asked for */
     if ( sockets->socket >= 0 ) {
-        //doSocketSetup(sockopts, sockets->socket); XXX
+        do_socket_setup(sockopts, sockets->socket);
         ((struct sockaddr_in*)
          (sockopts->sourcev4->ai_addr))->sin_port = ntohs(port);
     }
 
     if ( sockets->socket6 >= 0 ) {
         int one = 1;
-        //doSocketSetup(sockopts, sockets->socket6); XXX
+        do_socket_setup(sockopts, sockets->socket6);
         /*
          * If we dont set IPV6_V6ONLY this socket will try to do IPv4 as well
          * and it will fail.

@@ -213,9 +213,9 @@ void run_udpstream_server(int argc, char *argv[], SSL *ssl) {
     sockopts.sourcev6 = get_numeric_address(sourcev6, NULL);
     sockopts.socktype = SOCK_STREAM;
     sockopts.protocol = IPPROTO_TCP;
+    sockopts.reuse_addr = 1;
 
     /* try to open a listen port for the control connection from a client */
-    //sockopts.reuse_addr = 1;
     do {
         Log(LOG_DEBUG, "udpstream server trying to listen on port %d", port);
         //XXX pass a hints type struct?
