@@ -227,7 +227,7 @@ static int serveTest(int control_socket, struct temp_sockopt_t_xxx *sockopts) {
                 /* Ready the listening socket again */
                 do {
                     res = start_listening(&sockets, sockopts->tport, sockopts);
-                } while ( res == EADDRINUSE && sockopts->tport < portmax );
+                } while ( res == EADDRINUSE && sockopts->tport++ < portmax );
 
                 if ( res != 0 ) {
                     Log(LOG_ERR, "Failed to open listening socket terminating");
