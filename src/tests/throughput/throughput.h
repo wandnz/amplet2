@@ -307,11 +307,6 @@ struct packet_t {
         struct dataPacket_t {
             uint32_t  more;
         } data;
-        struct sendPacket_t {
-            uint64_t  bytes;
-            uint64_t  duration_ms;
-            uint32_t  write_size;
-        } send;
         struct resultPacket_t {
             uint32_t  packets;
             uint32_t  write_size;
@@ -329,10 +324,6 @@ struct packet_t {
  * and read*****Packet()
  * to contruct/deconstruct packets from there corrosponding sturct's
  * */
-int sendResetPacket(int sock_fd);
-int sendFinalDataPacket(int sock_fd);
-int sendClosePacket(int sock_fd);
-int sendRequestTestPacket(int sock, const struct test_request_t *req);
 int sendResultPacket(int sock_fd, struct test_result_t *res,
         struct report_web10g_t *web10g);
 int readDataPacket(const struct packet_t *packet, const int write_size,

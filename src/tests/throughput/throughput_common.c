@@ -27,19 +27,11 @@ static void htobePacket(struct packet_t *p) {
         case TPUT_PKT_DATA:
             p->types.data.more = htobe32(p->types.data.more);
             break;
-        case TPUT_PKT_SEND:
-            p->types.send.bytes = htobe64(p->types.send.bytes);
-            p->types.send.write_size = htobe32(p->types.send.write_size);
-            p->types.send.duration_ms = htobe64(p->types.send.duration_ms);
-            break;
         case TPUT_PKT_RESULT:
             p->types.result.packets = htobe32(p->types.result.packets);
             p->types.result.write_size = htobe32(p->types.result.write_size);
             p->types.result.bytes = htobe64(p->types.result.bytes);
             p->types.result.duration_ns = htobe64(p->types.result.duration_ns);
-            break;
-        case TPUT_PKT_CLOSE:
-        case TPUT_PKT_RENEW_CONNECTION:
             break;
         default:
             Log(LOG_WARNING, "Bad packet type found cannot decode!!!");
@@ -63,19 +55,11 @@ static void betohPacket(struct packet_t *p) {
         case TPUT_PKT_DATA:
             p->types.data.more = be32toh(p->types.data.more);
             break;
-        case TPUT_PKT_SEND:
-            p->types.send.bytes = be64toh(p->types.send.bytes);
-            p->types.send.write_size = be32toh(p->types.send.write_size);
-            p->types.send.duration_ms = be64toh(p->types.send.duration_ms);
-            break;
         case TPUT_PKT_RESULT:
             p->types.result.packets = be32toh(p->types.result.packets);
             p->types.result.write_size = be32toh(p->types.result.write_size);
             p->types.result.bytes = be64toh(p->types.result.bytes);
             p->types.result.duration_ns = be64toh(p->types.result.duration_ns);
-            break;
-        case TPUT_PKT_CLOSE:
-        case TPUT_PKT_RENEW_CONNECTION:
             break;
         default:
             Log(LOG_WARNING, "Bad packet type found cannot decode!!!");
@@ -512,94 +496,6 @@ int sendResultPacket(int sock_fd, struct test_result_t *res,
 
     free(p_web10g);
     return ret;
-}
-
-
-
-/**
- * Constructs and sends a reset packet
- *
- * @param sock_fd
- *         The socket to write() the packet to
- *
- * @return The result of writePacket()
- */
-int sendResetPacket(int sock_fd) {
-    struct packet_t p;
-    memset(&p, 0, sizeof(p));
-    p.header.type = TPUT_PKT_RENEW_CONNECTION;
-    p.header.size = 0;
-
-    return writePacket(sock_fd, &p);
-}
-
-
-
-/**
- * Constructs and sends a final (i.e. more = 0) data packet.
- *
- * @param sock_fd
- *          The socket to write() the packet to
- *
- * @return The result of writePacket()
- */
-int sendFinalDataPacket(int sock_fd) {
-    struct packet_t p;
-    memset(&p, 0, sizeof(p));
-    p.header.type = TPUT_PKT_DATA;
-    p.header.size = 0;
-    p.types.data.more = 0;
-
-    return writePacket(sock_fd, &p);
-}
-
-
-
-/**
- * Constructs and sends a close packet
- *
- * @param sock_fd
- *          The socket to write() the packet to
- *
- * @return The result of writePacket() - NOTE : The packet will always
- *         construct successfully.
- */
-int sendClosePacket(int sock_fd) {
-    struct packet_t p;
-    memset(&p, 0, sizeof(p));
-    p.header.type = TPUT_PKT_CLOSE;
-    p.header.size = 0;
-    return writePacket(sock_fd, &p);
-}
-
-
-
-/**
- * Constructs and sends a SEND packet.
- *
- * @param sock_fd
- *              The socket to send the packet to
- * @param req
- *              A structure containing the test details
- *
- * @return The result of writePacket()
- */
-int sendRequestTestPacket(int sock, const struct test_request_t *req) {
-    struct packet_t p;
-
-    memset(&p, 0 , sizeof(p));
-    p.header.type = TPUT_PKT_SEND;
-    p.header.size = 0;
-    p.types.send.duration_ms = req->duration;
-    p.types.send.write_size = req->write_size;
-    p.types.send.bytes = req->bytes;
-
-    Log(LOG_DEBUG, "Sending a TPUT_PKT_SEND request - "
-            "bytes: %d duration: %d write_size: %d",
-            p.types.send.bytes, p.types.send.duration_ms,
-            p.types.send.write_size);
-
-    return writePacket(sock, &p);
 }
 
 

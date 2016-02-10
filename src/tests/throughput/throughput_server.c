@@ -10,6 +10,7 @@
 
 #include "serverlib.h"
 #include "throughput.h"
+#include "servers.pb-c.h"
 
 
 
@@ -75,7 +76,7 @@ static struct addrinfo *getSocketAddress(int sock_fd) {
 static int serveTest(int control_socket, struct temp_sockopt_t_xxx *sockopts) {
     struct packet_t packet;
     struct test_result_t result;
-    int bytes_read;
+    int bytes;
     struct report_web10g_t *web10g = NULL;
     int t_listen = -1;
     int test_socket = -1;
@@ -84,6 +85,7 @@ static int serveTest(int control_socket, struct temp_sockopt_t_xxx *sockopts) {
     struct socket_t sockets;
     uint16_t portmax;
     int res;
+    void *data;
 
     memset(&packet, 0, sizeof(packet));
     memset(&result, 0, sizeof(result));
@@ -145,9 +147,12 @@ static int serveTest(int control_socket, struct temp_sockopt_t_xxx *sockopts) {
     }
 
     /* Wait for something to do from the client */
-    while ( (bytes_read = readPacket(control_socket, &packet, NULL)) != 0 ) {
-        switch ( packet.header.type ) {
-            case TPUT_PKT_DATA:
+    while ( (bytes=read_control_packet(control_socket, &data)) > 0 ) {
+        Amplet2__Servers__Control *msg;
+        msg = amplet2__servers__control__unpack(NULL, bytes, data);
+
+        switch ( msg->type ) {
+            case AMPLET2__SERVERS__CONTROL__TYPE__RECEIVE:
                 /* Send READY here so timestamp is accurate */
                 send_control_ready(control_socket, 0);
                 if ( incomingTest(test_socket, &result) != 0 ) {
@@ -168,14 +173,15 @@ static int serveTest(int control_socket, struct temp_sockopt_t_xxx *sockopts) {
                 }
                 web10g = NULL;
                 continue;
-            case TPUT_PKT_SEND:
+
+            case AMPLET2__SERVERS__CONTROL__TYPE__SEND:
                 {
                     struct test_request_t req;
                     memset(&req, 0, sizeof(req));
                     memset(&result, 0, sizeof(result));
-                    req.duration = packet.types.send.duration_ms;
-                    req.write_size = packet.types.send.write_size;
-                    req.bytes = packet.types.send.bytes;
+                    req.duration = msg->send->duration_ms;
+                    req.write_size = msg->send->write_size;
+                    req.bytes = msg->send->bytes;
                     req.randomise = sockopts->randomise;
                     Log(LOG_DEBUG, "Got send request, dur:%d bytes:%d writes:%d",
                             req.duration, req.bytes, req.write_size);
@@ -187,8 +193,10 @@ static int serveTest(int control_socket, struct temp_sockopt_t_xxx *sockopts) {
                             goto errorCleanup;
                         case 1:
                             /* Bad test request, lets send a packet to keep the
-                             * client happy it's still expecting something */
-                            if ( sendFinalDataPacket(test_socket) < 0 ) {
+                             * client happy it's still expecting something.
+                             * XXX Why do it like this?
+                             */
+                            if ( send_control_receive(test_socket, 0) < 0 ) {
                                 goto errorCleanup;
                             }
 
@@ -213,7 +221,8 @@ static int serveTest(int control_socket, struct temp_sockopt_t_xxx *sockopts) {
                     memset(&result, 0, sizeof(result));
                 }
                 continue;
-            case TPUT_PKT_RENEW_CONNECTION:
+
+            case AMPLET2__SERVERS__CONTROL__TYPE__RENEW:
                 Log(LOG_DEBUG, "Client asked to renew the connection");
 
                 /* Ready the listening socket again */
@@ -252,9 +261,11 @@ static int serveTest(int control_socket, struct temp_sockopt_t_xxx *sockopts) {
                 close(t_listen);
                 t_listen = -1;
                 continue;
-            case TPUT_PKT_CLOSE:
+
+            case AMPLET2__SERVERS__CONTROL__TYPE__CLOSE:
                 Log(LOG_DEBUG, "Client closing test");
                 break;
+
             default:
                 Log(LOG_WARNING,
                         "serveTest() found a invalid packet.header.type %d",

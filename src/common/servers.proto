@@ -7,6 +7,9 @@ message Control {
                 RECEIVE = 4;
                 SEND = 5;
                 RESULT = 6;
+
+                RENEW = 7;
+                CLOSE = 8;
         }
 
         optional Type type = 1;
@@ -16,6 +19,10 @@ message Control {
         optional Receive receive = 4;
         optional Send send = 5;
         optional Result result = 6;
+
+        /* TODO these are throughput only messages, move them out */
+        optional Renew renew = 7;
+        optional Close close = 8;
 }
 
 message Hello {
@@ -48,8 +55,19 @@ message Receive {
 
 message Send {
         optional uint32 test_port = 1;
+
+        /* TODO these are throughput test args, move them out */
+        optional uint32 duration_ms = 2;
+        optional uint32 write_size = 3;
+        optional uint64 bytes = 4;
 }
 
 message Result {
         optional bytes result = 1;
+}
+
+message Renew {
+}
+
+message Close {
 }

@@ -376,7 +376,7 @@ static int runSchedule(struct addrinfo *serv_addr, struct opt_t *options,
 
             case TPUT_NEW_CONNECTION:
                 Log(LOG_DEBUG, "Asking the Server to renew the connection");
-                if ( sendResetPacket(control_socket) < 0 ) {
+                if ( send_control_renew(control_socket) < 0 ) {
                     Log(LOG_ERR, "Failed to send reset packet");
                     goto errorCleanup;
                 }
@@ -406,7 +406,8 @@ static int runSchedule(struct addrinfo *serv_addr, struct opt_t *options,
             case TPUT_2_CLIENT:
                 Log(LOG_DEBUG, "Starting Server to Client Throughput test");
                 /* Request a test from the server */
-                if ( sendRequestTestPacket(control_socket, cur) < 0 ) {
+                if ( send_control_send(control_socket, 0, cur->duration,
+                            cur->write_size, cur->bytes) < 0 ) {
                     goto errorCleanup;
                 }
 
@@ -444,7 +445,7 @@ static int runSchedule(struct addrinfo *serv_addr, struct opt_t *options,
                 memset(cur->s_result, 0, sizeof(struct test_result_t));
 
                 /* Tell the server we are starting a test */
-                sendFinalDataPacket(control_socket);
+                send_control_receive(control_socket, 0);
                 /* Wait for it get ready */
                 if ( read_control_ready(control_socket, socket_options) < 0 ) {
                     Log(LOG_WARNING, "Failed to read READY packet, aborting");
@@ -498,8 +499,9 @@ static int runSchedule(struct addrinfo *serv_addr, struct opt_t *options,
     report_results(start_time_ns / 1000000000, serv_addr, options);
 
     Log(LOG_DEBUG, "Closing test");
-    if( sendClosePacket(control_socket) < 0)
+    if ( send_control_close(control_socket) < 0 ) {
          Log(LOG_WARNING, "Failed to send close message");
+    }
 
     close(control_socket);
     close(test_socket);

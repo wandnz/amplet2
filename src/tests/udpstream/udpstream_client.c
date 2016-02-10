@@ -210,7 +210,7 @@ static int run_test(struct addrinfo *server, struct opt_t *options,
                 socket_options->tport = ntohs(((struct sockaddr_in *)&ss)->sin_port);
 
                 send_control_send(control_socket,
-                        ntohs(((struct sockaddr_in *)&ss)->sin_port));
+                        ntohs(((struct sockaddr_in *)&ss)->sin_port), 0, 0, 0);
 
                 /* wait for the data stream from the server */
                 receive_udp_stream(test_socket, options->packet_count, in_times);

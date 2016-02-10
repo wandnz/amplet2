@@ -36,8 +36,11 @@ struct temp_sockopt_t_xxx {
 int send_control_hello(int sock_fd, struct temp_sockopt_t_xxx *options);
 int send_control_ready(int sock, uint16_t port);
 int send_control_receive(int sock, uint32_t packet_count);
-int send_control_send(int sock, uint16_t port);
+int send_control_send(int sock, uint16_t port, uint32_t duration,
+        uint32_t write_size, uint64_t bytes);
 int send_control_result(int sock, ProtobufCBinaryData *data);
+int send_control_renew(int sock);//XXX
+int send_control_close(int sock);//XXX
 
 int read_control_hello(int sock, struct temp_sockopt_t_xxx *options);
 int read_control_ready(int sock, struct temp_sockopt_t_xxx *options);

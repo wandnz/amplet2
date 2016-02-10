@@ -283,7 +283,8 @@ int send_control_receive(int sock, uint32_t packet_count) {
 /*
  *
  */
-int send_control_send(int sock, uint16_t port) {
+int send_control_send(int sock, uint16_t port, uint32_t duration,
+        uint32_t write_size, uint64_t bytes) {
     int len;
     void *buffer;
     int result;
@@ -294,6 +295,14 @@ int send_control_send(int sock, uint16_t port) {
 
     send.has_test_port = 1;
     send.test_port = port;
+
+    send.has_duration_ms = 1;
+    send.duration_ms = duration;
+    send.has_write_size = 1;
+    send.write_size = write_size;
+    send.has_bytes = 1;
+    send.bytes = bytes;
+
     msg.send = &send;
     msg.has_type = 1;
     msg.type = AMPLET2__SERVERS__CONTROL__TYPE__SEND;
@@ -329,6 +338,64 @@ int send_control_result(int sock, ProtobufCBinaryData *data) {
     msg.result = &resmsg;
     msg.has_type = 1;
     msg.type = AMPLET2__SERVERS__CONTROL__TYPE__RESULT;
+
+    len = amplet2__servers__control__get_packed_size(&msg);
+    buffer = malloc(len);
+    amplet2__servers__control__pack(&msg, buffer);
+
+    result = write_control_packet(sock, buffer, len);
+
+    free(buffer);
+
+    return result;
+}
+
+
+
+/*
+ *
+ */
+int send_control_renew(int sock) {
+    int len;
+    void *buffer;
+    int result;
+    Amplet2__Servers__Control msg = AMPLET2__SERVERS__CONTROL__INIT;
+    Amplet2__Servers__Renew renew = AMPLET2__SERVERS__RENEW__INIT;
+
+    printf("sending renew message\n");
+
+    msg.renew = &renew;
+    msg.has_type = 1;
+    msg.type = AMPLET2__SERVERS__CONTROL__TYPE__RENEW;
+
+    len = amplet2__servers__control__get_packed_size(&msg);
+    buffer = malloc(len);
+    amplet2__servers__control__pack(&msg, buffer);
+
+    result = write_control_packet(sock, buffer, len);
+
+    free(buffer);
+
+    return result;
+}
+
+
+
+/*
+ *
+ */
+int send_control_close(int sock) {
+    int len;
+    void *buffer;
+    int result;
+    Amplet2__Servers__Control msg = AMPLET2__SERVERS__CONTROL__INIT;
+    Amplet2__Servers__Close close = AMPLET2__SERVERS__CLOSE__INIT;
+
+    printf("sending close message\n");
+
+    msg.close = &close;
+    msg.has_type = 1;
+    msg.type = AMPLET2__SERVERS__CONTROL__TYPE__CLOSE;
 
     len = amplet2__servers__control__get_packed_size(&msg);
     buffer = malloc(len);
