@@ -246,9 +246,6 @@ int run_udpstream_client(int argc, char *argv[], int count,
     int opt;
     struct opt_t test_options;
     struct temp_sockopt_t_xxx socket_options;
-    struct info_t *info;
-    struct addrinfo *sourcev4, *sourcev6;
-    char *device;
     char *client;
     amp_test_meta_t meta;
     extern struct option long_options[];
