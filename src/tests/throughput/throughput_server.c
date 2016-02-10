@@ -409,7 +409,7 @@ void run_throughput_server(int argc, char *argv[], SSL *ssl) {
     }
 
     /* select on our listening sockets until someone connects */
-    maxwait = 60000000; /* XXX 60s, how long should this be? */
+    maxwait = MAXIMUM_SERVER_WAIT_TIME;
     if ( (family = wait_for_data(&listen_sockets, &maxwait)) <= 0 ) {
         Log(LOG_DEBUG, "Timeout out waiting for connection");
         return;
