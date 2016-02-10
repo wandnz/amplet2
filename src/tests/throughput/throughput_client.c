@@ -185,46 +185,6 @@ static void freeSchedule(struct opt_t *options){
 
 
 
-/*
- *
- */
-static Amplet2__Throughput__Item* report_schedule(struct test_request_t *info) {
-
-    Amplet2__Throughput__Item *item =
-        (Amplet2__Throughput__Item*)malloc(sizeof(Amplet2__Throughput__Item));
-    struct test_result_t *result;
-
-    /* Get the result from the receiving side */
-    result = (info->type == TPUT_2_CLIENT) ? info->c_result : info->s_result;
-
-    /* fill the report item with results of a test */
-    amplet2__throughput__item__init(item);
-    item->has_direction = 1;
-    item->direction = info->type;
-    item->has_duration = 1;
-    item->duration = result->end_ns - result->start_ns;
-    item->has_bytes = 1;
-    item->bytes = result->bytes;
-
-#if 0
-    item->has_web10g_client = info->c_web10g ? 1 : 0;
-    item->has_web10g_server = info->s_web10g ? 1 : 0;
-
-    if ( item->c_web10g ) {
-    }
-
-    if ( item->s_web10g ) {
-    }
-#endif
-
-    Log(LOG_DEBUG, "tput result: %" PRIu64 " bytes in %" PRIu64 "ms to %s",
-        item->bytes, item->duration / (uint64_t) 1000000,
-        (item->direction ==
-         AMPLET2__THROUGHPUT__ITEM__DIRECTION__SERVER_TO_CLIENT) ?
-        "client" : "server");
-
-    return item;
-}
 
 
 
@@ -307,6 +267,8 @@ static int runSchedule(struct addrinfo *serv_addr, struct opt_t *options,
     uint64_t start_time_ns;
     struct temp_sockopt_t_xxx srv_opts;
     uint16_t actual_test_port = 0;
+    ProtobufCBinaryData data;
+    Amplet2__Throughput__Item *results = NULL;
 
     /* Loop through the schedule */
     struct test_request_t *cur;
@@ -425,15 +387,27 @@ static int runSchedule(struct addrinfo *serv_addr, struct opt_t *options,
                 }
 
                 /* No errors so we should have a valid result */
-                if ( !options->disable_web10g ) {
-                    cur->c_web10g = getWeb10GSnap(test_socket);
-                }
+                //XXX web10g
+                //if ( !options->disable_web10g ) {
+                //    cur->c_web10g = getWeb10GSnap(test_socket);
+                //}
 
                 /* Get servers result - might even have web10g attached */
-                readPacket(control_socket, &packet, (char **) &cur->s_web10g);
-                if ( readResultPacket(&packet, cur->s_result) != 0 ) {
+                if ( read_control_result(control_socket, &data) < 0 ) {
+                    Log(LOG_WARNING, "Failed to read RESULT packet, aborting");
                     return -1;
                 }
+                results = amplet2__throughput__item__unpack(NULL, data.len,
+                        data.data);
+                /* XXX extracting this now cause it's easier :( */
+                /* XXX are ->done or ->packets every actually used? internally
+                 * but no reason to transmit I believe
+                 */
+                cur->s_result->start_ns = 0;
+                cur->s_result->end_ns = results->duration;
+                cur->s_result->bytes = results->bytes;
+                free(data.data);
+                amplet2__throughput__item__free_unpacked(results, NULL);
                 Log(LOG_DEBUG, "Received results of test from server");
                 continue;
 
@@ -456,25 +430,36 @@ static int runSchedule(struct addrinfo *serv_addr, struct opt_t *options,
                 if ( sendPackets(test_socket, cur, cur->c_result) == 0 ) {
                     Log(LOG_DEBUG, "Finished sending - now getting results");
 
-                    if ( !options->disable_web10g ) {
-                        cur->c_web10g = getWeb10GSnap(test_socket);
-                    }
-                    if ( !readPacket(control_socket, &packet,
-                                (char **) &cur->s_web10g) ) {
-                        Log(LOG_ERR,"Failed to get results");
-                        goto errorCleanup;
-                    }
+                    //XXX web10g
+                    //if ( !options->disable_web10g ) {
+                    //    cur->c_web10g = getWeb10GSnap(test_socket);
+                    //}
+                    //if ( !readPacket(control_socket, &packet,
+                    //            (char **) &cur->s_web10g) ) {
+                    //    Log(LOG_ERR,"Failed to get results");
+                    //    goto errorCleanup;
+                    //}
 
-                    if ( readResultPacket(&packet, cur->s_result) != 0 ) {
-                        goto errorCleanup;
+                    if ( read_control_result(control_socket, &data) < 0 ) {
+                        Log(LOG_WARNING, "Failed to read RESULT packet, aborting");
+                        return -1;
                     }
-
+                    results = amplet2__throughput__item__unpack(NULL, data.len,
+                            data.data);
+                    /* XXX extracting this now cause it's easier :( */
+                    cur->s_result->start_ns = 0;
+                    cur->s_result->end_ns = results->duration;
+                    cur->s_result->bytes = results->bytes;
+                    free(data.data);
+                    amplet2__throughput__item__free_unpacked(results, NULL);
+/*
                     Log(LOG_DEBUG, "Got results from server %" PRIu32
                             " %" PRIu32 " %" PRIu64 " %" PRIu64,
                             packet.types.result.packets,
                             packet.types.result.write_size,
                             packet.types.result.duration_ns,
                             packet.types.result.bytes);
+ */
                 } else {
                     Log(LOG_ERR, "Failed to sent packets to the server");
                     goto errorCleanup;

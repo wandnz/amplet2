@@ -76,6 +76,7 @@ static struct addrinfo *getSocketAddress(int sock_fd) {
 static int serveTest(int control_socket, struct temp_sockopt_t_xxx *sockopts) {
     struct packet_t packet;
     struct test_result_t result;
+    struct test_request_t req;
     int bytes;
     struct report_web10g_t *web10g = NULL;
     int t_listen = -1;
@@ -86,6 +87,8 @@ static int serveTest(int control_socket, struct temp_sockopt_t_xxx *sockopts) {
     uint16_t portmax;
     int res;
     void *data;
+    Amplet2__Throughput__Item *item;
+    ProtobufCBinaryData packed;
 
     memset(&packet, 0, sizeof(packet));
     memset(&result, 0, sizeof(result));
@@ -159,14 +162,26 @@ static int serveTest(int control_socket, struct temp_sockopt_t_xxx *sockopts) {
                     goto errorCleanup;
                 }
 
-                if ( !sockopts->disable_web10g ) {
-                    web10g = getWeb10GSnap(test_socket);
-                }
+                //XXX my results thing doesn't deal with web10g
+                //if ( !sockopts->disable_web10g ) {
+                //    web10g = getWeb10GSnap(test_socket);
+                //}
 
                 /* Send our result */
-                if ( sendResultPacket(control_socket, &result, web10g) < 0 ) {
+                memset(&req, 0, sizeof(req));
+                req.type = TPUT_2_SERVER;
+                req.s_result = &result;
+
+                item = report_schedule(&req);
+                /* pack the result for sending to the client */
+                packed.len = amplet2__throughput__item__get_packed_size(item);
+                packed.data = malloc(packed.len);
+                amplet2__throughput__item__pack(item, packed.data);
+                if ( send_control_result(control_socket, &packed) < 0 ) {
                     goto errorCleanup;
                 }
+                free(item);
+                free(packed.data);
 
                 if ( web10g != NULL ) {
                     free(web10g);
@@ -176,7 +191,6 @@ static int serveTest(int control_socket, struct temp_sockopt_t_xxx *sockopts) {
 
             case AMPLET2__SERVERS__CONTROL__TYPE__SEND:
                 {
-                    struct test_request_t req;
                     memset(&req, 0, sizeof(req));
                     memset(&result, 0, sizeof(result));
                     req.duration = msg->send->duration_ms;
@@ -202,14 +216,24 @@ static int serveTest(int control_socket, struct temp_sockopt_t_xxx *sockopts) {
 
                         case 0:
                         /* Success or our fake success from case 1: */
-                        if ( !sockopts->disable_web10g ) {
-                            web10g = getWeb10GSnap(test_socket);
-                        }
+                        //XXX deal with web10g in some way
+                        //if ( !sockopts->disable_web10g ) {
+                        //    web10g = getWeb10GSnap(test_socket);
+                        //}
                         /* Unlike old test, send result for either direction */
-                        if ( sendResultPacket(control_socket, &result,
-                                    web10g) < 0) {
+                        memset(&req, 0, sizeof(req));
+                        req.type = TPUT_2_CLIENT;
+                        req.c_result = &result;
+                        item = report_schedule(&req);
+                        /* pack the result for sending to the client */
+                        packed.len = amplet2__throughput__item__get_packed_size(item);
+                        packed.data = malloc(packed.len);
+                        amplet2__throughput__item__pack(item, packed.data);
+                        if ( send_control_result(control_socket, &packed) < 0 ) {
                             goto errorCleanup;
                         }
+                        free(item);
+                        free(packed.data);
 
                     }
 

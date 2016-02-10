@@ -15,6 +15,49 @@
 
 
 
+/*
+ *
+ */
+Amplet2__Throughput__Item* report_schedule(struct test_request_t *info) {
+
+    Amplet2__Throughput__Item *item =
+        (Amplet2__Throughput__Item*)malloc(sizeof(Amplet2__Throughput__Item));
+    struct test_result_t *result;
+
+    /* Get the result from the receiving side */
+    result = (info->type == TPUT_2_CLIENT) ? info->c_result : info->s_result;
+
+    /* fill the report item with results of a test */
+    amplet2__throughput__item__init(item);
+    item->has_direction = 1;
+    item->direction = info->type;
+    item->has_duration = 1;
+    item->duration = result->end_ns - result->start_ns;
+    item->has_bytes = 1;
+    item->bytes = result->bytes;
+
+#if 0
+    item->has_web10g_client = info->c_web10g ? 1 : 0;
+    item->has_web10g_server = info->s_web10g ? 1 : 0;
+
+    if ( item->c_web10g ) {
+    }
+
+    if ( item->s_web10g ) {
+    }
+#endif
+
+    Log(LOG_DEBUG, "tput result: %" PRIu64 " bytes in %" PRIu64 "ms to %s",
+        item->bytes, item->duration / (uint64_t) 1000000,
+        (item->direction ==
+         AMPLET2__THROUGHPUT__ITEM__DIRECTION__SERVER_TO_CLIENT) ?
+        "client" : "server");
+
+    return item;
+}
+
+
+
 /**
  * Converts a valid packet format from host to big endian ready for
  * the network
@@ -26,12 +69,6 @@ static void htobePacket(struct packet_t *p) {
     switch ( p->header.type ) {
         case TPUT_PKT_DATA:
             p->types.data.more = htobe32(p->types.data.more);
-            break;
-        case TPUT_PKT_RESULT:
-            p->types.result.packets = htobe32(p->types.result.packets);
-            p->types.result.write_size = htobe32(p->types.result.write_size);
-            p->types.result.bytes = htobe64(p->types.result.bytes);
-            p->types.result.duration_ns = htobe64(p->types.result.duration_ns);
             break;
         default:
             Log(LOG_WARNING, "Bad packet type found cannot decode!!!");
@@ -54,12 +91,6 @@ static void betohPacket(struct packet_t *p) {
     switch ( p->header.type ) {
         case TPUT_PKT_DATA:
             p->types.data.more = be32toh(p->types.data.more);
-            break;
-        case TPUT_PKT_RESULT:
-            p->types.result.packets = be32toh(p->types.result.packets);
-            p->types.result.write_size = be32toh(p->types.result.write_size);
-            p->types.result.bytes = be64toh(p->types.result.bytes);
-            p->types.result.duration_ns = be64toh(p->types.result.duration_ns);
             break;
         default:
             Log(LOG_WARNING, "Bad packet type found cannot decode!!!");
@@ -448,81 +479,6 @@ int readDataPacket(const struct packet_t *packet, const int write_size,
         res->done = 1;
         res->end_ns = timeNanoseconds();
     }
-
-    return 0;
-}
-
-
-
-/**
- * Constructs and sends a result packet
- *
- * @param result
- *          A structure holding the results to send
- * @param web10g
- *         Can be NULL. The web10g result.
- *
- * @return The result of writePacket() - NOTE : The packet will always
- *         construct successfully.
- */
-int sendResultPacket(int sock_fd, struct test_result_t *res,
-        struct report_web10g_t *web10g){
-    struct packet_t p;
-    struct packet_t *p_web10g;
-    int ret;
-
-    memset(&p, 0, sizeof(p));
-    p.header.type = TPUT_PKT_RESULT;
-    p.header.size = ( web10g == NULL ? 0 : sizeof(struct report_web10g_t) );
-    p.types.result.bytes = res->bytes;
-    p.types.result.duration_ns = res->end_ns - res->start_ns;
-    p.types.result.write_size = res->write_size;
-    p.types.result.packets = res->packets;
-
-    if ( web10g == NULL ) {
-        /* Nothing extra */
-        p.header.size = 0;
-        return writePacket(sock_fd, &p);
-    }
-
-    /* Concatenate the packet and the web10g data then send */
-    p_web10g = malloc(sizeof(struct packet_t) + sizeof(struct report_web10g_t));
-
-    p.header.size = sizeof(struct report_web10g_t);
-    memcpy(p_web10g, &p, sizeof(struct packet_t));
-    memcpy(p_web10g + 1, web10g, sizeof(struct report_web10g_t));
-
-    ret = writePacket(sock_fd, p_web10g);
-
-    free(p_web10g);
-    return ret;
-}
-
-
-
-/**
- * Given a result packet unpacks into a test_result_t structure
- *
- * @param p
- *          The previously read packet, from readPacket()
- * @param res
- *          A structure to unpack the packet into
- *
- * @return 0 upon success, -1 upon failure such as a invalid type
- */
-int readResultPacket(const struct packet_t *p, struct test_result_t *res) {
-    if ( p->header.type != TPUT_PKT_RESULT ) {
-        Log(LOG_ERR, "Required a result packet but type %d instead",
-                p->header.type);
-        return -1;
-    }
-
-    res->done = 1;
-    res->bytes = p->types.result.bytes;
-    res->write_size = p->types.result.write_size;
-    res->packets = p->types.result.packets;
-    res->start_ns = 0;
-    res->end_ns = p->types.result.duration_ns;
 
     return 0;
 }

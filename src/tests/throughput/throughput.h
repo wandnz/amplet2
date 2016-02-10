@@ -30,6 +30,7 @@
 #include "tests.h"
 #include "testlib.h"
 #include "serverlib.h" //XXX remove when temp_sockopt_t_xxx removed
+#include "throughput.pb-c.h"
 
 /*
  * Taken from http://stackoverflow.com/a/4410728
@@ -307,12 +308,6 @@ struct packet_t {
         struct dataPacket_t {
             uint32_t  more;
         } data;
-        struct resultPacket_t {
-            uint32_t  packets;
-            uint32_t  write_size;
-            uint64_t  bytes;
-            uint64_t  duration_ns;
-        } result;
     } types; //type union
 }; //packet_t struct
 
@@ -324,11 +319,9 @@ struct packet_t {
  * and read*****Packet()
  * to contruct/deconstruct packets from there corrosponding sturct's
  * */
-int sendResultPacket(int sock_fd, struct test_result_t *res,
-        struct report_web10g_t *web10g);
+Amplet2__Throughput__Item* report_schedule(struct test_request_t *info);
 int readDataPacket(const struct packet_t *packet, const int write_size,
         struct test_result_t *res);
-int readResultPacket(const struct packet_t *p, struct test_result_t *res);
 
 /* do outgoing test */
 int sendPackets(int sock_fd,
