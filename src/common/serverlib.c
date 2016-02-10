@@ -30,7 +30,7 @@
 
 
 /*
- *
+ * Write a control message onto the stream.
  */
 static int write_control_packet(int sock, void *data, uint32_t len) {
     int result;
@@ -38,6 +38,10 @@ static int write_control_packet(int sock, void *data, uint32_t len) {
     uint32_t datalen = ntohl(len);
 
     printf("sending %d bytes\n", sizeof(datalen));
+    /*
+     * There is no delimiter for protocol buffers, so we need to send the
+     * length of the message that will follow
+     */
     do {
         result = write(sock, (uint8_t *)&datalen + total_written,
                 sizeof(datalen) - total_written);
@@ -61,6 +65,7 @@ static int write_control_packet(int sock, void *data, uint32_t len) {
     total_written = 0;
 
     printf("sending %d bytes\n", len);
+    /* Send the actual protocol buffer message onto the stream now */
     do {
         result = write(sock, (uint8_t *)data+total_written, len-total_written);
 
@@ -85,7 +90,7 @@ static int write_control_packet(int sock, void *data, uint32_t len) {
 
 
 /*
- *
+ * Read a control message from the stream.
  */
 int read_control_packet(int sock, void **data) {
     int result;
@@ -171,6 +176,9 @@ int send_control_hello(int sock, struct temp_sockopt_t_xxx *options) {
 
     hello.has_test_port = 1;
     hello.test_port = options->tport;
+
+    /* TODO these are all udpstream test options, extract somehow */
+    /* TODO - pack test option struct into a binary blob, or use extensions? */
     hello.has_packet_size = 1;
     hello.packet_size = options->packet_size;
     hello.has_packet_count = 1;
@@ -180,6 +188,8 @@ int send_control_hello(int sock, struct temp_sockopt_t_xxx *options) {
     hello.has_percentile_count = 1;
     hello.percentile_count = options->percentile_count;
 
+    /* TODO these are all throughput test options, extract somehow */
+    /* TODO - pack test option struct into a binary blob, or use extensions? */
     hello.has_mss = 1;
     hello.mss = options->sock_mss;
     hello.has_disable_nagle = 1;
@@ -194,12 +204,6 @@ int send_control_hello(int sock, struct temp_sockopt_t_xxx *options) {
     hello.sndbuf = options->sock_sndbuf;
     hello.has_reuse_addr = 1;
     hello.reuse_addr = options->reuse_addr;
-
-    printf(" - test port %d\n", options->tport);
-    printf(" - packet size %d\n", options->packet_size);
-    printf(" - packet count %d\n", options->packet_count);
-    printf(" - packet spacing %d\n", options->packet_spacing);
-    printf(" - percentiles %d\n", options->percentile_count);
 
     msg.hello = &hello;
     msg.has_type = 1;
@@ -451,13 +455,6 @@ int parse_control_hello(void *data, uint32_t len,
     options->sock_rcvbuf = msg->hello->rcvbuf;
     options->sock_sndbuf = msg->hello->sndbuf;
     options->reuse_addr = msg->hello->reuse_addr;
-
-    printf("read HELLO packet\n");
-    printf(" - test port %d\n", options->tport);
-    printf(" - packet size %d\n", options->packet_size);
-    printf(" - packet count %d\n", options->packet_count);
-    printf(" - packet spacing %d\n", options->packet_spacing);
-    printf(" - percentiles %d\n", options->percentile_count);
 
     amplet2__servers__control__free_unpacked(msg, NULL);
 

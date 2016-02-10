@@ -10,6 +10,10 @@
 
 
 
+/*
+ * Build the complete report message from the results we have and send it
+ * onwards (to either the printing function or the rabbitmq server).
+ */
 static void report_results(struct timeval *start_time, struct addrinfo *dest,
         struct opt_t *options, struct timeval *in_times,
         Amplet2__Udpstream__Item *server_report) {
@@ -127,7 +131,6 @@ static struct test_request_t* build_schedule(struct opt_t *options) {
 static int run_test(struct addrinfo *server, struct opt_t *options,
         struct temp_sockopt_t_xxx *socket_options) {
     int control_socket, test_socket;
-    //struct temp_sockopt_t_xxx optxxx;
     struct sockaddr_storage ss;
     socklen_t socklen = sizeof(ss);
     struct timeval *in_times = NULL;
@@ -135,7 +138,6 @@ static int run_test(struct addrinfo *server, struct opt_t *options,
     ProtobufCBinaryData data;
     Amplet2__Udpstream__Item *results = NULL;
     struct timeval start_time;
-
 
     printf("run test\n");
     socket_options->cport = options->cport;//XXX
@@ -379,7 +381,7 @@ int run_udpstream_client(int argc, char *argv[], int count,
 
 
 /*
- *
+ * Print the results for a single test direction.
  */
 static void print_item(Amplet2__Udpstream__Item *item, uint32_t packet_count) {
     uint32_t i;
@@ -419,6 +421,9 @@ static void print_item(Amplet2__Udpstream__Item *item, uint32_t packet_count) {
 
 
 
+/*
+ * Print the full results for a test run.
+ */
 void print_udpstream(void *data, uint32_t len) {
     Amplet2__Udpstream__Report *msg;
     unsigned int i;
@@ -441,6 +446,7 @@ void print_udpstream(void *data, uint32_t len) {
             msg->header->packet_count, msg->header->packet_size,
             msg->header->packet_spacing);
 
+    /* print the individual test runs in each direction */
     for ( i=0; i < msg->n_reports; i++ ) {
         print_item(msg->reports[i], msg->header->packet_count);
     }
