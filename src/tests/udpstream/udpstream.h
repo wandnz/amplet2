@@ -113,4 +113,8 @@ int receive_udp_stream(int sock, uint32_t packet_count, struct timeval *times);
 Amplet2__Udpstream__Item* report_stream(enum udpstream_direction direction,
         struct timeval *times, struct opt_t *options);
 
+ProtobufCBinaryData* build_hello(struct opt_t *options);
+//int parse_hello(void *data, uint32_t len, struct opt_t *options);
+void* parse_hello(ProtobufCBinaryData *data);
+//int read_hello(int sock, struct opt_t *options);
 #endif

@@ -22,35 +22,31 @@ static int serve_test(int control_sock, struct sockaddr_storage *remote,
     int res;
     int bytes;
     struct addrinfo client;
-    struct opt_t options;
+    struct opt_t *options = NULL;
     void *data;
     struct timeval *times = NULL;
     Amplet2__Udpstream__Item *result;
     ProtobufCBinaryData packed;
 
-    if ( read_control_hello(control_sock, sockopts) < 0 ) {
+    if ( (options = read_control_hello(control_sock, parse_hello)) == NULL ) {
         Log(LOG_WARNING, "Got bad HELLO packet, shutting down test server");
         return -1;
     }
-
-    options.packet_size = sockopts->packet_size;//XXX
-    options.packet_count = sockopts->packet_count;//XXX
-    options.packet_spacing = sockopts->packet_spacing;//XXX
-    options.percentile_count = sockopts->percentile_count;//XXX
+    sockopts->tport = options->tport;//XXX
 
     /*
      * Try to create the test server on the appropriate port. If test port has
      * been manually set, only try that port. If it is still the default, try
      * a few ports till we hopefully find a free one.
      */
-    if ( sockopts->tport == DEFAULT_TEST_PORT ) {
+    if ( options->tport == DEFAULT_TEST_PORT ) {
         portmax = MAX_TEST_PORT;
     } else {
-        if ( sockopts->tport < IPPORT_RESERVED ) {
+        if ( options->tport < IPPORT_RESERVED ) {
             Log(LOG_WARNING, "Not allowing test ports < 1024");
             return -1;
         }
-        portmax = sockopts->tport;
+        portmax = options->tport;
     }
 
     /* configure the new UDP test socket */
@@ -64,8 +60,8 @@ static int serve_test(int control_sock, struct sockaddr_storage *remote,
 
     /* No errors so far, make our new test socket with the given test options */
     do {
-        res = start_listening(&sockets, sockopts->tport, sockopts);
-    } while ( res == EADDRINUSE && sockopts->tport++ < portmax );
+        res = start_listening(&sockets, options->tport, sockopts);
+    } while ( res == EADDRINUSE && options->tport++ < portmax );
 
     if ( res != 0 ) {
         Log(LOG_WARNING, "Failed to start listening for test traffic");
@@ -103,6 +99,7 @@ static int serve_test(int control_sock, struct sockaddr_storage *remote,
     client.ai_next = NULL;
 
     while ( (bytes=read_control_packet(control_sock, &data)) > 0 ) {
+        //XXX can this be made to only be udpstream messages?
         Amplet2__Servers__Control *msg;
         msg = amplet2__servers__control__unpack(NULL, bytes, data);
 
@@ -119,7 +116,7 @@ static int serve_test(int control_sock, struct sockaddr_storage *remote,
                 // XXX client.ai_addr points at this, maybe should update that
                 // directly so it is obvious?
                 ((struct sockaddr_in*)remote)->sin_port = ntohs(msg->send->test_port);
-                send_udp_stream(test_sock, &client, &options);
+                send_udp_stream(test_sock, &client, options);
                 break;
 
             case AMPLET2__SERVERS__CONTROL__TYPE__RECEIVE:
@@ -134,7 +131,7 @@ static int serve_test(int control_sock, struct sockaddr_storage *remote,
                 /* wait for the data stream from the client */
                 times = calloc(sockopts->packet_count, sizeof(struct timeval));
                 receive_udp_stream(test_sock, sockopts->packet_count, times);
-                result = report_stream(UDPSTREAM_TO_SERVER, times, &options);
+                result = report_stream(UDPSTREAM_TO_SERVER, times, options);
                 /* pack the result for sending to the client */
                 packed.len = amplet2__udpstream__item__get_packed_size(result);
                 packed.data = malloc(packed.len);

@@ -17,10 +17,8 @@ struct temp_sockopt_t_xxx {
     uint16_t cport; // XXX both ports probably not needed in same struct?
     uint16_t tport;
     char *device;
-    uint16_t packet_size;
+
     uint32_t packet_count;
-    uint32_t packet_spacing; //XXX inter_packet_delay;
-    uint32_t percentile_count;
 
     //XXX test opts
     int32_t sock_mss; /* Set the TCP Maximun segment size */
@@ -33,7 +31,8 @@ struct temp_sockopt_t_xxx {
 };
 
 
-int send_control_hello(int sock_fd, struct temp_sockopt_t_xxx *options);
+
+int send_control_hello(int sock, ProtobufCBinaryData *options);
 int send_control_ready(int sock, uint16_t port);
 int send_control_receive(int sock, uint32_t packet_count);
 int send_control_send(int sock, uint16_t port, uint32_t duration,
@@ -42,13 +41,15 @@ int send_control_result(int sock, ProtobufCBinaryData *data);
 int send_control_renew(int sock);//XXX
 int send_control_close(int sock);//XXX
 
-int read_control_hello(int sock, struct temp_sockopt_t_xxx *options);
+void* read_control_hello(int sock,
+        void *(*parse_func)(ProtobufCBinaryData *data));
 int read_control_ready(int sock, struct temp_sockopt_t_xxx *options);
 int read_control_packet(int sock, void **data);
 int read_control_result(int sock, ProtobufCBinaryData *results);
 
-int parse_control_hello(void *data, uint32_t len,
-        struct temp_sockopt_t_xxx *options);
+//int parse_control_hello(void *data, uint32_t len, void *options);
+void* parse_control_hello(void *data, uint32_t len,
+        void *(*parse_func)(ProtobufCBinaryData *data));
 int parse_control_ready(void *data, uint32_t len,
         struct temp_sockopt_t_xxx *options);
 int parse_control_receive(void *data, uint32_t len,

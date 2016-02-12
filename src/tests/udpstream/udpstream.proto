@@ -1,3 +1,5 @@
+/*import "common/servers.proto";*/
+
 package amplet2.udpstream;
 
 message Report {
@@ -10,7 +12,7 @@ message Header {
         optional int32 family = 2;
         optional string schedule = 3;
 	optional uint32 packet_size = 4 [default = 100];
-	optional uint32 packet_spacing = 5 [default = 100];
+	optional uint32 packet_spacing = 5 [default = 1000];
 	optional uint32 packet_count = 6 [default = 11];
         optional uint32 percentile_count = 7 [default = 10];
         optional string name = 8;
@@ -38,4 +40,18 @@ message Period {
         }
         optional Status status = 1;
         optional int32 length = 2;
+}
+
+message Hello {
+    /*
+    extend amplet2.servers.Hello {
+        optional Hello data = 102;
+    }
+    */
+
+    optional uint32 test_port = 1;
+    optional uint32 packet_size = 2 [default = 100];
+    optional uint32 packet_spacing = 3 [default = 1000];
+    optional uint32 packet_count = 4 [default = 11];
+    optional uint32 percentile_count = 5 [default = 10];
 }

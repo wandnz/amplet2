@@ -43,6 +43,10 @@ message Hello {
         optional bool randomise = 11;
         optional bool reuse_addr = 12;
         optional uint32 write_size = 13;
+
+        /* XXX extensions aren't yet implemented in protobuf-c :( */
+        optional bytes options = 14;
+        extensions 100 to 1000;
 }
 
 message Ready {

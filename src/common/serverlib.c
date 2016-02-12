@@ -165,7 +165,7 @@ int read_control_packet(int sock, void **data) {
 /*
  *
  */
-int send_control_hello(int sock, struct temp_sockopt_t_xxx *options) {
+int send_control_hello(int sock, ProtobufCBinaryData *options) {
     int len;
     void *buffer;
     int result;
@@ -174,36 +174,8 @@ int send_control_hello(int sock, struct temp_sockopt_t_xxx *options) {
 
     printf("sending hello\n");
 
-    hello.has_test_port = 1;
-    hello.test_port = options->tport;
-
-    /* TODO these are all udpstream test options, extract somehow */
-    /* TODO - pack test option struct into a binary blob, or use extensions? */
-    hello.has_packet_size = 1;
-    hello.packet_size = options->packet_size;
-    hello.has_packet_count = 1;
-    hello.packet_count = options->packet_count;
-    hello.has_packet_spacing = 1;
-    hello.packet_spacing = options->packet_spacing;
-    hello.has_percentile_count = 1;
-    hello.percentile_count = options->percentile_count;
-
-    /* TODO these are all throughput test options, extract somehow */
-    /* TODO - pack test option struct into a binary blob, or use extensions? */
-    hello.has_mss = 1;
-    hello.mss = options->sock_mss;
-    hello.has_disable_nagle = 1;
-    hello.disable_nagle = options->sock_disable_nagle;
-    hello.has_disable_web10g = 1;
-    hello.disable_web10g = options->disable_web10g;
-    hello.has_randomise = 1;
-    hello.randomise = options->randomise;
-    hello.has_rcvbuf = 1;
-    hello.rcvbuf = options->sock_rcvbuf;
-    hello.has_sndbuf = 1;
-    hello.sndbuf = options->sock_sndbuf;
-    hello.has_reuse_addr = 1;
-    hello.reuse_addr = options->reuse_addr;
+    hello.has_options = 1;
+    hello.options = *options;
 
     msg.hello = &hello;
     msg.has_type = 1;
@@ -417,13 +389,13 @@ int send_control_close(int sock) {
 /*
  *
  */
-int parse_control_hello(void *data, uint32_t len,
-        struct temp_sockopt_t_xxx *options) {
+void * parse_control_hello(void *data, uint32_t len,
+        void *(*parse_func)(ProtobufCBinaryData *data)) {
 
     Amplet2__Servers__Control *msg;
+    void *options;
 
     assert(data);
-    assert(options);
 
     /* unpack all the data */
     msg = amplet2__servers__control__unpack(NULL, len, data);
@@ -433,32 +405,20 @@ int parse_control_hello(void *data, uint32_t len,
         Log(LOG_WARNING, "Not a HELLO packet, aborting");
         printf("type:%d\n", msg->type);
         amplet2__servers__control__free_unpacked(msg, NULL);
-        return -1;
+        return NULL;
     }
 
-    if ( !msg->hello || !msg->hello->has_test_port ) {
+    if ( !msg->hello || !msg->hello->has_options ) {
         Log(LOG_WARNING, "Malformed HELLO packet, aborting");
         amplet2__servers__control__free_unpacked(msg, NULL);
-        return -1;
+        return NULL;
     }
 
-    options->tport = msg->hello->test_port;
-    options->packet_size = msg->hello->packet_size;
-    options->packet_count = msg->hello->packet_count;
-    options->packet_spacing = msg->hello->packet_spacing;
-    options->percentile_count = msg->hello->percentile_count;
-
-    options->sock_mss = msg->hello->mss;
-    options->sock_disable_nagle = msg->hello->disable_nagle;
-    options->disable_web10g = msg->hello->disable_web10g;
-    options->randomise = msg->hello->randomise;
-    options->sock_rcvbuf = msg->hello->rcvbuf;
-    options->sock_sndbuf = msg->hello->sndbuf;
-    options->reuse_addr = msg->hello->reuse_addr;
+    /* call the test specific function to get the test options */
+    options = parse_func(&msg->hello->options);
 
     amplet2__servers__control__free_unpacked(msg, NULL);
-
-    return 0;
+    return options;
 }
 
 
@@ -580,24 +540,28 @@ static int parse_control_result(void *data, uint32_t len,
 /*
  *
  */
-int read_control_hello(int sock, struct temp_sockopt_t_xxx *options) {
+void* read_control_hello(int sock,
+        void *(*parse_func)(ProtobufCBinaryData *data)) {
     void *data;
+    void *options;
     int len;
 
+    /* read the packet from the stream */
     if ( (len=read_control_packet(sock, &data)) < 0 ) {
         Log(LOG_WARNING, "Failed to read HELLO packet");
-        return -1;
+        return NULL;
     }
 
-    if ( parse_control_hello(data, len, options) < 0 ) {
+    /* validate it as a HELLO packet and then try to extract options */
+    if ( (options = parse_control_hello(data, len, parse_func)) == NULL ) {
         Log(LOG_WARNING, "Failed to parse HELLO packet");
         free(data);
-        return -1;
+        return NULL;
     }
 
     free(data);
 
-    return 0;
+    return options;
 }
 
 

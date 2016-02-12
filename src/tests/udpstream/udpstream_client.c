@@ -142,10 +142,7 @@ static int run_test(struct addrinfo *server, struct opt_t *options,
     printf("run test\n");
     socket_options->cport = options->cport;//XXX
     socket_options->tport = options->tport;//XXX
-    socket_options->packet_size = options->packet_size;//XXX
     socket_options->packet_count = options->packet_count;//XXX
-    socket_options->packet_spacing = options->packet_spacing;//XXX
-    socket_options->percentile_count = options->percentile_count;//XXX
 
     socket_options->socktype = SOCK_STREAM;
     socket_options->protocol = IPPROTO_TCP;
@@ -164,7 +161,8 @@ static int run_test(struct addrinfo *server, struct opt_t *options,
     gettimeofday(&start_time, NULL);
 
     /* send hello */
-    if ( send_control_hello(control_socket, socket_options) < 0 ) {
+    //if ( send_control_hello(control_socket, socket_options) < 0 ) {
+    if ( send_control_hello(control_socket, build_hello(options)) < 0 ) {
         Log(LOG_WARNING, "Failed to send HELLO packet, aborting");
         close(control_socket);
         return -1;

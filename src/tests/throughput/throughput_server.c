@@ -94,9 +94,11 @@ static int serveTest(int control_socket, struct temp_sockopt_t_xxx *sockopts) {
     memset(&result, 0, sizeof(result));
 
     /* Read the hello and check we are compatible */
-    if ( read_control_hello(control_socket, sockopts) < 0 ) {
+#if 0
+    if ( read_control_hello(control_socket, sockopts, NULL) < 0 ) {//XXX
         goto errorCleanup;
     }
+#endif
 
     /* If test port has been manually set, only try that port. If it is
      * still the default, try a few ports till we hopefully find a free one.
