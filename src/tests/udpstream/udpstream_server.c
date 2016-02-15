@@ -11,6 +11,80 @@
 
 
 
+/*
+ * TODO return failure from here if things go poorly
+ */
+static void do_receive(int control_sock, int test_sock, struct opt_t *options) {
+
+    Amplet2__Udpstream__Item *result;
+    ProtobufCBinaryData packed;
+    struct timeval *times = NULL;
+
+    printf("got RECEIVE command\n");
+
+    /* we are going to track a timeval for every expected packet */
+    times = calloc(options->packet_count, sizeof(struct timeval));
+
+    /* tell the client what port the test server is running on */
+    send_control_ready(control_sock, options->tport);
+
+    /* wait for the data stream from the client */
+    receive_udp_stream(test_sock, options->packet_count, times);
+
+    /* build a protobuf message containing our side of the results */
+    result = report_stream(UDPSTREAM_TO_SERVER, times, options);
+
+    /* pack the result for sending to the client */
+    packed.len = amplet2__udpstream__item__get_packed_size(result);
+    packed.data = malloc(packed.len);
+    amplet2__udpstream__item__pack(result, packed.data);
+
+    /* send the result to the client for reporting */
+    send_control_result(control_sock, &packed);
+
+    free(times);
+    free(result);
+    free(packed.data);
+}
+
+
+
+/*
+ * TODO return failure from here if things go poorly
+ */
+static void do_send(int test_sock, struct sockaddr_storage *remote,
+        uint16_t port, struct opt_t *options) {
+
+    struct addrinfo client;
+
+    printf("got SEND command with port %d\n", port);
+
+    /*
+     * the target is the same host we are connected to on the control socket,
+     * but over UDP and using the port we are told to use
+     */
+    client.ai_flags = 0;
+    client.ai_family = remote->ss_family;
+    client.ai_socktype = SOCK_DGRAM;
+    client.ai_protocol = IPPROTO_UDP;
+    client.ai_addr = (struct sockaddr*)remote;
+    ((struct sockaddr_in*)client.ai_addr)->sin_port = ntohs(port);
+
+    if ( client.ai_family == AF_INET ) {
+        client.ai_addrlen = sizeof(struct sockaddr_in);
+    } else {
+        client.ai_addrlen = sizeof(struct sockaddr_in6);
+    }
+
+    client.ai_canonname = NULL;
+    client.ai_next = NULL;
+
+    /* perform the actual test to the client destination we just created */
+    send_udp_stream(test_sock, &client, options);
+}
+
+
+
 //TODO make error messages make sense and not duplicated at all levels
 // XXX can any of this move into a library function?
 //XXX need remote when it can be extracted from control sock?
@@ -21,12 +95,8 @@ static int serve_test(int control_sock, struct sockaddr_storage *remote,
     int test_sock;
     int res;
     int bytes;
-    struct addrinfo client;
     struct opt_t *options = NULL;
     void *data;
-    struct timeval *times = NULL;
-    Amplet2__Udpstream__Item *result;
-    ProtobufCBinaryData packed;
 
     /* the HELLO packet describes all the global test options */
     if ( read_control_hello(control_sock, &options, parse_hello) < 0 ) {
@@ -79,19 +149,6 @@ static int serve_test(int control_sock, struct sockaddr_storage *remote,
 
     /* XXX expect some magic passphrase exchanged via secure tcp connection? */
 
-    //XXX this is all only used when sending
-    client.ai_flags = 0;
-    client.ai_family = remote->ss_family;
-    client.ai_socktype = SOCK_DGRAM;
-    client.ai_protocol = IPPROTO_UDP;
-    client.ai_addr = (struct sockaddr*)remote;
-    if ( client.ai_family == AF_INET ) {
-        client.ai_addrlen = sizeof(struct sockaddr_in);
-    } else {
-        client.ai_addrlen = sizeof(struct sockaddr_in6);
-    }
-    client.ai_canonname = NULL;
-    client.ai_next = NULL;
 
     while ( (bytes=read_control_packet(control_sock, &data)) > 0 ) {
         //XXX can this be made to only be udpstream messages?
@@ -101,44 +158,28 @@ static int serve_test(int control_sock, struct sockaddr_storage *remote,
         switch ( msg->type ) {
             case AMPLET2__SERVERS__CONTROL__TYPE__SEND: {
                 struct opt_t *send_opts;
-                /* send the data stream to the client on the port specified */
+                /* validate as a proper SEND message and extract port */
                 if ( parse_control_send(data, bytes, &send_opts,
                             parse_send) < 0 ) {
                     return -1;
                 }
-                ((struct sockaddr_in*)remote)->sin_port =
-                    ntohs(send_opts->tport);
-                printf("got SEND command with port %d\n",
-                        ntohs(((struct sockaddr_in*)remote)->sin_port));
 
-                // XXX client.ai_addr points at this, maybe should update that
-                // directly so it is obvious?
-                //((struct sockaddr_in*)remote)->sin_port = ntohs(msg->send->test_port);
-                send_udp_stream(test_sock, &client, options);
+                do_send(test_sock, remote, send_opts->tport, options);
                 free(send_opts);
                 break;
             }
 
-            case AMPLET2__SERVERS__CONTROL__TYPE__RECEIVE:
-                printf("got receive packet\n");
+            case AMPLET2__SERVERS__CONTROL__TYPE__RECEIVE: {
+                /* validate it as a proper RECEIVE message */
                 if ( parse_control_receive(data, bytes, NULL, NULL) < 0 ) {
                     return -1;
                 }
-                /* tell the client what port the test server is running on */
-                send_control_ready(control_sock, options->tport);
-                /* wait for the data stream from the client */
-                times = calloc(options->packet_count, sizeof(struct timeval));
-                receive_udp_stream(test_sock, options->packet_count, times);
-                result = report_stream(UDPSTREAM_TO_SERVER, times, options);
-                /* pack the result for sending to the client */
-                packed.len = amplet2__udpstream__item__get_packed_size(result);
-                packed.data = malloc(packed.len);
-                amplet2__udpstream__item__pack(result, packed.data);
-                send_control_result(control_sock, &packed);
-                free(times);
-                free(result);
-                free(packed.data);
+
+                do_receive(control_sock, test_sock, options);
                 break;
+            }
+
+            /* TODO send a close/finished message? */
 
             default: Log(LOG_WARNING, "Unhandled message type %d\n", msg->type);
                      break;

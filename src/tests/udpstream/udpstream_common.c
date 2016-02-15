@@ -81,7 +81,7 @@ ProtobufCBinaryData* build_send(struct opt_t *options) {
 
 
 /*
- * XXX return options structure or integer?
+ * XXX return options structure or integer? integer might be easier
  */
 void* parse_send(ProtobufCBinaryData *data) {
     struct opt_t *options;
