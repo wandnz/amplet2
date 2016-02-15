@@ -60,6 +60,49 @@ void* parse_hello(ProtobufCBinaryData *data) {
 
 
 /*
+ * XXX take options structure or integer?
+ */
+ProtobufCBinaryData* build_send(struct opt_t *options) {
+    ProtobufCBinaryData *data = malloc(sizeof(ProtobufCBinaryData));
+    Amplet2__Udpstream__Send send = AMPLET2__UDPSTREAM__SEND__INIT;
+
+    send.has_test_port = 1;
+    send.test_port = options->tport;
+
+    printf("Send port:%d\n", send.test_port);
+
+    data->len = amplet2__udpstream__send__get_packed_size(&send);
+    data->data = malloc(data->len);
+    amplet2__udpstream__send__pack(&send, data->data);
+
+    return data;
+}
+
+
+
+/*
+ * XXX return options structure or integer?
+ */
+void* parse_send(ProtobufCBinaryData *data) {
+    struct opt_t *options;
+    Amplet2__Udpstream__Send *send;
+
+    printf("parse_send\n");
+
+    send = amplet2__udpstream__send__unpack(NULL, data->len, data->data);
+    options = calloc(1, sizeof(struct opt_t));
+
+    printf("Send port:%d\n", send->test_port);
+    options->tport = send->test_port;
+
+    amplet2__udpstream__send__free_unpacked(send, NULL);
+
+    return options;
+}
+
+
+
+/*
  * Send a stream of UDP packets towards the remote target, with the given
  * test options (size, spacing and count).
  */

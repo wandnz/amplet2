@@ -28,7 +28,7 @@ static int serve_test(int control_sock, struct sockaddr_storage *remote,
     Amplet2__Udpstream__Item *result;
     ProtobufCBinaryData packed;
 
-    if ( (options = read_control_hello(control_sock, parse_hello)) == NULL ) {
+    if ( read_control_hello(control_sock, &options, parse_hello) < 0 ) {
         Log(LOG_WARNING, "Got bad HELLO packet, shutting down test server");
         return -1;
     }
@@ -104,33 +104,38 @@ static int serve_test(int control_sock, struct sockaddr_storage *remote,
         msg = amplet2__servers__control__unpack(NULL, bytes, data);
 
         switch ( msg->type ) {
-            case AMPLET2__SERVERS__CONTROL__TYPE__SEND:
+            case AMPLET2__SERVERS__CONTROL__TYPE__SEND: {
+                struct opt_t *send_opts;
                 /* send the data stream to the client on the port specified */
-                printf("got SEND command with port %d\n", msg->send->test_port);
                 //XXX parse_control_ready or just use it?
                 //XXX at least check it's valid etc...
-                //if ( parse_control_send(data, bytes, sockopts) < 0 ) {
-                //    return -1;
-                //}
+                if ( parse_control_send(data, bytes, &send_opts,
+                            parse_send) < 0 ) {
+                    return -1;
+                }
+                ((struct sockaddr_in*)remote)->sin_port =
+                    ntohs(send_opts->tport);
+                printf("got SEND command with port %d\n",
+                        ntohs(((struct sockaddr_in*)remote)->sin_port));
 
                 // XXX client.ai_addr points at this, maybe should update that
                 // directly so it is obvious?
-                ((struct sockaddr_in*)remote)->sin_port = ntohs(msg->send->test_port);
+                //((struct sockaddr_in*)remote)->sin_port = ntohs(msg->send->test_port);
                 send_udp_stream(test_sock, &client, options);
+                free(send_opts);
                 break;
+            }
 
             case AMPLET2__SERVERS__CONTROL__TYPE__RECEIVE:
                 printf("got receive packet\n");
-                //XXX parse function takes inconsistent args
-                //XXX unpacked vs packed
-                if ( parse_control_receive(data, bytes, sockopts) < 0 ) {
+                if ( parse_control_receive(data, bytes, NULL, NULL) < 0 ) {
                     return -1;
                 }
                 /* tell the client what port the test server is running on */
                 send_control_ready(control_sock, sockopts->tport);
                 /* wait for the data stream from the client */
-                times = calloc(sockopts->packet_count, sizeof(struct timeval));
-                receive_udp_stream(test_sock, sockopts->packet_count, times);
+                times = calloc(options->packet_count, sizeof(struct timeval));
+                receive_udp_stream(test_sock, options->packet_count, times);
                 result = report_stream(UDPSTREAM_TO_SERVER, times, options);
                 /* pack the result for sending to the client */
                 packed.len = amplet2__udpstream__item__get_packed_size(result);
@@ -152,6 +157,7 @@ static int serve_test(int control_sock, struct sockaddr_storage *remote,
     }
 
     close(test_sock);
+    free(options);
 
     return 0;
 }

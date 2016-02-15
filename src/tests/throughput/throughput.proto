@@ -23,3 +23,33 @@ message Item {
     }
     optional Direction direction = 3;
 }
+
+message Hello {
+    /*
+    extend amplet2.servers.Hello {
+        optional Hello data = 106;
+    }
+    */
+
+    optional uint32 test_port = 1;
+    optional uint32 mss = 2;
+    optional int32 rcvbuf = 3;
+    optional int32 sndbuf = 4;
+    optional bool disable_nagle = 5;
+    optional bool disable_web10g = 6;
+    optional bool randomise = 7;
+    optional bool reuse_addr = 8;
+    optional uint32 write_size = 9;
+}
+
+message Send {
+    /*
+    extend amplet2.servers.Send {
+        optional Send data = 106;
+    }
+    */
+
+    optional uint32 duration = 1;
+    optional uint32 write_size = 2;
+    optional uint64 bytes = 3;
+}

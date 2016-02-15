@@ -228,7 +228,7 @@ int send_control_ready(int sock, uint16_t port) {
 /*
  *
  */
-int send_control_receive(int sock, uint32_t packet_count) {
+int send_control_receive(int sock, ProtobufCBinaryData *options) {
     int len;
     void *buffer;
     int result;
@@ -237,8 +237,11 @@ int send_control_receive(int sock, uint32_t packet_count) {
 
     printf("sending receive\n");
 
-    receive.has_packet_count = 1;
-    receive.packet_count = packet_count;
+    if ( options ) {
+        receive.has_options = 1;
+        receive.options = *options;
+    }
+
     msg.receive = &receive;
     msg.has_type = 1;
     msg.type = AMPLET2__SERVERS__CONTROL__TYPE__RECEIVE;
@@ -259,8 +262,7 @@ int send_control_receive(int sock, uint32_t packet_count) {
 /*
  *
  */
-int send_control_send(int sock, uint16_t port, uint32_t duration,
-        uint32_t write_size, uint64_t bytes) {
+int send_control_send(int sock, ProtobufCBinaryData *options) {
     int len;
     void *buffer;
     int result;
@@ -269,15 +271,13 @@ int send_control_send(int sock, uint16_t port, uint32_t duration,
 
     printf("sending send\n");
 
-    send.has_test_port = 1;
-    send.test_port = port;
+    //send.has_test_port = 1;
+    //send.test_port = port;
 
-    send.has_duration_ms = 1;
-    send.duration_ms = duration;
-    send.has_write_size = 1;
-    send.write_size = write_size;
-    send.has_bytes = 1;
-    send.bytes = bytes;
+    if ( options ) {
+        send.has_options = 1;
+        send.options = *options;
+    }
 
     msg.send = &send;
     msg.has_type = 1;
@@ -389,11 +389,10 @@ int send_control_close(int sock) {
 /*
  *
  */
-void * parse_control_hello(void *data, uint32_t len,
+int parse_control_hello(void *data, uint32_t len, void **options,
         void *(*parse_func)(ProtobufCBinaryData *data)) {
 
     Amplet2__Servers__Control *msg;
-    void *options;
 
     assert(data);
 
@@ -405,20 +404,24 @@ void * parse_control_hello(void *data, uint32_t len,
         Log(LOG_WARNING, "Not a HELLO packet, aborting");
         printf("type:%d\n", msg->type);
         amplet2__servers__control__free_unpacked(msg, NULL);
-        return NULL;
+        return -1;
     }
 
-    if ( !msg->hello || !msg->hello->has_options ) {
+    if ( !msg->hello || (parse_func && !msg->hello->has_options) ) {
         Log(LOG_WARNING, "Malformed HELLO packet, aborting");
         amplet2__servers__control__free_unpacked(msg, NULL);
-        return NULL;
+        return -1;
     }
 
     /* call the test specific function to get the test options */
-    options = parse_func(&msg->hello->options);
+    if ( parse_func && options ) {
+        *options = parse_func(&msg->hello->options);
+    } else if ( options ) {
+        *options = NULL;
+    }
 
     amplet2__servers__control__free_unpacked(msg, NULL);
-    return options;
+    return 0;
 }
 
 
@@ -426,13 +429,11 @@ void * parse_control_hello(void *data, uint32_t len,
 /*
  *
  */
-int parse_control_ready(void *data, uint32_t len,
-        struct temp_sockopt_t_xxx *options) {
+int parse_control_ready(void *data, uint32_t len, uint16_t *port) {
 
     Amplet2__Servers__Control *msg;
 
     assert(data);
-    assert(options);
 
     /* unpack all the data */
     msg = amplet2__servers__control__unpack(NULL, len, data);
@@ -450,7 +451,7 @@ int parse_control_ready(void *data, uint32_t len,
         return -1;
     }
 
-    options->tport = msg->ready->test_port;
+    *port = msg->ready->test_port;
 
     amplet2__servers__control__free_unpacked(msg, NULL);
 
@@ -458,15 +459,16 @@ int parse_control_ready(void *data, uint32_t len,
 }
 
 
-//XXX parse function takes inconsistent args
-//XXX unpacked vs packed
-int parse_control_receive(void *data, uint32_t len,
-        struct temp_sockopt_t_xxx *options) {
+
+/*
+ *
+ */
+int parse_control_receive(void *data, uint32_t len, void **options,
+        void *(*parse_func)(ProtobufCBinaryData *data)) {
 
     Amplet2__Servers__Control *msg;
 
     assert(data);
-    assert(options);
 
     /* unpack all the data */
     msg = amplet2__servers__control__unpack(NULL, len, data);
@@ -479,16 +481,57 @@ int parse_control_receive(void *data, uint32_t len,
         return -1;
     }
 
-    if ( !msg->receive || !msg->receive->has_packet_count ) {
+    if ( !msg->receive || (parse_func && !msg->receive->has_options) ) {
         Log(LOG_WARNING, "Malformed RECEIVE packet, aborting");
         amplet2__servers__control__free_unpacked(msg, NULL);
         return -1;
     }
 
-    options->packet_count = msg->receive->packet_count;
-    printf("got control receive with packet count %d\n", options->packet_count);
+    if ( parse_func && options ) {
+        *options = parse_func(&msg->receive->options);
+    } else if ( options ) {
+        *options = NULL;
+    }
 
-    /* TODO other test options */
+    amplet2__servers__control__free_unpacked(msg, NULL);
+
+    return 0;
+}
+
+
+
+/*
+ *
+ */
+int parse_control_send(void *data, uint32_t len, void **options,
+        void *(*parse_func)(ProtobufCBinaryData *data)) {
+
+    Amplet2__Servers__Control *msg;
+
+    assert(data);
+
+    /* unpack all the data */
+    msg = amplet2__servers__control__unpack(NULL, len, data);
+
+    if ( !msg || !msg->has_type ||
+            msg->type != AMPLET2__SERVERS__CONTROL__TYPE__SEND ) {
+        Log(LOG_WARNING, "Not a SEND packet, aborting");
+        printf("type:%d\n", msg->type);
+        amplet2__servers__control__free_unpacked(msg, NULL);
+        return -1;
+    }
+
+    if ( !msg->send || (parse_func && !msg->send->has_options) ) {
+        Log(LOG_WARNING, "Malformed SEND packet, aborting");
+        amplet2__servers__control__free_unpacked(msg, NULL);
+        return -1;
+    }
+
+    if ( parse_func && options ) {
+        *options = parse_func(&msg->send->options);
+    } else if ( options ) {
+        *options = NULL;
+    }
 
     amplet2__servers__control__free_unpacked(msg, NULL);
 
@@ -540,28 +583,27 @@ static int parse_control_result(void *data, uint32_t len,
 /*
  *
  */
-void* read_control_hello(int sock,
+int read_control_hello(int sock, void **options,
         void *(*parse_func)(ProtobufCBinaryData *data)) {
     void *data;
-    void *options;
     int len;
 
     /* read the packet from the stream */
     if ( (len=read_control_packet(sock, &data)) < 0 ) {
         Log(LOG_WARNING, "Failed to read HELLO packet");
-        return NULL;
+        return -1;
     }
 
     /* validate it as a HELLO packet and then try to extract options */
-    if ( (options = parse_control_hello(data, len, parse_func)) == NULL ) {
+    if ( parse_control_hello(data, len, options, parse_func) < 0 ) {
         Log(LOG_WARNING, "Failed to parse HELLO packet");
         free(data);
-        return NULL;
+        return -1;
     }
 
     free(data);
 
-    return options;
+    return 0;
 }
 
 
@@ -569,7 +611,7 @@ void* read_control_hello(int sock,
 /*
  *
  */
-int read_control_ready(int sock, struct temp_sockopt_t_xxx *options) {
+int read_control_ready(int sock, uint16_t *port) {
     void *data;
     int len;
 
@@ -578,7 +620,7 @@ int read_control_ready(int sock, struct temp_sockopt_t_xxx *options) {
         return -1;
     }
 
-    if ( parse_control_ready(data, len, options) < 0 ) {
+    if ( parse_control_ready(data, len, port) < 0 ) {
         Log(LOG_WARNING, "Failed to parse READY packet");
         free(data);
         return -1;

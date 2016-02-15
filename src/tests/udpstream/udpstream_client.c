@@ -161,7 +161,6 @@ static int run_test(struct addrinfo *server, struct opt_t *options,
     gettimeofday(&start_time, NULL);
 
     /* send hello */
-    //if ( send_control_hello(control_socket, socket_options) < 0 ) {
     if ( send_control_hello(control_socket, build_hello(options)) < 0 ) {
         Log(LOG_WARNING, "Failed to send HELLO packet, aborting");
         close(control_socket);
@@ -175,9 +174,10 @@ static int run_test(struct addrinfo *server, struct opt_t *options,
         printf("SCHEDULE ITEM START\n");
         switch ( current->direction ) {
             case UDPSTREAM_TO_SERVER:
-                send_control_receive(control_socket, options->packet_count);
+                send_control_receive(control_socket, NULL);
 
-                if ( read_control_ready(control_socket, socket_options) < 0 ) {
+                if ( read_control_ready(control_socket,
+                            &socket_options->tport) < 0 ) {
                     Log(LOG_WARNING, "Failed to read READY packet, aborting");
                     close(control_socket);
                     return -1;
@@ -207,13 +207,12 @@ static int run_test(struct addrinfo *server, struct opt_t *options,
                 bind(test_socket, (struct sockaddr *)&ss, socklen);
                 /* get the local port number so we can tell the remote host */
                 getsockname(test_socket, (struct sockaddr *)&ss, &socklen);
-                socket_options->tport = ntohs(((struct sockaddr_in *)&ss)->sin_port);
+                options->tport = ntohs(((struct sockaddr_in *)&ss)->sin_port);
 
-                send_control_send(control_socket,
-                        ntohs(((struct sockaddr_in *)&ss)->sin_port), 0, 0, 0);
+                send_control_send(control_socket, build_send(options));
 
                 /* wait for the data stream from the server */
-                receive_udp_stream(test_socket, options->packet_count, in_times);
+                receive_udp_stream(test_socket, options->packet_count,in_times);
 
                 break;
         };

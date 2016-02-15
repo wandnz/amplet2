@@ -45,7 +45,7 @@ message Period {
 message Hello {
     /*
     extend amplet2.servers.Hello {
-        optional Hello data = 102;
+        optional Hello data = 109;
     }
     */
 
@@ -54,4 +54,14 @@ message Hello {
     optional uint32 packet_spacing = 3 [default = 1000];
     optional uint32 packet_count = 4 [default = 11];
     optional uint32 percentile_count = 5 [default = 10];
+}
+
+message Send {
+    /*
+    extend amplet2.servers.Send {
+        optional Send data = 109;
+    }
+    */
+
+    optional uint32 test_port = 1;
 }

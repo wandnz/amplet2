@@ -18,6 +18,127 @@
 /*
  *
  */
+ProtobufCBinaryData* build_hello(struct opt_t *options) {
+    ProtobufCBinaryData *data = malloc(sizeof(ProtobufCBinaryData));
+    Amplet2__Throughput__Hello hello = AMPLET2__THROUGHPUT__HELLO__INIT;
+
+    hello.has_test_port = 1;
+    hello.test_port = options->tport;
+    hello.has_mss = 1;
+    hello.mss = options->sock_mss;
+    hello.has_rcvbuf = 1;
+    hello.rcvbuf = options->sock_rcvbuf;
+    hello.has_sndbuf = 1;
+    hello.sndbuf = options->sock_sndbuf;
+    hello.has_disable_nagle = 1;
+    hello.disable_nagle = options->sock_disable_nagle;
+    hello.has_disable_web10g = 1;
+    hello.disable_web10g = options->disable_web10g;
+    hello.has_randomise = 1;
+    hello.randomise = options->randomise;
+    hello.has_reuse_addr = 1;
+    hello.reuse_addr = options->reuse_addr;
+    hello.has_write_size = 1;
+    hello.write_size = options->write_size;
+
+    printf("Hello port:%d\n", hello.test_port);
+
+    data->len = amplet2__throughput__hello__get_packed_size(&hello);
+    data->data = malloc(data->len);
+    amplet2__throughput__hello__pack(&hello, data->data);
+
+    return data;
+}
+
+
+
+/*
+ *
+ */
+void* parse_hello(ProtobufCBinaryData *data) {
+    struct opt_t *options;
+    Amplet2__Throughput__Hello *hello;
+
+    printf("parse_hello\n");
+
+    hello = amplet2__throughput__hello__unpack(NULL, data->len, data->data);
+    options = calloc(1, sizeof(struct opt_t));
+
+    printf("Hello port:%d\n", hello->test_port);
+    options->tport = hello->test_port;
+    options->sock_mss = hello->mss;
+    options->sock_rcvbuf = hello->rcvbuf;
+    options->sock_sndbuf = hello->sndbuf;
+    options->sock_disable_nagle = hello->disable_nagle;
+    options->disable_web10g = hello->disable_web10g;
+    options->randomise = hello->randomise;
+    options->reuse_addr = hello->reuse_addr;
+    options->write_size = hello->write_size;
+
+    amplet2__throughput__hello__free_unpacked(hello, NULL);
+
+    printf("parse_hello options:%p\n", options);
+
+    return options;
+}
+
+
+
+/*
+ *
+ */
+ProtobufCBinaryData* build_send(struct test_request_t *options) {
+    ProtobufCBinaryData *data = malloc(sizeof(ProtobufCBinaryData));
+    Amplet2__Throughput__Send send = AMPLET2__THROUGHPUT__SEND__INIT;
+
+    send.has_duration = 1;
+    send.duration = options->duration;
+    send.has_write_size = 1;
+    send.write_size = options->write_size;
+    send.has_bytes = 1;
+    send.bytes = options->bytes;
+
+    printf("build_send dur:%d write:%d bytes:%d\n", send.duration,
+            send.write_size, send.bytes);
+
+    data->len = amplet2__throughput__send__get_packed_size(&send);
+    data->data = malloc(data->len);
+    amplet2__throughput__send__pack(&send, data->data);
+
+    return data;
+}
+
+
+
+/*
+ *
+ */
+void* parse_send(ProtobufCBinaryData *data) {
+    struct test_request_t *options;
+    Amplet2__Throughput__Send *send;
+
+    printf("parse_send\n");
+
+    send = amplet2__throughput__send__unpack(NULL, data->len, data->data);
+    options = calloc(1, sizeof(struct test_request_t));
+
+    options->duration = send->duration;
+    options->write_size = send->write_size;
+    options->bytes = send->bytes;
+
+    printf("parse_send dur:%d write:%d bytes:%d\n", options->duration,
+            options->write_size, options->bytes);
+
+    amplet2__throughput__send__free_unpacked(send, NULL);
+
+    return options;
+}
+
+
+
+/*
+ *
+ */
 Amplet2__Throughput__Item* report_schedule(struct test_request_t *info) {
 
     Amplet2__Throughput__Item *item =

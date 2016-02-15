@@ -89,16 +89,15 @@ static int serveTest(int control_socket, struct temp_sockopt_t_xxx *sockopts) {
     void *data;
     Amplet2__Throughput__Item *item;
     ProtobufCBinaryData packed;
+    struct opt_t *options = NULL;
 
     memset(&packet, 0, sizeof(packet));
     memset(&result, 0, sizeof(result));
 
     /* Read the hello and check we are compatible */
-#if 0
-    if ( read_control_hello(control_socket, sockopts, NULL) < 0 ) {//XXX
+    if ( read_control_hello(control_socket, &options, parse_hello) < 0 ) {
         goto errorCleanup;
     }
-#endif
 
     /* If test port has been manually set, only try that port. If it is
      * still the default, try a few ports till we hopefully find a free one.
@@ -193,17 +192,20 @@ static int serveTest(int control_socket, struct temp_sockopt_t_xxx *sockopts) {
 
             case AMPLET2__SERVERS__CONTROL__TYPE__SEND:
                 {
-                    memset(&req, 0, sizeof(req));
+                    struct test_request_t *request;
                     memset(&result, 0, sizeof(result));
-                    req.duration = msg->send->duration_ms;
-                    req.write_size = msg->send->write_size;
-                    req.bytes = msg->send->bytes;
-                    req.randomise = sockopts->randomise;
-                    Log(LOG_DEBUG, "Got send request, dur:%d bytes:%d writes:%d",
-                            req.duration, req.bytes, req.write_size);
+
+                    if ( parse_control_send(data, bytes, &request,
+                                parse_send) < 0 ) {
+                        return -1;
+                    }
+                    request->randomise = sockopts->randomise;
+                    Log(LOG_DEBUG,"Got send request, dur:%d bytes:%d writes:%d",
+                            request->duration, request->bytes,
+                            request->write_size);
 
                     /* Send the actual packets */
-                    switch ( sendPackets(test_socket, &req, &result) ) {
+                    switch ( sendPackets(test_socket, request, &result) ) {
                         case -1:
                             /* Failed to write to socket */
                             goto errorCleanup;
@@ -223,10 +225,10 @@ static int serveTest(int control_socket, struct temp_sockopt_t_xxx *sockopts) {
                         //    web10g = getWeb10GSnap(test_socket);
                         //}
                         /* Unlike old test, send result for either direction */
-                        memset(&req, 0, sizeof(req));
-                        req.type = TPUT_2_CLIENT;
-                        req.c_result = &result;
-                        item = report_schedule(&req);
+                        memset(request, 0, sizeof(*request));
+                        request->type = TPUT_2_CLIENT;
+                        request->c_result = &result;
+                        item = report_schedule(request);
                         /* pack the result for sending to the client */
                         packed.len = amplet2__throughput__item__get_packed_size(item);
                         packed.data = malloc(packed.len);
@@ -243,7 +245,6 @@ static int serveTest(int control_socket, struct temp_sockopt_t_xxx *sockopts) {
                         free(web10g);
                     }
                     web10g = NULL;
-                    memset(&req, 0, sizeof(req));
                     memset(&result, 0, sizeof(result));
                 }
                 continue;

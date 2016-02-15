@@ -302,13 +302,13 @@ static int runSchedule(struct addrinfo *serv_addr, struct opt_t *options,
         goto errorCleanup;
     }
 
-    if ( send_control_hello(control_socket, socket_options) < 0 ) {
+    if ( send_control_hello(control_socket, build_hello(options)) < 0 ) {
         Log(LOG_WARNING, "Failed to send HELLO packet, aborting");
         goto errorCleanup;
     }
 
     /* Wait test socket to become ready */
-    if ( read_control_ready(control_socket, socket_options) < 0 ) {
+    if ( read_control_ready(control_socket, &socket_options->tport) < 0 ) {
         Log(LOG_WARNING, "Failed to read READY packet, aborting");
         close(control_socket);
         return -1;
@@ -350,7 +350,8 @@ static int runSchedule(struct addrinfo *serv_addr, struct opt_t *options,
                 }
                 close(test_socket);
                 /* Read the actual port to use */
-                if ( read_control_ready(control_socket, socket_options) < 0 ) {
+                if ( read_control_ready(control_socket,
+                            &socket_options->tport) < 0 ) {
                     Log(LOG_WARNING, "Failed to read READY packet, aborting");
                     close(control_socket);
                     return -1;
@@ -368,8 +369,11 @@ static int runSchedule(struct addrinfo *serv_addr, struct opt_t *options,
             case TPUT_2_CLIENT:
                 Log(LOG_DEBUG, "Starting Server to Client Throughput test");
                 /* Request a test from the server */
+#if 0
                 if ( send_control_send(control_socket, 0, cur->duration,
                             cur->write_size, cur->bytes) < 0 ) {
+#endif
+                if ( send_control_send(control_socket, build_send(cur)) < 0 ) {
                     goto errorCleanup;
                 }
 
@@ -421,7 +425,8 @@ static int runSchedule(struct addrinfo *serv_addr, struct opt_t *options,
                 /* Tell the server we are starting a test */
                 send_control_receive(control_socket, 0);
                 /* Wait for it get ready */
-                if ( read_control_ready(control_socket, socket_options) < 0 ) {
+                if ( read_control_ready(control_socket,
+                            &socket_options->tport) < 0 ) {
                     Log(LOG_WARNING, "Failed to read READY packet, aborting");
                     close(control_socket);
                     return -1;

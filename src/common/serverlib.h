@@ -34,26 +34,27 @@ struct temp_sockopt_t_xxx {
 
 int send_control_hello(int sock, ProtobufCBinaryData *options);
 int send_control_ready(int sock, uint16_t port);
-int send_control_receive(int sock, uint32_t packet_count);
-int send_control_send(int sock, uint16_t port, uint32_t duration,
-        uint32_t write_size, uint64_t bytes);
+int send_control_receive(int sock, ProtobufCBinaryData *options);
+int send_control_send(int sock, ProtobufCBinaryData *options);
 int send_control_result(int sock, ProtobufCBinaryData *data);
 int send_control_renew(int sock);//XXX
 int send_control_close(int sock);//XXX
 
-void* read_control_hello(int sock,
+int read_control_hello(int sock, void **options,
         void *(*parse_func)(ProtobufCBinaryData *data));
-int read_control_ready(int sock, struct temp_sockopt_t_xxx *options);
+int read_control_ready(int sock, uint16_t *port);
 int read_control_packet(int sock, void **data);
 int read_control_result(int sock, ProtobufCBinaryData *results);
 
+/* XXX how many parse functions can be static? */
 //int parse_control_hello(void *data, uint32_t len, void *options);
-void* parse_control_hello(void *data, uint32_t len,
+int parse_control_hello(void *data, uint32_t len, void **options,
         void *(*parse_func)(ProtobufCBinaryData *data));
-int parse_control_ready(void *data, uint32_t len,
-        struct temp_sockopt_t_xxx *options);
-int parse_control_receive(void *data, uint32_t len,
-        struct temp_sockopt_t_xxx *options);
+int parse_control_ready(void *data, uint32_t len, uint16_t *port);
+int parse_control_receive(void *data, uint32_t len, void **options,
+        void *(*parse_func)(ProtobufCBinaryData *data));
+int parse_control_send(void *data, uint32_t len, void **options,
+        void *(*parse_func)(ProtobufCBinaryData *data));
 
 int start_listening(struct socket_t *sockets, int port,
         struct temp_sockopt_t_xxx *sockopts);

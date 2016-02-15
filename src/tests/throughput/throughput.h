@@ -335,6 +335,10 @@ int readPacket(int test_socket, struct packet_t *packet,
                     char **additional);
 
 uint64_t timeNanoseconds(void);
+ProtobufCBinaryData* build_hello(struct opt_t *options);
+ProtobufCBinaryData* build_send(struct test_request_t *options);
+void* parse_hello(ProtobufCBinaryData *data);
+void* parse_send(ProtobufCBinaryData *data);
 
 /*
  * Shared function from web10g.c
