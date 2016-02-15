@@ -711,6 +711,7 @@ static int set_and_verify_sockopt(int sock, int value, int proto,
  * Set all the relevant socket options that the test is requesting be set
  * (e.g. set buffer sizes, set MSS, disable Nagle).
  */
+ //XXX this should maybe be a throughput function again?
 static void do_socket_setup(struct temp_sockopt_t_xxx *options, int sock) {
 
     if ( options == NULL ) {

@@ -22,9 +22,6 @@
 #define MAX_CONTROL_PORT  8825
 #define DEFAULT_TEST_PORT 8826 /* Run test across a separate port */
 #define MAX_TEST_PORT 8836
-#define DEFAULT_WRITE_SIZE  (128 * 1024) // 128-kbyte like iperf uses
-#define DEFAULT_TPUT_PAUSE  10000
-#define DEFAULT_TEST_DURATION 10 /* iperf default: 10s */
 
 //XXX 32bit timeval problems
 #define MINIMUM_UDPSTREAM_PACKET_LENGTH ( \
@@ -57,30 +54,16 @@ struct test_request_t {
 /*
  * User defined test options that control packet size and timing.
  */
-#if 0
-struct opt_t {
-    int random;			/* use random packet sizes (bytes) */
-    int perturbate;		/* delay sending by up to this time (usec) */
-    uint16_t packet_size;	/* use this packet size (bytes) */
-    uint32_t inter_packet_delay;/* minimum gap between packets (usec) */
-};
-#endif
 struct opt_t {
     uint16_t perturbate;
     uint16_t cport; /* The control port to connect to */
     uint16_t tport; /* The test port to connect to or create */
     uint16_t packet_size;
     uint16_t packet_count;
-    uint32_t packet_spacing; //XXX inter_packet_delay;
+    uint32_t packet_spacing;
     uint32_t percentile_count;
     enum udpstream_schedule_direction direction;
-    //char *textual_schedule;
-    //struct test_request_t *schedule; /* The test sequence */
-    //char *device;
-    //struct addrinfo *sourcev4;
-    //struct addrinfo *sourcev6;
 };
-
 
 
 

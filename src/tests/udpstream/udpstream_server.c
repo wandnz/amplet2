@@ -107,8 +107,6 @@ static int serve_test(int control_sock, struct sockaddr_storage *remote,
             case AMPLET2__SERVERS__CONTROL__TYPE__SEND: {
                 struct opt_t *send_opts;
                 /* send the data stream to the client on the port specified */
-                //XXX parse_control_ready or just use it?
-                //XXX at least check it's valid etc...
                 if ( parse_control_send(data, bytes, &send_opts,
                             parse_send) < 0 ) {
                     return -1;

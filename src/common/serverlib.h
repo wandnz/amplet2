@@ -18,16 +18,11 @@ struct temp_sockopt_t_xxx {
     uint16_t tport;
     char *device;
 
-    uint32_t packet_count;
-
-    //XXX test opts
-    int32_t sock_mss; /* Set the TCP Maximun segment size */
+    int32_t sock_mss;
     uint8_t sock_disable_nagle;
     uint8_t reuse_addr;
     int32_t sock_rcvbuf;
     int32_t sock_sndbuf;
-    uint8_t randomise;
-    uint8_t disable_web10g;
 };
 
 
@@ -47,7 +42,6 @@ int read_control_packet(int sock, void **data);
 int read_control_result(int sock, ProtobufCBinaryData *results);
 
 /* XXX how many parse functions can be static? */
-//int parse_control_hello(void *data, uint32_t len, void *options);
 int parse_control_hello(void *data, uint32_t len, void **options,
         void *(*parse_func)(ProtobufCBinaryData *data));
 int parse_control_ready(void *data, uint32_t len, uint16_t *port);

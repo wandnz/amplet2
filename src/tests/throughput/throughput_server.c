@@ -199,7 +199,7 @@ static int serveTest(int control_socket, struct temp_sockopt_t_xxx *sockopts) {
                                 parse_send) < 0 ) {
                         return -1;
                     }
-                    request->randomise = sockopts->randomise;
+                    request->randomise = options->randomise;
                     Log(LOG_DEBUG,"Got send request, dur:%d bytes:%d writes:%d",
                             request->duration, request->bytes,
                             request->write_size);

@@ -142,7 +142,6 @@ static int run_test(struct addrinfo *server, struct opt_t *options,
     printf("run test\n");
     socket_options->cport = options->cport;//XXX
     socket_options->tport = options->tport;//XXX
-    socket_options->packet_count = options->packet_count;//XXX
 
     socket_options->socktype = SOCK_STREAM;
     socket_options->protocol = IPPROTO_TCP;

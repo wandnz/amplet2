@@ -288,8 +288,6 @@ static int runSchedule(struct addrinfo *serv_addr, struct opt_t *options,
     socket_options->sock_disable_nagle = options->sock_disable_nagle;//XXX
     socket_options->sock_rcvbuf = options->sock_rcvbuf;//XXX
     socket_options->sock_sndbuf = options->sock_sndbuf;//XXX
-    socket_options->randomise = options->randomise;//XXX
-    socket_options->disable_web10g = options->disable_web10g;//XXX
 
     socket_options->socktype = SOCK_STREAM;
     socket_options->protocol = IPPROTO_TCP;
