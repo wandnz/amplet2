@@ -50,6 +50,7 @@ int parse_control_receive(void *data, uint32_t len, void **options,
 int parse_control_send(void *data, uint32_t len, void **options,
         void *(*parse_func)(ProtobufCBinaryData *data));
 
+struct addrinfo *get_socket_address(int sock);
 int start_listening(struct socket_t *sockets, int port,
         struct temp_sockopt_t_xxx *sockopts);
 int connect_to_server(struct addrinfo *server, struct temp_sockopt_t_xxx *options, int port);

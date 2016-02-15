@@ -37,34 +37,6 @@ static uint16_t getSocketPort(int sock_fd) {
 
 
 
-/*
- * Return the local address that the socket is using.
- */
-static struct addrinfo *getSocketAddress(int sock_fd) {
-    struct addrinfo *addr;
-
-    assert(sock_fd > 0);
-
-    /* make our own struct addrinfo */
-    addr = (struct addrinfo *)malloc(sizeof(struct addrinfo));
-    addr->ai_addr = (struct sockaddr *)malloc(sizeof(struct sockaddr_storage));
-    addr->ai_addrlen = sizeof(struct sockaddr_storage);
-
-    /* ask to fill in the ai_addr portion for our socket */
-    getsockname(sock_fd, addr->ai_addr, &addr->ai_addrlen);
-
-    /* we already know most of the rest, so fill that in too */
-    addr->ai_family = ((struct sockaddr*)addr->ai_addr)->sa_family;
-    addr->ai_socktype = SOCK_STREAM;
-    addr->ai_protocol = IPPROTO_TCP;
-    addr->ai_canonname = NULL;
-    addr->ai_next = NULL;
-
-    return addr;
-}
-
-
-
 /**
  * Serves a test for a connected client
  *
@@ -428,7 +400,7 @@ void run_throughput_server(int argc, char *argv[], SSL *ssl) {
                       sockopts.sourcev6 = NULL;
                       /* set v4 address to where we received the connection */
                       freeaddrinfo(sockopts.sourcev4);
-                      sockopts.sourcev4 = getSocketAddress(control_sock);
+                      sockopts.sourcev4 = get_socket_address(control_sock);
                       break;
 
         case AF_INET6: control_sock = accept(listen_sockets.socket6,
@@ -439,7 +411,7 @@ void run_throughput_server(int argc, char *argv[], SSL *ssl) {
                       sockopts.sourcev4 = NULL;
                       /* set v6 address to where we received the connection */
                       freeaddrinfo(sockopts.sourcev6);
-                      sockopts.sourcev6 = getSocketAddress(control_sock);
+                      sockopts.sourcev6 = get_socket_address(control_sock);
                       break;
 
         default: return;

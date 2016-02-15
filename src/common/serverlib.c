@@ -661,6 +661,34 @@ int read_control_result(int sock, ProtobufCBinaryData *results) {
 
 
 /*
+ * Return the local address that the socket is using.
+  */
+struct addrinfo *get_socket_address(int sock) {
+    struct addrinfo *addr;
+
+    assert(sock > 0);
+
+    /* make our own struct addrinfo */
+    addr = (struct addrinfo *)malloc(sizeof(struct addrinfo));
+    addr->ai_addr = (struct sockaddr *)malloc(sizeof(struct sockaddr_storage));
+    addr->ai_addrlen = sizeof(struct sockaddr_storage);
+
+    /* ask to fill in the ai_addr portion for our socket */
+    getsockname(sock, addr->ai_addr, &addr->ai_addrlen);
+
+    /* we already know most of the rest, so fill that in too */
+    addr->ai_family = ((struct sockaddr*)addr->ai_addr)->sa_family;
+    addr->ai_socktype = SOCK_STREAM;
+    addr->ai_protocol = IPPROTO_TCP;
+    addr->ai_canonname = NULL;
+    addr->ai_next = NULL;
+
+    return addr;
+}
+
+
+
+/*
  * Set a socket option using setsockopt() and then immediately call
  * getsockopt() to make sure that the value was set correctly.
  */
@@ -711,7 +739,6 @@ static int set_and_verify_sockopt(int sock, int value, int proto,
  * Set all the relevant socket options that the test is requesting be set
  * (e.g. set buffer sizes, set MSS, disable Nagle).
  */
- //XXX this should maybe be a throughput function again?
 static void do_socket_setup(struct temp_sockopt_t_xxx *options, int sock) {
 
     if ( options == NULL ) {

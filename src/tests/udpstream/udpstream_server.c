@@ -28,11 +28,11 @@ static int serve_test(int control_sock, struct sockaddr_storage *remote,
     Amplet2__Udpstream__Item *result;
     ProtobufCBinaryData packed;
 
+    /* the HELLO packet describes all the global test options */
     if ( read_control_hello(control_sock, &options, parse_hello) < 0 ) {
         Log(LOG_WARNING, "Got bad HELLO packet, shutting down test server");
         return -1;
     }
-    sockopts->tport = options->tport;//XXX
 
     /*
      * Try to create the test server on the appropriate port. If test port has
@@ -52,11 +52,6 @@ static int serve_test(int control_sock, struct sockaddr_storage *remote,
     /* configure the new UDP test socket */
     sockopts->socktype = SOCK_DGRAM;
     sockopts->protocol = IPPROTO_UDP;
-    if ( remote->ss_family == AF_INET ) {
-        sockopts->sourcev6 = NULL;
-    } else {
-        sockopts->sourcev4 = NULL;
-    }
 
     /* No errors so far, make our new test socket with the given test options */
     do {
@@ -130,7 +125,7 @@ static int serve_test(int control_sock, struct sockaddr_storage *remote,
                     return -1;
                 }
                 /* tell the client what port the test server is running on */
-                send_control_ready(control_sock, sockopts->tport);
+                send_control_ready(control_sock, options->tport);
                 /* wait for the data stream from the client */
                 times = calloc(options->packet_count, sizeof(struct timeval));
                 receive_udp_stream(test_sock, options->packet_count, times);
@@ -256,25 +251,23 @@ void run_udpstream_server(int argc, char *argv[], SSL *ssl) {
         case AF_INET: control_sock = accept(listen_sockets.socket,
                               (struct sockaddr*)&client_addr, &client_addrlen);
                       Log(LOG_DEBUG, "Got control connection on IPv4");
-                      //XXX does the throughput test need this?
                       /* clear out the v6 address, it isn't needed any more */
-                      //freeaddrinfo(sockopts.sourcev6);
-                      //sockopts.sourcev6 = NULL;
+                      freeaddrinfo(sockopts.sourcev6);
+                      sockopts.sourcev6 = NULL;
                       /* set v4 address to where we received the connection */
-                      //freeaddrinfo(sockopts.sourcev4);
-                      //sockopts.sourcev4 = getSocketAddress(control_sock);
+                      freeaddrinfo(sockopts.sourcev4);
+                      sockopts.sourcev4 = get_socket_address(control_sock);
                       break;
 
         case AF_INET6: control_sock = accept(listen_sockets.socket6,
                               (struct sockaddr*)&client_addr, &client_addrlen);
                       Log(LOG_DEBUG, "Got control connection on IPv6");
-                      //XXX does the throughput test need this?
                       /* clear out the v4 address, it isn't needed any more */
-                      //freeaddrinfo(sockopts.sourcev4);
-                      //sockopts.sourcev4 = NULL;
+                      freeaddrinfo(sockopts.sourcev4);
+                      sockopts.sourcev4 = NULL;
                       /* set v6 address to where we received the connection */
-                      //freeaddrinfo(sockopts.sourcev6);
-                      //sockopts.sourcev6 = getSocketAddress(control_sock);
+                      freeaddrinfo(sockopts.sourcev6);
+                      sockopts.sourcev6 = get_socket_address(control_sock);
                       break;
 
         default: return;
@@ -302,21 +295,13 @@ void run_udpstream_server(int argc, char *argv[], SSL *ssl) {
 
     /* we made the addrinfo structs ourselves, so have to free them manually */
     if ( sockopts.sourcev4 ) {
-        //free(sockopts.sourcev4->ai_addr);
-        //free(sockopts.sourcev4);
-        freeaddrinfo(sockopts.sourcev4);
-        sockopts.sourcev4 = NULL;
-        freeaddrinfo(sockopts.sourcev6);
-        sockopts.sourcev6 = NULL;
+        free(sockopts.sourcev4->ai_addr);
+        free(sockopts.sourcev4);
     }
 
     if ( sockopts.sourcev6 ) {
-        //free(sockopts.sourcev6->ai_addr);
-        //free(sockopts.sourcev6);
-        freeaddrinfo(sockopts.sourcev4);
-        sockopts.sourcev4 = NULL;
-        freeaddrinfo(sockopts.sourcev6);
-        sockopts.sourcev6 = NULL;
+        free(sockopts.sourcev6->ai_addr);
+        free(sockopts.sourcev6);
     }
 
     return;
