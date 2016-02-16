@@ -299,6 +299,7 @@ enum TPUT_PKT {
 /* This should align correctly under
  * sizeof(struct packet_t) == 32
  */
+/* TODO remove most of this, unnecessary */
 struct packet_t {
     struct header_t {
         uint32_t type;
@@ -311,7 +312,6 @@ struct packet_t {
     } types; //type union
 }; //packet_t struct
 
-#define MIN(X,Y) (((X) < (Y)) ? (X) : (Y))
 
 /* Shared common functions from throughput_common.c
  *

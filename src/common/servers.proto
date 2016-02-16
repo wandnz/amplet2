@@ -27,7 +27,6 @@ message Control {
          * level.
          */
         optional Renew renew = 7;
-        optional Close close = 8;
 }
 
 message Hello {
