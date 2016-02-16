@@ -304,28 +304,30 @@ static int serveTest(int control_sock, struct temp_sockopt_t_xxx *sockopts) {
         switch ( msg->type ) {
             case AMPLET2__SERVERS__CONTROL__TYPE__RECEIVE: {
                 if ( parse_control_receive(data, bytes, NULL, NULL) < 0 ) {
-                    return -1;
+                    goto errorCleanup;
                 }
 
                 if ( do_receive(control_sock, test_sock) < 0 ) {
                     goto errorCleanup;
                 }
 
-                continue;
+                break;
             }
 
             case AMPLET2__SERVERS__CONTROL__TYPE__SEND: {
                 struct test_request_t *request;
                 if ( parse_control_send(data, bytes, (void**)&request,
                             parse_send) < 0 ) {
-                    return -1;
+                    goto errorCleanup;
                 }
 
                 if ( do_send(control_sock, test_sock, options, request) < 0 ) {
                     goto errorCleanup;
                 }
 
-                continue;
+                free(request);
+
+                break;
             }
 
             case AMPLET2__SERVERS__CONTROL__TYPE__RENEW: {
@@ -334,7 +336,7 @@ static int serveTest(int control_sock, struct temp_sockopt_t_xxx *sockopts) {
                     goto errorCleanup;
                 }
 
-                continue;
+                break;
             }
 
             case AMPLET2__SERVERS__CONTROL__TYPE__CLOSE: {
@@ -345,11 +347,23 @@ static int serveTest(int control_sock, struct temp_sockopt_t_xxx *sockopts) {
             default: {
                 /* Try and continue if we get a weird message */
                 Log(LOG_WARNING, "Unhandled message type %d", msg->type);
-                continue;
+                break;
             }
         };
-        break;
+
+        /* both read_control_packet and unpacking the buffer allocate memory */
+        free(data);
+        amplet2__servers__control__free_unpacked(msg, NULL);
+
+#if 0
+        /* stop once we get a close message, otherwise assume there are more */
+        if ( msg->type == AMPLET2__SERVERS__CONTROL__TYPE__CLOSE ) {
+            break;
+        }
+#endif
     }
+
+    free(options);
 
     if ( test_sock != -1 ) {
         close(test_sock);
@@ -370,6 +384,8 @@ errorCleanup:
     if ( control_sock != -1 ) {
         close(control_sock);
     }
+
+    free(options);
 
     return -1;
 }

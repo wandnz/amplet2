@@ -189,6 +189,13 @@ int send_control_hello(int sock, ProtobufCBinaryData *options) {
 
     free(buffer);
 
+    /*
+     * We will take charge and free the options as well, the test shouldn't
+     * require it any longer and it makes the calling function look ugly.
+     */
+    free(options->data);
+    free(options);
+
     return result;
 }
 
@@ -290,6 +297,15 @@ int send_control_send(int sock, ProtobufCBinaryData *options) {
     result = write_control_packet(sock, buffer, len);
 
     free(buffer);
+
+    /*
+     * We will take charge and free the options as well, the test shouldn't
+     * require it any longer and it makes the calling function look ugly.
+     */
+    if ( options ) {
+        free(options->data);
+        free(options);
+    }
 
     return result;
 }
