@@ -37,6 +37,192 @@ static uint16_t getSocketPort(int sock_fd) {
 
 
 
+/*
+ *
+ */
+static int do_receive(int control_sock, int test_sock) {
+    Amplet2__Throughput__Item *item;
+    ProtobufCBinaryData packed;
+    struct test_result_t result;
+    struct test_request_t request;
+
+    memset(&result, 0, sizeof(result));
+    memset(&request, 0, sizeof(request));
+
+    /* Send READY here so timestamp is accurate */
+    send_control_ready(control_sock, 0);
+
+    if ( incomingTest(test_sock, &result) != 0 ) {
+        return -1;
+    }
+
+#if 0
+    if ( !sockopts->disable_web10g ) {
+        web10g = getWeb10GSnap(test_sock);
+    }
+#endif
+
+    /* Send our result */
+    request.type = TPUT_2_SERVER;
+    request.s_result = &result;
+
+    item = report_schedule(&request);
+
+    /* pack the result for sending to the client */
+    packed.len = amplet2__throughput__item__get_packed_size(item);
+    packed.data = malloc(packed.len);
+    amplet2__throughput__item__pack(item, packed.data);
+
+    if ( send_control_result(control_sock, &packed) < 0 ) {
+        free(item);
+        free(packed.data);
+        return -1;
+    }
+
+#if 0
+    if ( web10g != NULL ) {
+        free(web10g);
+    }
+#endif
+
+    free(item);
+    free(packed.data);
+
+    return 0;
+}
+
+
+static int do_send(int control_sock, int test_sock, struct opt_t *options,
+        struct test_request_t *request) {
+
+    Amplet2__Throughput__Item *item;
+    ProtobufCBinaryData packed;
+    struct test_result_t result;
+#if 0
+    struct report_web10g_t *web10g = NULL;
+#endif
+
+    memset(&result, 0, sizeof(result));
+
+    request->randomise = options->randomise;
+
+    Log(LOG_DEBUG,"Got send request, dur:%d bytes:%d writes:%d",
+            request->duration, request->bytes,
+            request->write_size);
+
+    /* Send the actual packets */
+    switch ( sendPackets(test_sock, request, &result) ) {
+        case -1:
+            /* Failed to write to socket */
+            return -1;
+
+        case 1:
+            /* Bad test request, lets send a packet to keep the
+             * client happy it's still expecting something.
+             * XXX Why do it like this?
+             */
+            if ( send_control_receive(test_sock, 0) < 0 ) {
+                return -1;
+            }
+            /* Fall through on purpose! */
+
+        case 0:
+            /* Success or our fake success from case 1: */
+#if 0
+            if ( !options->disable_web10g ) {
+                web10g = getWeb10GSnap(test_sock);
+            }
+#endif
+
+            /* Unlike old test, send result for either direction */
+            memset(request, 0, sizeof(*request));
+            request->type = TPUT_2_CLIENT;
+            request->c_result = &result;
+            item = report_schedule(request);
+
+            /* pack the result for sending to the client */
+            packed.len = amplet2__throughput__item__get_packed_size(item);
+            packed.data = malloc(packed.len);
+            amplet2__throughput__item__pack(item, packed.data);
+
+            /* send result to the client for reporting */
+            if ( send_control_result(control_sock, &packed) < 0 ) {
+                free(item);
+                free(packed.data);
+                return -1;
+            }
+
+            free(item);
+            free(packed.data);
+    }
+
+#if 0
+    if ( web10g != NULL ) {
+        free(web10g);
+    }
+#endif
+
+    return 0;
+}
+
+
+
+static int do_renew(int control_sock, int test_sock, uint16_t portmax,
+        struct temp_sockopt_t_xxx *sockopts) {
+
+    struct packet_t packet;
+    struct socket_t sockets;
+    int t_listen;
+    int res;
+
+    Log(LOG_DEBUG, "Client asked to renew the connection");
+
+    memset(&packet, 0, sizeof(packet));
+
+    /* Ready the listening socket again */
+    do {
+        res = start_listening(&sockets, sockopts->tport, sockopts);
+    } while ( res == EADDRINUSE && sockopts->tport++ < portmax );
+
+    if ( res != 0 ) {
+        Log(LOG_ERR, "Failed to open listening socket terminating");
+        return -1;
+    }
+
+    if ( sockets.socket > 0 ) {
+        t_listen = sockets.socket;
+    } else {
+        t_listen = sockets.socket6;
+    }
+
+    /* Finish this side of the TCP connection */
+    shutdown(test_sock, SHUT_WR);
+
+    /* Now the client has also closed */
+    if ( readPacket(test_sock, &packet, NULL) != 0 ) {
+        Log(LOG_WARNING,
+                "TPUT_NEW_CONNECTION expected the connection to be closed");
+    }
+    close(test_sock);
+
+    send_control_ready(control_sock, getSocketPort(t_listen));
+    do {
+        test_sock = accept(t_listen, NULL, NULL);
+    } while (test_sock == -1 && errno == EINTR);
+
+    if ( test_sock == -1 ) {
+        Log(LOG_ERR, "Failed to accept after connection reset");
+        return -1;
+    }
+
+    /* Close the listening socket again */
+    close(t_listen);
+
+    return 0;
+}
+
+
+
 /**
  * Serves a test for a connected client
  *
@@ -45,29 +231,18 @@ static uint16_t getSocketPort(int sock_fd) {
  *
  * @return 0 if successful, -1 upon error.
  */
-static int serveTest(int control_socket, struct temp_sockopt_t_xxx *sockopts) {
-    struct packet_t packet;
-    struct test_result_t result;
-    struct test_request_t req;
+static int serveTest(int control_sock, struct temp_sockopt_t_xxx *sockopts) {
     int bytes;
-    struct report_web10g_t *web10g = NULL;
     int t_listen = -1;
-    int test_socket = -1;
-    struct sockaddr_storage client_addr;
-    socklen_t client_addrlen = sizeof(client_addr);
+    int test_sock = -1;
     struct socket_t sockets;
     uint16_t portmax;
     int res;
     void *data;
-    Amplet2__Throughput__Item *item;
-    ProtobufCBinaryData packed;
     struct opt_t *options = NULL;
 
-    memset(&packet, 0, sizeof(packet));
-    memset(&result, 0, sizeof(result));
-
     /* Read the hello and check we are compatible */
-    if ( read_control_hello(control_socket, &options, parse_hello) < 0 ) {
+    if ( read_control_hello(control_sock, (void**)&options, parse_hello) < 0 ) {
         goto errorCleanup;
     }
 
@@ -105,178 +280,79 @@ static int serveTest(int control_socket, struct temp_sockopt_t_xxx *sockopts) {
     }
 
     /* send a packet over the control connection containing the test port */
-    send_control_ready(control_socket, getSocketPort(t_listen));
+    send_control_ready(control_sock, getSocketPort(t_listen));
 
     do {
-        test_socket = accept(t_listen,
-                (struct sockaddr*) &client_addr, &client_addrlen);
-    } while (test_socket == -1 && errno == EINTR ); /* Repeat if interrupted */
+        test_sock = accept(t_listen, NULL, NULL);
+    } while (test_sock == -1 && errno == EINTR ); /* Repeat if interrupted */
 
     /* For security best to close this here and re-open later if reconnecting */
     close(t_listen);
     t_listen = -1;
 
-    if ( test_socket == -1 ) {
+    if ( test_sock == -1 ) {
         Log(LOG_WARNING,
                 "Failed to connect() upon our test listening socket: %s",
                 strerror(errno));
     }
 
     /* Wait for something to do from the client */
-    while ( (bytes=read_control_packet(control_socket, &data)) > 0 ) {
+    while ( (bytes=read_control_packet(control_sock, &data)) > 0 ) {
         Amplet2__Servers__Control *msg;
         msg = amplet2__servers__control__unpack(NULL, bytes, data);
 
         switch ( msg->type ) {
-            case AMPLET2__SERVERS__CONTROL__TYPE__RECEIVE:
-                /* Send READY here so timestamp is accurate */
-                send_control_ready(control_socket, 0);
-                if ( incomingTest(test_socket, &result) != 0 ) {
+            case AMPLET2__SERVERS__CONTROL__TYPE__RECEIVE: {
+                if ( parse_control_receive(data, bytes, NULL, NULL) < 0 ) {
+                    return -1;
+                }
+
+                if ( do_receive(control_sock, test_sock) < 0 ) {
                     goto errorCleanup;
                 }
 
-                //XXX my results thing doesn't deal with web10g
-                //if ( !sockopts->disable_web10g ) {
-                //    web10g = getWeb10GSnap(test_socket);
-                //}
-
-                /* Send our result */
-                memset(&req, 0, sizeof(req));
-                req.type = TPUT_2_SERVER;
-                req.s_result = &result;
-
-                item = report_schedule(&req);
-                /* pack the result for sending to the client */
-                packed.len = amplet2__throughput__item__get_packed_size(item);
-                packed.data = malloc(packed.len);
-                amplet2__throughput__item__pack(item, packed.data);
-                if ( send_control_result(control_socket, &packed) < 0 ) {
-                    goto errorCleanup;
-                }
-                free(item);
-                free(packed.data);
-
-                if ( web10g != NULL ) {
-                    free(web10g);
-                }
-                web10g = NULL;
-                continue;
-
-            case AMPLET2__SERVERS__CONTROL__TYPE__SEND:
-                {
-                    struct test_request_t *request;
-                    memset(&result, 0, sizeof(result));
-
-                    if ( parse_control_send(data, bytes, &request,
-                                parse_send) < 0 ) {
-                        return -1;
-                    }
-                    request->randomise = options->randomise;
-                    Log(LOG_DEBUG,"Got send request, dur:%d bytes:%d writes:%d",
-                            request->duration, request->bytes,
-                            request->write_size);
-
-                    /* Send the actual packets */
-                    switch ( sendPackets(test_socket, request, &result) ) {
-                        case -1:
-                            /* Failed to write to socket */
-                            goto errorCleanup;
-                        case 1:
-                            /* Bad test request, lets send a packet to keep the
-                             * client happy it's still expecting something.
-                             * XXX Why do it like this?
-                             */
-                            if ( send_control_receive(test_socket, 0) < 0 ) {
-                                goto errorCleanup;
-                            }
-
-                        case 0:
-                        /* Success or our fake success from case 1: */
-                        //XXX deal with web10g in some way
-                        //if ( !sockopts->disable_web10g ) {
-                        //    web10g = getWeb10GSnap(test_socket);
-                        //}
-                        /* Unlike old test, send result for either direction */
-                        memset(request, 0, sizeof(*request));
-                        request->type = TPUT_2_CLIENT;
-                        request->c_result = &result;
-                        item = report_schedule(request);
-                        /* pack the result for sending to the client */
-                        packed.len = amplet2__throughput__item__get_packed_size(item);
-                        packed.data = malloc(packed.len);
-                        amplet2__throughput__item__pack(item, packed.data);
-                        if ( send_control_result(control_socket, &packed) < 0 ) {
-                            goto errorCleanup;
-                        }
-                        free(item);
-                        free(packed.data);
-
-                    }
-
-                    if ( web10g != NULL ) {
-                        free(web10g);
-                    }
-                    web10g = NULL;
-                    memset(&result, 0, sizeof(result));
-                }
-                continue;
-
-            case AMPLET2__SERVERS__CONTROL__TYPE__RENEW:
-                Log(LOG_DEBUG, "Client asked to renew the connection");
-
-                /* Ready the listening socket again */
-                do {
-                    res = start_listening(&sockets, sockopts->tport, sockopts);
-                } while ( res == EADDRINUSE && sockopts->tport++ < portmax );
-
-                if ( res != 0 ) {
-                    Log(LOG_ERR, "Failed to open listening socket terminating");
-                    goto errorCleanup;
-                }
-
-                if ( sockets.socket > 0 ) {
-                    t_listen = sockets.socket;
-                } else {
-                    t_listen = sockets.socket6;
-                }
-
-                /* Finish this side of the TCP connection */
-                shutdown(test_socket, SHUT_WR);
-                /* Now the client has also closed */
-                if ( readPacket(test_socket, &packet, NULL) != 0 ) {
-                    Log(LOG_WARNING, "TPUT_NEW_CONNECTION expected the TCP connection to be closed in this direction");
-                }
-                close(test_socket);
-                send_control_ready(control_socket, getSocketPort(t_listen));
-                do {
-                    test_socket = accept(t_listen,
-                                  (struct sockaddr*) &client_addr, &client_addrlen);
-                } while (test_socket == -1 && errno == EINTR);
-                if ( test_socket == -1 ) {
-                    Log(LOG_ERR, "Failed to accept after connection reset");
-                    goto errorCleanup;
-                }
-                /* Close the listening socket again */
-                close(t_listen);
-                t_listen = -1;
-                continue;
-
-            case AMPLET2__SERVERS__CONTROL__TYPE__CLOSE:
-                Log(LOG_DEBUG, "Client closing test");
-                break;
-
-            default:
-                Log(LOG_WARNING,
-                        "serveTest() found a invalid packet.header.type %d",
-                        (int) packet.header.type);
-                /* Try and continue */
                 continue;
             }
+
+            case AMPLET2__SERVERS__CONTROL__TYPE__SEND: {
+                struct test_request_t *request;
+                if ( parse_control_send(data, bytes, (void**)&request,
+                            parse_send) < 0 ) {
+                    return -1;
+                }
+
+                if ( do_send(control_sock, test_sock, options, request) < 0 ) {
+                    goto errorCleanup;
+                }
+
+                continue;
+            }
+
+            case AMPLET2__SERVERS__CONTROL__TYPE__RENEW: {
+
+                if ( do_renew(control_sock, test_sock, portmax,sockopts) < 0 ) {
+                    goto errorCleanup;
+                }
+
+                continue;
+            }
+
+            case AMPLET2__SERVERS__CONTROL__TYPE__CLOSE: {
+                Log(LOG_DEBUG, "Client closing test");
+                break;
+            }
+
+            default: {
+                /* Try and continue if we get a weird message */
+                Log(LOG_WARNING, "Unhandled message type %d", msg->type);
+                continue;
+            }
+        };
         break;
     }
 
-    if ( test_socket != -1 ) {
-        close(test_socket);
+    if ( test_sock != -1 ) {
+        close(test_sock);
     }
     return 0;
 
@@ -285,18 +361,16 @@ errorCleanup:
      * This should kick off the client - we assume they are waiting for us
      * somewhere
      */
-    if ( test_socket != -1 ) {
-        close(test_socket);
+    if ( test_sock != -1 ) {
+        close(test_sock);
     }
     if ( t_listen != -1 ) {
         close(t_listen);
     }
-    if ( control_socket != -1 ) {
-        close(control_socket);
+    if ( control_sock != -1 ) {
+        close(control_sock);
     }
-    if ( web10g != NULL ) {
-        free(web10g);
-    }
+
     return -1;
 }
 

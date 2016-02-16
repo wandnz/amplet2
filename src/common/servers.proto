@@ -20,7 +20,13 @@ message Control {
         optional Send send = 5;
         optional Result result = 6;
 
-        /* TODO these are throughput only messages, move them out */
+        /*
+         * TODO ideally we could use extensions here, but in the medium term
+         * someone should add a generic field that tests can add messages to,
+         * and flag them with a type field inside the test specific protobuf
+         * descriptions. We shouldn't have test specific messages at this
+         * level.
+         */
         optional Renew renew = 7;
         optional Close close = 8;
 }
