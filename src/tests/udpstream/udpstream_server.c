@@ -19,6 +19,7 @@ static void do_receive(int control_sock, int test_sock, struct opt_t *options) {
     Amplet2__Udpstream__Item *result;
     ProtobufCBinaryData packed;
     struct timeval *times = NULL;
+    unsigned int i;
 
     printf("got RECEIVE command\n");
 
@@ -42,9 +43,14 @@ static void do_receive(int control_sock, int test_sock, struct opt_t *options) {
     /* send the result to the client for reporting */
     send_control_result(control_sock, &packed);
 
-    free(times);
+    for ( i = 0; i < result->n_loss_periods; i++ ) {
+        free(result->loss_periods[i]);
+    }
+    free(result->loss_periods);
+    free(result->percentiles);
     free(result);
     free(packed.data);
+    free(times);
 }
 
 

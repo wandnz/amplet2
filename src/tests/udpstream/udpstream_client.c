@@ -72,6 +72,11 @@ static void report_results(struct timeval *start_time, struct addrinfo *dest,
 
     /* free up all the memory we had to allocate to report items */
     if ( in_times ) {
+        for ( i = 0; i < reports[0]->n_loss_periods; i++ ) {
+            free(reports[0]->loss_periods[i]);
+        }
+        free(reports[0]->loss_periods);
+        free(reports[0]->percentiles);
         free(reports[0]);
     }
 
