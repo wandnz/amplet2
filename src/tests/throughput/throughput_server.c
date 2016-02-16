@@ -167,8 +167,8 @@ static int do_send(int control_sock, int test_sock, struct opt_t *options,
 
 
 
-static int do_renew(int control_sock, int test_sock, uint16_t portmax,
-        struct temp_sockopt_t_xxx *sockopts) {
+static int do_renew(int control_sock, int test_sock, uint16_t port,
+        uint16_t portmax, struct temp_sockopt_t_xxx *sockopts) {
 
     struct packet_t packet;
     struct socket_t sockets;
@@ -181,7 +181,7 @@ static int do_renew(int control_sock, int test_sock, uint16_t portmax,
 
     /* Ready the listening socket again */
     do {
-        res = start_listening(&sockets, sockopts->tport, sockopts);
+        res = start_listening(&sockets, port, sockopts);
     } while ( res == EADDRINUSE && sockopts->tport++ < portmax );
 
     if ( res != 0 ) {
@@ -257,7 +257,7 @@ static int serveTest(int control_sock, struct temp_sockopt_t_xxx *sockopts) {
 
     /* No errors so far, make our new testsocket with the given test options */
     do {
-        res = start_listening(&sockets, sockopts->tport, sockopts);
+        res = start_listening(&sockets, options->tport, sockopts);
     } while ( res == EADDRINUSE && sockopts->tport++ < portmax );
 
     if ( res != 0 ) {
@@ -332,7 +332,8 @@ static int serveTest(int control_sock, struct temp_sockopt_t_xxx *sockopts) {
 
             case AMPLET2__SERVERS__CONTROL__TYPE__RENEW: {
 
-                if ( do_renew(control_sock, test_sock, portmax,sockopts) < 0 ) {
+                if ( do_renew(control_sock, test_sock, options->tport,
+                            portmax, sockopts) < 0 ) {
                     goto errorCleanup;
                 }
 
