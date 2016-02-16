@@ -105,7 +105,7 @@ static int serve_test(int control_sock, struct sockaddr_storage *remote,
     void *data;
 
     /* the HELLO packet describes all the global test options */
-    if ( read_control_hello(control_sock, &options, parse_hello) < 0 ) {
+    if ( read_control_hello(control_sock, (void**)&options, parse_hello) < 0 ) {
         Log(LOG_WARNING, "Got bad HELLO packet, shutting down test server");
         return -1;
     }
@@ -165,7 +165,7 @@ static int serve_test(int control_sock, struct sockaddr_storage *remote,
             case AMPLET2__SERVERS__CONTROL__TYPE__SEND: {
                 struct opt_t *send_opts;
                 /* validate as a proper SEND message and extract port */
-                if ( parse_control_send(data, bytes, &send_opts,
+                if ( parse_control_send(data, bytes, (void**)&send_opts,
                             parse_send) < 0 ) {
                     return -1;
                 }
