@@ -203,6 +203,8 @@ static int run_test(struct addrinfo *server, struct opt_t *options,
                 in_times = calloc(options->packet_count, sizeof(struct timeval));
                 /* bind test socket to same address as the control socket */
                 getsockname(control_socket, (struct sockaddr *)&ss, &socklen);
+                /* zero the port so it isn't the same as the control socket */
+                ((struct sockaddr_in *)&ss)->sin_port = 0;
                 bind(test_socket, (struct sockaddr *)&ss, socklen);
                 /* get the local port number so we can tell the remote host */
                 getsockname(test_socket, (struct sockaddr *)&ss, &socklen);
