@@ -339,11 +339,6 @@ static int serveTest(int control_sock, struct temp_sockopt_t_xxx *sockopts) {
                 break;
             }
 
-            case AMPLET2__SERVERS__CONTROL__TYPE__CLOSE: {
-                Log(LOG_DEBUG, "Client closing test");
-                break;
-            }
-
             default: {
                 /* Try and continue if we get a weird message */
                 Log(LOG_WARNING, "Unhandled message type %d", msg->type);
@@ -354,13 +349,6 @@ static int serveTest(int control_sock, struct temp_sockopt_t_xxx *sockopts) {
         /* both read_control_packet and unpacking the buffer allocate memory */
         free(data);
         amplet2__servers__control__free_unpacked(msg, NULL);
-
-#if 0
-        /* stop once we get a close message, otherwise assume there are more */
-        if ( msg->type == AMPLET2__SERVERS__CONTROL__TYPE__CLOSE ) {
-            break;
-        }
-#endif
     }
 
     free(options);

@@ -367,10 +367,6 @@ static int runSchedule(struct addrinfo *serv_addr, struct opt_t *options,
             case TPUT_2_CLIENT:
                 Log(LOG_DEBUG, "Starting Server to Client Throughput test");
                 /* Request a test from the server */
-#if 0
-                if ( send_control_send(control_socket, 0, cur->duration,
-                            cur->write_size, cur->bytes) < 0 ) {
-#endif
                 if ( send_control_send(control_socket, build_send(cur)) < 0 ) {
                     goto errorCleanup;
                 }
@@ -487,9 +483,6 @@ static int runSchedule(struct addrinfo *serv_addr, struct opt_t *options,
     report_results(start_time_ns / 1000000000, serv_addr, options);
 
     Log(LOG_DEBUG, "Closing test");
-    if ( send_control_close(control_socket) < 0 ) {
-         Log(LOG_WARNING, "Failed to send close message");
-    }
 
     close(control_socket);
     close(test_socket);

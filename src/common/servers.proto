@@ -9,7 +9,6 @@ message Control {
                 RESULT = 6;
 
                 RENEW = 7;
-                CLOSE = 8;
         }
 
         optional Type type = 1;
@@ -64,7 +63,4 @@ message Result {
 }
 
 message Renew {
-}
-
-message Close {
 }

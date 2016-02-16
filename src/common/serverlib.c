@@ -369,35 +369,6 @@ int send_control_renew(int sock) {
 /*
  *
  */
-int send_control_close(int sock) {
-    int len;
-    void *buffer;
-    int result;
-    Amplet2__Servers__Control msg = AMPLET2__SERVERS__CONTROL__INIT;
-    Amplet2__Servers__Close close = AMPLET2__SERVERS__CLOSE__INIT;
-
-    Log(LOG_DEBUG, "Sending CLOSE message");
-
-    msg.close = &close;
-    msg.has_type = 1;
-    msg.type = AMPLET2__SERVERS__CONTROL__TYPE__CLOSE;
-
-    len = amplet2__servers__control__get_packed_size(&msg);
-    buffer = malloc(len);
-    amplet2__servers__control__pack(&msg, buffer);
-
-    result = write_control_packet(sock, buffer, len);
-
-    free(buffer);
-
-    return result;
-}
-
-
-
-/*
- *
- */
 int parse_control_hello(void *data, uint32_t len, void **options,
         void *(*parse_func)(ProtobufCBinaryData *data)) {
 
