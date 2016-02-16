@@ -41,8 +41,6 @@ ProtobufCBinaryData* build_hello(struct opt_t *options) {
     hello.has_write_size = 1;
     hello.write_size = options->write_size;
 
-    printf("Hello port:%d\n", hello.test_port);
-
     data->len = amplet2__throughput__hello__get_packed_size(&hello);
     data->data = malloc(data->len);
     amplet2__throughput__hello__pack(&hello, data->data);
@@ -59,12 +57,9 @@ void* parse_hello(ProtobufCBinaryData *data) {
     struct opt_t *options;
     Amplet2__Throughput__Hello *hello;
 
-    printf("parse_hello\n");
-
     hello = amplet2__throughput__hello__unpack(NULL, data->len, data->data);
     options = calloc(1, sizeof(struct opt_t));
 
-    printf("Hello port:%d\n", hello->test_port);
     options->tport = hello->test_port;
     options->sock_mss = hello->mss;
     options->sock_rcvbuf = hello->rcvbuf;
@@ -76,8 +71,6 @@ void* parse_hello(ProtobufCBinaryData *data) {
     options->write_size = hello->write_size;
 
     amplet2__throughput__hello__free_unpacked(hello, NULL);
-
-    printf("parse_hello options:%p\n", options);
 
     return options;
 }
@@ -98,9 +91,6 @@ ProtobufCBinaryData* build_send(struct test_request_t *options) {
     send.has_bytes = 1;
     send.bytes = options->bytes;
 
-    printf("build_send dur:%d write:%d bytes:%d\n", send.duration,
-            send.write_size, send.bytes);
-
     data->len = amplet2__throughput__send__get_packed_size(&send);
     data->data = malloc(data->len);
     amplet2__throughput__send__pack(&send, data->data);
@@ -117,17 +107,12 @@ void* parse_send(ProtobufCBinaryData *data) {
     struct test_request_t *options;
     Amplet2__Throughput__Send *send;
 
-    printf("parse_send\n");
-
     send = amplet2__throughput__send__unpack(NULL, data->len, data->data);
     options = calloc(1, sizeof(struct test_request_t));
 
     options->duration = send->duration;
     options->write_size = send->write_size;
     options->bytes = send->bytes;
-
-    printf("parse_send dur:%d write:%d bytes:%d\n", options->duration,
-            options->write_size, options->bytes);
 
     amplet2__throughput__send__free_unpacked(send, NULL);
 
