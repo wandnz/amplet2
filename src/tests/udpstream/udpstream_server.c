@@ -21,7 +21,7 @@ static void do_receive(int control_sock, int test_sock, struct opt_t *options) {
     struct timeval *times = NULL;
     unsigned int i;
 
-    printf("got RECEIVE command\n");
+    Log(LOG_DEBUG, "got RECEIVE command");
 
     /* we are going to track a timeval for every expected packet */
     times = calloc(options->packet_count, sizeof(struct timeval));
@@ -63,7 +63,7 @@ static void do_send(int test_sock, struct sockaddr_storage *remote,
 
     struct addrinfo client;
 
-    printf("got SEND command with port %d\n", port);
+    Log(LOG_DEBUG, "got SEND command with port %d", port);
 
     /*
      * the target is the same host we are connected to on the control socket,
@@ -187,7 +187,7 @@ static int serve_test(int control_sock, struct sockaddr_storage *remote,
 
             /* TODO send a close/finished message? */
 
-            default: Log(LOG_WARNING, "Unhandled message type %d\n", msg->type);
+            default: Log(LOG_WARNING, "Unhandled message type %d", msg->type);
                      break;
         };
 
@@ -263,7 +263,6 @@ void run_udpstream_server(int argc, char *argv[], SSL *ssl) {
         Log(LOG_DEBUG, "udpstream server trying to listen on port %d", port);
         //XXX pass a hints type struct?
         res = start_listening(&listen_sockets, port, &sockopts);
-        printf("res=%d\n", res);
     } while ( res == EADDRINUSE && port++ < portmax );
 
     if ( res != 0 ) {
@@ -279,7 +278,7 @@ void run_udpstream_server(int argc, char *argv[], SSL *ssl) {
      */
     if ( ssl ) {
         if ( send_server_port(ssl, port) < 0 ) {
-            Log(LOG_DEBUG, "Failed to send server port for throughput test\n");
+            Log(LOG_DEBUG, "Failed to send server port for throughput test");
             return;
         } else {
             Log(LOG_DEBUG, "Sent server port %d for throughput test OK", port);

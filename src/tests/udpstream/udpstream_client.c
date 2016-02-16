@@ -144,7 +144,6 @@ static int run_test(struct addrinfo *server, struct opt_t *options,
     Amplet2__Udpstream__Item *results = NULL;
     struct timeval start_time;
 
-    printf("run test\n");
     socket_options->cport = options->cport;//XXX
     socket_options->tport = options->tport;//XXX
 
@@ -160,7 +159,6 @@ static int run_test(struct addrinfo *server, struct opt_t *options,
     /* connect to the control socket on the server */
     control_socket = connect_to_server(server, socket_options,
             options->cport);//XXX socket_options?
-    printf("control = %d\n", control_socket);
 
     gettimeofday(&start_time, NULL);
 
@@ -175,7 +173,6 @@ static int run_test(struct addrinfo *server, struct opt_t *options,
 
     /* run the test schedule */
     for ( current = schedule; current != NULL; current = current->next ) {
-        printf("SCHEDULE ITEM START\n");
         switch ( current->direction ) {
             case UDPSTREAM_TO_SERVER:
                 send_control_receive(control_socket, NULL);
@@ -186,8 +183,6 @@ static int run_test(struct addrinfo *server, struct opt_t *options,
                     close(control_socket);
                     return -1;
                 }
-                //XXX
-                printf("test port = %d\n", socket_options->tport);
                 ((struct sockaddr_in *)server->ai_addr)->sin_port =
                     ntohs(socket_options->tport);
 

@@ -37,7 +37,6 @@ static int write_control_packet(int sock, void *data, uint32_t len) {
     uint32_t total_written = 0;
     uint32_t datalen = ntohl(len);
 
-    printf("sending %d bytes\n", sizeof(datalen));
     /*
      * There is no delimiter for protocol buffers, so we need to send the
      * length of the message that will follow
@@ -64,7 +63,6 @@ static int write_control_packet(int sock, void *data, uint32_t len) {
 
     total_written = 0;
 
-    printf("sending %d bytes\n", len);
     /* Send the actual protocol buffer message onto the stream now */
     do {
         result = write(sock, (uint8_t *)data+total_written, len-total_written);
@@ -122,9 +120,6 @@ int read_control_packet(int sock, void **data) {
 
     assert(bytes_read == sizeof(datalen));
 
-    printf("read %d bytes, expect %d more to follow\n", bytes_read,
-            ntohl(datalen));
-
     bytes_read = 0;
     datalen = ntohl(datalen);
     *data = calloc(1, datalen);
@@ -155,8 +150,6 @@ int read_control_packet(int sock, void **data) {
 
     assert(datalen == bytes_read);
 
-    printf("read object of %d bytes\n", datalen);
-
     return datalen;
 }
 
@@ -172,7 +165,7 @@ int send_control_hello(int sock, ProtobufCBinaryData *options) {
     Amplet2__Servers__Control msg = AMPLET2__SERVERS__CONTROL__INIT;
     Amplet2__Servers__Hello hello = AMPLET2__SERVERS__HELLO__INIT;
 
-    printf("sending hello\n");
+    Log(LOG_DEBUG, "Sending HELLO");
 
     hello.has_options = 1;
     hello.options = *options;
@@ -211,7 +204,7 @@ int send_control_ready(int sock, uint16_t port) {
     Amplet2__Servers__Control msg = AMPLET2__SERVERS__CONTROL__INIT;
     Amplet2__Servers__Ready ready = AMPLET2__SERVERS__READY__INIT;
 
-    printf("sending ready with port %d\n", port);
+    Log(LOG_DEBUG, "Sending READY with port %d", port);
 
     ready.has_test_port = 1;
     ready.test_port = port;
@@ -242,7 +235,7 @@ int send_control_receive(int sock, ProtobufCBinaryData *options) {
     Amplet2__Servers__Control msg = AMPLET2__SERVERS__CONTROL__INIT;
     Amplet2__Servers__Receive receive = AMPLET2__SERVERS__RECEIVE__INIT;
 
-    printf("sending receive\n");
+    Log(LOG_DEBUG, "Sending RECEIVE");
 
     if ( options ) {
         receive.has_options = 1;
@@ -276,7 +269,7 @@ int send_control_send(int sock, ProtobufCBinaryData *options) {
     Amplet2__Servers__Control msg = AMPLET2__SERVERS__CONTROL__INIT;
     Amplet2__Servers__Send send = AMPLET2__SERVERS__SEND__INIT;
 
-    printf("sending send\n");
+    Log(LOG_DEBUG, "Sending SEND");
 
     //send.has_test_port = 1;
     //send.test_port = port;
@@ -323,7 +316,7 @@ int send_control_result(int sock, ProtobufCBinaryData *data) {
     Amplet2__Servers__Control msg = AMPLET2__SERVERS__CONTROL__INIT;
     Amplet2__Servers__Result resmsg = AMPLET2__SERVERS__RESULT__INIT;
 
-    printf("sending results, data length %d\n", data->len);
+    Log(LOG_DEBUG, "Sending RESULT");
 
     resmsg.result = *data;
     resmsg.has_result = 1;
@@ -354,7 +347,7 @@ int send_control_renew(int sock) {
     Amplet2__Servers__Control msg = AMPLET2__SERVERS__CONTROL__INIT;
     Amplet2__Servers__Renew renew = AMPLET2__SERVERS__RENEW__INIT;
 
-    printf("sending renew message\n");
+    Log(LOG_DEBUG, "Sending RENEW message");
 
     msg.renew = &renew;
     msg.has_type = 1;
@@ -383,7 +376,7 @@ int send_control_close(int sock) {
     Amplet2__Servers__Control msg = AMPLET2__SERVERS__CONTROL__INIT;
     Amplet2__Servers__Close close = AMPLET2__SERVERS__CLOSE__INIT;
 
-    printf("sending close message\n");
+    Log(LOG_DEBUG, "Sending CLOSE message");
 
     msg.close = &close;
     msg.has_type = 1;
@@ -418,7 +411,6 @@ int parse_control_hello(void *data, uint32_t len, void **options,
     if ( !msg || !msg->has_type ||
             msg->type != AMPLET2__SERVERS__CONTROL__TYPE__HELLO ) {
         Log(LOG_WARNING, "Not a HELLO packet, aborting");
-        printf("type:%d\n", msg->type);
         amplet2__servers__control__free_unpacked(msg, NULL);
         return -1;
     }
@@ -492,7 +484,6 @@ int parse_control_receive(void *data, uint32_t len, void **options,
     if ( !msg || !msg->has_type ||
             msg->type != AMPLET2__SERVERS__CONTROL__TYPE__RECEIVE ) {
         Log(LOG_WARNING, "Not a RECEIVE packet, aborting");
-        printf("type:%d\n", msg->type);
         amplet2__servers__control__free_unpacked(msg, NULL);
         return -1;
     }
@@ -532,7 +523,6 @@ int parse_control_send(void *data, uint32_t len, void **options,
     if ( !msg || !msg->has_type ||
             msg->type != AMPLET2__SERVERS__CONTROL__TYPE__SEND ) {
         Log(LOG_WARNING, "Not a SEND packet, aborting");
-        printf("type:%d\n", msg->type);
         amplet2__servers__control__free_unpacked(msg, NULL);
         return -1;
     }
@@ -564,7 +554,6 @@ static int parse_control_result(void *data, uint32_t len,
     Amplet2__Servers__Control *msg;
 
     assert(data);
-    //assert(options);
 
     /* unpack all the data */
     msg = amplet2__servers__control__unpack(NULL, len, data);
@@ -572,7 +561,6 @@ static int parse_control_result(void *data, uint32_t len,
     if ( !msg || !msg->has_type ||
             msg->type != AMPLET2__SERVERS__CONTROL__TYPE__RESULT ) {
         Log(LOG_WARNING, "Not a RESULT packet, aborting");
-        printf("type:%d\n", msg->type);
         amplet2__servers__control__free_unpacked(msg, NULL);
         return -1;
     }
@@ -582,8 +570,6 @@ static int parse_control_result(void *data, uint32_t len,
         amplet2__servers__control__free_unpacked(msg, NULL);
         return -1;
     }
-
-    printf("got result packet, data has length %d\n", msg->result->result.len);
 
     results->len = msg->result->result.len;
     results->data = malloc(results->len);
@@ -656,7 +642,7 @@ int read_control_result(int sock, ProtobufCBinaryData *results) {
     void *data;
     int len;
 
-    printf("waiting for result packet\n");
+    Log(LOG_DEBUG, "Waiting for RESULT packet");
 
     if ( (len=read_control_packet(sock, &data)) < 0 ) {
         Log(LOG_ERR, "Failed to read READY packet");
@@ -1010,7 +996,6 @@ int connect_to_server(struct addrinfo *server,
      */
     if ( options->device ) {
         if ( bind_socket_to_device(sock, options->device) < 0 ) {
-            printf("bind to device\n");
             return -1;
         }
     }
@@ -1029,7 +1014,6 @@ int connect_to_server(struct addrinfo *server,
          * family as the destination, otherwise leave it default.
          */
         if ( addr && bind_socket_to_address(sock, addr) < 0 ) {
-            printf("bind to address\n");
             return -1;
         }
     }
