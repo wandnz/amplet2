@@ -23,8 +23,6 @@ ProtobufCBinaryData* build_hello(struct opt_t *options) {
     hello.has_percentile_count = 1;
     hello.percentile_count = options->percentile_count;
 
-    printf("Hello port:%d\n", hello.test_port);
-
     data->len = amplet2__udpstream__hello__get_packed_size(&hello);
     data->data = malloc(data->len);
     amplet2__udpstream__hello__pack(&hello, data->data);
@@ -38,12 +36,9 @@ void* parse_hello(ProtobufCBinaryData *data) {
     struct opt_t *options;
     Amplet2__Udpstream__Hello *hello;
 
-    printf("parse_hello\n");
-
     hello = amplet2__udpstream__hello__unpack(NULL, data->len, data->data);
     options = calloc(1, sizeof(struct opt_t));
 
-    printf("Hello port:%d\n", hello->test_port);
     options->tport = hello->test_port;
     options->packet_size = hello->packet_size;
     options->packet_count = hello->packet_count;
@@ -51,8 +46,6 @@ void* parse_hello(ProtobufCBinaryData *data) {
     options->percentile_count = hello->percentile_count;
 
     amplet2__udpstream__hello__free_unpacked(hello, NULL);
-
-    printf("parse_hello options:%p\n", options);
 
     return options;
 }
@@ -68,8 +61,6 @@ ProtobufCBinaryData* build_send(struct opt_t *options) {
 
     send.has_test_port = 1;
     send.test_port = options->tport;
-
-    printf("Send port:%d\n", send.test_port);
 
     data->len = amplet2__udpstream__send__get_packed_size(&send);
     data->data = malloc(data->len);
@@ -87,12 +78,9 @@ void* parse_send(ProtobufCBinaryData *data) {
     struct opt_t *options;
     Amplet2__Udpstream__Send *send;
 
-    printf("parse_send\n");
-
     send = amplet2__udpstream__send__unpack(NULL, data->len, data->data);
     options = calloc(1, sizeof(struct opt_t));
 
-    printf("Send port:%d\n", send->test_port);
     options->tport = send->test_port;
 
     amplet2__udpstream__send__free_unpacked(send, NULL);
@@ -251,7 +239,6 @@ Amplet2__Udpstream__Item* report_stream(enum udpstream_direction direction,
             if ( period &&
                  period->status == AMPLET2__UDPSTREAM__PERIOD__STATUS__LOST ) {
                 period->length++;
-                printf("loss++\n");
             } else {
                 /* create a new period after the current one */
                 item->loss_periods =
@@ -262,7 +249,6 @@ Amplet2__Udpstream__Item* report_stream(enum udpstream_direction direction,
                     new_loss_period(AMPLET2__UDPSTREAM__PERIOD__STATUS__LOST);
 
                 item->n_loss_periods++;
-                printf("new loss period\n");
             }
             continue;
         }
@@ -273,7 +259,6 @@ Amplet2__Udpstream__Item* report_stream(enum udpstream_direction direction,
         if ( period &&
              period->status == AMPLET2__UDPSTREAM__PERIOD__STATUS__RECEIVED ) {
             period->length++;
-            printf("good++\n");
         } else {
             /* create a new period after the current one */
             item->loss_periods =
@@ -284,11 +269,9 @@ Amplet2__Udpstream__Item* report_stream(enum udpstream_direction direction,
                 new_loss_period(AMPLET2__UDPSTREAM__PERIOD__STATUS__RECEIVED);
 
             item->n_loss_periods++;
-            printf("new good period\n");
         }
 
         if ( received == 1 ) {
-            printf("%d %ld.%06ld\n", i, times[i].tv_sec, times[i].tv_usec);
             prev = (times[i].tv_sec * 1000000) + times[i].tv_usec;
             continue;
         }
@@ -297,25 +280,14 @@ Amplet2__Udpstream__Item* report_stream(enum udpstream_direction direction,
 
         ipdv[count] = current - prev;
         total_diff += (current - prev);
-        printf("%d ipdv %d\n", i, current - prev);
 
         prev = current;
         count++;
     }
 
-    printf("--- %d / %d = %f ---\n", total_diff, count,
-            ((double)total_diff) / ((double)count));
-
     qsort(&ipdv, count, sizeof(int32_t), cmp);
-    for ( i = 0; i < count; i++ ) {
-        printf(" ++ %d\n", ipdv[i]);
-    }
 
-    printf("LOSS PERIODS (%d):\n", item->n_loss_periods);
-    for ( i = 0; i < item->n_loss_periods; i++ ) {
-        printf("%d:%d\n", item->loss_periods[i]->length,
-                item->loss_periods[i]->status);
-    }
+    Log(LOG_DEBUG, "LOSS PERIODS: %d", item->n_loss_periods);
 
     /*
      * Base the number of percentiles around the minimum of what the user
@@ -327,14 +299,12 @@ Amplet2__Udpstream__Item* report_stream(enum udpstream_direction direction,
     item->n_percentiles = MIN(options->percentile_count - 1, count - 2);
     item->percentiles = calloc(item->n_percentiles, sizeof(int32_t));
 
-    printf("options->percentile_count: %d\n", options->percentile_count);
-    printf("count: %d\n", count);
+    Log(LOG_DEBUG, "Packets received: %d", received);
 
-    printf("report item: %p\n", item);
-    printf("reporting %d percentiles\n", item->n_percentiles);
+    Log(LOG_DEBUG, "Reporting %d percentiles", item->n_percentiles);
 
     for ( i = 0; i < item->n_percentiles; i++ ) {
-        printf("storing %d (%d): %d\n", i,
+        Log(LOG_DEBUG, "Percentile %d (%d): %d\n", (i+1) * 10,
                 (int)(count / item->n_percentiles * (i+1)) - 1,
                 ipdv[(int)(count / item->n_percentiles * (i+1)) - 1]);
         item->percentiles[i] = ipdv[(int)
