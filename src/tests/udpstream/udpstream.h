@@ -23,10 +23,9 @@
 #define DEFAULT_TEST_PORT 8826 /* Run test across a separate port */
 #define MAX_TEST_PORT 8836
 
-//XXX 32bit timeval problems
 #define MINIMUM_UDPSTREAM_PACKET_LENGTH ( \
         sizeof(struct ip6_hdr) + sizeof(struct udphdr) + \
-        sizeof(uint32_t) + sizeof(struct timeval))
+        sizeof(struct payload_t))
 #define DEFAULT_UDPSTREAM_PACKET_LENGTH 100
 #define DEFAULT_UDPSTREAM_PACKET_COUNT 11
 #define DEFAULT_UDPSTREAM_PERCENTILE_COUNT 10
@@ -81,6 +80,17 @@ struct info_t {
     uint8_t err_code;		/* code of ICMP error reply, else undefined */
     uint8_t ttl;		/* TTL or hop limit of response packet */
 };
+
+
+
+/*
+ * Payload sent inside the UDP probe packets.
+ */
+struct payload_t {
+    uint64_t sec;
+    uint64_t usec;
+    uint32_t index;
+} __attribute__((__packed__));
 
 
 test_t *register_test(void);

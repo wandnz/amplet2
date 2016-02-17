@@ -96,7 +96,7 @@ void* parse_send(ProtobufCBinaryData *data) {
  */
 int send_udp_stream(int sock, struct addrinfo *remote, struct opt_t *options) {
     struct timeval now;
-    char *payload;
+    struct payload_t *payload;
     uint32_t i;
     size_t payload_len;
 
@@ -113,14 +113,14 @@ int send_udp_stream(int sock, struct addrinfo *remote, struct opt_t *options) {
     }
 
     payload_len -= sizeof(struct udphdr);
-    payload = (char *)calloc(1, payload_len);
+    payload = (struct payload_t *)calloc(1, payload_len);
 
     for ( i = 0; i < options->packet_count; i++ ) {
         gettimeofday(&now, NULL);
-        memcpy(payload, &i, sizeof(i));
-        //XXX could gettimeofday() straight into payload area
-        //XXX won't work on 32 bit machines with 32bit timevals
-        memcpy(payload + sizeof(i), &now, sizeof(now));
+        payload->index = htonl(i);
+        /* this should cast appropriately whether 32 or 64 bit*/
+        payload->sec = htobe64(now.tv_sec);
+        payload->usec = htobe64(now.tv_usec);
 
         if ( sendto(sock, payload, payload_len, 0,
                     remote->ai_addr, remote->ai_addrlen) < 0 ) {
@@ -149,9 +149,9 @@ int receive_udp_stream(int sock, uint32_t packet_count, struct timeval *times) {
     int timeout;
     int bytes;
     uint32_t i;
-    uint32_t id;
     struct timeval sent_time;
     struct socket_t sockets;
+    struct payload_t *payload;
 
     /*
      * TODO not ideal, but just put the same socket in both slots, unless we
@@ -168,10 +168,13 @@ int receive_udp_stream(int sock, uint32_t packet_count, struct timeval *times) {
 
         if ( (bytes = get_packet(&sockets, buffer, sizeof(buffer), NULL,
                     &timeout, &times[i])) > 0 ) {
-            memcpy(&id, buffer, sizeof(id));
-            memcpy(&sent_time, buffer + sizeof(id), sizeof(sent_time));
+            payload = (struct payload_t*)&buffer;
+            /* this should cast appropriately whether 32 or 64 bit */
+            sent_time.tv_sec = (time_t)be64toh(payload->sec);
+            sent_time.tv_usec = (time_t)be64toh(payload->usec);
             timersub(&times[i], &sent_time, &times[i]);
-            Log(LOG_DEBUG, "Got UDP stream packet %d (id:%d)", i, id);
+            Log(LOG_DEBUG, "Got UDP stream packet %d (id:%d)", i,
+                    ntohl(payload->index));
             /* TODO check that the packet belongs to our stream */
         } else {
             Log(LOG_DEBUG, "UDP stream packet didn't arrive in time");
