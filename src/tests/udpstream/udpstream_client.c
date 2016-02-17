@@ -262,17 +262,21 @@ int run_udpstream_client(int argc, char *argv[], int count,
     socket_options.device = NULL;
     client = NULL;
 
+    memset(&meta, 0, sizeof(meta));
+
     /* TODO udp port */
     while ( (opt = getopt_long(argc, argv, "hvI:Z:p:rz:c:d:n:4:6:",
                     long_options, NULL)) != -1 ) {
 	switch ( opt ) {
             case '4':
                 socket_options.sourcev4 = get_numeric_address(optarg, NULL);
+                meta.sourcev4 = optarg;
                 break;
             case '6':
                 socket_options.sourcev6 = get_numeric_address(optarg, NULL);
+                meta.sourcev6 = optarg;
                 break;
-            case 'I': socket_options.device = optarg; break;
+            case 'I': socket_options.device = meta.interface = optarg; break;
             case 'c': client = optarg; break;
             case 'Z': test_options.packet_spacing = atoi(optarg); break;
 	    case 'p': test_options.perturbate = atoi(optarg); break;
