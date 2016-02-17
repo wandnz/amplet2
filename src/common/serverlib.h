@@ -14,8 +14,6 @@ struct sockopt_t {
     struct addrinfo *sourcev6;
     int socktype;
     int protocol;
-    uint16_t cport; // XXX both ports probably not needed in same struct?
-    uint16_t tport;
     char *device;
 
     int32_t sock_mss;

@@ -144,9 +144,6 @@ static int run_test(struct addrinfo *server, struct opt_t *options,
     Amplet2__Udpstream__Item *results = NULL;
     struct timeval start_time;
 
-    socket_options->cport = options->cport;//XXX
-    socket_options->tport = options->tport;//XXX
-
     socket_options->socktype = SOCK_STREAM;
     socket_options->protocol = IPPROTO_TCP;
 
@@ -157,8 +154,7 @@ static int run_test(struct addrinfo *server, struct opt_t *options,
     }
 
     /* connect to the control socket on the server */
-    control_socket = connect_to_server(server, socket_options,
-            options->cport);//XXX socket_options?
+    control_socket = connect_to_server(server, socket_options, options->cport);
 
     gettimeofday(&start_time, NULL);
 
@@ -177,14 +173,13 @@ static int run_test(struct addrinfo *server, struct opt_t *options,
             case UDPSTREAM_TO_SERVER:
                 send_control_receive(control_socket, NULL);
 
-                if ( read_control_ready(control_socket,
-                            &socket_options->tport) < 0 ) {
+                if ( read_control_ready(control_socket, &options->tport) < 0 ) {
                     Log(LOG_WARNING, "Failed to read READY packet, aborting");
                     close(control_socket);
                     return -1;
                 }
                 ((struct sockaddr_in *)server->ai_addr)->sin_port =
-                    ntohs(socket_options->tport);
+                    ntohs(options->tport);
 
                 send_udp_stream(test_socket, server, options);
 

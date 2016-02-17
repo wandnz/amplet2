@@ -266,7 +266,6 @@ static int runSchedule(struct addrinfo *serv_addr, struct opt_t *options,
     struct packet_t packet;
     uint64_t start_time_ns;
     struct sockopt_t srv_opts;
-    uint16_t actual_test_port = 0;
     ProtobufCBinaryData data;
     Amplet2__Throughput__Item *results = NULL;
 
@@ -282,8 +281,7 @@ static int runSchedule(struct addrinfo *serv_addr, struct opt_t *options,
     srv_opts.protocol = IPPROTO_TCP;
 
     //XXX i think sourcev4 and source6 and device already exist in this?
-    socket_options->cport = options->cport;//XXX
-    socket_options->tport = options->tport;//XXX
+    /* XXX TODO options should have these removed from it */
     socket_options->sock_mss = options->sock_mss;//XXX
     socket_options->sock_disable_nagle = options->sock_disable_nagle;//XXX
     socket_options->sock_rcvbuf = options->sock_rcvbuf;//XXX
@@ -306,16 +304,14 @@ static int runSchedule(struct addrinfo *serv_addr, struct opt_t *options,
     }
 
     /* Wait test socket to become ready */
-    if ( read_control_ready(control_socket, &socket_options->tport) < 0 ) {
+    if ( read_control_ready(control_socket, &options->tport) < 0 ) {
         Log(LOG_WARNING, "Failed to read READY packet, aborting");
         close(control_socket);
         return -1;
     }
 
-    actual_test_port = socket_options->tport;//XXX
-
     /* Connect the test socket */
-    test_socket = connect_to_server(serv_addr, socket_options, actual_test_port);
+    test_socket = connect_to_server(serv_addr, socket_options, options->tport);
     if ( test_socket == -1 ) {
         Log(LOG_ERR, "Cannot connect to the server testsocket");
         goto errorCleanup;
@@ -348,16 +344,14 @@ static int runSchedule(struct addrinfo *serv_addr, struct opt_t *options,
                 }
                 close(test_socket);
                 /* Read the actual port to use */
-                if ( read_control_ready(control_socket,
-                            &socket_options->tport) < 0 ) {
+                if ( read_control_ready(control_socket, &options->tport) < 0 ) {
                     Log(LOG_WARNING, "Failed to read READY packet, aborting");
                     close(control_socket);
                     return -1;
                 }
-                actual_test_port = socket_options->tport;//XXX
                 /* Open up a new one */
                 test_socket = connect_to_server(serv_addr, socket_options,
-                        actual_test_port);
+                        options->tport);
                 if ( test_socket == -1 ) {
                     Log(LOG_ERR, "Failed to open a new connection");
                     goto errorCleanup;
@@ -419,8 +413,7 @@ static int runSchedule(struct addrinfo *serv_addr, struct opt_t *options,
                 /* Tell the server we are starting a test */
                 send_control_receive(control_socket, 0);
                 /* Wait for it get ready */
-                if ( read_control_ready(control_socket,
-                            &socket_options->tport) < 0 ) {
+                if ( read_control_ready(control_socket, &options->tport) < 0 ) {
                     Log(LOG_WARNING, "Failed to read READY packet, aborting");
                     close(control_socket);
                     return -1;

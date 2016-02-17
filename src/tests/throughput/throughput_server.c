@@ -182,7 +182,7 @@ static int do_renew(int control_sock, int test_sock, uint16_t port,
     /* Ready the listening socket again */
     do {
         res = start_listening(&sockets, port, sockopts);
-    } while ( res == EADDRINUSE && sockopts->tport++ < portmax );
+    } while ( res == EADDRINUSE && port++ < portmax );
 
     if ( res != 0 ) {
         Log(LOG_ERR, "Failed to open listening socket terminating");
@@ -249,16 +249,16 @@ static int serveTest(int control_sock, struct sockopt_t *sockopts) {
     /* If test port has been manually set, only try that port. If it is
      * still the default, try a few ports till we hopefully find a free one.
      */
-    if ( sockopts->tport == DEFAULT_TEST_PORT ) {
+    if ( options->tport == DEFAULT_TEST_PORT ) {
         portmax = MAX_TEST_PORT;
     } else {
-        portmax = sockopts->tport;
+        portmax = options->tport;
     }
 
     /* No errors so far, make our new testsocket with the given test options */
     do {
         res = start_listening(&sockets, options->tport, sockopts);
-    } while ( res == EADDRINUSE && sockopts->tport++ < portmax );
+    } while ( res == EADDRINUSE && options->tport++ < portmax );
 
     if ( res != 0 ) {
         Log(LOG_WARNING, "Failed to start listening for test traffic");
