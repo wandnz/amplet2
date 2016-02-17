@@ -30,8 +30,7 @@ int send_control_ready(int sock, uint16_t port);
 int send_control_receive(int sock, ProtobufCBinaryData *options);
 int send_control_send(int sock, ProtobufCBinaryData *options);
 int send_control_result(int sock, ProtobufCBinaryData *data);
-int send_control_renew(int sock);//XXX
-int send_control_close(int sock);//XXX
+int send_control_renew(int sock);//XXX throughput specific
 
 int read_control_hello(int sock, void **options,
         void *(*parse_func)(ProtobufCBinaryData *data));
