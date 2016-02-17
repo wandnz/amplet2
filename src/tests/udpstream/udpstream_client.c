@@ -134,7 +134,7 @@ static struct test_request_t* build_schedule(struct opt_t *options) {
  * TODO could this be a library function too, with a function pointer?
  */
 static int run_test(struct addrinfo *server, struct opt_t *options,
-        struct temp_sockopt_t_xxx *socket_options) {
+        struct sockopt_t *socket_options) {
     int control_socket, test_socket;
     struct sockaddr_storage ss;
     socklen_t socklen = sizeof(ss);
@@ -245,7 +245,7 @@ int run_udpstream_client(int argc, char *argv[], int count,
 
     int opt;
     struct opt_t test_options;
-    struct temp_sockopt_t_xxx socket_options;
+    struct sockopt_t socket_options;
     char *client;
     amp_test_meta_t meta;
     extern struct option long_options[];

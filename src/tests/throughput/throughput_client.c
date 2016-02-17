@@ -260,12 +260,12 @@ static void report_results(uint64_t start_time, struct addrinfo *dest,
  * @return 0 if successful, otherwise -1 on failure
  */
 static int runSchedule(struct addrinfo *serv_addr, struct opt_t *options,
-        struct temp_sockopt_t_xxx *socket_options) {
+        struct sockopt_t *socket_options) {
     int control_socket;
     int test_socket = -1;
     struct packet_t packet;
     uint64_t start_time_ns;
-    struct temp_sockopt_t_xxx srv_opts;
+    struct sockopt_t srv_opts;
     uint16_t actual_test_port = 0;
     ProtobufCBinaryData data;
     Amplet2__Throughput__Item *results = NULL;
@@ -509,7 +509,7 @@ errorCleanup :
 int run_throughput_client(int argc, char *argv[], int count,
         struct addrinfo **dests) {
     struct opt_t test_options;
-    struct temp_sockopt_t_xxx socket_options;
+    struct sockopt_t socket_options;
     amp_test_meta_t meta;
     int opt;
     int option_index = 0;

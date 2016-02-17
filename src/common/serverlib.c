@@ -712,7 +712,7 @@ static int set_and_verify_sockopt(int sock, int value, int proto,
  * Set all the relevant socket options that the test is requesting be set
  * (e.g. set buffer sizes, set MSS, disable Nagle).
  */
-static void do_socket_setup(struct temp_sockopt_t_xxx *options, int sock) {
+static void do_socket_setup(struct sockopt_t *options, int sock) {
 
     if ( options == NULL ) {
         return;
@@ -803,7 +803,7 @@ static void do_socket_setup(struct temp_sockopt_t_xxx *options, int sock) {
  * @return the bound socket or return -1 if this fails
  */
 int start_listening(struct socket_t *sockets, int port,
-        struct temp_sockopt_t_xxx *sockopts) {
+        struct sockopt_t *sockopts) {
 
     assert(sockets);
     assert(sockopts);
@@ -945,8 +945,8 @@ int start_listening(struct socket_t *sockets, int port,
 /*
  * XXX should port be included in options?
  */
-int connect_to_server(struct addrinfo *server,
-        struct temp_sockopt_t_xxx *options, int port) {
+int connect_to_server(struct addrinfo *server, struct sockopt_t *options,
+        int port) {
 
     int sock;
 

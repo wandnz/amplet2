@@ -9,7 +9,7 @@
 #define MAXIMUM_SERVER_WAIT_TIME 60000000
 
 
-struct temp_sockopt_t_xxx {
+struct sockopt_t {
     struct addrinfo *sourcev4;
     struct addrinfo *sourcev6;
     int socktype;
@@ -52,7 +52,7 @@ int parse_control_send(void *data, uint32_t len, void **options,
 
 struct addrinfo *get_socket_address(int sock);
 int start_listening(struct socket_t *sockets, int port,
-        struct temp_sockopt_t_xxx *sockopts);
-int connect_to_server(struct addrinfo *server, struct temp_sockopt_t_xxx *options, int port);
+        struct sockopt_t *sockopts);
+int connect_to_server(struct addrinfo *server, struct sockopt_t *options, int port);
 
 #endif

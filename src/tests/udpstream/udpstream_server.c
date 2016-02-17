@@ -95,7 +95,7 @@ static void do_send(int test_sock, struct sockaddr_storage *remote,
 // XXX can any of this move into a library function?
 //XXX need remote when it can be extracted from control sock?
 static int serve_test(int control_sock, struct sockaddr_storage *remote,
-        struct temp_sockopt_t_xxx *sockopts) {
+        struct sockopt_t *sockopts) {
     struct socket_t sockets;
     uint16_t portmax;
     int test_sock;
@@ -212,8 +212,7 @@ void run_udpstream_server(int argc, char *argv[], SSL *ssl) {
     struct socket_t listen_sockets;
     int control_sock; /* Our clients control socket connection */
     int opt;
-    //struct opt_t sockopts;
-    struct temp_sockopt_t_xxx sockopts;//XXX this isn't the right thing to use
+    struct sockopt_t sockopts;
     struct sockaddr_storage client_addr;
     socklen_t client_addrlen;
     char *sourcev4, *sourcev6;

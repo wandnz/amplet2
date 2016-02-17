@@ -29,7 +29,6 @@
 
 #include "tests.h"
 #include "testlib.h"
-#include "serverlib.h" //XXX remove when temp_sockopt_t_xxx removed
 #include "throughput.pb-c.h"
 
 /*

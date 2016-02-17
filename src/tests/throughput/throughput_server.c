@@ -168,7 +168,7 @@ static int do_send(int control_sock, int test_sock, struct opt_t *options,
 
 
 static int do_renew(int control_sock, int test_sock, uint16_t port,
-        uint16_t portmax, struct temp_sockopt_t_xxx *sockopts) {
+        uint16_t portmax, struct sockopt_t *sockopts) {
 
     struct packet_t packet;
     struct socket_t sockets;
@@ -231,7 +231,7 @@ static int do_renew(int control_sock, int test_sock, uint16_t port,
  *
  * @return 0 if successful, -1 upon error.
  */
-static int serveTest(int control_sock, struct temp_sockopt_t_xxx *sockopts) {
+static int serveTest(int control_sock, struct sockopt_t *sockopts) {
     int bytes;
     int t_listen = -1;
     int test_sock = -1;
@@ -389,7 +389,7 @@ void run_throughput_server(int argc, char *argv[], SSL *ssl) {
     struct socket_t listen_sockets;
     int control_sock; /* Our clients control socket connection */
     int opt;
-    struct temp_sockopt_t_xxx sockopts;//XXX WRONG
+    struct sockopt_t sockopts;
     struct sockaddr_storage client_addr;
     socklen_t client_addrlen;
     char *sourcev4, *sourcev6;
