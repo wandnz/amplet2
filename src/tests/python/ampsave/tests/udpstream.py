@@ -7,7 +7,7 @@ def build_loss_periods(data):
     for i in data:
         if i.status == ampsave.tests.udpstream_pb2.Period.LOST:
             periods.append(("loss", i.length))
-        else if direction == ampsave.tests.udpstream_pb2.Period.RECEIVED:
+        elif i.status == ampsave.tests.udpstream_pb2.Period.RECEIVED:
             periods.append(("ok", i.length))
     return periods
 
