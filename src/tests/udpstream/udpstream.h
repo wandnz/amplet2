@@ -23,6 +23,7 @@
 #define DEFAULT_TEST_PORT 8826 /* Run test across a separate port */
 #define MAX_TEST_PORT 8836
 
+#define MINIMUM_UDPSTREAM_PACKET_COUNT 2
 #define MINIMUM_UDPSTREAM_PACKET_LENGTH ( \
         sizeof(struct ip6_hdr) + sizeof(struct udphdr) + \
         sizeof(struct payload_t))

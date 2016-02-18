@@ -290,7 +290,35 @@ Amplet2__Udpstream__Item* report_stream(enum udpstream_direction direction,
 
     qsort(&ipdv, count, sizeof(int32_t), cmp);
 
-    Log(LOG_DEBUG, "LOSS PERIODS: %d", item->n_loss_periods);
+    Log(LOG_DEBUG, "Packets received: %d", received);
+    Log(LOG_DEBUG, "Loss periods: %d", item->n_loss_periods);
+
+    /* every result will have these, even if no packets were received */
+    item->has_direction = 1;
+    item->direction = direction;
+    item->has_packets_received = 1;
+    item->packets_received = received;
+
+    /* no useful delay variance, not enough packets arrived */
+    if ( count == 0 ) {
+        return item;
+    }
+
+    /* at least two packets arrived - we have one delay variance measurement */
+    item->has_maximum = 1;
+    item->maximum = ipdv[count -1];
+    item->has_minimum = 1;
+    item->minimum = ipdv[0];
+
+    item->has_median = 1;
+    if ( count > 1 && count % 2 ) {
+        /* round up the difference in the middle values, so we get an integer */
+        item->median = (ipdv[count / 2] + ipdv[(count / 2) + 1]) / 2;
+        printf("MEDIAN: %d + %d / 2\n", ipdv[count / 2], ipdv[(count / 2) + 1]);
+    } else {
+        /* integer arithmetic and zero based arrays mean this is the middle */
+        item->median = ipdv[count / 2];
+    }
 
     /*
      * Base the number of percentiles around the minimum of what the user
@@ -298,38 +326,24 @@ Amplet2__Udpstream__Item* report_stream(enum udpstream_direction direction,
      * without sending the largest and smallest measurements because they are
      * already being sent.
      */
-    //XXX very low numbers could overflow, prevent this
-    item->n_percentiles = MIN(options->percentile_count - 1, count - 2);
-    item->percentiles = calloc(item->n_percentiles, sizeof(int32_t));
-
-    Log(LOG_DEBUG, "Packets received: %d", received);
-
-    Log(LOG_DEBUG, "Reporting %d percentiles", item->n_percentiles);
-
-    for ( i = 0; i < item->n_percentiles; i++ ) {
-        Log(LOG_DEBUG, "Percentile %d (%d): %d\n", (i+1) * 10,
-                (int)(count / item->n_percentiles * (i+1)) - 1,
-                ipdv[(int)(count / item->n_percentiles * (i+1)) - 1]);
-        item->percentiles[i] = ipdv[(int)
-            (count / item->n_percentiles * (i+1)) - 1];
-    }
-
-    item->has_direction = 1;
-    item->direction = direction;
-    item->has_maximum = 1;
-    item->maximum = ipdv[count -1];
-    item->has_minimum = 1;
-    item->minimum = ipdv[0];
-    item->has_median = 1;
-    if ( count % 2 ) {
-        /* round up the difference in the middle values, so we get an integer */
-        item->median = (ipdv[count / 2] + ipdv[(count / 2) + 1]) / 2;
+    if ( options->percentile_count < 2 || count < 3 ) {
+        item->n_percentiles = 0;
+        item->percentiles = NULL;
+        Log(LOG_DEBUG, "Too few measurements to report percentiles");
     } else {
-        /* integer arithmetic and zero based arrays mean this is the middle */
-        item->median = ipdv[count / 2];
+        item->n_percentiles = MIN(options->percentile_count - 1, count - 2);
+        item->percentiles = calloc(item->n_percentiles, sizeof(int32_t));
+
+        Log(LOG_DEBUG, "Reporting %d percentiles", item->n_percentiles);
+
+        for ( i = 0; i < item->n_percentiles; i++ ) {
+            Log(LOG_DEBUG, "Percentile %d (%d): %d\n", (i+1) * 10,
+                    (int)(count / item->n_percentiles * (i+1)) - 1,
+                    ipdv[(int)(count / item->n_percentiles * (i+1)) - 1]);
+            item->percentiles[i] = ipdv[(int)
+                (count / item->n_percentiles * (i+1)) - 1];
+        }
     }
-    item->has_packets_received = 1;
-    item->packets_received = received;
 
     return item;
 }

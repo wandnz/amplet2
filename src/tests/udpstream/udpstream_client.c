@@ -76,7 +76,9 @@ static void report_results(struct timeval *start_time, struct addrinfo *dest,
             free(reports[0]->loss_periods[i]);
         }
         free(reports[0]->loss_periods);
-        free(reports[0]->percentiles);
+        if ( reports[0]->percentiles ) {
+            free(reports[0]->percentiles);
+        }
         free(reports[0]);
     }
 
@@ -333,9 +335,16 @@ int run_udpstream_client(int argc, char *argv[], int count,
         exit(1);
     }
 
+    /* make sure that we are sending enough packets to do something useful */
+    if ( test_options.packet_count < MINIMUM_UDPSTREAM_PACKET_COUNT ) {
+        Log(LOG_WARNING, "Packet count %d below minimum, raising to %d",
+                test_options.packet_count, MINIMUM_UDPSTREAM_PACKET_COUNT);
+        test_options.packet_count = MINIMUM_UDPSTREAM_PACKET_COUNT;
+    }
+
     /* make sure that the packet size is big enough for our data */
     if ( test_options.packet_size < MINIMUM_UDPSTREAM_PACKET_LENGTH ) {
-	Log(LOG_WARNING, "Packet size %d below minimum size, raising to %d",
+	Log(LOG_WARNING, "Packet size %d below minimum, raising to %d",
 		test_options.packet_size, MINIMUM_UDPSTREAM_PACKET_LENGTH);
 	test_options.packet_size = MINIMUM_UDPSTREAM_PACKET_LENGTH;
     }
@@ -408,7 +417,7 @@ static void print_item(Amplet2__Udpstream__Item *item, uint32_t packet_count) {
     }
     printf("\n");
 
-    printf("      loss patterns:");
+    printf("      arrival patterns:");
     for ( i = 0; i < item->n_loss_periods; i++ ) {
         printf(" %d %s", item->loss_periods[i]->length,
                 item->loss_periods[i]->status ? "ok" : "lost");

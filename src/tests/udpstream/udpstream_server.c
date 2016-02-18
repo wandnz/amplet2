@@ -47,7 +47,9 @@ static void do_receive(int control_sock, int test_sock, struct opt_t *options) {
         free(result->loss_periods[i]);
     }
     free(result->loss_periods);
-    free(result->percentiles);
+    if ( result->percentiles ) {
+        free(result->percentiles);
+    }
     free(result);
     free(packed.data);
     free(times);
