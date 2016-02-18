@@ -156,7 +156,11 @@ static int run_test(struct addrinfo *server, struct opt_t *options,
     }
 
     /* connect to the control socket on the server */
-    control_socket = connect_to_server(server, socket_options, options->cport);
+    if ( (control_socket = connect_to_server(server, socket_options,
+                    options->cport)) < 0 ) {
+        Log(LOG_WARNING, "Failed to connect to server, aborting test");
+        return -1;
+    }
 
     gettimeofday(&start_time, NULL);
 
