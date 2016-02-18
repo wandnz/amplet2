@@ -321,27 +321,20 @@ Amplet2__Udpstream__Item* report_stream(enum udpstream_direction direction,
 
     /*
      * Base the number of percentiles around the minimum of what the user
-     * wanted, and the number of measurements we have. Also we can get away
-     * without sending the largest and smallest measurements because they are
-     * already being sent.
+     * wanted, and the number of measurements we have. We might be duplicating
+     * data by including the min/max here as well, but it makes life easier.
      */
-    if ( options->percentile_count < 2 || count < 3 ) {
-        item->n_percentiles = 0;
-        item->percentiles = NULL;
-        Log(LOG_DEBUG, "Too few measurements to report percentiles");
-    } else {
-        item->n_percentiles = MIN(options->percentile_count - 1, count - 2);
-        item->percentiles = calloc(item->n_percentiles, sizeof(int32_t));
+    item->n_percentiles = MIN(options->percentile_count, count);
+    item->percentiles = calloc(item->n_percentiles, sizeof(int32_t));
 
-        Log(LOG_DEBUG, "Reporting %d percentiles", item->n_percentiles);
+    Log(LOG_DEBUG, "Reporting %d percentiles", item->n_percentiles);
 
-        for ( i = 0; i < item->n_percentiles; i++ ) {
-            Log(LOG_DEBUG, "Percentile %d (%d): %d\n", (i+1) * 10,
-                    (int)(count / item->n_percentiles * (i+1)) - 1,
-                    ipdv[(int)(count / item->n_percentiles * (i+1)) - 1]);
-            item->percentiles[i] = ipdv[(int)
-                (count / item->n_percentiles * (i+1)) - 1];
-        }
+    for ( i = 0; i < item->n_percentiles; i++ ) {
+        Log(LOG_DEBUG, "Percentile %d (%d): %d\n", (i+1) * 10,
+                (int)(count / item->n_percentiles * (i+1)) - 1,
+                ipdv[(int)(count / item->n_percentiles * (i+1)) - 1]);
+        item->percentiles[i] = ipdv[(int)
+            (count / item->n_percentiles * (i+1)) - 1];
     }
 
     return item;
