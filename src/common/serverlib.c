@@ -950,7 +950,6 @@ int connect_to_server(struct addrinfo *server, struct sockopt_t *options,
 
     int sock;
 
-    //XXX why SOCK_STREAM? needs to able to do DGRAM too, and change protocols
     sock = socket(server->ai_family, options->socktype, options->protocol);
 
     if ( sock < 0 ) {
@@ -994,7 +993,7 @@ int connect_to_server(struct addrinfo *server, struct sockopt_t *options,
      * the same place in both headers.
      */
      //XXX why not make this the only code path? are we setting port in the
-     // structure earlier?
+     // structure earlier? throughput test did this, but not sure why
      //if ( ((struct sockaddr_in *)serv_addr->ai_addr)->sin_port == 0 ) {
     if ( port > 0 ) {
         ((struct sockaddr_in *)server->ai_addr)->sin_port = htons(port);
@@ -1009,7 +1008,7 @@ int connect_to_server(struct addrinfo *server, struct sockopt_t *options,
         return -1;
     }
 
-    //XXX why is this done?
+    //XXX why is this done? the throughput test did it, but not sure why
     ((struct sockaddr_in *)server->ai_addr)->sin_port = 0;
 
     return sock;
