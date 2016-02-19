@@ -20,21 +20,87 @@
 #include "modules.h"
 #include "testlib.h"
 #include "ssl.h"
+#include "measured.pb-c.h"
+#include "serverlib.h"
+
+
+
+/*
+ * XXX these names are all very confusing when compared to the protobuf
+ * names in common/servers.proto and the associated functions!
+ */
+static int parse_server_start(void *data, uint32_t len, test_type_t *type) {
+
+    Amplet2__Measured__Control *msg;
+
+    assert(data);
+
+    /* unpack all the data */
+    msg = amplet2__measured__control__unpack(NULL, len, data);
+
+    if ( !msg || !msg->has_type ||
+            msg->type != AMPLET2__MEASURED__CONTROL__TYPE__SERVER ) {
+        Log(LOG_WARNING, "Not a SERVER packet, aborting");
+        amplet2__measured__control__free_unpacked(msg, NULL);
+        return -1;
+    }
+
+    if ( !msg->server || !msg->server->has_test_type ) {
+        Log(LOG_WARNING, "Malformed SERVER packet, aborting");
+        amplet2__measured__control__free_unpacked(msg, NULL);
+        return -1;
+    }
+
+    *type = msg->server->test_type;
+
+    /* TODO argv */
+
+    amplet2__measured__control__free_unpacked(msg, NULL);
+
+    return 0;
+}
 
 
 
 /*
  *
  */
-static void process_control_message(int fd, test_t *test) {
+static int read_server_start(SSL *ssl, test_type_t *type) {
+      void *data;
+      int len;
+
+      /* read the packet from the stream */
+      if ( (len=read_control_packet_ssl(ssl, &data)) < 0 ) {
+          Log(LOG_WARNING, "Failed to read SERVER packet");
+          return -1;
+      }
+
+      /* validate it as a SERVER packet and then try to extract options */
+      if ( parse_server_start(data, len, type) < 0 ) {
+          Log(LOG_WARNING, "Failed to parse HELLO packet");
+          free(data);
+          return -1;
+      }
+
+      free(data);
+
+      return 0;
+}
+
+
+
+/*
+ *
+ */
+static void process_control_message(int fd) {
     SSL *ssl;
     X509 *client_cert;
-    struct sockaddr_storage peer;
-    socklen_t addrlen = sizeof(struct sockaddr_storage);
-    char hostname[NI_MAXHOST];
+    //struct sockaddr_storage peer;
+    //socklen_t addrlen = sizeof(struct sockaddr_storage);
+    //char hostname[NI_MAXHOST];
+    test_type_t test_id;
+    test_t *test;
 
-    assert(test);
-    assert(test->server_callback);
 
     Log(LOG_DEBUG, "Processing control message");
 
@@ -95,9 +161,43 @@ static void process_control_message(int fd, test_t *test) {
     }
 #endif
 
+    X509_free(client_cert);
+
     Log(LOG_DEBUG, "Successfully validated peer cert");
 
     /* TODO read test arguments if required */
+
+    if ( read_server_start(ssl, &test_id) < 0 ) {
+        /* Failed to read the test id, close connection and remove event */
+        ssl_shutdown(ssl);
+        close(fd);
+        return;
+    }
+
+    Log(LOG_DEBUG, "Read test id %d from control connection", test_id);
+
+    /* Make sure it is a valid test id we are being asked to start */
+    if ( test_id >= AMP_TEST_LAST || test_id <= AMP_TEST_INVALID ) {
+        Log(LOG_DEBUG, "Read invalid test id on control socket: %d", test_id);
+        close(fd);
+        return;
+    }
+
+    /* TODO limit number of connections/servers running, weighted system */
+
+    /* Make sure that the test has been built and loaded */
+    if ( (test = amp_tests[test_id]) == NULL ) {
+        Log(LOG_DEBUG, "No test module for test id: %d", test_id);
+        close(fd);
+        return;
+    }
+
+    /* Make sure that the test requires a server to be run */
+    if ( test->server_callback == NULL ) {
+        Log(LOG_DEBUG, "No server callback for %s test", test->name);
+        close(fd);
+        return;
+    }
 
     /*
      * Run server function using callback in test, give it the ssl descriptor
@@ -105,7 +205,6 @@ static void process_control_message(int fd, test_t *test) {
      */
     test->server_callback(0, NULL, ssl);
 
-    X509_free(client_cert);
     ssl_shutdown(ssl);
     close(fd);
     exit(0);
@@ -114,6 +213,7 @@ static void process_control_message(int fd, test_t *test) {
 
 
 /*
+ * XXX UPDATE COMMENT
  * Read initial data from a control connection and stop triggering on this
  * socket. The first byte will be a test id that we need to validate and will
  * be used to set up watchdogs. After forking, that process will take care of
@@ -123,8 +223,6 @@ static void control_read_callback(wand_event_handler_t *ev_hdl, int fd,
         __attribute__((unused))void *data,
         __attribute__((unused))enum wand_eventtype_t ev) {
 
-    uint8_t test_id;
-    test_t *test;
     pid_t pid;
 
     /*
@@ -133,6 +231,7 @@ static void control_read_callback(wand_event_handler_t *ev_hdl, int fd,
      */
     wand_del_fd(ev_hdl, fd);
 
+#if 0
     /* Read the first byte to get the test id. We will trust this value for
      * now, before we verify the SSL certificate - there isn't much harm that
      * can come from it, and if it is bogus we bail out very quickly.
@@ -167,6 +266,7 @@ static void control_read_callback(wand_event_handler_t *ev_hdl, int fd,
         close(fd);
         return;
     }
+#endif
 
     /* Fork to validate SSL cert and actually run the server */
     if ( (pid = fork()) < 0 ) {
@@ -175,16 +275,19 @@ static void control_read_callback(wand_event_handler_t *ev_hdl, int fd,
         return;
     } else if ( pid == 0 ) {
         reseed_openssl_rng();
-        process_control_message(fd, test);
+        process_control_message(fd);
         assert(0);
     }
 
     /* the parent process doesn't need the client file descriptor */
     close(fd);
 
+#if 0
     /* TODO update name to mark it as a server timer? */
     add_test_watchdog(ev_hdl, pid, test->max_duration + TEST_SERVER_EXTRA_TIME,
             test->sigint, test->name);
+#endif
+    add_test_watchdog(ev_hdl, pid, TEST_SERVER_EXTRA_TIME, 0, "server");
 }
 
 

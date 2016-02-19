@@ -24,6 +24,8 @@ struct sockopt_t {
 };
 
 
+int write_control_packet_ssl(SSL *ssl, void *data, uint32_t len);
+int read_control_packet_ssl(SSL *ssl, void **data);
 
 int send_control_hello(int sock, ProtobufCBinaryData *options);
 int send_control_ready(int sock, uint16_t port);

@@ -29,6 +29,41 @@
 #include "servers.pb-c.h"
 
 
+
+
+int write_control_packet_ssl(SSL *ssl, void *data, uint32_t len) {
+    int result;
+    uint32_t datalen = ntohl(len);
+
+    /*
+     * There is no delimiter for protocol buffers, so we need to send the
+     * length of the message that will follow
+     */
+    result = SSL_write(ssl, (void *)&datalen, sizeof(datalen));
+
+    if ( result < 0 ) {
+        Log(LOG_WARNING, "Failed to write server control packet length: %s",
+                strerror(errno));
+        return -1;
+    }
+
+    assert(result == sizeof(datalen));
+
+    /* Send the actual protocol buffer message onto the stream now */
+    result = SSL_write(ssl, data, len);
+
+    if ( result < 0 ) {
+        Log(LOG_WARNING, "Failed to write server control packet length");
+        return -1;
+    }
+
+    assert(result == len);
+
+    return (sizeof(datalen) + len);
+}
+
+
+
 /*
  * Write a control message onto the stream.
  */
@@ -85,6 +120,52 @@ static int write_control_packet(int sock, void *data, uint32_t len) {
     return total_written;
 }
 
+
+
+/*
+ * Read a control message from the stream.
+ */
+int read_control_packet_ssl(SSL *ssl, void **data) {
+    int result;
+    uint32_t datalen = 0;
+
+    /* read the length of the following protocol buffer object */
+    result = SSL_read(ssl, (void *)&datalen, sizeof(datalen));
+
+    if ( result < 0 ) {
+        Log(LOG_WARNING, "Failed to read server control packet length");
+        return -1;
+    }
+
+    if ( result == 0 ) {
+        Log(LOG_DEBUG, "Server control connection closed");
+        return -1;
+    }
+
+    assert(result == sizeof(datalen));
+
+    datalen = ntohl(datalen);
+    *data = calloc(1, datalen);
+
+    /* read the protocol buffer object from the stream */
+    result = SSL_read(ssl, *data, datalen);
+
+    if ( result < 0 ) {
+        Log(LOG_WARNING, "Failed to read server control packet data");
+        free(data);
+        return -1;
+    }
+
+    if ( result == 0 ) {
+        Log(LOG_DEBUG, "Server control connection closed");
+        free(data);
+        return -1;
+    }
+
+    assert(result == datalen);
+
+    return datalen;
+}
 
 
 /*

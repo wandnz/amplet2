@@ -23,6 +23,8 @@
 #include "messaging.h"
 #include "ssl.h"
 #include "global.h"
+#include "measured.pb-c.h"
+#include "serverlib.h"
 
 
 
@@ -415,6 +417,36 @@ int send_server_port(SSL *ssl, uint16_t port) {
 
 
 /*
+ *
+ */
+static int send_server_start(SSL *ssl, test_type_t type) {
+    int len;
+    void *buffer;
+    int result;
+    Amplet2__Measured__Control msg = AMPLET2__MEASURED__CONTROL__INIT;
+    Amplet2__Measured__Server server = AMPLET2__MEASURED__SERVER__INIT;
+
+    server.has_test_type = 1;
+    server.test_type = type;
+
+    msg.server = &server;
+    msg.has_type = 1;
+    msg.type = AMPLET2__MEASURED__CONTROL__TYPE__SERVER;
+
+    len = amplet2__measured__control__get_packed_size(&msg);
+    buffer = malloc(len);
+    amplet2__measured__control__pack(&msg, buffer);
+
+    result = write_control_packet_ssl(ssl, buffer, len);
+
+    free(buffer);
+
+    return result;
+}
+
+
+
+/*
  * Open an SSL connection to another AMP monitor and ask them to start a
  * server for a particular test. This will return the port number that the
  * server is running on.
@@ -524,13 +556,6 @@ uint16_t start_remote_server(test_type_t type, struct addrinfo *dest,
         }
     } while ( res < 0 );
 
-    /* Send the test type, so the other end can set up watchdogs etc */
-    if ( send(sock, &type, 1, 0) < 0 ) {
-        Log(LOG_DEBUG, "Failed to send test type");
-        close(sock);
-        return 0;
-    }
-
     /* Open up the ssl channel and validate the cert against our CA cert */
     /* TODO CRL or OCSP to deal with revocation of certificates */
 
@@ -559,6 +584,13 @@ uint16_t start_remote_server(test_type_t type, struct addrinfo *dest,
     }
 
     Log(LOG_DEBUG, "Successfully validated peer cert");
+
+    /* Send the test type, so the other end knows which server to run */
+    if ( send_server_start(ssl, type) < 0 ) {
+        Log(LOG_DEBUG, "Failed to send test type");
+        close(sock);
+        return 0;
+    }
 
     /* TODO send any test parameters? */
     /* Get the port number the remote server is on */
