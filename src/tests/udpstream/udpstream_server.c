@@ -226,7 +226,7 @@ void run_udpstream_server(int argc, char *argv[], SSL *ssl) {
 
     /* Possibly could use dests to limit interfaces to listen on */
 
-    Log(LOG_DEBUG, "Running throughput test as server");
+    Log(LOG_DEBUG, "Running udpstream test as server");
 
     /* set some sensible defaults */
     memset(&sockopts, 0, sizeof(sockopts));
@@ -279,10 +279,10 @@ void run_udpstream_server(int argc, char *argv[], SSL *ssl) {
      */
     if ( ssl ) {
         if ( send_server_port(ssl, port) < 0 ) {
-            Log(LOG_DEBUG, "Failed to send server port for throughput test");
+            Log(LOG_DEBUG, "Failed to send server port for udpstream test");
             return;
         } else {
-            Log(LOG_DEBUG, "Sent server port %d for throughput test OK", port);
+            Log(LOG_DEBUG, "Sent server port %d for udpstream test OK", port);
         }
     }
 
