@@ -337,7 +337,7 @@ static time_t get_period_start(schedule_period_t period, time_t *now) {
  * TODO do we need to check the parameters here, given they are going to be
  * used as part of the parameter array given to execv?
  */
-static char **parse_param_string(char *param_string) {
+char **parse_param_string(char *param_string) {
     int i;
     char *tmp, *arg;
     char **result = (char**)malloc(sizeof(char*) * MAX_TEST_ARGS);
@@ -662,8 +662,7 @@ static char **parse_test_targets(yaml_document_t *document, yaml_node_t *node,
  * www.foo.com:n:v4 -- resolve up to n ipv4 addresses
  * www.foo.com:n:v6 -- resolve up to n ipv6 addresses
  */
-static char **populate_target_lists(test_schedule_item_t *test,
-        char **targets) {
+char **populate_target_lists(test_schedule_item_t *test, char **targets) {
 
     char *addr_str, *count_str;
     int family;
@@ -681,6 +680,7 @@ static char **populate_target_lists(test_schedule_item_t *test,
     for ( ; targets != NULL && *targets != NULL && (max_targets == 0 ||
             (test->dest_count + test->resolve_count) < max_targets);
             targets++ ) {
+        printf("populate_target_lists, *targets=%s\n", *targets);
         addr_str = strtok(*targets, ":");
         family = AF_UNSPEC;
         count = 0;
@@ -744,6 +744,7 @@ static char **populate_target_lists(test_schedule_item_t *test,
     Log(LOG_DEBUG, "%d known targets, %d to resolve", test->dest_count,
             test->resolve_count);
 
+        printf("done populate_target_lists, *targets=%s\n", *targets);
     return targets;
 }
 

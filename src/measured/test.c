@@ -30,7 +30,7 @@
  * apply them to the proper test binary as provided by the test registration.
  * Run the test callback function and let it do its thing.
  */
-static void run_test(const test_schedule_item_t * const item) {
+void run_test(const test_schedule_item_t * const item) {
     char *argv[MAX_TEST_ARGS];
     uint32_t argc = 0;
     uint32_t offset;
@@ -40,6 +40,8 @@ static void run_test(const test_schedule_item_t * const item) {
     struct addrinfo **destinations = NULL;
     int total_resolve_count = 0;
     char *packet_delay_str = NULL;
+
+    printf("run_test\n");
 
     assert(item);
     assert(item->test_id < AMP_TEST_LAST);

@@ -2,8 +2,8 @@ package amplet2.measured;
 
 message Control {
         enum Type {
-            SERVER = 1;
-            SCHEDULE = 2;
+            SERVER = 2;
+            SCHEDULE = 3;
         }
 
         optional Type type = 1;
@@ -14,24 +14,28 @@ message Control {
 
 message Server {
         optional uint32 test_type = 1;
+        /* TODO easier to pass in a string and parse it later on, or an array
+         * of strings ready to go?
+         */
         optional string argv = 2;
 }
 
 message Schedule {
+    /*
         enum Period {
             SCHEDULE_PERIOD_HOURLY = 1;
             SCHEDULE_PERIOD_DAILY = 2;
             SCHEDULE_PERIOD_WEEKLY = 3;
         }
-
-        optional uint32 test = 1;
-        optional string target = 2;
-        optional int64 start = 3 [default = 0];
-        optional int64 end = 4 [default = -1];
-        optional Period period = 5 [default = SCHEDULE_PERIOD_DAILY];
-        optional int64 frequency = 6 [default = -1];
-        optional string argv = 7;
+    */
+        optional uint32 test_type = 1;
+        repeated string targets = 2;
+        /*optional int64 start = 3 [default = 0];*/
+        /*optional int64 end = 4 [default = -1];*/
+        /*optional Period period = 5 [default = SCHEDULE_PERIOD_DAILY];*/
+        /*optional int64 frequency = 6 [default = -1];*/
+        optional string params = 7;
         /* TODO make test permanent or not */
         /* TODO how to remove permanent tests */
-        optional bool repeat = 8 [default = false];
+        /*optional bool repeat = 8 [default = false];*/
 }

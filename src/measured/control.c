@@ -22,6 +22,8 @@
 #include "ssl.h"
 #include "measured.pb-c.h"
 #include "serverlib.h"
+#include "schedule.h"
+#include "test.h"
 
 
 
@@ -62,6 +64,59 @@ static int parse_server_start(void *data, uint32_t len, test_type_t *type) {
 
 
 
+static int parse_schedule_test(void *data, uint32_t len,
+        test_schedule_item_t *item) {
+
+    Amplet2__Measured__Control *msg;
+
+    assert(data);
+    assert(item);
+
+    /* unpack all the data */
+    msg = amplet2__measured__control__unpack(NULL, len, data);
+
+    if ( !msg || !msg->has_type ||
+            msg->type != AMPLET2__MEASURED__CONTROL__TYPE__SCHEDULE ) {
+        Log(LOG_WARNING, "Not a SCHEDULE packet, aborting");
+        amplet2__measured__control__free_unpacked(msg, NULL);
+        return -1;
+    }
+
+    if ( !msg->schedule || !msg->schedule->has_test_type ) {
+        Log(LOG_WARNING, "Malformed SCHEDULE packet, aborting");
+        amplet2__measured__control__free_unpacked(msg, NULL);
+        return -1;
+    }
+
+    /* parse schedule message into a schedule item we can run */
+    memset(item, 0, sizeof(*item));
+    item->test_id = msg->schedule->test_type;
+    item->params = parse_param_string(msg->schedule->params);
+    //XXX do some hax, can we get a proper one of these from somewhere?
+    item->meta = calloc(1, sizeof(amp_test_meta_t));
+    item->meta->nssock = "/tmp/foo/var/run/amplet2/jessie-amplet.cms.waikato.ac.nz.sock";
+
+    printf("manually starting %s test\n", amp_tests[item->test_id]->name);
+
+    if ( msg->schedule->n_targets > 0 ) {
+        unsigned int i;
+        char **targets = calloc(msg->schedule->n_targets + 1, sizeof(char*));
+        /* we expect the destinations list to be null terminated */
+        memcpy(targets, msg->schedule->targets,
+                msg->schedule->n_targets * sizeof(char*));
+        targets = populate_target_lists(item, targets);
+        if ( targets != NULL && *targets != NULL ) {
+            Log(LOG_WARNING, "Too many targets for manual test, ignoring some");
+        }
+    }
+
+    amplet2__measured__control__free_unpacked(msg, NULL);
+
+    return 0;
+}
+
+
+
 /*
  *
  */
@@ -71,7 +126,7 @@ static void do_start_server(SSL *ssl, void *data, uint32_t len) {
 
     /* TODO read test arguments if required */
     if ( parse_server_start(data, len, &test_type) < 0 ) {
-        Log(LOG_WARNING, "Failed to parse HELLO packet");
+        Log(LOG_WARNING, "Failed to parse SERVER packet");
         return;
     }
 
@@ -102,6 +157,24 @@ static void do_start_server(SSL *ssl, void *data, uint32_t len) {
      * so that it can report the port number.
      */
     test->server_callback(0, NULL, ssl);
+}
+
+
+
+static void do_schedule_test(SSL *ssl, void *data, uint32_t len) {
+    test_schedule_item_t item;
+
+    Log(LOG_DEBUG, "Got SCHEDULE message");
+
+    if ( parse_schedule_test(data, len, &item) < 0 ) {
+        Log(LOG_WARNING, "Failed to parse SCHEDULE packet");
+        return;
+    }
+
+    set_proc_name(amp_tests[item->test_id]->name);
+
+    Log(LOG_DEBUG, "Manually starting %s test", amp_tests[item->test_id]->name);
+    run_test(&item);
 }
 
 
@@ -147,6 +220,11 @@ static void process_control_message(int fd) {
                 break;
             }
 
+            case AMPLET2__MEASURED__CONTROL__TYPE__SCHEDULE: {
+                do_schedule_test(ssl, data, bytes);
+                break;
+            }
+
             default: Log(LOG_WARNING, "Unhandled measured control message %d",
                              msg->type);
                      break;
@@ -185,6 +263,7 @@ static void control_read_callback(wand_event_handler_t *ev_hdl, int fd,
                 strerror(errno));
         return;
     } else if ( pid == 0 ) {
+        /* TODO need to close up a bunch of file descriptors? dns/asn etc? */
         reseed_openssl_rng();
         process_control_message(fd);
         assert(0);
@@ -192,6 +271,8 @@ static void control_read_callback(wand_event_handler_t *ev_hdl, int fd,
 
     /* the parent process doesn't need the client file descriptor */
     close(fd);
+    close(vars.asnsock_fd);
+    close(vars.nssock_fd);
 
     /*
      * TODO can't start a watchdog now, as the control message could be doing
