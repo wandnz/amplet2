@@ -78,7 +78,8 @@ void version(char *prog) {
  *
  * TODO const up the dest arguments so cant be changed?
  */
-int run_udpstream(int argc, char *argv[], int count, struct addrinfo **dests) {
+amp_test_result_t* run_udpstream(int argc, char *argv[], int count,
+        struct addrinfo **dests) {
     int opt;
     int option_index = 0;
     int server_flag_index = 0;
@@ -104,11 +105,10 @@ int run_udpstream(int argc, char *argv[], int count, struct addrinfo **dests) {
         memmove(argv + server_flag_index, argv + server_flag_index + 1,
                 (argc - server_flag_index - 1) * sizeof(char *));
         run_udpstream_server(argc-1, argv, NULL);
-    } else {
-        run_udpstream_client(argc, argv, count, dests);
+        return NULL;
     }
 
-    return 0;
+    return run_udpstream_client(argc, argv, count, dests);
 }
 
 

@@ -112,14 +112,15 @@ static void print_server(Amplet2__Http__Server *server) {
 /*
  *
  */
-void print_http(void *data, uint32_t len) {
+void print_http(amp_test_result_t *result) {
     Amplet2__Http__Report *msg;
     unsigned int i;
 
-    assert(data != NULL);
+    assert(result);
+    assert(result->data);
 
     /* unpack all the data */
-    msg = amplet2__http__report__unpack(NULL, len, data);
+    msg = amplet2__http__report__unpack(NULL, result->len, result->data);
 
     assert(msg);
     assert(msg->header);

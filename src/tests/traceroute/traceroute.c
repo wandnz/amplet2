@@ -1141,14 +1141,13 @@ static Amplet2__Traceroute__Item* report_destination(struct dest_info_t *info,
 /*
  *
  */
-static void report_results(struct timeval *start_time, int count,
+static amp_test_result_t*  report_results(struct timeval *start_time, int count,
 	struct dest_info_t *info, struct opt_t *opt) {
 
     int i;
     unsigned int j;
-    void *buffer;
-    int len = 0;
-    struct dest_info_t *result;
+    struct dest_info_t *dest;
+    amp_test_result_t *result = calloc(1, sizeof(amp_test_result_t));
 
     Amplet2__Traceroute__Report msg = AMPLET2__TRACEROUTE__REPORT__INIT;
     Amplet2__Traceroute__Header header = AMPLET2__TRACEROUTE__HEADER__INIT;
@@ -1168,9 +1167,9 @@ static void report_results(struct timeval *start_time, int count,
 
     /* build up the repeated reports section with each of the results */
     reports = malloc(sizeof(Amplet2__Traceroute__Item*) * count);
-    for ( i = 0, result = info;
-            i < count && result != NULL; i++, result = result->next ) {
-        reports[i] = report_destination(result, opt);
+    for ( i = 0, dest = info;
+            i < count && dest != NULL; i++, dest = dest->next ) {
+        reports[i] = report_destination(dest, opt);
     }
 
     assert(i == count);
@@ -1181,12 +1180,10 @@ static void report_results(struct timeval *start_time, int count,
     msg.n_reports = count;
 
     /* pack all the results into a buffer for transmitting */
-    len = amplet2__traceroute__report__get_packed_size(&msg);
-    buffer = malloc(len);
-    amplet2__traceroute__report__pack(&msg, buffer);
-
-    /* send the packed report object */
-    report(AMP_TEST_TRACEROUTE, (uint64_t)start_time->tv_sec, buffer, len);
+    result->timestamp = (uint64_t)start_time->tv_sec;
+    result->len = amplet2__traceroute__report__get_packed_size(&msg);
+    result->data = malloc(result->len);
+    amplet2__traceroute__report__pack(&msg, result->data);
 
     /* free up all the memory we had to allocate to report items */
     for ( i = 0; i < count; i++ ) {
@@ -1200,7 +1197,8 @@ static void report_results(struct timeval *start_time, int count,
     }
 
     free(reports);
-    free(buffer);
+
+    return result;
 }
 
 
@@ -1512,7 +1510,8 @@ static void interrupt_test(wand_event_handler_t *ev_hdl,
  * TODO logging will need more work - the log level won't be set.
  * TODO const up the dest arguments so cant be changed?
  */
-int run_traceroute(int argc, char *argv[], int count, struct addrinfo **dests) {
+amp_test_result_t* run_traceroute(int argc, char *argv[], int count,
+        struct addrinfo **dests) {
     int opt;
     struct opt_t options;
     struct timeval start_time;
@@ -1525,6 +1524,7 @@ int run_traceroute(int argc, char *argv[], int count, struct addrinfo **dests) {
     wand_event_handler_t *ev_hdl;
     struct dest_info_t *item;
     struct stopset_t *stop;
+    amp_test_result_t *result;
 
     Log(LOG_DEBUG, "Starting TRACEROUTE test");
 
@@ -1716,7 +1716,8 @@ int run_traceroute(int argc, char *argv[], int count, struct addrinfo **dests) {
      * quietly ignore any that didn't finish as it doesn't really make
      * sense to report an incomplete path.
      */
-    report_results(&start_time, probelist.done_count, probelist.done, &options);
+    result = report_results(&start_time, probelist.done_count, probelist.done,
+            &options);
 
     /* XXX temporary debug */
 #if 0
@@ -1776,7 +1777,7 @@ int run_traceroute(int argc, char *argv[], int count, struct addrinfo **dests) {
 
     //printf("STOPSET SIZE: %d\n", i);
 
-    return 0;
+    return result;
 }
 
 
@@ -1784,16 +1785,17 @@ int run_traceroute(int argc, char *argv[], int count, struct addrinfo **dests) {
 /*
  * Print trace test results to stdout, nicely formatted for the standalone test
  */
-void print_traceroute(void *data, uint32_t len) {
+void print_traceroute(amp_test_result_t *result) {
     Amplet2__Traceroute__Report *msg;
     Amplet2__Traceroute__Item *item;
     unsigned int i, hopcount;
     char addrstr[INET6_ADDRSTRLEN];
 
-    assert(data != NULL);
+    assert(result);
+    assert(result->data);
 
     /* unpack all the data */
-    msg = amplet2__traceroute__report__unpack(NULL, len, data);
+    msg = amplet2__traceroute__report__unpack(NULL, result->len, result->data);
 
     assert(msg);
     assert(msg->header);

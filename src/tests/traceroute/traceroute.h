@@ -44,9 +44,10 @@
 #define HOP_ADDR(ttl) (item->hop[ttl - 1].addr)
 #define HOP_REPLY(ttl) (item->hop[ttl - 1].reply)
 
-int run_traceroute(int argc, char *argv[], int count, struct addrinfo **dests);
+amp_test_result_t* run_traceroute(int argc, char *argv[], int count,
+        struct addrinfo **dests);
 int save_traceroute(char *monitor, uint64_t timestamp, void *data, uint32_t len);
-void print_traceroute(void *data, uint32_t len);
+void print_traceroute(amp_test_result_t *result);
 test_t *register_test(void);
 int compare_addresses(const struct sockaddr *a,
         const struct sockaddr *b, int len);

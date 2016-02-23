@@ -124,8 +124,7 @@ void close_broker_connection() {
  * https://groups.google.com/forum/?fromgroups=#!topic/rabbitmq-discuss/M_8I12gWxbQ
  * root@machine4:~/rabbitmq/rabbitmq-c/tests/test_tables.c
  */
-int report_to_broker(test_type_t type, uint64_t timestamp, void *bytes,
-	size_t len) {
+int report_to_broker(test_type_t type, amp_test_result_t *result) {
 
     amqp_basic_properties_t props;
     amqp_bytes_t data;
@@ -201,7 +200,7 @@ int report_to_broker(test_type_t type, uint64_t timestamp, void *bytes,
     props.content_type = amqp_cstring_bytes("application/octet-stream");
     props.delivery_mode = 2; /* persistent delivery mode */
     props.headers = headers;
-    props.timestamp = timestamp;
+    props.timestamp = result->timestamp;
     /*
      * If the userid is set, it must match the authenticated username or the
      * message will be rejected by the rabbitmq broker. If it is not set then
@@ -210,8 +209,8 @@ int report_to_broker(test_type_t type, uint64_t timestamp, void *bytes,
     props.user_id = amqp_cstring_bytes(vars.ampname);
 
     /* jump dump a binary blob similar to old style? */
-    data.len = len;
-    data.bytes = bytes;
+    data.len = result->len;
+    data.bytes = result->data;
 
     /* publish the message */
     Log(LOG_DEBUG, "Publishing message to exchange '%s', routingkey '%s'\n",

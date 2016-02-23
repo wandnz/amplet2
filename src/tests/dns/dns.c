@@ -602,12 +602,11 @@ static Amplet2__Dns__Item* report_destination(struct info_t *info) {
 /*
  *
  */
-static void report_results(struct timeval *start_time, int count,
+static amp_test_result_t* report_results(struct timeval *start_time, int count,
 	struct info_t info[], struct opt_t *opt) {
 
     int i;
-    void *buffer;
-    int len = 0;
+    amp_test_result_t *result = calloc(1, sizeof(amp_test_result_t));
 
     Log(LOG_DEBUG, "Building dns report, count:%d, query:%s\n",
 	    count, opt->query_string);
@@ -643,12 +642,10 @@ static void report_results(struct timeval *start_time, int count,
     msg.n_reports = count;
 
     /* pack all the results into a buffer for transmitting */
-    len = amplet2__dns__report__get_packed_size(&msg);
-    buffer = malloc(len);
-    amplet2__dns__report__pack(&msg, buffer);
-
-    /* send the packed report object */
-    report(AMP_TEST_DNS, (uint64_t)start_time->tv_sec, (void*)buffer, len);
+    result->timestamp = (uint64_t)start_time->tv_sec;
+    result->len = amplet2__dns__report__get_packed_size(&msg);
+    result->data = malloc(result->len);
+    amplet2__dns__report__pack(&msg, result->data);
 
     /* free up all the memory we had to allocate to report items */
     for ( i = 0; i < count; i++ ) {
@@ -659,7 +656,8 @@ static void report_results(struct timeval *start_time, int count,
     }
 
     free(reports);
-    free(buffer);
+
+    return result;
 }
 
 
@@ -827,7 +825,8 @@ static void version(char *prog) {
  * TODO logging will need more work - the log level won't be set.
  * TODO const up the dest arguments so cant be changed?
  */
-int run_dns(int argc, char *argv[], int count, struct addrinfo **dests) {
+amp_test_result_t* run_dns(int argc, char *argv[], int count,
+        struct addrinfo **dests) {
     int opt;
     struct opt_t options;
     struct timeval start_time;
@@ -838,6 +837,7 @@ int run_dns(int argc, char *argv[], int count, struct addrinfo **dests) {
     struct addrinfo *sourcev4, *sourcev6;
     char *device;
     int local_resolv;
+    amp_test_result_t *result;
 
     Log(LOG_DEBUG, "Starting DNS test");
 
@@ -896,7 +896,7 @@ int run_dns(int argc, char *argv[], int count, struct addrinfo **dests) {
         if ( (resolv = fopen("/etc/resolv.conf", "r")) == NULL ) {
             Log(LOG_WARNING, "Failed to open /etc/resolv.conf for reading: %s",
                     strerror(errno));
-            return -1;
+            return NULL;
         }
 
         /*
@@ -1007,7 +1007,7 @@ int run_dns(int argc, char *argv[], int count, struct addrinfo **dests) {
     }
 
     /* send report */
-    report_results(&start_time, count, info, &options);
+    result = report_results(&start_time, count, info, &options);
 
     free(options.query_string);
     free(info);
@@ -1021,7 +1021,7 @@ int run_dns(int argc, char *argv[], int count, struct addrinfo **dests) {
         free(dests);
     }
 
-    return 0;
+    return result;
 }
 
 
@@ -1031,16 +1031,17 @@ int run_dns(int argc, char *argv[], int count, struct addrinfo **dests) {
  * Tries to look a little bit similar to the output of dig, but with fewer
  * lines of output per server.
  */
-void print_dns(void *data, uint32_t len) {
+void print_dns(amp_test_result_t *result) {
     Amplet2__Dns__Report *msg;
     Amplet2__Dns__Item *item;
     unsigned int i;
     char addrstr[INET6_ADDRSTRLEN];
 
-    assert(data != NULL);
+    assert(result);
+    assert(result->data);
 
     /* unpack all the data */
-    msg = amplet2__dns__report__unpack(NULL, len, data);
+    msg = amplet2__dns__report__unpack(NULL, result->len, result->data);
 
     assert(msg);
     assert(msg->header);

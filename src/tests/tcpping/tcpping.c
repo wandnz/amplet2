@@ -745,12 +745,11 @@ static Amplet2__Tcpping__Item* report_destination(struct info_t *info) {
 /*
  *
  */
-static void report_results(struct timeval *start_time, int count,
+static amp_test_result_t* report_results(struct timeval *start_time, int count,
         struct info_t info[], struct opt_t *opt) {
 
     int i;
-    void *buffer;
-    int len = 0;
+    amp_test_result_t *result = calloc(1, sizeof(amp_test_result_t));
 
     Amplet2__Tcpping__Report msg = AMPLET2__TCPPING__REPORT__INIT;
     Amplet2__Tcpping__Header header = AMPLET2__TCPPING__HEADER__INIT;
@@ -776,12 +775,10 @@ static void report_results(struct timeval *start_time, int count,
     msg.n_reports = count;
 
     /* pack all the results into a buffer for transmitting */
-    len = amplet2__tcpping__report__get_packed_size(&msg);
-    buffer = malloc(len);
-    amplet2__tcpping__report__pack(&msg, buffer);
-
-    /* send the packed report object */
-    report(AMP_TEST_TCPPING, (uint64_t)start_time->tv_sec, buffer, len);
+    result->timestamp = (uint64_t)start_time->tv_sec;
+    result->len = amplet2__tcpping__report__get_packed_size(&msg);
+    result->data = malloc(result->len);
+    amplet2__tcpping__report__pack(&msg, result->data);
 
     /* free up all the memory we had to allocate to report items */
     for ( i = 0; i < count; i++ ) {
@@ -792,7 +789,8 @@ static void report_results(struct timeval *start_time, int count,
     }
 
     free(reports);
-    free(buffer);
+
+    return result;
 }
 
 
@@ -850,11 +848,13 @@ static void version(char *prog) {
             PACKAGE_STRING, AMP_TCPPING_TEST_VERSION);
 }
 
-int run_tcpping(int argc, char *argv[], int count, struct addrinfo **dests) {
+amp_test_result_t* run_tcpping(int argc, char *argv[], int count,
+        struct addrinfo **dests) {
     int opt;
     struct timeval start_time;
     struct tcppingglobals *globals;
     wand_event_handler_t *ev_hdl = NULL;
+    amp_test_result_t *result;
 
     Log(LOG_DEBUG, "Starting TCPPing test");
     wand_event_init();
@@ -896,17 +896,17 @@ int run_tcpping(int argc, char *argv[], int count, struct addrinfo **dests) {
 
     /* Open and bind the raw sockets required for this test */
     if ( !open_sockets(globals) ) {
-        exit(-1);
+        return NULL;
     }
 
     if ( gettimeofday(&start_time, NULL) != 0 ) {
         Log(LOG_ERR, "Could not gettimeofday(), aborting test");
-        exit(-1);
+        return NULL;
     }
 
     /* Get the source ports for our sockets */
     if (!listen_source_ports(globals)) {
-        exit(-1);
+        return NULL;
     }
 
     /* Start our sequence numbers from a random value and increment */
@@ -948,7 +948,7 @@ int run_tcpping(int argc, char *argv[], int count, struct addrinfo **dests) {
     close_sockets(globals);
 
     /* send report */
-    report_results(&start_time, globals->destcount, globals->info,
+    result = report_results(&start_time, globals->destcount, globals->info,
             &globals->options);
 
     free(globals->device);
@@ -956,7 +956,7 @@ int run_tcpping(int argc, char *argv[], int count, struct addrinfo **dests) {
     free(globals);
     wand_destroy_event_handler(ev_hdl);
 
-    return 0;
+    return result;
 }
 
 
@@ -964,16 +964,17 @@ int run_tcpping(int argc, char *argv[], int count, struct addrinfo **dests) {
 /*
  *
  */
-void print_tcpping(void *data, uint32_t len) {
+void print_tcpping(amp_test_result_t *result) {
     Amplet2__Tcpping__Report *msg;
     Amplet2__Tcpping__Item *item;
     unsigned int i;
     char addrstr[INET6_ADDRSTRLEN];
 
-    assert(data != NULL);
+    assert(result);
+    assert(result->data);
 
     /* unpack all the data */
-    msg = amplet2__tcpping__report__unpack(NULL, len, data);
+    msg = amplet2__tcpping__report__unpack(NULL, result->len, result->data);
 
     assert(msg);
     assert(msg->header);

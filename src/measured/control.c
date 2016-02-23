@@ -14,6 +14,7 @@
 #include <arpa/inet.h>
 #include <libwandevent.h>
 
+#include "global.h"
 #include "debug.h"
 #include "control.h"
 #include "watchdog.h"
@@ -99,7 +100,6 @@ static int parse_schedule_test(void *data, uint32_t len,
     printf("manually starting %s test\n", amp_tests[item->test_id]->name);
 
     if ( msg->schedule->n_targets > 0 ) {
-        unsigned int i;
         char **targets = calloc(msg->schedule->n_targets + 1, sizeof(char*));
         /* we expect the destinations list to be null terminated */
         memcpy(targets, msg->schedule->targets,
@@ -171,10 +171,8 @@ static void do_schedule_test(SSL *ssl, void *data, uint32_t len) {
         return;
     }
 
-    set_proc_name(amp_tests[item->test_id]->name);
-
-    Log(LOG_DEBUG, "Manually starting %s test", amp_tests[item->test_id]->name);
-    run_test(&item);
+    Log(LOG_DEBUG, "Manually starting %s test", amp_tests[item.test_id]->name);
+    run_test(&item, ssl);
 }
 
 
@@ -264,6 +262,8 @@ static void control_read_callback(wand_event_handler_t *ev_hdl, int fd,
         return;
     } else if ( pid == 0 ) {
         /* TODO need to close up a bunch of file descriptors? dns/asn etc? */
+        //close(vars.asnsock_fd);
+        //close(vars.nssock_fd);
         reseed_openssl_rng();
         process_control_message(fd);
         assert(0);
@@ -271,8 +271,6 @@ static void control_read_callback(wand_event_handler_t *ev_hdl, int fd,
 
     /* the parent process doesn't need the client file descriptor */
     close(fd);
-    close(vars.asnsock_fd);
-    close(vars.nssock_fd);
 
     /*
      * TODO can't start a watchdog now, as the control message could be doing

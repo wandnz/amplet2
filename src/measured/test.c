@@ -22,6 +22,107 @@
 #include "ampresolv.h"
 #include "ssl.h"
 #include "testlib.h" /* only for MIN_INTER_PACKET_DELAY, can we move it? */
+#include "messaging.h" /* only for report_to_broker() */
+#include "serverlib.h" /* only for write_control_packet_ssl() */
+
+
+
+/*
+ * The ELF binary layout means we should have all of the command line
+ * arguments and the environment all contiguous in the stack. We can take
+ * over all of that space and replace it with whatever program name or
+ * description that we want, and relocate the environment to a new location.
+ *
+ * This approach makes it not portable, but for now we will just make it work
+ * with linux. Other operating systems appear to be much smarter than linux
+ * anyway and have setproctitle(). We also won't bother saving the original
+ * argv array, we shouldn't need it again.
+ *
+ * See:
+ * postgresl-9.3.4/src/backend/utils/misc/ps_status.c
+ * util-linux-2.24/lib/setproctitle.c
+ *
+ * Note:
+ * Could maybe also use prctl(), but that only sets the name that top shows
+ * by default and is limited to 16 characters (probably won't fit an ampname).
+ */
+static void set_proc_name(char *testname) {
+    char *end;
+    int buflen;
+    int i;
+    char **argv;
+    int argc;
+    extern char **environ;
+
+    Log(LOG_DEBUG, "Setting name of process %d to '%s: %s %s'", getpid(),
+            PACKAGE, vars.ampname, testname);
+
+    /*
+     * We have as much space to use as there are contiguous arguments. Every
+     * argument should be contiguous, but I guess it's possible that they
+     * aren't?
+     */
+    argc = vars.argc;
+    argv = vars.argv;
+    end = argv[0] + strlen(argv[0]);
+    for ( i = 1; i < argc; i++ ) {
+        if ( end + 1 == argv[i] ) {
+            end = argv[i] + strlen(argv[i]);
+        } else {
+            /* not contiguous, stop looking */
+            break;
+        }
+    }
+
+    /*
+     * We can also take over any contiguous space used for environment
+     * strings if they directly follow the arguments, later making a new
+     * environment elsewhere.
+     */
+    if ( i == argc ) {
+        char **env;
+
+        for ( i = 0; environ[i] != NULL; i++ ) {
+            if ( end + 1 == environ[i] ) {
+                end = environ[i] + strlen(environ[i]);
+            } else {
+                /* not contiguous, but keep counting environment size */
+            }
+        }
+
+        /* if we found space we want to use, make a new environment */
+        env = (char **) malloc((i + 1) * sizeof(char *));
+        for ( i = 0; environ[i] != NULL; i++ ) {
+            env[i] = strdup(environ[i]);
+        }
+        /* null terminate the environment variable array */
+        env[i] = NULL;
+
+        /*
+         * If we wanted to be really good we could keep a reference to
+         * this so we can free it when the test ends, but it's going to
+         * get freed anyway.
+         */
+        environ = env;
+    }
+
+    /* we can use as much space as we have contiguous memory */
+    buflen = end - argv[0];
+
+    /*
+     * Null the rest of the arguments so we don't get pointers to random
+     * parts of the new process name.
+     */
+    for ( i = 1; i < argc; i++ ) {
+        argv[i] = NULL;
+    }
+
+    /* put our new name at the front of argv[0] and null the rest of it */
+    snprintf(argv[0], buflen-1, "%s: %s %s", PACKAGE, vars.ampname, testname);
+    memset(argv[0] + strlen(argv[0]) + 1, 0, buflen - strlen(argv[0]) - 1);
+
+    Log(LOG_DEBUG, "Set name of process %d to '%s'", getpid(), argv[0]);
+}
 
 
 
@@ -30,7 +131,7 @@
  * apply them to the proper test binary as provided by the test registration.
  * Run the test callback function and let it do its thing.
  */
-void run_test(const test_schedule_item_t * const item) {
+void run_test(const test_schedule_item_t * const item, SSL *ssl) {
     char *argv[MAX_TEST_ARGS];
     uint32_t argc = 0;
     uint32_t offset;
@@ -41,13 +142,14 @@ void run_test(const test_schedule_item_t * const item) {
     int total_resolve_count = 0;
     char *packet_delay_str = NULL;
 
-    printf("run_test\n");
-
     assert(item);
     assert(item->test_id < AMP_TEST_LAST);
     assert(amp_tests[item->test_id]);
     assert((item->dest_count + item->resolve_count) >=
             amp_tests[item->test_id]->min_targets);
+
+    /* update process name so we can tell what is running */
+    set_proc_name(amp_tests[item->test_id]->name);
 
     /*
      * seed the random number generator, has to be after the fork() or each
@@ -214,21 +316,30 @@ void run_test(const test_schedule_item_t * const item) {
      * destinations are specified.
      */
     if ( item->dest_count + total_resolve_count >= test->min_targets ) {
-	//Log(LOG_DEBUG, "dest%d: %s\n", offset,
-	//	    address_to_name(item->dests[offset]));
+        amp_test_result_t *result;
 
 	for ( offset = 0; offset<argc; offset++ ) {
 	    Log(LOG_DEBUG, "arg%d: %s\n", offset, argv[offset]);
 	}
 
-        /* TODO set up any servers that need to be setup? or allow the tests
-         * to do that themselves? We've already forked so we aren't holding
-         * anyone up, but who makes more sense to control this?
-         */
-
 	/* actually run the test */
-	test->run_callback(argc, argv, item->dest_count + total_resolve_count,
-		destinations);
+	result = test->run_callback(argc, argv,
+                item->dest_count + total_resolve_count, destinations);
+
+        if ( result ) {
+            /* report the results to the appropriate location */
+            if ( ssl ) {
+                /* SSL connection - single test run remotely, report remotely */
+                write_control_packet_ssl(ssl, result->data, result->len);
+            } else {
+                /* scheduled test, report to the rabbitmq broker */
+                report_to_broker(test->id, result);
+            }
+
+            /* free the result structure once it has been reported */
+            free(result->data);
+            free(result);
+        }
 
 	/* free any destinations that we looked up just for this test */
         amp_resolve_freeaddr(addrlist);
@@ -246,105 +357,6 @@ void run_test(const test_schedule_item_t * const item) {
 
     /* done running the test, exit */
     exit(0);
-}
-
-
-
-/*
- * The ELF binary layout means we should have all of the command line
- * arguments and the environment all contiguous in the stack. We can take
- * over all of that space and replace it with whatever program name or
- * description that we want, and relocate the environment to a new location.
- *
- * This approach makes it not portable, but for now we will just make it work
- * with linux. Other operating systems appear to be much smarter than linux
- * anyway and have setproctitle(). We also won't bother saving the original
- * argv array, we shouldn't need it again.
- *
- * See:
- * postgresl-9.3.4/src/backend/utils/misc/ps_status.c
- * util-linux-2.24/lib/setproctitle.c
- *
- * Note:
- * Could maybe also use prctl(), but that only sets the name that top shows
- * by default and is limited to 16 characters (probably won't fit an ampname).
- */
-static void set_proc_name(char *testname) {
-    char *end;
-    int buflen;
-    int i;
-    char **argv;
-    int argc;
-    extern char **environ;
-
-    Log(LOG_DEBUG, "Setting name of process %d to '%s: %s %s'", getpid(),
-            PACKAGE, vars.ampname, testname);
-
-    /*
-     * We have as much space to use as there are contiguous arguments. Every
-     * argument should be contiguous, but I guess it's possible that they
-     * aren't?
-     */
-    argc = vars.argc;
-    argv = vars.argv;
-    end = argv[0] + strlen(argv[0]);
-    for ( i = 1; i < argc; i++ ) {
-        if ( end + 1 == argv[i] ) {
-            end = argv[i] + strlen(argv[i]);
-        } else {
-            /* not contiguous, stop looking */
-            break;
-        }
-    }
-
-    /*
-     * We can also take over any contiguous space used for environment
-     * strings if they directly follow the arguments, later making a new
-     * environment elsewhere.
-     */
-    if ( i == argc ) {
-        char **env;
-
-        for ( i = 0; environ[i] != NULL; i++ ) {
-            if ( end + 1 == environ[i] ) {
-                end = environ[i] + strlen(environ[i]);
-            } else {
-                /* not contiguous, but keep counting environment size */
-            }
-        }
-
-        /* if we found space we want to use, make a new environment */
-        env = (char **) malloc((i + 1) * sizeof(char *));
-        for ( i = 0; environ[i] != NULL; i++ ) {
-            env[i] = strdup(environ[i]);
-        }
-        /* null terminate the environment variable array */
-        env[i] = NULL;
-
-        /*
-         * If we wanted to be really good we could keep a reference to
-         * this so we can free it when the test ends, but it's going to
-         * get freed anyway.
-         */
-        environ = env;
-    }
-
-    /* we can use as much space as we have contiguous memory */
-    buflen = end - argv[0];
-
-    /*
-     * Null the rest of the arguments so we don't get pointers to random
-     * parts of the new process name.
-     */
-    for ( i = 1; i < argc; i++ ) {
-        argv[i] = NULL;
-    }
-
-    /* put our new name at the front of argv[0] and null the rest of it */
-    snprintf(argv[0], buflen-1, "%s: %s %s", PACKAGE, vars.ampname, testname);
-    memset(argv[0] + strlen(argv[0]) + 1, 0, buflen - strlen(argv[0]) - 1);
-
-    Log(LOG_DEBUG, "Set name of process %d to '%s'", getpid(), argv[0]);
 }
 
 
@@ -404,9 +416,6 @@ static int fork_test(wand_event_handler_t *ev_hdl, test_schedule_item_t *item) {
 	//setrlimit(RLIMIT_CPU, &cpu_limits);
 	/* TODO prepare environment */
 
-        /* update process name so we can tell what is running */
-        set_proc_name(test->name);
-
         /*
          * close the unix domain sockets the parent had, if we keep them open
          * then things can get confusing (test threads end up holding the
@@ -414,7 +423,7 @@ static int fork_test(wand_event_handler_t *ev_hdl, test_schedule_item_t *item) {
          */
         close(vars.asnsock_fd);
         close(vars.nssock_fd);
-	run_test(item);
+	run_test(item, NULL);
 	Log(LOG_WARNING, "%s test failed to run", test->name);//XXX required?
 	exit(1);
     }

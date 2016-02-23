@@ -4,6 +4,6 @@
 #include "http.h"
 
 
-void print_http(void *data, uint32_t len);
+void print_http(amp_test_result_t *result);
 
 #endif

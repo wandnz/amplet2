@@ -109,9 +109,10 @@ struct object_stats_t {
 
 
 
-int run_http(int argc, char *argv[], int count, struct addrinfo **dests);
+amp_test_result_t* run_http(int argc, char *argv[], int count,
+        struct addrinfo **dests);
 int save_http(char *monitor, uint64_t timestamp, void *data, uint32_t len);
-void print_http(void *data, uint32_t len);
+void print_http(amp_test_result_t *result);
 test_t *register_test(void);
 CURL *pipeline_next_object(CURLM *multi, struct server_stats_t *server);
 struct server_stats_t *add_object(char *url, int parse);

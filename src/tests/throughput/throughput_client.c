@@ -191,16 +191,15 @@ static void freeSchedule(struct opt_t *options){
 /*
  *
  */
-static void report_results(uint64_t start_time, struct addrinfo *dest,
-        struct opt_t *options) {
+static amp_test_result_t* report_results(uint64_t start_time,
+        struct addrinfo *dest, struct opt_t *options) {
 
+    amp_test_result_t *result = calloc(1, sizeof(amp_test_result_t));
     Amplet2__Throughput__Report msg = AMPLET2__THROUGHPUT__REPORT__INIT;
     Amplet2__Throughput__Header header = AMPLET2__THROUGHPUT__HEADER__INIT;
     Amplet2__Throughput__Item **reports = NULL;
     struct test_request_t *item;
     unsigned int i;
-    void *buffer;
-    int len;
 
     /* populate the header with all the test options */
     header.schedule = options->textual_schedule;
@@ -233,12 +232,10 @@ static void report_results(uint64_t start_time, struct addrinfo *dest,
     msg.n_reports = i;
 
     /* pack all the results into a buffer for transmitting */
-    len = amplet2__throughput__report__get_packed_size(&msg);
-    buffer = malloc(len);
-    amplet2__throughput__report__pack(&msg, buffer);
-
-    /* send the packed report object */
-    report(AMP_TEST_THROUGHPUT, start_time, (void*)buffer, len);
+    result->timestamp = start_time;
+    result->len = amplet2__throughput__report__get_packed_size(&msg);
+    result->data = malloc(result->len);
+    amplet2__throughput__report__pack(&msg, result->data);
 
     /* free up all the memory we had to allocate to report items */
     for ( i = 0; i < msg.n_reports; i++ ) {
@@ -246,7 +243,8 @@ static void report_results(uint64_t start_time, struct addrinfo *dest,
     }
 
     free(reports);
-    free(buffer);
+
+    return result;
 }
 
 
@@ -259,15 +257,16 @@ static void report_results(uint64_t start_time, struct addrinfo *dest,
  *
  * @return 0 if successful, otherwise -1 on failure
  */
-static int runSchedule(struct addrinfo *serv_addr, struct opt_t *options,
-        struct sockopt_t *socket_options) {
+static amp_test_result_t* runSchedule(struct addrinfo *serv_addr,
+        struct opt_t *options, struct sockopt_t *socket_options) {
     int control_socket;
     int test_socket = -1;
     struct packet_t packet;
     uint64_t start_time_ns;
     struct sockopt_t srv_opts;
     ProtobufCBinaryData data;
-    Amplet2__Throughput__Item *results = NULL;
+    Amplet2__Throughput__Item *remote_results = NULL;
+    amp_test_result_t *result;
 
     /* Loop through the schedule */
     struct test_request_t *cur;
@@ -307,7 +306,7 @@ static int runSchedule(struct addrinfo *serv_addr, struct opt_t *options,
     if ( read_control_ready(control_socket, &options->tport) < 0 ) {
         Log(LOG_WARNING, "Failed to read READY packet, aborting");
         close(control_socket);
-        return -1;
+        return NULL;
     }
 
     /* Connect the test socket */
@@ -347,7 +346,7 @@ static int runSchedule(struct addrinfo *serv_addr, struct opt_t *options,
                 if ( read_control_ready(control_socket, &options->tport) < 0 ) {
                     Log(LOG_WARNING, "Failed to read READY packet, aborting");
                     close(control_socket);
-                    return -1;
+                    return NULL;
                 }
                 /* Open up a new one */
                 test_socket = connect_to_server(serv_addr, socket_options,
@@ -387,19 +386,19 @@ static int runSchedule(struct addrinfo *serv_addr, struct opt_t *options,
                 /* Get servers result - might even have web10g attached */
                 if ( read_control_result(control_socket, &data) < 0 ) {
                     Log(LOG_WARNING, "Failed to read RESULT packet, aborting");
-                    return -1;
+                    return NULL;
                 }
-                results = amplet2__throughput__item__unpack(NULL, data.len,
-                        data.data);
+                remote_results = amplet2__throughput__item__unpack(NULL,
+                        data.len, data.data);
                 /* XXX extracting this now cause it's easier :( */
                 /* XXX are ->done or ->packets every actually used? internally
                  * but no reason to transmit I believe
                  */
                 cur->s_result->start_ns = 0;
-                cur->s_result->end_ns = results->duration;
-                cur->s_result->bytes = results->bytes;
+                cur->s_result->end_ns = remote_results->duration;
+                cur->s_result->bytes = remote_results->bytes;
                 free(data.data);
-                amplet2__throughput__item__free_unpacked(results, NULL);
+                amplet2__throughput__item__free_unpacked(remote_results, NULL);
                 Log(LOG_DEBUG, "Received results of test from server");
                 continue;
 
@@ -416,7 +415,7 @@ static int runSchedule(struct addrinfo *serv_addr, struct opt_t *options,
                 if ( read_control_ready(control_socket, &options->tport) < 0 ) {
                     Log(LOG_WARNING, "Failed to read READY packet, aborting");
                     close(control_socket);
-                    return -1;
+                    return NULL;
                 }
 
                 if ( sendPackets(test_socket, cur, cur->c_result) == 0 ) {
@@ -434,16 +433,17 @@ static int runSchedule(struct addrinfo *serv_addr, struct opt_t *options,
 
                     if ( read_control_result(control_socket, &data) < 0 ) {
                         Log(LOG_WARNING, "Failed to read RESULT packet, aborting");
-                        return -1;
+                        return NULL;
                     }
-                    results = amplet2__throughput__item__unpack(NULL, data.len,
-                            data.data);
+                    remote_results = amplet2__throughput__item__unpack(NULL,
+                            data.len, data.data);
                     /* XXX extracting this now cause it's easier :( */
                     cur->s_result->start_ns = 0;
-                    cur->s_result->end_ns = results->duration;
-                    cur->s_result->bytes = results->bytes;
+                    cur->s_result->end_ns = remote_results->duration;
+                    cur->s_result->bytes = remote_results->bytes;
                     free(data.data);
-                    amplet2__throughput__item__free_unpacked(results, NULL);
+                    amplet2__throughput__item__free_unpacked(remote_results,
+                            NULL);
 /*
                     Log(LOG_DEBUG, "Got results from server %" PRIu32
                             " %" PRIu32 " %" PRIu64 " %" PRIu64,
@@ -473,17 +473,20 @@ static int runSchedule(struct addrinfo *serv_addr, struct opt_t *options,
      *
      * We will report this set of results then we can finish
      */
-    report_results(start_time_ns / 1000000000, serv_addr, options);
+    result = report_results(start_time_ns / 1000000000, serv_addr, options);
 
     Log(LOG_DEBUG, "Closing test");
 
     close(control_socket);
     close(test_socket);
 
-    return 0;
+    return result;
 errorCleanup :
+    /* TODO is this really that different to the good code path? */
+    /* TODO do we really care about reporting a partial result anyway? */
+
     /* See if we can report something anyway */
-    report_results(start_time_ns / 1000000000, serv_addr, options);
+    result = report_results(start_time_ns / 1000000000, serv_addr, options);
 
     if ( control_socket != -1 ) {
         close(control_socket);
@@ -491,7 +494,7 @@ errorCleanup :
     if ( test_socket != -1 ) {
         close(test_socket);
     }
-    return -1;
+    return result;
 }
 
 
@@ -499,7 +502,7 @@ errorCleanup :
 /**
  * The main function of the throughput client test.
  */
-int run_throughput_client(int argc, char *argv[], int count,
+amp_test_result_t* run_throughput_client(int argc, char *argv[], int count,
         struct addrinfo **dests) {
     struct opt_t test_options;
     struct sockopt_t socket_options;
@@ -510,6 +513,7 @@ int run_throughput_client(int argc, char *argv[], int count,
     char *client;
     int duration = -1;
     enum tput_schedule_direction direction = DIRECTION_NOT_SET;
+    amp_test_result_t *result;
 
     Log(LOG_DEBUG, "Running throughput test as client");
 
@@ -704,7 +708,7 @@ int run_throughput_client(int argc, char *argv[], int count,
         Log(LOG_DEBUG, "Got port %d from remote server", remote_port);
         test_options.cport = remote_port;
     }
-    runSchedule(dests[0], &test_options, &socket_options);
+    result = runSchedule(dests[0], &test_options, &socket_options);
 
     if ( client != NULL ) {
         freeaddrinfo(dests[0]);
@@ -717,7 +721,7 @@ int run_throughput_client(int argc, char *argv[], int count,
         test_options.textual_schedule = NULL;
     }
 
-    return 0;
+    return result;
 }
 
 
@@ -781,16 +785,17 @@ static void printSpeed(uint64_t bytes, uint64_t time_ns) {
  *
  * TODO make this output a lot nicer
  */
-void print_throughput(void *data, uint32_t len) {
+void print_throughput(amp_test_result_t *result) {
     Amplet2__Throughput__Report *msg;
     Amplet2__Throughput__Item *item;
     unsigned int i;
     char addrstr[INET6_ADDRSTRLEN];
 
-    assert(data != NULL);
+    assert(result);
+    assert(result->data);
 
     /* unpack all the data */
-    msg = amplet2__throughput__report__unpack(NULL, len, data);
+    msg = amplet2__throughput__report__unpack(NULL, result->len, result->data);
 
     assert(msg);
     assert(msg->header);

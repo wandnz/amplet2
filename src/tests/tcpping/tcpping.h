@@ -106,9 +106,10 @@ struct info_t {
     uint8_t icmpcode;           /* ICMP code of the reply */
 };
 
-int run_tcpping(int argc, char *argv[], int count, struct addrinfo **dests);
+amp_test_result_t* run_tcpping(int argc, char *argv[], int count,
+        struct addrinfo **dests);
 int save_tcpping(char *monitor, uint64_t timestamp, void *data, uint32_t len);
-void print_tcpping(void *data, uint32_t len);
+void print_tcpping(amp_test_result_t *result);
 test_t *register_test(void);
 
 #if UNIT_TEST

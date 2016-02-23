@@ -115,7 +115,8 @@ static void version(char *prog) {
  * Combined entry point for throughput tests that will run the appropriate
  * part of the test - server or client.
  */
-int run_throughput(int argc, char *argv[], int count, struct addrinfo **dests) {
+amp_test_result_t* run_throughput(int argc, char *argv[], int count,
+        struct addrinfo **dests) {
     int opt;
     int option_index = 0;
     int server_flag_index = 0;
@@ -142,11 +143,10 @@ int run_throughput(int argc, char *argv[], int count, struct addrinfo **dests) {
         memmove(argv + server_flag_index, argv + server_flag_index + 1,
                 (argc - server_flag_index - 1) * sizeof(char *));
         run_throughput_server(argc-1, argv, NULL);
-    } else {
-        run_throughput_client(argc, argv, count, dests);
+        return NULL;
     }
 
-    return 0;
+    return run_throughput_client(argc, argv, count, dests);
 }
 
 

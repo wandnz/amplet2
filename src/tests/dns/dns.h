@@ -157,9 +157,10 @@ struct opt_t {
 
 
 
-int run_dns(int argc, char *argv[], int count, struct addrinfo **dests);
+amp_test_result_t* run_dns(int argc, char *argv[], int count,
+        struct addrinfo **dests);
 int save_dns(char *monitor, uint64_t timestamp, void *data, uint32_t len);
-void print_dns(void *data, uint32_t len);
+void print_dns(amp_test_result_t *result);
 test_t *register_test(void);
 #if UNIT_TEST
 char *amp_test_dns_encode(char *query);

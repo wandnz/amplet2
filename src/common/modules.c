@@ -20,7 +20,6 @@ int register_tests(char *location) {
     char full_loc[MAX_PATH_LENGTH];
     uint32_t i;
 
-
     if ( location == NULL ) {
 	Log(LOG_ALERT, "Test directory not given.");
 	return -1;
@@ -73,7 +72,6 @@ int register_tests(char *location) {
 	}
 
 	new_test->dlhandle = hdl;
-	new_test->report = 1;
 
 	assert(new_test->name);
 	assert(new_test->run_callback);

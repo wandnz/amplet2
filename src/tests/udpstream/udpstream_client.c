@@ -14,16 +14,15 @@
  * Build the complete report message from the results we have and send it
  * onwards (to either the printing function or the rabbitmq server).
  */
-static void report_results(struct timeval *start_time, struct addrinfo *dest,
-        struct opt_t *options, struct timeval *in_times,
+static amp_test_result_t* report_results(struct timeval *start_time,
+        struct addrinfo *dest, struct opt_t *options, struct timeval *in_times,
         Amplet2__Udpstream__Item *server_report) {
 
     Amplet2__Udpstream__Report msg = AMPLET2__UDPSTREAM__REPORT__INIT;
     Amplet2__Udpstream__Header header = AMPLET2__UDPSTREAM__HEADER__INIT;
     Amplet2__Udpstream__Item **reports = NULL;
     unsigned int i = 0;
-    void *buffer;
-    int len;
+    amp_test_result_t *result = calloc(1, sizeof(amp_test_result_t));
 
     /* populate the header with all the test options */
     header.has_family = 1;
@@ -63,12 +62,10 @@ static void report_results(struct timeval *start_time, struct addrinfo *dest,
     msg.reports = reports;
 
     /* pack all the results into a buffer for transmitting */
-    len = amplet2__udpstream__report__get_packed_size(&msg);
-    buffer = malloc(len);
-    amplet2__udpstream__report__pack(&msg, buffer);
-
-    /* send the packed report object */
-    report(AMP_TEST_UDPSTREAM, (uint64_t)start_time->tv_sec, (void*)buffer,len);
+    result->timestamp = (uint64_t)start_time->tv_sec;
+    result->len = amplet2__udpstream__report__get_packed_size(&msg);
+    result->data = malloc(result->len);
+    amplet2__udpstream__report__pack(&msg, result->data);
 
     /* free up all the memory we had to allocate to report items */
     if ( in_times ) {
@@ -87,7 +84,8 @@ static void report_results(struct timeval *start_time, struct addrinfo *dest,
     }
 
     free(reports);
-    free(buffer);
+
+    return result;
 }
 
 
@@ -135,16 +133,18 @@ static struct test_request_t* build_schedule(struct opt_t *options) {
 /*
  * TODO could this be a library function too, with a function pointer?
  */
-static int run_test(struct addrinfo *server, struct opt_t *options,
-        struct sockopt_t *socket_options) {
+static amp_test_result_t* run_test(struct addrinfo *server,
+        struct opt_t *options, struct sockopt_t *socket_options) {
+
     int control_socket, test_socket;
     struct sockaddr_storage ss;
     socklen_t socklen = sizeof(ss);
     struct timeval *in_times = NULL;
     struct test_request_t *schedule = NULL, *current;
     ProtobufCBinaryData data;
-    Amplet2__Udpstream__Item *results = NULL;
+    Amplet2__Udpstream__Item *remote_results = NULL;
     struct timeval start_time;
+    amp_test_result_t *result;
 
     socket_options->socktype = SOCK_STREAM;
     socket_options->protocol = IPPROTO_TCP;
@@ -152,14 +152,14 @@ static int run_test(struct addrinfo *server, struct opt_t *options,
     /* create our test socket so it is ready early on */
     if ( (test_socket=socket(server->ai_family, SOCK_DGRAM, IPPROTO_UDP)) < 0 ){
         Log(LOG_WARNING, "Failed to create control socket:%s", strerror(errno));
-        return -1;
+        return NULL;
     }
 
     /* connect to the control socket on the server */
     if ( (control_socket = connect_to_server(server, socket_options,
                     options->cport)) < 0 ) {
         Log(LOG_WARNING, "Failed to connect to server, aborting test");
-        return -1;
+        return NULL;
     }
 
     gettimeofday(&start_time, NULL);
@@ -168,7 +168,7 @@ static int run_test(struct addrinfo *server, struct opt_t *options,
     if ( send_control_hello(control_socket, build_hello(options)) < 0 ) {
         Log(LOG_WARNING, "Failed to send HELLO packet, aborting");
         close(control_socket);
-        return -1;
+        return NULL;
     }
 
     schedule = build_schedule(options);
@@ -182,7 +182,7 @@ static int run_test(struct addrinfo *server, struct opt_t *options,
                 if ( read_control_ready(control_socket, &options->tport) < 0 ) {
                     Log(LOG_WARNING, "Failed to read READY packet, aborting");
                     close(control_socket);
-                    return -1;
+                    return NULL;
                 }
                 ((struct sockaddr_in *)server->ai_addr)->sin_port =
                     ntohs(options->tport);
@@ -193,10 +193,10 @@ static int run_test(struct addrinfo *server, struct opt_t *options,
                 if ( read_control_result(control_socket, &data) < 0 ) {
                     Log(LOG_WARNING, "Failed to read RESULT packet, aborting");
                     close(control_socket);
-                    return -1;
+                    return NULL;
                 }
-                results = amplet2__udpstream__item__unpack(NULL, data.len,
-                        data.data);
+                remote_results = amplet2__udpstream__item__unpack(NULL,
+                        data.len, data.data);
                 free(data.data);
                 break;
 
@@ -224,7 +224,8 @@ static int run_test(struct addrinfo *server, struct opt_t *options,
     close(test_socket);
 
     /* report results */
-    report_results(&start_time, server, options, in_times, results);
+    result = report_results(&start_time, server, options, in_times,
+            remote_results);
 
     /* TODO should these be freed here or in report_results? */
     if ( in_times ) {
@@ -233,7 +234,7 @@ static int run_test(struct addrinfo *server, struct opt_t *options,
 
     free(schedule);
 
-    return 0;
+    return result;
 }
 
 
@@ -241,7 +242,7 @@ static int run_test(struct addrinfo *server, struct opt_t *options,
 /*
  *
  */
-int run_udpstream_client(int argc, char *argv[], int count,
+amp_test_result_t* run_udpstream_client(int argc, char *argv[], int count,
         struct addrinfo **dests) {
 
     int opt;
@@ -250,6 +251,7 @@ int run_udpstream_client(int argc, char *argv[], int count,
     char *client;
     amp_test_meta_t meta;
     extern struct option long_options[];
+    amp_test_result_t *result;
 
     /* set some sensible defaults */
     //XXX set better inter packet delay, using MIN as a floor?
@@ -378,14 +380,14 @@ int run_udpstream_client(int argc, char *argv[], int count,
         test_options.cport = remote_port;
     }
 
-    run_test(dests[0], &test_options, &socket_options);
+    result = run_test(dests[0], &test_options, &socket_options);
 
     if ( client != NULL ) {
         freeaddrinfo(dests[0]);
         free(dests);
     }
 
-    return 0;
+    return result;
 }
 
 
@@ -434,15 +436,16 @@ static void print_item(Amplet2__Udpstream__Item *item, uint32_t packet_count) {
 /*
  * Print the full results for a test run.
  */
-void print_udpstream(void *data, uint32_t len) {
+void print_udpstream(amp_test_result_t *result) {
     Amplet2__Udpstream__Report *msg;
     unsigned int i;
     char addrstr[INET6_ADDRSTRLEN];
 
-    assert(data != NULL);
+    assert(result);
+    assert(result->data);
 
     /* unpack all the data */
-    msg = amplet2__udpstream__report__unpack(NULL, len, data);
+    msg = amplet2__udpstream__report__unpack(NULL, result->len, result->data);
 
     assert(msg);
     assert(msg->header);

@@ -36,6 +36,12 @@ typedef struct amp_test_meta {
     uint32_t inter_packet_delay;
 } amp_test_meta_t;
 
+typedef struct amp_test_result {
+    uint64_t timestamp;
+    size_t len;
+    void *data;
+} amp_test_result_t;
+
 typedef struct test {
     /* */
     test_type_t id;
@@ -92,7 +98,7 @@ typedef struct test {
      * binary. This function is also responsible for starting the test.
      */
     //void (*run_callback)(const struct test_schedule_item * const info);
-    int (*run_callback)(int argc, char *argv[], int count,
+    amp_test_result_t* (*run_callback)(int argc, char *argv[], int count,
 	    struct addrinfo **dests);
 
     /*
@@ -100,7 +106,7 @@ typedef struct test {
      * the test is run as a standalone program rather than as part of
      * measured.
      */
-    void (*print_callback)(void *data, uint32_t len);
+    void (*print_callback)(amp_test_result_t *result);
 
     /*
      * Pointer to a function that will start up the server portion of a test
@@ -122,13 +128,6 @@ typedef struct test {
      * this test.
      */
     void *dlhandle;
-
-    /*
-     * true if the test should be reporting data to the broker, false if
-     * the data should be displayed to stdout. This is set at load time by
-     * the process that loads the test.
-     */
-    int report;
 
     /*
      * true if the test should be sent a SIGINT before being sent a SIGKILL

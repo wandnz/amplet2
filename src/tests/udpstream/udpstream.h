@@ -95,11 +95,12 @@ struct payload_t {
 
 
 test_t *register_test(void);
-int run_udpstream(int argc, char *argv[], int count, struct addrinfo **dests);
-void run_udpstream_server(int argc, char *argv[], SSL *ssl);
-int run_udpstream_client(int argc, char *argv[], int count,
+amp_test_result_t* run_udpstream(int argc, char *argv[], int count,
         struct addrinfo **dests);
-void print_udpstream(void *data, uint32_t len);
+void run_udpstream_server(int argc, char *argv[], SSL *ssl);
+amp_test_result_t* run_udpstream_client(int argc, char *argv[], int count,
+        struct addrinfo **dests);
+void print_udpstream(amp_test_result_t *result);
 void usage(char *prog);
 void version(char *prog);
 int send_udp_stream(int sock, struct addrinfo *remote, struct opt_t *options);

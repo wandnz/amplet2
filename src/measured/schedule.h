@@ -123,6 +123,8 @@ typedef struct schedule_item {
 } schedule_item_t;
 
 
+char **parse_param_string(char *param_string);
+char **populate_target_lists(test_schedule_item_t *test, char **targets);
 void dump_schedule(wand_event_handler_t *ev_hdl, FILE *out);
 void clear_test_schedule(wand_event_handler_t *ev_hdl, int all);
 void read_schedule_dir(wand_event_handler_t *ev_hdl, char *directory,

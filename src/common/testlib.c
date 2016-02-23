@@ -277,36 +277,6 @@ int delay_send_packet(int sock, char *packet, int size, struct addrinfo *dest,
 
 
 /*
- * If the test is set to report (i.e. being run through measured) then
- * send the data buffer to the local broker for transmission to the
- * server. Otherwise if the test is being run standalone then use the
- * test specific printing functions to dump a human readable version of
- * the data to stdout.
- */
-int report(test_type_t type, uint64_t timestamp, void *bytes, size_t len) {
-    if ( type >= AMP_TEST_LAST || type <= AMP_TEST_INVALID ) {
-	Log(LOG_WARNING, "Test type %d out of range, not reporting\n", type);
-	return -1;
-    }
-
-    if ( amp_tests[type] == NULL ) {
-	Log(LOG_WARNING, "Invalid test type %d, not reporting\n", type);
-	return -1;
-    }
-
-    if ( amp_tests[type]->report ) {
-	report_to_broker(type, timestamp, bytes, len);
-    } else {
-	/* the generic test main function should make sure this is set */
-	amp_tests[type]->print_callback(bytes, len);
-    }
-
-    return 0;
-}
-
-
-
-/*
  * Determine the name for a given address structure. Currently the name is
  * stored using the ai_canonname field in the struct addrinfo, which is
  * filled in when the structure is created (but not by getaddrinfo).

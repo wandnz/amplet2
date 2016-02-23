@@ -247,13 +247,12 @@ static Amplet2__Http__Server* report_server_results(
 /*
  *
  */
-static void report_results(struct timeval *start_time,
+static amp_test_result_t* report_results(struct timeval *start_time,
         struct server_stats_t *server_stats, struct opt_t *opt) {
 
     unsigned int i, j;
-    void *buffer;
-    int len = 0;
     struct server_stats_t *tmpsrv;
+    amp_test_result_t *result = calloc(1, sizeof(amp_test_result_t));
 
     Amplet2__Http__Report msg = AMPLET2__HTTP__REPORT__INIT;
     Amplet2__Http__Header header = AMPLET2__HTTP__HEADER__INIT;
@@ -278,12 +277,10 @@ static void report_results(struct timeval *start_time,
     msg.n_servers = global.servers;
 
     /* pack all the results into a buffer for transmitting */
-    len = amplet2__http__report__get_packed_size(&msg);
-    buffer = malloc(len);
-    amplet2__http__report__pack(&msg, buffer);
-
-    /* send the packed report object */
-    report(AMP_TEST_HTTP, (uint64_t)start_time->tv_sec, buffer, len);
+    result->timestamp = (uint64_t)start_time->tv_sec;
+    result->len = amplet2__http__report__get_packed_size(&msg);
+    result->data = malloc(result->len);
+    amplet2__http__report__pack(&msg, result->data);
 
     /* free up all the memory we had to allocate to report items */
     for ( i = 0; i < global.servers; i++ ) {
@@ -298,7 +295,8 @@ static void report_results(struct timeval *start_time,
     }
 
     free(servers);
-    free(buffer);
+
+    return result;
 }
 
 
@@ -1260,9 +1258,11 @@ static void version(char *prog) {
  */
 //XXX dests should not have anything in it?
 //XXX how about dests has the hostname/address and url just appends to that?
-int run_http(int argc, char *argv[], __attribute__((unused))int count,
+amp_test_result_t* run_http(int argc, char *argv[],
+        __attribute__((unused))int count,
         __attribute__((unused))struct addrinfo **dests) {
     int opt;
+    amp_test_result_t *result;
     //struct opt_t options;
 
     Log(LOG_DEBUG, "Starting HTTP test");
@@ -1372,15 +1372,16 @@ int run_http(int argc, char *argv[], __attribute__((unused))int count,
 
     /* send report */
     if ( global.servers > 0 && global.objects > 0 ) {
-        report_results(&global.start, server_list, &options);
+        result = report_results(&global.start, server_list, &options);
     } else {
         Log(LOG_DEBUG, "Didn't attempt to fetch any objects, no results");
+        result = NULL;
     }
 
     /* TODO, free everything */
     //free(server_list);
 
-    return 0;
+    return result;
 }
 
 

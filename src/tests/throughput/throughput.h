@@ -88,12 +88,13 @@ enum tput_type {
     TPUT_PAUSE,
     TPUT_NEW_CONNECTION,
 };
-int run_throughput(int argc, char *argv[], int count, struct addrinfo **dests);
+amp_test_result_t* run_throughput(int argc, char *argv[], int count,
+        struct addrinfo **dests);
 test_t *register_test(void);
 void run_throughput_server(int argc, char *argv[], SSL *ssl);
-int run_throughput_client(int argc, char *argv[], int count,
+amp_test_result_t* run_throughput_client(int argc, char *argv[], int count,
         struct addrinfo **dests);
-void print_throughput(void *data, uint32_t len);
+void print_throughput(amp_test_result_t *result);
 void usage(char *prog);
 
 

@@ -478,12 +478,11 @@ static Amplet2__Icmp__Item* report_destination(struct info_t *info) {
 /*
  *
  */
-static void report_results(struct timeval *start_time, int count,
+static amp_test_result_t* report_results(struct timeval *start_time, int count,
         struct info_t info[], struct opt_t *opt) {
 
     int i;
-    void *buffer;
-    int len = 0;
+    amp_test_result_t *result = calloc(1, sizeof(amp_test_result_t));
 
     Log(LOG_DEBUG, "Building icmp report, count:%d, psize:%d, rand:%d\n",
             count, opt->packet_size, opt->random);
@@ -510,19 +509,18 @@ static void report_results(struct timeval *start_time, int count,
     msg.n_reports = count;
 
     /* pack all the results into a buffer for transmitting */
-    len = amplet2__icmp__report__get_packed_size(&msg);
-    buffer = malloc(len);
-    amplet2__icmp__report__pack(&msg, buffer);
-
-    /* send the packed report object */
-    report(AMP_TEST_ICMP, (uint64_t)start_time->tv_sec, (void*)buffer, len);
+    result->timestamp = (uint64_t)start_time->tv_sec;
+    result->len = amplet2__icmp__report__get_packed_size(&msg);
+    result->data = malloc(result->len);
+    amplet2__icmp__report__pack(&msg, result->data);
 
     /* free up all the memory we had to allocate to report items */
     for ( i = 0; i < count; i++ ) {
         free(reports[i]);
     }
     free(reports);
-    free(buffer);
+
+    return result;
 }
 
 
@@ -565,7 +563,8 @@ static void version(char *prog) {
  * TODO logging will need more work - the log level won't be set.
  * TODO const up the dest arguments so cant be changed?
  */
-int run_icmp(int argc, char *argv[], int count, struct addrinfo **dests) {
+amp_test_result_t* run_icmp(int argc, char *argv[], int count,
+        struct addrinfo **dests) {
     int opt;
     struct opt_t options;
     struct timeval start_time;
@@ -576,6 +575,7 @@ int run_icmp(int argc, char *argv[], int count, struct addrinfo **dests) {
     struct addrinfo *sourcev4, *sourcev6;
     char *device;
     int outstanding;
+    amp_test_result_t *result;
 
     Log(LOG_DEBUG, "Starting ICMP test");
 
@@ -699,11 +699,11 @@ int run_icmp(int argc, char *argv[], int count, struct addrinfo **dests) {
     }
 
     /* send report */
-    report_results(&start_time, count, info, &options);
+    result = report_results(&start_time, count, info, &options);
 
     free(info);
 
-    return 0;
+    return result;
 }
 
 
@@ -711,16 +711,17 @@ int run_icmp(int argc, char *argv[], int count, struct addrinfo **dests) {
 /*
  * Print icmp test results to stdout, nicely formatted for the standalone test
  */
-void print_icmp(void *data, uint32_t len) {
+void print_icmp(amp_test_result_t *result) {
     Amplet2__Icmp__Report *msg;
     Amplet2__Icmp__Item *item;
     unsigned int i;
     char addrstr[INET6_ADDRSTRLEN];
 
-    assert(data);
+    assert(result);
+    assert(result->data);
 
     /* unpack all the data */
-    msg = amplet2__icmp__report__unpack(NULL, len, data);
+    msg = amplet2__icmp__report__unpack(NULL, result->len, result->data);
 
     assert(msg);
     assert(msg->header);

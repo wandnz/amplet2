@@ -50,7 +50,6 @@ static test_t *get_test_info(void) {
     }
 
     test_info->dlhandle = hdl;
-    test_info->report = 0;
 
     return test_info;
 }
@@ -81,6 +80,7 @@ int main(int argc, char *argv[]) {
     pthread_mutex_t addrlist_lock;
     char *sourcev4 = NULL;
     char *sourcev6 = NULL;
+    amp_test_result_t *result;
 
     /* load information about the test, including the callback functions */
     test_info = get_test_info();
@@ -227,7 +227,13 @@ int main(int argc, char *argv[]) {
     srandom(time(NULL));
 
     /* pass arguments and destinations through to the main test run function */
-    test_info->run_callback(argc, argv, count, dests);
+    result = test_info->run_callback(argc, argv, count, dests);
+
+    if ( result ) {
+        test_info->print_callback(result);
+        free(result->data);
+        free(result);
+    }
 
     amp_resolve_freeaddr(addrlist);
 

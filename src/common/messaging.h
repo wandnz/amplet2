@@ -28,7 +28,6 @@ amqp_connection_state_t conn;
 
 int connect_to_broker(void);
 void close_broker_connection(void);
-int report_to_broker(test_type_t type, uint64_t timestamp, void *bytes,
-	size_t len);
+int report_to_broker(test_type_t type, amp_test_result_t *result);
 
 #endif
