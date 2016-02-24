@@ -532,9 +532,13 @@ SSL* ssl_connect(SSL_CTX *ssl_ctx, int fd) {
  * Shutdown and free an SSL session.
  */
 void ssl_shutdown(SSL *ssl) {
+    int sock;
+
     assert(ssl);
 
     Log(LOG_DEBUG, "Shutting down SSL connection");
+
+    sock = SSL_get_fd(ssl);
 
 #if 0
     /* call shutdown twice to make sure bi-directional shutdown is complete */
@@ -547,6 +551,7 @@ void ssl_shutdown(SSL *ssl) {
      * to, so only call shutdown once and ignore whatever the other end thinks.
      */
     SSL_shutdown(ssl);
+    close(sock);
 
     Log(LOG_DEBUG, "Finished shutting down SSL connection");
 

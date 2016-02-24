@@ -549,7 +549,6 @@ uint16_t start_remote_server(test_type_t type, struct addrinfo *dest,
         Log(LOG_DEBUG, "Hostname validation failed");
         X509_free(server_cert);
         ssl_shutdown(ssl);
-        close(sock);
         return 0;
     }
 
@@ -588,7 +587,6 @@ uint16_t start_remote_server(test_type_t type, struct addrinfo *dest,
 
     X509_free(server_cert);
     ssl_shutdown(ssl);
-    close(sock);
 
     return server_port;
 }

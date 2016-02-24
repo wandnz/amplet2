@@ -200,7 +200,6 @@ static void process_control_message(int fd) {
     if ( client_cert == NULL ) {
         Log(LOG_WARNING, "Failed to get peer certificate");
         ssl_shutdown(ssl);
-        close(fd);
         exit(0);
     }
 
@@ -234,7 +233,6 @@ static void process_control_message(int fd) {
     }
 
     ssl_shutdown(ssl);
-    close(fd);
     exit(0);
 }
 
