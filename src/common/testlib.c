@@ -417,53 +417,56 @@ static int send_server_start(SSL *ssl, test_type_t type) {
 
 
 /*
- * Open an SSL connection to another AMP monitor and ask them to start a
- * server for a particular test. This will return the port number that the
- * server is running on.
+ * TODO apart from SSL stuff, this is very similar to the function in
+ * serverlib.c used for connecting both control sockets and test sockets.
+ * The control sockets within a test should move to using SSL (and this
+ * function), maybe the SSL part can be split out and this function also used
+ * with connecting to the test server itself?
  */
-uint16_t start_remote_server(test_type_t type, struct addrinfo *dest,
+SSL* connect_control_server(struct addrinfo *dest, uint16_t port,
         amp_test_meta_t *meta) {
     SSL *ssl;
     X509 *server_cert;
     int sock;
-    uint16_t bytes, server_port;
     int res;
     int attempts;
 
     assert(dest);
     assert(dest->ai_addr);
-    assert(vars.control_port);
 
     if ( ssl_ctx == NULL ) {
         Log(LOG_WARNING, "Can't start remote server, no SSL configuration");
-        return 0;
+        return NULL;
     }
 
-    Log(LOG_DEBUG, "Starting remote server for test type %d", type);
+    Log(LOG_DEBUG, "Connecting to control socket tcp/%d on remote server",port);
 
+    /* set the port number in the destination addrinfo */
     switch ( dest->ai_family ) {
         case AF_INET: ((struct sockaddr_in *)dest->ai_addr)->sin_port =
-                      htons(vars.control_port);
+                          htons(port);
                       break;
         case AF_INET6: ((struct sockaddr_in6 *)dest->ai_addr)->sin6_port =
-                       htons(vars.control_port);
+                           htons(port);
                        break;
-        default: return 0;
+        default: return NULL;
     };
 
-    /* Open connection to the remote AMP monitor */
+    /* Create the socket */
     if ( (sock = socket(dest->ai_family, SOCK_STREAM, IPPROTO_TCP)) < 0 ) {
         Log(LOG_DEBUG, "Failed to create socket");
-        return 0;
+        return NULL;
     }
 
-    if ( meta->interface ) {
+    /* bind to a local interface if specified */
+    if ( meta && meta->interface ) {
         if ( bind_socket_to_device(sock, meta->interface) < 0 ) {
-            return 0;
+            return NULL;
         }
     }
 
-    if ( meta->sourcev4 || meta->sourcev6 ) {
+    /* bind to a local address if specified */
+    if ( meta && (meta->sourcev4 || meta->sourcev6) ) {
         struct addrinfo *addr;
 
         switch ( dest->ai_family ) {
@@ -471,7 +474,7 @@ uint16_t start_remote_server(test_type_t type, struct addrinfo *dest,
                           break;
             case AF_INET6: addr = get_numeric_address(meta->sourcev6, NULL);
                            break;
-            default: return 0;
+            default: return NULL;
         };
 
         /*
@@ -483,7 +486,7 @@ uint16_t start_remote_server(test_type_t type, struct addrinfo *dest,
             res = bind_socket_to_address(sock, addr);
             freeaddrinfo(addr);
             if ( res < 0 ) {
-                return 0;
+                return NULL;
             }
         }
     }
@@ -508,7 +511,7 @@ uint16_t start_remote_server(test_type_t type, struct addrinfo *dest,
                 Log(LOG_WARNING,
                         "Failed too many times connecting to %s (%s), aborting",
                         dest->ai_canonname, amp_inet_ntop(dest, addrstr));
-                return 0;
+                return NULL;
             }
 
             /*
@@ -533,15 +536,15 @@ uint16_t start_remote_server(test_type_t type, struct addrinfo *dest,
     if ( (ssl = ssl_connect(ssl_ctx, sock) ) == NULL ) {
         Log(LOG_DEBUG, "Failed to setup SSL connection");
         close(sock);
-        return 0;
+        return NULL;
     }
 
     /* Recover the server's certificate */
     server_cert = SSL_get_peer_certificate(ssl);
     if ( server_cert == NULL ) {
         Log(LOG_DEBUG, "Failed to get peer certificate");
-        close(sock);
-        return 0;
+        ssl_shutdown(ssl);
+        return NULL;
     }
 
     /* Validate the hostname */
@@ -549,35 +552,47 @@ uint16_t start_remote_server(test_type_t type, struct addrinfo *dest,
         Log(LOG_DEBUG, "Hostname validation failed");
         X509_free(server_cert);
         ssl_shutdown(ssl);
-        return 0;
+        return NULL;
     }
+
+    X509_free(server_cert);
 
     Log(LOG_DEBUG, "Successfully validated peer cert");
 
-    /* Send the test type, so the other end knows which server to run */
-    if ( send_server_start(ssl, type) < 0 ) {
-        Log(LOG_DEBUG, "Failed to send test type");
-        close(sock);
+    return ssl;
+}
+
+
+
+/*
+ * Open an SSL connection to another AMP monitor and ask them to start a
+ * server for a particular test. This will return the port number that the
+ * server is running on.
+ */
+uint16_t start_remote_server(test_type_t type, struct addrinfo *dest,
+        amp_test_meta_t *meta) {
+    SSL *ssl;
+    uint16_t server_port;
+
+    assert(dest);
+    assert(dest->ai_addr);
+
+    if ( (ssl=connect_control_server(dest, vars.control_port, meta)) == NULL ) {
+        Log(LOG_WARNING, "Can't start control server");
         return 0;
     }
 
+    /* Send the test type, so the other end knows which server to run */
     /* TODO send any test parameters? */
-    /* Get the port number the remote server is on */
-    bytes = 0;
-    while ( bytes < sizeof(server_port) ) {
-        /* read the message straight into the port variable, 2 bytes long */
-        res = SSL_read(ssl, ((char*)&server_port) + bytes, sizeof(server_port));
-
-        if ( res <= 0 ) {
-            break;
-        }
-        bytes += res;
+    if ( send_server_start(ssl, type) < 0 ) {
+        Log(LOG_DEBUG, "Failed to send test type");
+        ssl_shutdown(ssl);
+        return 0;
     }
 
-    /* Response didn't make sense, zero the port so the client knows */
-    if ( bytes != sizeof(server_port) ) {
-        Log(LOG_WARNING, "Expected %d bytes, got %d bytes, not a valid port",
-                sizeof(server_port), bytes);
+    /* Get the port number the remote server is on */
+    if ( SSL_read(ssl, ((char*)&server_port), sizeof(server_port)) < 0 ) {
+        Log(LOG_WARNING, "Failed to read server port from remote end");
         server_port = 0;
     }
 
@@ -585,7 +600,6 @@ uint16_t start_remote_server(test_type_t type, struct addrinfo *dest,
 
     Log(LOG_DEBUG, "Remote port number: %d", server_port);
 
-    X509_free(server_cert);
     ssl_shutdown(ssl);
 
     return server_port;
