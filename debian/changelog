@@ -1,3 +1,9 @@
+amplet2 (0.5.6-1) unstable; urgency=low
+
+  * Try to deal with URLs at the top level starting with "../" in the HTTP test.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Thu, 25 Feb 2016 15:34:46 +1300
+
 amplet2 (0.5.5-3) unstable; urgency=low
 
   * Don't recursively modify key permissions on install.
