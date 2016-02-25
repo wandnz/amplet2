@@ -356,6 +356,30 @@ static void split_url(char *orig_url, char *server, char *path, int set) {
         strncpy(server, base_server, MAX_DNS_NAME_LEN);
         memset(path, 0, MAX_PATH_LEN);
         strncpy(path, base_path, (slash - base_path) + 1);
+        /*
+         * This is really naive, but try to fix any urls that start by going
+         * up the directory tree past the root. Doesn't even try to deal with
+         * any that do this somewhere in the middle of the url. If a url tries
+         * to go too far up the tree, the browser appears to clamp at the root.
+         * TODO be less naive, deal with stupidity in the middle of urls
+         */
+        if ( strstr(url, "../") == url ) {
+            /* last slash in the path */
+            slash = rindex(path, '/');
+            /* while the url starts with "../", keep stripping it */
+            while ( strstr(url, "../") == url ) {
+                Log(LOG_DEBUG,
+                        "Poorly formed directory traversal, trying to fix");
+                /* strip one level of the path if there are still any left */
+                if ( slash != path ) {
+                    *slash = '\0';
+                    slash = rindex(path, '/');
+                    *(slash+1) = '\0';
+                }
+                /* advance one level of the url */
+                url += 3;
+            }
+        }
         strncat(path, url, MAX_PATH_LEN - strlen(base_path) - 1);
         return;
     } else {
