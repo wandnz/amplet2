@@ -18,6 +18,15 @@
 #include "../measured/control.h" /* just for CONTROL_PORT */
 
 
+struct option long_options[] = {
+    {"cacert", required_argument, 0, '0'},
+    {"cert", required_argument, 0, '9'},
+    {"key", required_argument, 0, '8'},
+    {"debug", no_argument, 0, 'x'},
+    {"help", no_argument, 0, 'h'},
+};
+
+
 
 /* FIXME? this is pretty much a copy and paste of code in test.c */
 static test_t *get_test_info(void) {
@@ -71,9 +80,9 @@ int main(int argc, char *argv[]) {
     test_t *test_info;
     struct addrinfo **dests;
     struct addrinfo *addrlist = NULL, *rp;
-    int log_flag_index, ns_flag_index;
     int count;
     int opt;
+    int option_index = 0;
     int i;
     char *nameserver = NULL;
     int remaining = 0;
@@ -81,6 +90,9 @@ int main(int argc, char *argv[]) {
     char *sourcev4 = NULL;
     char *sourcev6 = NULL;
     amp_test_result_t *result;
+    int test_argc;
+    char **test_argv;
+
 
     /* load information about the test, including the callback functions */
     test_info = get_test_info();
@@ -91,33 +103,58 @@ int main(int argc, char *argv[]) {
     /* suppress "invalid argument" errors from getopt */
     opterr = 0;
 
-    log_flag_index = 0;
-    ns_flag_index = 0;
+    /* start building new argv for the test, which will be a subset of argv */
+    test_argc = 1;
+    test_argv = calloc(2, sizeof(char*));
+    test_argv[0] = argv[0];
 
     /*
      * deal with command line arguments - split them into actual arguments
      * and destinations in the style the AMP tests want. Using "-" as the
      * optstring means that non-option arguments are treated as having an
-     * option with character code 1 (which prevents them from being shuffled
-     * to the end of the list). All test arguments will be preserved, and the
-     * destinations listed after the -- marker can be removed easily.
+     * option with character code 1, which makes different style arguments
+     * (both styles of long arguments, and short ones) appear consistently.
+     * We could have not used it so that unknown arguments are shuffled to
+     * the end of the list and then taken just the argv array after the last
+     * known argument, but for some reason the permutation isn't working?
      */
-    while ( (opt = getopt(argc, argv, "-xD:4:6:")) != -1 ) {
+    while ( (opt = getopt_long(argc, argv, "-x0:9:8:D:4:6:",
+                    long_options, &option_index)) != -1 ) {
 	/* generally do nothing, just use up arguments until the -- marker */
         switch ( opt ) {
             /* -x is an option only we care about for now - enable debug */
             case 'x': log_level = LOG_DEBUG;
                       log_level_override = 1;
-                      log_flag_index = optind - 1;
                       break;
             /* nameserver config is also only for us and not passed on */
-            case 'D': nameserver = optarg; ns_flag_index = optind - 2; break;
+            case 'D': nameserver = optarg;
+                      break;
             /* use these for nameserver config, but also pass onto the test */
-            case '4': sourcev4 = optarg; break;
-            case '6': sourcev6 = optarg; break;
-            default: /* do nothing */ break;
+            case '4': test_argv[test_argc++] = sourcev4 = optarg;
+                      test_argv = realloc(test_argv,
+                              (test_argc+1) * sizeof(char*));
+                      break;
+            case '6': test_argv[test_argc++] = sourcev6 = optarg;
+                      test_argv = realloc(test_argv,
+                              (test_argc+1) * sizeof(char*));
+                      break;
+            /* configure ssl certs if we want to talk to a real server */
+            case '0': vars.amqp_ssl.cacert = optarg;
+                      break;
+            case '9': vars.amqp_ssl.cert = optarg;
+                      break;
+            case '8': vars.amqp_ssl.key = optarg;
+                      break;
+            /* add any unknown options to a new argv for the test */
+            default:  test_argv[test_argc++] = argv[optind-1];
+                      test_argv = realloc(test_argv,
+                              (test_argc+1) * sizeof(char*));
+                      break;
         };
     }
+
+    /* null terminate the new argv for the test */
+    test_argv[test_argc] = NULL;
 
     /* set the nameserver to our custom one if specified */
     if ( nameserver ) {
@@ -178,17 +215,16 @@ int main(int argc, char *argv[]) {
     if ( test_info->server_callback != NULL && count > 0 ) {
         /*
          * These need values for standalone tests to work with remote servers,
-         * but there aren't really any good default values we can use. The
-         * current values give us a way to make it work if we need to, but
-         * it's not very nice.
-         * TODO either parse the config file, or require them to be set from
-         * the command line?
+         * but there aren't really any good default values we can use. If the
+         * user wants to test to a real server, they will need to specify the
+         * locations of all the certs/keys/etc.
          */
-        vars.amqp_ssl.keys_dir = AMP_KEYS_DIR "/default";
-        vars.collector = "default";
+        /* TODO allow port to be set on command line, watch it doesn't clobber
+         * other test options, they are a bit inconsistent!
+         */
         vars.control_port = atol(CONTROL_PORT);
 
-        if ( initialise_ssl(&vars.amqp_ssl, vars.collector) < 0 ) {
+        if ( initialise_ssl(&vars.amqp_ssl, NULL) < 0 ) {
             Log(LOG_ALERT, "Failed to initialise SSL, aborting");
             return -1;
         }
@@ -198,27 +234,10 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    /* remove the -x option if present so that the test doesn't see it */
-    if ( log_level_override && log_flag_index > 0 ) {
-        memmove(argv + log_flag_index, argv + log_flag_index + 1,
-                (argc - log_flag_index - 1) * sizeof(char *));
-        optind--;
-        /* adjust the nameserver arguments along as well to fill the gap */
-        if ( ns_flag_index > log_flag_index ) {
-            ns_flag_index--;
-        }
+    Log(LOG_DEBUG, "test_argc: %d, test_argv:", test_argc);
+    for ( i = 0; i < test_argc; i++ ) {
+        Log(LOG_DEBUG, "test_argv[%d] = %s\n", i, test_argv[i]);
     }
-
-    /* remove the -D nameserver option too, so the test doesn't see it */
-    if ( nameserver && ns_flag_index > 0 ) {
-        memmove(argv + ns_flag_index, argv + ns_flag_index + 2,
-                (argc - ns_flag_index - 2) * sizeof(char *));
-        optind -= 2;
-    }
-
-    /* prematurely terminate argv so the test doesn't see the destinations */
-    argv[optind] = NULL;
-    argc = optind;
 
     /* reset optind so the test can call getopt normally on it's arguments */
     optind = 1;
@@ -227,7 +246,7 @@ int main(int argc, char *argv[]) {
     srandom(time(NULL));
 
     /* pass arguments and destinations through to the main test run function */
-    result = test_info->run_callback(argc, argv, count, dests);
+    result = test_info->run_callback(test_argc, test_argv, count, dests);
 
     if ( result ) {
         test_info->print_callback(result);
@@ -237,10 +256,13 @@ int main(int argc, char *argv[]) {
 
     amp_resolve_freeaddr(addrlist);
 
+
     /* tidy up after ourselves */
     if ( dests ) {
         free(dests);
     }
+
+    free(test_argv);
 
     ub_ctx_delete(vars.ctx);
 
