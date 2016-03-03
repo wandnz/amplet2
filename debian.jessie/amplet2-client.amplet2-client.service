@@ -1,0 +1,17 @@
+[Unit]
+Description=AMP measurement daemon
+After=syslog.target network.target
+#Wants=rabbitmq-server.service
+
+[Service]
+Type=forking
+ExecStart=/etc/init.d/amplet2-client start
+ExecStop=/etc/init.d/amplet2-client stop
+ExecReload=/etc/init.d/amplet2-client reload
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectSystem=yes
+ProtectHome=yes
+
+[Install]
+WantedBy=multi-user.target

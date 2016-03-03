@@ -1,0 +1,10 @@
+usr/sbin
+etc/amplet2
+etc/amplet2/keys
+etc/amplet2/clients
+etc/amplet2/schedules
+etc/amplet2/nametables
+usr/lib/amplet2/tests
+var/log/amplet2
+var/run/amplet2
+etc/rsyslog.d

@@ -1,3 +1,9 @@
+amplet2 (0.5.6-2) unstable; urgency=low
+
+  * Reinstate (slightly broken) return values in init script so install works.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Thu,  3 Mar 2016 16:19:10 +1300
+
 amplet2 (0.5.6-1) unstable; urgency=low
 
   * Try to deal with URLs at the top level starting with "../" in the HTTP test.
