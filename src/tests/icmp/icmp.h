@@ -37,6 +37,7 @@
 struct opt_t {
     int random;			/* use random packet sizes (bytes) */
     int perturbate;		/* delay sending by up to this time (usec) */
+    uint8_t dscp;               /* diffserv codepoint to set */
     uint16_t packet_size;	/* use this packet size (bytes) */
     uint32_t inter_packet_delay;/* minimum gap between packets (usec) */
 };

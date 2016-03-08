@@ -153,6 +153,7 @@ struct opt_t {
     int nsid;
     int perturbate;
     uint32_t inter_packet_delay;
+    uint8_t dscp;
 };
 
 

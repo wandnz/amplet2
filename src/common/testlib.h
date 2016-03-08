@@ -15,6 +15,8 @@
 /* minimum time in usec allowed between sending test packets */
 #define MIN_INTER_PACKET_DELAY 100
 
+#define DEFAULT_DSCP_VALUE 0
+
 /* max number of attempts to make when retrying control connections */
 #define MAX_CONNECT_ATTEMPTS 3
 /* time in seconds to wait between attempts to establish control connects */
@@ -94,8 +96,10 @@ int bind_socket_to_address(int sock, struct addrinfo *address);
 int bind_sockets_to_address(struct socket_t *sockets,
         struct addrinfo *sourcev4, struct addrinfo *sourcev6);
 int set_default_socket_options(struct socket_t *sockets);
+int set_dscp_socket_options(struct socket_t *sockets, uint8_t dscp);
 int check_exists(char *path, int strict);
 int copy_address_to_protobuf(ProtobufCBinaryData *dst,
         const struct addrinfo *src);
+int parse_dscp_value(const char *value, uint8_t *result);
 
 #endif

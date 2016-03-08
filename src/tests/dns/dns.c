@@ -27,6 +27,7 @@ static struct option long_options[] = {
     {"class", required_argument, 0, 'c'},
     {"help", no_argument, 0, 'h'},
     {"interface", required_argument, 0, 'I'},
+    {"dscp", required_argument, 0, 'Q'},
     {"interpacketgap", required_argument, 0, 'Z'},
     {"nsid", no_argument, 0, 'n'},
     {"perturbate", required_argument, 0, 'p'},
@@ -851,17 +852,23 @@ int run_dns(int argc, char *argv[], int count, struct addrinfo **dests) {
     options.nsid = 0;
     options.perturbate = 0;
     options.inter_packet_delay = MIN_INTER_PACKET_DELAY;
+    options.dscp = DEFAULT_DSCP_VALUE;
     sourcev4 = NULL;
     sourcev6 = NULL;
     device = NULL;
     local_resolv = 0;
 
-    while ( (opt = getopt_long(argc, argv, "hvI:q:t:c:z:rsn4:6:Z:p:",
+    while ( (opt = getopt_long(argc, argv, "hvI:Q:q:t:c:z:rsn4:6:Z:p:",
                     long_options, NULL)) != -1 ) {
 	switch ( opt ) {
             case '4': sourcev4 = get_numeric_address(optarg, NULL); break;
             case '6': sourcev6 = get_numeric_address(optarg, NULL); break;
             case 'I': device = optarg; break;
+            case 'Q': if ( parse_dscp_value(optarg, &options.dscp) < 0 ) {
+                          Log(LOG_WARNING, "Invalid DSCP value, aborting");
+                          exit(-1);
+                      }
+                      break;
             case 'Z': options.inter_packet_delay = atoi(optarg); break;
 	    case 'q': options.query_string = strdup(optarg); break;
 	    case 't': options.query_type = get_query_type(optarg); break;
@@ -942,6 +949,11 @@ int run_dns(int argc, char *argv[], int count, struct addrinfo **dests) {
 
     if ( set_default_socket_options(&sockets) < 0 ) {
         Log(LOG_ERR, "Failed to set default socket options, aborting test");
+        exit(-1);
+    }
+
+    if ( set_dscp_socket_options(&sockets, options.dscp) < 0 ) {
+        Log(LOG_ERR, "Failed to set DSCP socket options, aborting test");
         exit(-1);
     }
 

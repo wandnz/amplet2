@@ -28,6 +28,7 @@
 static struct option long_options[] = {
     {"help", no_argument, 0, 'h'},
     {"interface", required_argument, 0, 'I'},
+    {"dscp", required_argument, 0, 'Q'},
     {"interpacketgap", required_argument, 0, 'Z'},
     {"perturbate", required_argument, 0, 'p'},
     {"port", required_argument, 0, 'P'},
@@ -72,6 +73,13 @@ static int open_sockets(struct tcppingglobals *tcpping) {
     if ( tcpping->tcp_sockets.socket < 0 &&
                 tcpping->tcp_sockets.socket6 < 0 ) {
         Log(LOG_ERR, "Unable to open TCP sockets, aborting test");
+        return 0;
+    }
+
+    /* the raw sockets are used for sending the probes, set DSCP values */
+    if ( set_dscp_socket_options(&tcpping->raw_sockets,
+                tcpping->options.dscp) < 0 ) {
+        Log(LOG_ERR, "Failed to set DSCP socket options, aborting test");
         return 0;
     }
 
@@ -864,6 +872,7 @@ int run_tcpping(int argc, char *argv[], int count, struct addrinfo **dests) {
 
     /* Set defaults before processing options */
     globals->options.inter_packet_delay = MIN_INTER_PACKET_DELAY;
+    globals->options.dscp = DEFAULT_DSCP_VALUE;
     globals->options.packet_size = 0;
     globals->options.random = 0;
     globals->options.perturbate = 0;
@@ -872,7 +881,7 @@ int run_tcpping(int argc, char *argv[], int count, struct addrinfo **dests) {
     globals->sourcev6 = NULL;
     globals->device = NULL;
 
-    while ( (opt = getopt_long(argc, argv, "hvI:p:P:rs:4:6:Z:",
+    while ( (opt = getopt_long(argc, argv, "hvI:Q:p:P:rs:4:6:Z:",
                 long_options, NULL)) != -1 ) {
         switch (opt) {
             case '4':
@@ -880,6 +889,12 @@ int run_tcpping(int argc, char *argv[], int count, struct addrinfo **dests) {
             case '6':
                 globals->sourcev6 = get_numeric_address(optarg, NULL); break;
             case 'I': globals->device = strdup(optarg); break;
+            case 'Q': if ( parse_dscp_value(optarg,
+                                  &globals->options.dscp) < 0 ) {
+                          Log(LOG_WARNING, "Invalid DSCP value, aborting");
+                          exit(-1);
+                      }
+                      break;
             case 'Z': globals->options.inter_packet_delay = atoi(optarg); break;
             case 'p': globals->options.perturbate = atoi(optarg); break;
             case 'P': globals->options.port = atoi(optarg); break;

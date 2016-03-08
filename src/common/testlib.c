@@ -780,6 +780,42 @@ int set_default_socket_options(struct socket_t *sockets) {
 
 
 /*
+ * TODO should this be part of the default socket options?
+ */
+int set_dscp_socket_options(struct socket_t *sockets, uint8_t dscp) {
+    int value;
+
+    assert(sockets);
+    assert(sockets->socket > 0 || sockets->socket6 > 0);
+
+    value = dscp;
+
+    Log(LOG_DEBUG, "Setting DSCP value to %d\n", value);
+
+    if ( sockets->socket > 0 ) {
+        if ( setsockopt(sockets->socket, IPPROTO_IP, IP_TOS, &value,
+                    sizeof(value)) < 0 ) {
+            Log(LOG_WARNING, "Failed to set IPv4 DSCP to %d: %s", value,
+                    strerror(errno));
+            return -1;
+        }
+    }
+
+    if ( sockets->socket6 > 0 ) {
+        if ( setsockopt(sockets->socket6, IPPROTO_IPV6, IPV6_TCLASS, &value,
+                    sizeof(value)) < 0 ) {
+            Log(LOG_WARNING, "Failed to set IPv6 DSCP to %d: %s", value,
+                    strerror(errno));
+            return -1;
+        }
+    }
+
+    return 0;
+}
+
+
+
+/*
  * Check if a given file exists, failure to exist is only an error if
  * the strict flag is set.
  */
@@ -850,4 +886,81 @@ int copy_address_to_protobuf(ProtobufCBinaryData *dst,
     };
 
     return dst->data ? 1 : 0;
+}
+
+
+
+/*
+ *
+ */
+int parse_dscp_value(const char *value, uint8_t *result) {
+    /* check if the name of a code point was given, if so set the right value */
+    if ( strncasecmp(value, "cs0", strlen("cs0")) == 0 ||
+            strncasecmp(value, "none", strlen("none")) == 0 ||
+            strncasecmp(value, "default", strlen("default")) == 0 ) {
+        *result = 0;
+    } else if ( strncasecmp(value, "cs1", strlen("cs1")) == 0 ) {
+        *result = 0b001000;
+    } else if ( strncasecmp(value, "cs2", strlen("cs2")) == 0 ) {
+        *result = 0b010000;
+    } else if ( strncasecmp(value, "cs3", strlen("cs3")) == 0 ) {
+        *result = 0b011000;
+    } else if ( strncasecmp(value, "cs4", strlen("cs4")) == 0 ) {
+        *result = 0b100000;
+    } else if ( strncasecmp(value, "cs5", strlen("cs5")) == 0 ) {
+        *result = 0b101000;
+    } else if ( strncasecmp(value, "cs6", strlen("cs6")) == 0 ) {
+        *result = 0b110000;
+    } else if ( strncasecmp(value, "cs7", strlen("cs7")) == 0 ) {
+        *result = 0b111000;
+    } else if ( strncasecmp(value, "af11", strlen("af11")) == 0 ) {
+        *result = 0b001010;
+    } else if ( strncasecmp(value, "af12", strlen("af12")) == 0 ) {
+        *result = 0b001100;
+    } else if ( strncasecmp(value, "af13", strlen("af13")) == 0 ) {
+        *result = 0b001110;
+    } else if ( strncasecmp(value, "af21", strlen("af21")) == 0 ) {
+        *result = 0b010010;
+    } else if ( strncasecmp(value, "af22", strlen("af22")) == 0 ) {
+        *result = 0b010100;
+    } else if ( strncasecmp(value, "af23", strlen("af23")) == 0 ) {
+        *result = 0b010110;
+    } else if ( strncasecmp(value, "af31", strlen("af31")) == 0 ) {
+        *result = 0b011010;
+    } else if ( strncasecmp(value, "af32", strlen("af32")) == 0 ) {
+        *result = 0b011100;
+    } else if ( strncasecmp(value, "af33", strlen("af33")) == 0 ) {
+        *result = 0b011110;
+    } else if ( strncasecmp(value, "af41", strlen("af41")) == 0 ) {
+        *result = 0b100010;
+    } else if ( strncasecmp(value, "af42", strlen("af42")) == 0 ) {
+        *result = 0b100100;
+    } else if ( strncasecmp(value, "af43", strlen("af43")) == 0 ) {
+        *result = 0b100110;
+    } else if ( strncasecmp(value, "va", strlen("va")) == 0 ) {
+        *result = 0b101100;
+    } else if ( strncasecmp(value, "ef", strlen("ef")) == 0 ) {
+        *result = 0b101110;
+    } else {
+        int converted;
+        char *endptr;
+        /* check if a binary value was given for the DSCP value */
+        errno = 0;
+        converted = strtol(value, &endptr, 2);
+        if ( errno != 0 || *endptr != '\0' || converted >= (1 << 6) ) {
+            /* if not, then try base 8, 10 and 16 */
+            errno = 0;
+            converted = strtol(value, &endptr, 0);
+            if ( errno != 0 || *endptr != '\0' || converted >= (1 << 6) ) {
+                *result = 0;
+                return -1;
+            }
+        }
+        *result = converted;
+    }
+
+    /* DSCP is only 6 bits long */
+    *result = *result << 2;
+
+    return 0;
 }

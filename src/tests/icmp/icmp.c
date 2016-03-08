@@ -31,6 +31,7 @@
 static struct option long_options[] = {
     {"help", no_argument, 0, 'h'},
     {"interface", required_argument, 0, 'I'},
+    {"dscp", required_argument, 0, 'Q'},
     {"interpacketgap", required_argument, 0, 'Z'},
     {"perturbate", required_argument, 0, 'p'},
     {"random", no_argument, 0, 'r'},
@@ -580,6 +581,7 @@ int run_icmp(int argc, char *argv[], int count, struct addrinfo **dests) {
     Log(LOG_DEBUG, "Starting ICMP test");
 
     /* set some sensible defaults */
+    options.dscp = DEFAULT_DSCP_VALUE;
     options.inter_packet_delay = MIN_INTER_PACKET_DELAY;
     options.packet_size = DEFAULT_ICMP_ECHO_REQUEST_LEN;
     options.random = 0;
@@ -588,12 +590,17 @@ int run_icmp(int argc, char *argv[], int count, struct addrinfo **dests) {
     sourcev6 = NULL;
     device = NULL;
 
-    while ( (opt = getopt_long(argc, argv, "hvI:Z:p:rs:4:6:",
+    while ( (opt = getopt_long(argc, argv, "hvI:Q:Z:p:rs:4:6:",
                     long_options, NULL)) != -1 ) {
 	switch ( opt ) {
             case '4': sourcev4 = get_numeric_address(optarg, NULL); break;
             case '6': sourcev6 = get_numeric_address(optarg, NULL); break;
             case 'I': device = optarg; break;
+            case 'Q': if ( parse_dscp_value(optarg, &options.dscp) < 0 ) {
+                          Log(LOG_WARNING, "Invalid DSCP value, aborting");
+                          exit(-1);
+                      }
+                      break;
             case 'Z': options.inter_packet_delay = atoi(optarg); break;
 	    case 'p': options.perturbate = atoi(optarg); break;
 	    case 'r': options.random = 1; break;
@@ -635,6 +642,11 @@ int run_icmp(int argc, char *argv[], int count, struct addrinfo **dests) {
 
     if ( set_default_socket_options(&raw_sockets) < 0 ) {
         Log(LOG_ERR, "Failed to set default socket options, aborting test");
+        exit(-1);
+    }
+
+    if ( set_dscp_socket_options(&raw_sockets, options.dscp) < 0 ) {
+        Log(LOG_ERR, "Failed to set DSCP socket options, aborting test");
         exit(-1);
     }
 

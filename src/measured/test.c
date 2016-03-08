@@ -40,6 +40,7 @@ static void run_test(const test_schedule_item_t * const item) {
     struct addrinfo **destinations = NULL;
     int total_resolve_count = 0;
     char *packet_delay_str = NULL;
+    char *dscp_str = NULL;
 
     assert(item);
     assert(item->test_id < AMP_TEST_LAST);
@@ -73,6 +74,16 @@ static void run_test(const test_schedule_item_t * const item) {
         }
 
         argv[argc++] = packet_delay_str;
+    }
+
+    if ( item->meta->dscp != DEFAULT_DSCP_VALUE ) {
+        argv[argc++] = "-Q";
+        if ( asprintf(&dscp_str, "%u", item->meta->dscp) < 0 ) {
+            Log(LOG_WARNING, "Failed to build DSCP string, aborting");
+            return;
+        }
+
+        argv[argc++] = dscp_str;
     }
 
     /* set the outgoing interface if configured at the global level */
@@ -240,6 +251,10 @@ static void run_test(const test_schedule_item_t * const item) {
     /* free any command line arguments we had to convert to strings */
     if ( packet_delay_str ) {
         free(packet_delay_str);
+    }
+
+    if ( dscp_str ) {
+        free(dscp_str);
     }
 
     /* done running the test, exit */
