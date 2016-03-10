@@ -590,49 +590,9 @@ struct ctrlstream* connect_control_server(struct addrinfo *dest, uint16_t port,
 
 
 /*
- * Open an SSL connection to another AMP monitor and ask them to start a
- * server for a particular test. This will return the port number that the
- * server is running on.
+ * Ask that a remote amplet client that we are connected to start a server
+ * for a particular test.
  */
-#if 0
-uint16_t start_remote_server(test_type_t type, struct addrinfo *dest,
-        amp_test_meta_t *meta) {
-    SSL *ssl;
-    uint16_t server_port;
-
-    assert(dest);
-    assert(dest->ai_addr);
-
-    if ( (ssl=connect_control_server(dest, vars.control_port, meta)) == NULL ) {
-        Log(LOG_WARNING, "Can't start control server");
-        return 0;
-    }
-
-    /* Send the test type, so the other end knows which server to run */
-    /* TODO send any test parameters? */
-    if ( send_server_start(ssl, type) < 0 ) {
-        Log(LOG_DEBUG, "Failed to send test type");
-        ssl_shutdown(ssl);
-        return 0;
-    }
-
-    /* Get the port number the remote server is on */
-    if ( SSL_read(ssl, ((char*)&server_port), sizeof(server_port)) < 0 ) {
-        Log(LOG_WARNING, "Failed to read server port from remote end");
-        server_port = 0;
-    }
-
-    server_port = ntohs(server_port);
-
-    Log(LOG_DEBUG, "Remote port number: %d", server_port);
-
-    ssl_shutdown(ssl);
-
-    return server_port;
-}
-#endif
-
-
 int start_remote_server(SSL *ssl, test_type_t type) {
 
     assert(ssl);
@@ -644,19 +604,7 @@ int start_remote_server(SSL *ssl, test_type_t type) {
         Log(LOG_DEBUG, "Failed to send test type");
         return -1;
     }
-#if 0
-    /* Get the port number the remote server is on */
-    if ( SSL_read(ssl, ((char*)&server_port), sizeof(server_port)) < 0 ) {
-        Log(LOG_WARNING, "Failed to read server port from remote end");
-        server_port = 0;
-    }
 
-    server_port = ntohs(server_port);
-
-    Log(LOG_DEBUG, "Remote port number: %d", server_port);
-
-    return server_port;
-#endif
     return 0;
 }
 

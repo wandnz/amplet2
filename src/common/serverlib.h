@@ -58,7 +58,6 @@ int read_control_hello(test_type_t test, struct ctrlstream *ctrl,
         void **options, void *(*parse_func)(ProtobufCBinaryData *data));
 int read_control_ready(test_type_t test, struct ctrlstream *ctrl,
         uint16_t *port);
-//int read_control_packet(int sock, void **data);
 int read_control_result(test_type_t test, struct ctrlstream *ctrl,
         ProtobufCBinaryData *results);
 

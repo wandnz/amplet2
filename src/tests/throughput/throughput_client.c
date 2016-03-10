@@ -700,24 +700,6 @@ amp_test_result_t* run_throughput_client(int argc, char *argv[], int count,
     /* Print out our schedule */
     printSchedule(test_options.schedule);
 
-    /*
-     * Only start the remote server if we expect it to be running as part
-     * of amplet2/measured, otherwise it should be already running standalone.
-     */
-#if 0
-    if ( client == NULL ) {
-        int remote_port;
-        if ( (remote_port = start_remote_server(AMP_TEST_THROUGHPUT,
-                        dests[0], &meta)) == 0 ) {
-            Log(LOG_WARNING, "Failed to start remote server, aborting test");
-            exit(1);
-        }
-
-        Log(LOG_DEBUG, "Got port %d from remote server", remote_port);
-        test_options.cport = remote_port;
-    }
-#endif
-
     /* connect to the control server to start/configure the test */
     if ( (ctrl=connect_control_server(dests[0], test_options.cport,
                     &meta)) == NULL ) {
