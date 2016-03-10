@@ -93,11 +93,15 @@ static int parse_schedule_test(void *data, uint32_t len,
     memset(item, 0, sizeof(*item));
     item->test_id = msg->schedule->test_type;
     item->params = parse_param_string(msg->schedule->params);
-    //XXX do some hax, can we get a proper one of these from somewhere?
     item->meta = calloc(1, sizeof(amp_test_meta_t));
-    item->meta->nssock = "/tmp/foo/var/run/amplet2/jessie-amplet.cms.waikato.ac.nz.sock";
-
-    printf("manually starting %s test\n", amp_tests[item->test_id]->name);
+    item->meta->inter_packet_delay = MIN_INTER_PACKET_DELAY;
+    /*
+     * TODO populate these fields based on this amplets default values:
+     *   meta->interface
+     *   meta->sourcev4
+     *   meta->sourcev6
+     *   meta->inter_packet_delay
+     */
 
     if ( msg->schedule->n_targets > 0 ) {
         char **targets = calloc(msg->schedule->n_targets + 1, sizeof(char*));
@@ -196,6 +200,7 @@ static void process_control_message(int fd) {
     }
 
     /* Get the peer certificate so we can validate it */
+    //XXX this doesn't happen any more, do we need to get the cert still?
     client_cert = SSL_get_peer_certificate(ssl);
     if ( client_cert == NULL ) {
         Log(LOG_WARNING, "Failed to get peer certificate");
@@ -207,7 +212,7 @@ static void process_control_message(int fd) {
 
     Log(LOG_DEBUG, "Successfully validated peer cert");
 
-    while ( (bytes=read_control_packet_ssl(ssl, &data)) > 0 ) {
+    while ( (bytes = read_control_packet_ssl(ssl, &data)) > 0 ) {
         Amplet2__Measured__Control *msg;
         msg = amplet2__measured__control__unpack(NULL, bytes, data);
 

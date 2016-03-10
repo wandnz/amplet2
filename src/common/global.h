@@ -20,6 +20,7 @@ struct amp_global_t {
     amp_ssl_opt_t amqp_ssl;
     struct ub_ctx *ctx;
     char *asnsock;
+    char *nssock;
     int nssock_fd;
     int asnsock_fd;
     char **argv;

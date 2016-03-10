@@ -179,6 +179,8 @@ void run_test(const test_schedule_item_t * const item, SSL *ssl) {
         argv[argc++] = packet_delay_str;
     }
 
+    /* TODO don't do these if the test options are already set? */
+
     /* set the outgoing interface if configured at the global level */
     if ( item->meta->interface != NULL ) {
         argv[argc++] = "-I";
@@ -266,7 +268,7 @@ void run_test(const test_schedule_item_t * const item, SSL *ssl) {
         }
 
         /* connect to the local amp resolver/cache */
-        if ( (resolver_fd = amp_resolver_connect(item->meta->nssock)) < 0 ) {
+        if ( (resolver_fd = amp_resolver_connect(vars.nssock)) < 0 ) {
             Log(LOG_ALERT, "TODO tidy up nicely after failing resolving");
             assert(0);
         }
