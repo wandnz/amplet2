@@ -8,6 +8,19 @@
 #define MIN(X,Y) (((X) < (Y)) ? (X) : (Y))
 #define MAXIMUM_SERVER_WAIT_TIME 60000000
 
+enum ctrlstream_type {
+    PLAIN_CONTROL_STREAM,
+    SSL_CONTROL_STREAM,
+};
+
+struct ctrlstream {
+    enum ctrlstream_type type;
+    union {
+        int sock;
+        SSL *ssl;
+    } stream;
+};
+
 
 struct sockopt_t {
     struct addrinfo *sourcev4;
@@ -24,30 +37,40 @@ struct sockopt_t {
 };
 
 
+int write_control_packet(struct ctrlstream *ctrl, void *data, uint32_t len);
+int read_control_packet(struct ctrlstream *ctrl, void **data);
 int write_control_packet_ssl(SSL *ssl, void *data, uint32_t len);
 int read_control_packet_ssl(SSL *ssl, void **data);
 
-int send_control_hello(int sock, ProtobufCBinaryData *options);
-int send_control_ready(int sock, uint16_t port);
-int send_control_receive(int sock, ProtobufCBinaryData *options);
-int send_control_send(int sock, ProtobufCBinaryData *options);
-int send_control_result(int sock, ProtobufCBinaryData *data);
-int send_control_renew(int sock);//XXX throughput specific
+int send_control_hello(test_type_t test, struct ctrlstream *ctrl,
+        ProtobufCBinaryData *options);
+int send_control_ready(test_type_t test, struct ctrlstream *ctrl,uint16_t port);
+int send_control_receive(test_type_t test, struct ctrlstream *ctrl,
+        ProtobufCBinaryData *options);
+int send_control_send(test_type_t test, struct ctrlstream *ctrl,
+        ProtobufCBinaryData *options);
+int send_control_result(test_type_t test, struct ctrlstream *ctrl,
+        ProtobufCBinaryData *data);
+//XXX throughput specific
+int send_control_renew(test_type_t test, struct ctrlstream *ctrl);
 
-int read_control_hello(int sock, void **options,
-        void *(*parse_func)(ProtobufCBinaryData *data));
-int read_control_ready(int sock, uint16_t *port);
-int read_control_packet(int sock, void **data);
-int read_control_result(int sock, ProtobufCBinaryData *results);
+int read_control_hello(test_type_t test, struct ctrlstream *ctrl,
+        void **options, void *(*parse_func)(ProtobufCBinaryData *data));
+int read_control_ready(test_type_t test, struct ctrlstream *ctrl,
+        uint16_t *port);
+//int read_control_packet(int sock, void **data);
+int read_control_result(test_type_t test, struct ctrlstream *ctrl,
+        ProtobufCBinaryData *results);
 
 /* XXX how many parse functions can be static? */
-int parse_control_hello(void *data, uint32_t len, void **options,
-        void *(*parse_func)(ProtobufCBinaryData *data));
-int parse_control_ready(void *data, uint32_t len, uint16_t *port);
-int parse_control_receive(void *data, uint32_t len, void **options,
-        void *(*parse_func)(ProtobufCBinaryData *data));
-int parse_control_send(void *data, uint32_t len, void **options,
-        void *(*parse_func)(ProtobufCBinaryData *data));
+int parse_control_hello(test_type_t test, void *data, uint32_t len,
+        void **options, void *(*parse_func)(ProtobufCBinaryData *data));
+int parse_control_ready(test_type_t test, void *data, uint32_t len,
+        uint16_t *port);
+int parse_control_receive(test_type_t test, void *data, uint32_t len,
+        void **options, void *(*parse_func)(ProtobufCBinaryData *data));
+int parse_control_send(test_type_t test, void *data, uint32_t len,
+        void **options, void *(*parse_func)(ProtobufCBinaryData *data));
 
 struct addrinfo *get_socket_address(int sock);
 int start_listening(struct socket_t *sockets, int port,

@@ -30,7 +30,9 @@
 
 
 
-
+/*
+ * Write a control message onto the SSL stream.
+ */
 int write_control_packet_ssl(SSL *ssl, void *data, uint32_t len) {
     int result;
     uint32_t datalen = ntohl(len);
@@ -67,7 +69,7 @@ int write_control_packet_ssl(SSL *ssl, void *data, uint32_t len) {
 /*
  * Write a control message onto the stream.
  */
-static int write_control_packet(int sock, void *data, uint32_t len) {
+static int write_control_packet_plain(int sock, void *data, uint32_t len) {
     int result;
     uint32_t total_written = 0;
     uint32_t datalen = ntohl(len);
@@ -123,7 +125,27 @@ static int write_control_packet(int sock, void *data, uint32_t len) {
 
 
 /*
- * Read a control message from the stream.
+ *
+ */
+int write_control_packet(struct ctrlstream *ctrl, void *data, uint32_t len) {
+    assert(ctrl);
+    assert(data);
+
+    switch ( ctrl->type ) {
+        case PLAIN_CONTROL_STREAM:
+            return write_control_packet_plain(ctrl->stream.sock, data, len);
+        case SSL_CONTROL_STREAM:
+            return write_control_packet_ssl(ctrl->stream.ssl, data, len);
+    };
+
+    return -1;
+}
+
+
+
+/*
+ * Read a control message from the SSL stream.
+ * XXX can block forever
  */
 int read_control_packet_ssl(SSL *ssl, void **data) {
     int result;
@@ -152,13 +174,13 @@ int read_control_packet_ssl(SSL *ssl, void **data) {
 
     if ( result < 0 ) {
         Log(LOG_WARNING, "Failed to read server control packet data");
-        free(data);
+        free(*data);
         return -1;
     }
 
     if ( result == 0 ) {
         Log(LOG_DEBUG, "Server control connection closed");
-        free(data);
+        free(*data);
         return -1;
     }
 
@@ -168,10 +190,12 @@ int read_control_packet_ssl(SSL *ssl, void **data) {
 }
 
 
+
 /*
  * Read a control message from the stream.
+ * XXX can block forever
  */
-int read_control_packet(int sock, void **data) {
+static int read_control_packet_plain(int sock, void **data) {
     int result;
     uint32_t datalen = 0;
     uint32_t bytes_read = 0;
@@ -215,13 +239,13 @@ int read_control_packet(int sock, void **data) {
 
         if ( result < 0 ) {
             Log(LOG_WARNING, "Failed to read server control packet data");
-            free(data);
+            free(*data);
             return -1;
         }
 
         if ( result == 0 ) {
             Log(LOG_DEBUG, "Server control connection closed");
-            free(data);
+            free(*data);
             return -1;
         }
 
@@ -239,7 +263,28 @@ int read_control_packet(int sock, void **data) {
 /*
  *
  */
-int send_control_hello(int sock, ProtobufCBinaryData *options) {
+int read_control_packet(struct ctrlstream *ctrl, void **data) {
+    assert(ctrl);
+    assert(data);
+
+    switch ( ctrl->type ) {
+        case PLAIN_CONTROL_STREAM:
+            return read_control_packet_plain(ctrl->stream.sock, data);
+        case SSL_CONTROL_STREAM:
+            return read_control_packet_ssl(ctrl->stream.ssl, data);
+    };
+
+    return -1;
+}
+
+
+
+/*
+ *
+ */
+int send_control_hello(test_type_t test, struct ctrlstream *ctrl,
+        ProtobufCBinaryData *options) {
+
     int len;
     void *buffer;
     int result;
@@ -252,6 +297,8 @@ int send_control_hello(int sock, ProtobufCBinaryData *options) {
     hello.options = *options;
 
     msg.hello = &hello;
+    msg.has_test = 1;
+    msg.test = test;
     msg.has_type = 1;
     msg.type = AMPLET2__SERVERS__CONTROL__TYPE__HELLO;
 
@@ -259,7 +306,7 @@ int send_control_hello(int sock, ProtobufCBinaryData *options) {
     buffer = malloc(len);
     amplet2__servers__control__pack(&msg, buffer);
 
-    result = write_control_packet(sock, buffer, len);
+    result = write_control_packet(ctrl, buffer, len);
 
     free(buffer);
 
@@ -278,7 +325,9 @@ int send_control_hello(int sock, ProtobufCBinaryData *options) {
 /*
  *
  */
-int send_control_ready(int sock, uint16_t port) {
+int send_control_ready(test_type_t test, struct ctrlstream *ctrl,
+        uint16_t port) {
+
     int len;
     void *buffer;
     int result;
@@ -290,6 +339,8 @@ int send_control_ready(int sock, uint16_t port) {
     ready.has_test_port = 1;
     ready.test_port = port;
     msg.ready = &ready;
+    msg.has_test = 1;
+    msg.test = test;
     msg.has_type = 1;
     msg.type = AMPLET2__SERVERS__CONTROL__TYPE__READY;
 
@@ -297,7 +348,7 @@ int send_control_ready(int sock, uint16_t port) {
     buffer = malloc(len);
     amplet2__servers__control__pack(&msg, buffer);
 
-    result = write_control_packet(sock, buffer, len);
+    result = write_control_packet(ctrl, buffer, len);
 
     free(buffer);
 
@@ -309,7 +360,9 @@ int send_control_ready(int sock, uint16_t port) {
 /*
  *
  */
-int send_control_receive(int sock, ProtobufCBinaryData *options) {
+int send_control_receive(test_type_t test, struct ctrlstream *ctrl,
+        ProtobufCBinaryData *options){
+
     int len;
     void *buffer;
     int result;
@@ -324,6 +377,8 @@ int send_control_receive(int sock, ProtobufCBinaryData *options) {
     }
 
     msg.receive = &receive;
+    msg.has_test = 1;
+    msg.test = test;
     msg.has_type = 1;
     msg.type = AMPLET2__SERVERS__CONTROL__TYPE__RECEIVE;
 
@@ -331,7 +386,7 @@ int send_control_receive(int sock, ProtobufCBinaryData *options) {
     buffer = malloc(len);
     amplet2__servers__control__pack(&msg, buffer);
 
-    result = write_control_packet(sock, buffer, len);
+    result = write_control_packet(ctrl, buffer, len);
 
     free(buffer);
 
@@ -343,7 +398,9 @@ int send_control_receive(int sock, ProtobufCBinaryData *options) {
 /*
  *
  */
-int send_control_send(int sock, ProtobufCBinaryData *options) {
+int send_control_send(test_type_t test, struct ctrlstream *ctrl,
+        ProtobufCBinaryData *options) {
+
     int len;
     void *buffer;
     int result;
@@ -361,6 +418,8 @@ int send_control_send(int sock, ProtobufCBinaryData *options) {
     }
 
     msg.send = &send;
+    msg.has_test = 1;
+    msg.test = test;
     msg.has_type = 1;
     msg.type = AMPLET2__SERVERS__CONTROL__TYPE__SEND;
 
@@ -368,7 +427,7 @@ int send_control_send(int sock, ProtobufCBinaryData *options) {
     buffer = malloc(len);
     amplet2__servers__control__pack(&msg, buffer);
 
-    result = write_control_packet(sock, buffer, len);
+    result = write_control_packet(ctrl, buffer, len);
 
     free(buffer);
 
@@ -390,7 +449,9 @@ int send_control_send(int sock, ProtobufCBinaryData *options) {
  * TODO how do extensions and things work? Better way to stick a specific
  * test report packet into a message than as a byte array?
  */
-int send_control_result(int sock, ProtobufCBinaryData *data) {
+int send_control_result(test_type_t test, struct ctrlstream *ctrl,
+        ProtobufCBinaryData *data) {
+
     int len;
     void *buffer;
     int result;
@@ -402,6 +463,8 @@ int send_control_result(int sock, ProtobufCBinaryData *data) {
     resmsg.result = *data;
     resmsg.has_result = 1;
     msg.result = &resmsg;
+    msg.has_test = 1;
+    msg.test = test;
     msg.has_type = 1;
     msg.type = AMPLET2__SERVERS__CONTROL__TYPE__RESULT;
 
@@ -409,7 +472,7 @@ int send_control_result(int sock, ProtobufCBinaryData *data) {
     buffer = malloc(len);
     amplet2__servers__control__pack(&msg, buffer);
 
-    result = write_control_packet(sock, buffer, len);
+    result = write_control_packet(ctrl, buffer, len);
 
     free(buffer);
 
@@ -421,7 +484,7 @@ int send_control_result(int sock, ProtobufCBinaryData *data) {
 /*
  *
  */
-int send_control_renew(int sock) {
+int send_control_renew(test_type_t test, struct ctrlstream *ctrl) {
     int len;
     void *buffer;
     int result;
@@ -431,6 +494,8 @@ int send_control_renew(int sock) {
     Log(LOG_DEBUG, "Sending RENEW message");
 
     msg.renew = &renew;
+    msg.has_test = 1;
+    msg.test = test;
     msg.has_type = 1;
     msg.type = AMPLET2__SERVERS__CONTROL__TYPE__RENEW;
 
@@ -438,7 +503,7 @@ int send_control_renew(int sock) {
     buffer = malloc(len);
     amplet2__servers__control__pack(&msg, buffer);
 
-    result = write_control_packet(sock, buffer, len);
+    result = write_control_packet(ctrl, buffer, len);
 
     free(buffer);
 
@@ -450,8 +515,8 @@ int send_control_renew(int sock) {
 /*
  *
  */
-int parse_control_hello(void *data, uint32_t len, void **options,
-        void *(*parse_func)(ProtobufCBinaryData *data)) {
+int parse_control_hello(test_type_t test, void *data, uint32_t len,
+        void **options, void *(*parse_func)(ProtobufCBinaryData *data)) {
 
     Amplet2__Servers__Control *msg;
 
@@ -463,6 +528,12 @@ int parse_control_hello(void *data, uint32_t len, void **options,
     if ( !msg || !msg->has_type ||
             msg->type != AMPLET2__SERVERS__CONTROL__TYPE__HELLO ) {
         Log(LOG_WARNING, "Not a HELLO packet, aborting");
+        amplet2__servers__control__free_unpacked(msg, NULL);
+        return -1;
+    }
+
+    if ( !msg->has_test || msg->test != test ) {
+        Log(LOG_WARNING, "HELLO is for wrong test type, aborting");
         amplet2__servers__control__free_unpacked(msg, NULL);
         return -1;
     }
@@ -489,7 +560,8 @@ int parse_control_hello(void *data, uint32_t len, void **options,
 /*
  *
  */
-int parse_control_ready(void *data, uint32_t len, uint16_t *port) {
+int parse_control_ready(test_type_t test, void *data, uint32_t len,
+        uint16_t *port) {
 
     Amplet2__Servers__Control *msg;
 
@@ -501,6 +573,12 @@ int parse_control_ready(void *data, uint32_t len, uint16_t *port) {
     if ( !msg || !msg->has_type ||
             msg->type != AMPLET2__SERVERS__CONTROL__TYPE__READY ) {
         Log(LOG_WARNING, "Not a READY packet, aborting");
+        amplet2__servers__control__free_unpacked(msg, NULL);
+        return -1;
+    }
+
+    if ( !msg->has_test || msg->test != test ) {
+        Log(LOG_WARNING, "HELLO is for wrong test type, aborting");
         amplet2__servers__control__free_unpacked(msg, NULL);
         return -1;
     }
@@ -523,8 +601,8 @@ int parse_control_ready(void *data, uint32_t len, uint16_t *port) {
 /*
  *
  */
-int parse_control_receive(void *data, uint32_t len, void **options,
-        void *(*parse_func)(ProtobufCBinaryData *data)) {
+int parse_control_receive(test_type_t test, void *data, uint32_t len,
+        void **options, void *(*parse_func)(ProtobufCBinaryData *data)) {
 
     Amplet2__Servers__Control *msg;
 
@@ -536,6 +614,12 @@ int parse_control_receive(void *data, uint32_t len, void **options,
     if ( !msg || !msg->has_type ||
             msg->type != AMPLET2__SERVERS__CONTROL__TYPE__RECEIVE ) {
         Log(LOG_WARNING, "Not a RECEIVE packet, aborting");
+        amplet2__servers__control__free_unpacked(msg, NULL);
+        return -1;
+    }
+
+    if ( !msg->has_test || msg->test != test ) {
+        Log(LOG_WARNING, "HELLO is for wrong test type, aborting");
         amplet2__servers__control__free_unpacked(msg, NULL);
         return -1;
     }
@@ -562,8 +646,8 @@ int parse_control_receive(void *data, uint32_t len, void **options,
 /*
  *
  */
-int parse_control_send(void *data, uint32_t len, void **options,
-        void *(*parse_func)(ProtobufCBinaryData *data)) {
+int parse_control_send(test_type_t test, void *data, uint32_t len,
+        void **options, void *(*parse_func)(ProtobufCBinaryData *data)) {
 
     Amplet2__Servers__Control *msg;
 
@@ -575,6 +659,12 @@ int parse_control_send(void *data, uint32_t len, void **options,
     if ( !msg || !msg->has_type ||
             msg->type != AMPLET2__SERVERS__CONTROL__TYPE__SEND ) {
         Log(LOG_WARNING, "Not a SEND packet, aborting");
+        amplet2__servers__control__free_unpacked(msg, NULL);
+        return -1;
+    }
+
+    if ( !msg->has_test || msg->test != test ) {
+        Log(LOG_WARNING, "HELLO is for wrong test type, aborting");
         amplet2__servers__control__free_unpacked(msg, NULL);
         return -1;
     }
@@ -601,7 +691,7 @@ int parse_control_send(void *data, uint32_t len, void **options,
 /*
  *
  */
-static int parse_control_result(void *data, uint32_t len,
+static int parse_control_result(test_type_t test, void *data, uint32_t len,
         ProtobufCBinaryData *results ) {
     Amplet2__Servers__Control *msg;
 
@@ -613,6 +703,12 @@ static int parse_control_result(void *data, uint32_t len,
     if ( !msg || !msg->has_type ||
             msg->type != AMPLET2__SERVERS__CONTROL__TYPE__RESULT ) {
         Log(LOG_WARNING, "Not a RESULT packet, aborting");
+        amplet2__servers__control__free_unpacked(msg, NULL);
+        return -1;
+    }
+
+    if ( !msg->has_test || msg->test != test ) {
+        Log(LOG_WARNING, "HELLO is for wrong test type, aborting");
         amplet2__servers__control__free_unpacked(msg, NULL);
         return -1;
     }
@@ -637,19 +733,19 @@ static int parse_control_result(void *data, uint32_t len,
 /*
  *
  */
-int read_control_hello(int sock, void **options,
-        void *(*parse_func)(ProtobufCBinaryData *data)) {
+int read_control_hello(test_type_t test, struct ctrlstream *ctrl,
+        void **options, void *(*parse_func)(ProtobufCBinaryData *data)) {
     void *data;
     int len;
 
     /* read the packet from the stream */
-    if ( (len=read_control_packet(sock, &data)) < 0 ) {
+    if ( (len = read_control_packet(ctrl, &data)) < 0 ) {
         Log(LOG_WARNING, "Failed to read HELLO packet");
         return -1;
     }
 
     /* validate it as a HELLO packet and then try to extract options */
-    if ( parse_control_hello(data, len, options, parse_func) < 0 ) {
+    if ( parse_control_hello(test, data, len, options, parse_func) < 0 ) {
         Log(LOG_WARNING, "Failed to parse HELLO packet");
         free(data);
         return -1;
@@ -665,16 +761,18 @@ int read_control_hello(int sock, void **options,
 /*
  *
  */
-int read_control_ready(int sock, uint16_t *port) {
+int read_control_ready(test_type_t test, struct ctrlstream *ctrl,
+        uint16_t *port) {
+
     void *data;
     int len;
 
-    if ( (len=read_control_packet(sock, &data)) < 0 ) {
+    if ( (len = read_control_packet(ctrl, &data)) < 0 ) {
         Log(LOG_ERR, "Failed to read READY packet");
         return -1;
     }
 
-    if ( parse_control_ready(data, len, port) < 0 ) {
+    if ( parse_control_ready(test, data, len, port) < 0 ) {
         Log(LOG_WARNING, "Failed to parse READY packet");
         free(data);
         return -1;
@@ -690,18 +788,20 @@ int read_control_ready(int sock, uint16_t *port) {
 /*
  *
  */
-int read_control_result(int sock, ProtobufCBinaryData *results) {
+int read_control_result(test_type_t test, struct ctrlstream *ctrl,
+        ProtobufCBinaryData *results) {
+
     void *data;
     int len;
 
     Log(LOG_DEBUG, "Waiting for RESULT packet");
 
-    if ( (len=read_control_packet(sock, &data)) < 0 ) {
+    if ( (len = read_control_packet(ctrl, &data)) < 0 ) {
         Log(LOG_ERR, "Failed to read READY packet");
         return -1;
     }
 
-    if ( parse_control_result(data, len, results) < 0 ) {
+    if ( parse_control_result(test, data, len, results) < 0 ) {
         Log(LOG_WARNING, "Failed to parse RESULT packet");
         free(data);
         return -1;

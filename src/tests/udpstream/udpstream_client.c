@@ -4,9 +4,12 @@
 #include <unistd.h>
 #include <arpa/inet.h>
 
+#include "ssl.h"
 #include "udpstream.h"
+#include "testlib.h" //XXX separation between testlib and serverlib is poor
 #include "serverlib.h" //XXX this needs a better name
 #include "udpstream.pb-c.h"
+#include "../../measured/control.h"//XXX just for control port define
 
 
 
@@ -134,9 +137,10 @@ static struct test_request_t* build_schedule(struct opt_t *options) {
  * TODO could this be a library function too, with a function pointer?
  */
 static amp_test_result_t* run_test(struct addrinfo *server,
-        struct opt_t *options, struct sockopt_t *socket_options) {
+        struct opt_t *options, struct sockopt_t *socket_options,
+        struct ctrlstream *ctrl) {
 
-    int control_socket, test_socket;
+    int test_socket;
     struct sockaddr_storage ss;
     socklen_t socklen = sizeof(ss);
     struct timeval *in_times = NULL;
@@ -151,23 +155,17 @@ static amp_test_result_t* run_test(struct addrinfo *server,
 
     /* create our test socket so it is ready early on */
     if ( (test_socket=socket(server->ai_family, SOCK_DGRAM, IPPROTO_UDP)) < 0 ){
-        Log(LOG_WARNING, "Failed to create control socket:%s", strerror(errno));
-        return NULL;
-    }
-
-    /* connect to the control socket on the server */
-    if ( (control_socket = connect_to_server(server, socket_options,
-                    options->cport)) < 0 ) {
-        Log(LOG_WARNING, "Failed to connect to server, aborting test");
+        Log(LOG_WARNING, "Failed to create test socket:%s", strerror(errno));
         return NULL;
     }
 
     gettimeofday(&start_time, NULL);
 
     /* send hello */
-    if ( send_control_hello(control_socket, build_hello(options)) < 0 ) {
+    if ( send_control_hello(AMP_TEST_UDPSTREAM, ctrl,
+                build_hello(options)) < 0 ) {
         Log(LOG_WARNING, "Failed to send HELLO packet, aborting");
-        close(control_socket);
+        //ssl_shutdown(ssl);
         return NULL;
     }
 
@@ -177,11 +175,12 @@ static amp_test_result_t* run_test(struct addrinfo *server,
     for ( current = schedule; current != NULL; current = current->next ) {
         switch ( current->direction ) {
             case UDPSTREAM_TO_SERVER:
-                send_control_receive(control_socket, NULL);
+                send_control_receive(AMP_TEST_UDPSTREAM, ctrl, NULL);
 
-                if ( read_control_ready(control_socket, &options->tport) < 0 ) {
+                if ( read_control_ready(AMP_TEST_UDPSTREAM, ctrl,
+                            &options->tport) < 0 ) {
                     Log(LOG_WARNING, "Failed to read READY packet, aborting");
-                    close(control_socket);
+                    //ssl_shutdown(ssl);
                     return NULL;
                 }
                 ((struct sockaddr_in *)server->ai_addr)->sin_port =
@@ -190,9 +189,10 @@ static amp_test_result_t* run_test(struct addrinfo *server,
                 send_udp_stream(test_socket, server, options);
 
                 /* wait for the results from the stream we just sent */
-                if ( read_control_result(control_socket, &data) < 0 ) {
+                if ( read_control_result(AMP_TEST_UDPSTREAM, ctrl,
+                            &data) < 0 ) {
                     Log(LOG_WARNING, "Failed to read RESULT packet, aborting");
-                    close(control_socket);
+                    //ssl_shutdown(ssl);
                     return NULL;
                 }
                 remote_results = amplet2__udpstream__item__unpack(NULL,
@@ -203,7 +203,13 @@ static amp_test_result_t* run_test(struct addrinfo *server,
             case UDPSTREAM_TO_CLIENT:
                 in_times = calloc(options->packet_count, sizeof(struct timeval));
                 /* bind test socket to same address as the control socket */
-                getsockname(control_socket, (struct sockaddr *)&ss, &socklen);
+                if ( ctrl->type == SSL_CONTROL_STREAM ) {
+                    getsockname(SSL_get_fd(ctrl->stream.ssl),
+                            (struct sockaddr *)&ss, &socklen);
+                } else {
+                    getsockname(ctrl->stream.sock, (struct sockaddr *)&ss,
+                            &socklen);
+                }
                 /* zero the port so it isn't the same as the control socket */
                 ((struct sockaddr_in *)&ss)->sin_port = 0;
                 bind(test_socket, (struct sockaddr *)&ss, socklen);
@@ -211,7 +217,8 @@ static amp_test_result_t* run_test(struct addrinfo *server,
                 getsockname(test_socket, (struct sockaddr *)&ss, &socklen);
                 options->tport = ntohs(((struct sockaddr_in *)&ss)->sin_port);
 
-                send_control_send(control_socket, build_send(options));
+                send_control_send(AMP_TEST_UDPSTREAM, ctrl,
+                        build_send(options));
 
                 /* wait for the data stream from the server */
                 receive_udp_stream(test_socket, options->packet_count,in_times);
@@ -220,7 +227,7 @@ static amp_test_result_t* run_test(struct addrinfo *server,
         };
     }
 
-    close(control_socket);
+    //ssl_shutdown(ssl);
     close(test_socket);
 
     /* report results */
@@ -252,6 +259,7 @@ amp_test_result_t* run_udpstream_client(int argc, char *argv[], int count,
     amp_test_meta_t meta;
     extern struct option long_options[];
     amp_test_result_t *result;
+    struct ctrlstream *ctrl;
 
     /* set some sensible defaults */
     //XXX set better inter packet delay, using MIN as a floor?
@@ -259,7 +267,7 @@ amp_test_result_t* run_udpstream_client(int argc, char *argv[], int count,
     test_options.packet_size = DEFAULT_UDPSTREAM_PACKET_LENGTH;
     test_options.packet_count = DEFAULT_UDPSTREAM_PACKET_COUNT;
     test_options.percentile_count = DEFAULT_UDPSTREAM_PERCENTILE_COUNT;
-    test_options.cport = DEFAULT_CONTROL_PORT;
+    test_options.cport = 0;
     test_options.tport = DEFAULT_TEST_PORT;
     test_options.perturbate = 0;
     test_options.direction = CLIENT_THEN_SERVER;
@@ -308,7 +316,11 @@ amp_test_result_t* run_udpstream_client(int argc, char *argv[], int count,
     }
 
     //XXX move into common/serverlib.c? use for throughput too
-    /* if the -c option is set then get the address into the dests parameter */
+    /*
+     * If the -c option is set then get the address into the dests parameter.
+     * This implies that the test is running standalone, and the server will
+     * already be running.
+     */
     if ( client ) {
         int res;
         struct addrinfo hints;
@@ -330,6 +342,16 @@ amp_test_result_t* run_udpstream_client(int argc, char *argv[], int count,
 
         /* set the canonical name to be the address so we can print it later */
         dests[0]->ai_canonname = strdup(client);
+
+        /* use the udpstream control port, rather than the amplet2 one */
+        if ( test_options.cport == 0 ) {
+            test_options.cport = DEFAULT_CONTROL_PORT;
+        }
+    } else {
+        /* use the amplet2 control port, rather than the udpstream one */
+        if ( test_options.cport == 0 ) {
+            test_options.cport = atoi(DEFAULT_AMPLET_CONTROL_PORT);
+        }
     }
 
     /*
@@ -364,23 +386,24 @@ amp_test_result_t* run_udpstream_client(int argc, char *argv[], int count,
 	usleep(delay);
     }
 
-    /*
-     * Only start the remote server if we expect it to be running as part
-     * of amplet2/measured, otherwise it should be already running standalone.
-     */
-    if ( client == NULL ) {
-        int remote_port;
-        if ( (remote_port = start_remote_server(AMP_TEST_UDPSTREAM,
-                        dests[0], &meta)) == 0 ) {
-            Log(LOG_WARNING, "Failed to start remote server, aborting test");
-            exit(1);
-        }
-
-        Log(LOG_DEBUG, "Got port %d from remote server", remote_port);
-        test_options.cport = remote_port;
+    /* connect to the control server to start/configure the test */
+    if ( (ctrl=connect_control_server(dests[0], test_options.cport,
+                    &meta)) == NULL ) {
+        Log(LOG_WARNING, "Failed to connect control server");
+        return NULL;
     }
 
-    result = run_test(dests[0], &test_options, &socket_options);
+    /* start the server if required (connected to an amplet) */
+    if ( ctrl->type == SSL_CONTROL_STREAM && client == NULL ) {
+        if ( start_remote_server(ctrl->stream.ssl, AMP_TEST_UDPSTREAM) < 0 ) {
+            Log(LOG_WARNING, "Failed to start remote server");
+            return NULL;
+        }
+    }
+
+    result = run_test(dests[0], &test_options, &socket_options, ctrl);
+
+    close_control_connection(ctrl);
 
     if ( client != NULL ) {
         freeaddrinfo(dests[0]);

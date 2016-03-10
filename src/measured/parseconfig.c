@@ -391,7 +391,7 @@ cfg_t* parse_config(char *filename, struct amp_global_t *vars) {
 
     cfg_opt_t opt_control[] = {
         CFG_BOOL("enabled", cfg_false, CFGF_NONE),
-        CFG_STR("port", CONTROL_PORT, CFGF_NONE),
+        CFG_STR("port", DEFAULT_AMPLET_CONTROL_PORT, CFGF_NONE),
         CFG_STR("interface", NULL, CFGF_NONE),
         CFG_STR("ipv4", NULL, CFGF_NONE),
         CFG_STR("ipv6", NULL, CFGF_NONE),

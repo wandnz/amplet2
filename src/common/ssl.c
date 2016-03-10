@@ -240,7 +240,7 @@ int initialise_ssl(amp_ssl_opt_t *sslopts, char *collector) {
      * TODO we might want to loop on this and add more entropy if it fails,
      * but I have yet to see it fail (on either physical and virtual machines).
      */
-    if(RAND_status() != 1) {
+    if ( RAND_status() != 1 ) {
         Log(LOG_WARNING, "OpenSSL PRNG not seeded with enough data.");
         ssl_cleanup();
         return -1;
@@ -251,9 +251,11 @@ int initialise_ssl(amp_ssl_opt_t *sslopts, char *collector) {
      * with default values if unset, and will make sure they exist if manually
      * set.
      */
-    if ( check_key_locations(sslopts, collector) < 0 ) {
-        ssl_cleanup();
-        return -1;
+    if ( collector ) {
+        if ( check_key_locations(sslopts, collector) < 0 ) {
+            ssl_cleanup();
+            return -1;
+        }
     }
 
     /*

@@ -5,7 +5,7 @@
 #include "testlib.h"
 
 /* control port is a string that gets given to getaddrinfo() */
-#define CONTROL_PORT "8869"
+#define DEFAULT_AMPLET_CONTROL_PORT "8869"
 
 /* Allow the test server to run slightly longer than the client test */
 #define TEST_SERVER_EXTRA_TIME 60

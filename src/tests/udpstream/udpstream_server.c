@@ -3,6 +3,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 
+#include "ssl.h"
 #include "tests.h"
 #include "serverlib.h"
 #include "testlib.h"
@@ -14,7 +15,8 @@
 /*
  * TODO return failure from here if things go poorly
  */
-static void do_receive(int control_sock, int test_sock, struct opt_t *options) {
+static void do_receive(struct ctrlstream *ctrl, int test_sock,
+        struct opt_t *options) {
 
     Amplet2__Udpstream__Item *result;
     ProtobufCBinaryData packed;
@@ -27,7 +29,7 @@ static void do_receive(int control_sock, int test_sock, struct opt_t *options) {
     times = calloc(options->packet_count, sizeof(struct timeval));
 
     /* tell the client what port the test server is running on */
-    send_control_ready(control_sock, options->tport);
+    send_control_ready(AMP_TEST_UDPSTREAM, ctrl, options->tport);
 
     /* wait for the data stream from the client */
     receive_udp_stream(test_sock, options->packet_count, times);
@@ -41,7 +43,7 @@ static void do_receive(int control_sock, int test_sock, struct opt_t *options) {
     amplet2__udpstream__item__pack(result, packed.data);
 
     /* send the result to the client for reporting */
-    send_control_result(control_sock, &packed);
+    send_control_result(AMP_TEST_UDPSTREAM, ctrl, &packed);
 
     for ( i = 0; i < result->n_loss_periods; i++ ) {
         free(result->loss_periods[i]);
@@ -96,7 +98,7 @@ static void do_send(int test_sock, struct sockaddr_storage *remote,
 //TODO make error messages make sense and not duplicated at all levels
 // XXX can any of this move into a library function?
 //XXX need remote when it can be extracted from control sock?
-static int serve_test(int control_sock, struct sockaddr_storage *remote,
+static int serve_test(struct ctrlstream *ctrl, struct sockaddr_storage *remote,
         struct sockopt_t *sockopts) {
     struct socket_t sockets;
     uint16_t portmax;
@@ -107,7 +109,8 @@ static int serve_test(int control_sock, struct sockaddr_storage *remote,
     void *data;
 
     /* the HELLO packet describes all the global test options */
-    if ( read_control_hello(control_sock, (void**)&options, parse_hello) < 0 ) {
+    if ( read_control_hello(AMP_TEST_UDPSTREAM, ctrl, (void**)&options,
+                parse_hello) < 0 ) {
         Log(LOG_WARNING, "Got bad HELLO packet, shutting down test server");
         return -1;
     }
@@ -155,11 +158,7 @@ static int serve_test(int control_sock, struct sockaddr_storage *remote,
         test_sock = sockets.socket6;
     }
 
-    /* XXX expect some magic passphrase exchanged via secure tcp connection? */
-
-
-    while ( (bytes=read_control_packet(control_sock, &data)) > 0 ) {
-        //XXX can this be made to only be udpstream messages?
+    while ( (bytes = read_control_packet(ctrl, &data)) > 0 ) {
         Amplet2__Servers__Control *msg;
         msg = amplet2__servers__control__unpack(NULL, bytes, data);
 
@@ -167,8 +166,8 @@ static int serve_test(int control_sock, struct sockaddr_storage *remote,
             case AMPLET2__SERVERS__CONTROL__TYPE__SEND: {
                 struct opt_t *send_opts;
                 /* validate as a proper SEND message and extract port */
-                if ( parse_control_send(data, bytes, (void**)&send_opts,
-                            parse_send) < 0 ) {
+                if ( parse_control_send(AMP_TEST_UDPSTREAM, data, bytes,
+                            (void**)&send_opts, parse_send) < 0 ) {
                     return -1;
                 }
 
@@ -179,11 +178,12 @@ static int serve_test(int control_sock, struct sockaddr_storage *remote,
 
             case AMPLET2__SERVERS__CONTROL__TYPE__RECEIVE: {
                 /* validate it as a proper RECEIVE message */
-                if ( parse_control_receive(data, bytes, NULL, NULL) < 0 ) {
+                if ( parse_control_receive(AMP_TEST_UDPSTREAM, data, bytes,
+                            NULL, NULL) < 0 ) {
                     return -1;
                 }
 
-                do_receive(control_sock, test_sock, options);
+                do_receive(ctrl, test_sock, options);
                 break;
             }
 
@@ -223,6 +223,7 @@ void run_udpstream_server(int argc, char *argv[], SSL *ssl) {
     extern struct option long_options[];
     uint16_t portmax;
     int res;
+    struct ctrlstream ctrl;
 
     /* Possibly could use dests to limit interfaces to listen on */
 
@@ -271,84 +272,107 @@ void run_udpstream_server(int argc, char *argv[], SSL *ssl) {
         return;
     }
 
-    /*
-     * If SSL is not null, it means we have been started by the amplet client
-     * and need to tell the other end what port it should connect to. If it
-     * is NULL then we assume it is being run manually and the user knows
-     * what port they want to use.
-     */
+    client_addrlen = sizeof(client_addr);
+
     if ( ssl ) {
-        if ( send_server_port(ssl, port) < 0 ) {
-            Log(LOG_DEBUG, "Failed to send server port for udpstream test");
+        /*
+         * We have an SSL connection already from when this test server was
+         * started by the amplet client - reuse it for test control.
+         */
+        ctrl.type = SSL_CONTROL_STREAM;
+        ctrl.stream.ssl = ssl;
+        if ( getpeername(SSL_get_fd(ssl), (struct sockaddr*)&client_addr,
+                    &client_addrlen) < 0 ) {
+            Log(LOG_WARNING, "Failed to get remote peer: %s", strerror(errno));
             return;
+        }
+    } else {
+        /* The server was started standalone, wait for a control connection */
+        /* select on our listening sockets until someone connects */
+        maxwait = MAXIMUM_SERVER_WAIT_TIME;
+        if ( (family = wait_for_data(&listen_sockets, &maxwait)) <= 0 ) {
+            Log(LOG_DEBUG, "Timeout out waiting for connection");
+            return;
+        }
+
+        switch ( family ) {
+            case AF_INET: control_sock = accept(listen_sockets.socket,
+                                  (struct sockaddr*)&client_addr,
+                                  &client_addrlen);
+                          Log(LOG_DEBUG, "Got control connection on IPv4");
+                          /* clear the v6 address, it isn't needed any more */
+                          freeaddrinfo(sockopts.sourcev6);
+                          sockopts.sourcev6 = NULL;
+                          /* set v4 address to our local endpoint address */
+                          freeaddrinfo(sockopts.sourcev4);
+                          sockopts.sourcev4 = get_socket_address(control_sock);
+                          break;
+
+            case AF_INET6: control_sock = accept(listen_sockets.socket6,
+                                   (struct sockaddr*)&client_addr,
+                                   &client_addrlen);
+                           Log(LOG_DEBUG, "Got control connection on IPv6");
+                           /* clear out v4 address, it isn't needed any more */
+                           freeaddrinfo(sockopts.sourcev4);
+                           sockopts.sourcev4 = NULL;
+                           /* set v6 address to our local endpoint address */
+                           freeaddrinfo(sockopts.sourcev6);
+                           sockopts.sourcev6 = get_socket_address(control_sock);
+                           break;
+
+            default: return;
+        };
+
+        /* someone has connected, so close up all the listening sockets */
+        if ( listen_sockets.socket > 0 ) {
+            close(listen_sockets.socket);
+        }
+
+        if ( listen_sockets.socket6 > 0 ) {
+            close(listen_sockets.socket6);
+        }
+
+        if ( control_sock < 0 ) {
+            Log(LOG_WARNING, "Failed to accept connection: %s",strerror(errno));
+            return;
+        }
+
+        /* if we have an SSL context, expect the client to use SSL */
+        if ( ssl_ctx ) {
+            Log(LOG_DEBUG, "Got a secure client connection");
+            ctrl.type = SSL_CONTROL_STREAM;
+            if ( (ctrl.stream.ssl=ssl_accept(ssl_ctx, control_sock)) == NULL ) {
+                close(control_sock);
+                return;
+            }
         } else {
-            Log(LOG_DEBUG, "Sent server port %d for udpstream test OK", port);
+            Log(LOG_DEBUG, "Got a plain client connection");
+            ctrl.type = PLAIN_CONTROL_STREAM;
+            ctrl.stream.sock = control_sock;
         }
     }
 
-    /* select on our listening sockets until someone connects */
-    maxwait = MAXIMUM_SERVER_WAIT_TIME;
-    if ( (family = wait_for_data(&listen_sockets, &maxwait)) <= 0 ) {
-        Log(LOG_DEBUG, "Timeout out waiting for connection");
-        return;
-    }
-
-    client_addrlen = sizeof(client_addr);
-    switch ( family ) {
-        case AF_INET: control_sock = accept(listen_sockets.socket,
-                              (struct sockaddr*)&client_addr, &client_addrlen);
-                      Log(LOG_DEBUG, "Got control connection on IPv4");
-                      /* clear out the v6 address, it isn't needed any more */
-                      freeaddrinfo(sockopts.sourcev6);
-                      sockopts.sourcev6 = NULL;
-                      /* set v4 address to where we received the connection */
-                      freeaddrinfo(sockopts.sourcev4);
-                      sockopts.sourcev4 = get_socket_address(control_sock);
-                      break;
-
-        case AF_INET6: control_sock = accept(listen_sockets.socket6,
-                              (struct sockaddr*)&client_addr, &client_addrlen);
-                      Log(LOG_DEBUG, "Got control connection on IPv6");
-                      /* clear out the v4 address, it isn't needed any more */
-                      freeaddrinfo(sockopts.sourcev4);
-                      sockopts.sourcev4 = NULL;
-                      /* set v6 address to where we received the connection */
-                      freeaddrinfo(sockopts.sourcev6);
-                      sockopts.sourcev6 = get_socket_address(control_sock);
-                      break;
-
-        default: return;
-    };
-
-    /* someone has connected, so close up all the listening sockets */
-    if ( listen_sockets.socket > 0 ) {
-        close(listen_sockets.socket);
-    }
-
-    if ( listen_sockets.socket6 > 0 ) {
-        close(listen_sockets.socket6);
-    }
-
-    if ( control_sock < 0 ) {
-        Log(LOG_WARNING, "Failed to accept connection: %s", strerror(errno));
-        return;
-    }
-
-    Log(LOG_DEBUG, "Got a client connection");
-
     /* this will serve the test only on the address we got connected to on */
-    serve_test(control_sock, &client_addr, &sockopts);
-    close(control_sock);
+    serve_test(&ctrl, &client_addr, &sockopts);
 
-    /* we made the addrinfo structs ourselves, so have to free them manually */
-    if ( sockopts.sourcev4 ) {
-        free(sockopts.sourcev4->ai_addr);
-        free(sockopts.sourcev4);
+    /* close the control connection if we created it */
+    if ( ctrl.type == PLAIN_CONTROL_STREAM ) {
+        close(ctrl.stream.sock);
+    } else if ( ctrl.type == SSL_CONTROL_STREAM && ssl == NULL ) {
+        ssl_shutdown(ctrl.stream.ssl);
     }
 
-    if ( sockopts.sourcev6 ) {
-        free(sockopts.sourcev6->ai_addr);
-        free(sockopts.sourcev6);
+    if ( !ssl ) {
+        /* we made the addrinfo structs ourselves, so free them manually */
+        if ( sockopts.sourcev4 ) {
+            free(sockopts.sourcev4->ai_addr);
+            free(sockopts.sourcev4);
+        }
+
+        if ( sockopts.sourcev6 ) {
+            free(sockopts.sourcev6->ai_addr);
+            free(sockopts.sourcev6);
+        }
     }
 
     return;

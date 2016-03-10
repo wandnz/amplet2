@@ -10,6 +10,7 @@
 #include "serverlib.h"
 #include "throughput.h"
 #include "throughput.pb-c.h"
+#include "../../measured/control.h"//XXX just for control port define
 
 
 
@@ -258,8 +259,8 @@ static amp_test_result_t* report_results(uint64_t start_time,
  * @return 0 if successful, otherwise -1 on failure
  */
 static amp_test_result_t* runSchedule(struct addrinfo *serv_addr,
-        struct opt_t *options, struct sockopt_t *socket_options) {
-    int control_socket;
+        struct opt_t *options, struct sockopt_t *socket_options,
+        struct ctrlstream *ctrl) {
     int test_socket = -1;
     struct packet_t packet;
     uint64_t start_time_ns;
@@ -272,6 +273,8 @@ static amp_test_result_t* runSchedule(struct addrinfo *serv_addr,
     struct test_request_t *cur;
 
     memset(&packet, 0, sizeof(packet));
+
+    //XXX use these up one level when connecting to server?
     memset(&srv_opts, 0, sizeof(srv_opts));
     srv_opts.device = options->device;
     srv_opts.sourcev4 = options->sourcev4;
@@ -289,23 +292,17 @@ static amp_test_result_t* runSchedule(struct addrinfo *serv_addr,
     socket_options->socktype = SOCK_STREAM;
     socket_options->protocol = IPPROTO_TCP;
 
-    /* Connect to the server control socket */
-    control_socket = connect_to_server(serv_addr, &srv_opts, options->cport);
     start_time_ns = timeNanoseconds();
-    if ( control_socket == -1 ) {
-        Log(LOG_ERR, "Cannot connect to the server control");
-        goto errorCleanup;
-    }
 
-    if ( send_control_hello(control_socket, build_hello(options)) < 0 ) {
+    if ( send_control_hello(AMP_TEST_THROUGHPUT, ctrl,
+                build_hello(options)) < 0 ) {
         Log(LOG_WARNING, "Failed to send HELLO packet, aborting");
         goto errorCleanup;
     }
 
     /* Wait test socket to become ready */
-    if ( read_control_ready(control_socket, &options->tport) < 0 ) {
+    if ( read_control_ready(AMP_TEST_THROUGHPUT, ctrl, &options->tport) < 0 ) {
         Log(LOG_WARNING, "Failed to read READY packet, aborting");
-        close(control_socket);
         return NULL;
     }
 
@@ -317,6 +314,7 @@ static amp_test_result_t* runSchedule(struct addrinfo *serv_addr,
     }
 
 
+    // TODO can these be extracted into functions or something tidier?
     for ( cur = options->schedule; cur != NULL ; cur = cur->next ) {
         switch ( cur->type ) {
             case TPUT_NULL:
@@ -331,7 +329,7 @@ static amp_test_result_t* runSchedule(struct addrinfo *serv_addr,
 
             case TPUT_NEW_CONNECTION:
                 Log(LOG_DEBUG, "Asking the Server to renew the connection");
-                if ( send_control_renew(control_socket) < 0 ) {
+                if ( send_control_renew(AMP_TEST_THROUGHPUT, ctrl) < 0 ) {
                     Log(LOG_ERR, "Failed to send reset packet");
                     goto errorCleanup;
                 }
@@ -343,9 +341,9 @@ static amp_test_result_t* runSchedule(struct addrinfo *serv_addr,
                 }
                 close(test_socket);
                 /* Read the actual port to use */
-                if ( read_control_ready(control_socket, &options->tport) < 0 ) {
+                if ( read_control_ready(AMP_TEST_THROUGHPUT, ctrl,
+                            &options->tport) < 0 ) {
                     Log(LOG_WARNING, "Failed to read READY packet, aborting");
-                    close(control_socket);
                     return NULL;
                 }
                 /* Open up a new one */
@@ -360,7 +358,8 @@ static amp_test_result_t* runSchedule(struct addrinfo *serv_addr,
             case TPUT_2_CLIENT:
                 Log(LOG_DEBUG, "Starting Server to Client Throughput test");
                 /* Request a test from the server */
-                if ( send_control_send(control_socket, build_send(cur)) < 0 ) {
+                if ( send_control_send(AMP_TEST_THROUGHPUT, ctrl,
+                            build_send(cur)) < 0 ) {
                     goto errorCleanup;
                 }
 
@@ -384,7 +383,7 @@ static amp_test_result_t* runSchedule(struct addrinfo *serv_addr,
                 //}
 
                 /* Get servers result - might even have web10g attached */
-                if ( read_control_result(control_socket, &data) < 0 ) {
+                if ( read_control_result(AMP_TEST_THROUGHPUT,ctrl,&data) < 0 ) {
                     Log(LOG_WARNING, "Failed to read RESULT packet, aborting");
                     return NULL;
                 }
@@ -410,11 +409,11 @@ static amp_test_result_t* runSchedule(struct addrinfo *serv_addr,
                 memset(cur->s_result, 0, sizeof(struct test_result_t));
 
                 /* Tell the server we are starting a test */
-                send_control_receive(control_socket, 0);
+                send_control_receive(AMP_TEST_THROUGHPUT, ctrl, 0);
                 /* Wait for it get ready */
-                if ( read_control_ready(control_socket, &options->tport) < 0 ) {
+                if ( read_control_ready(AMP_TEST_THROUGHPUT, ctrl,
+                            &options->tport) < 0 ) {
                     Log(LOG_WARNING, "Failed to read READY packet, aborting");
-                    close(control_socket);
                     return NULL;
                 }
 
@@ -431,7 +430,8 @@ static amp_test_result_t* runSchedule(struct addrinfo *serv_addr,
                     //    goto errorCleanup;
                     //}
 
-                    if ( read_control_result(control_socket, &data) < 0 ) {
+                    if ( read_control_result(AMP_TEST_THROUGHPUT, ctrl,
+                                &data) < 0 ) {
                         Log(LOG_WARNING, "Failed to read RESULT packet, aborting");
                         return NULL;
                     }
@@ -477,7 +477,6 @@ static amp_test_result_t* runSchedule(struct addrinfo *serv_addr,
 
     Log(LOG_DEBUG, "Closing test");
 
-    close(control_socket);
     close(test_socket);
 
     return result;
@@ -488,9 +487,6 @@ errorCleanup :
     /* See if we can report something anyway */
     result = report_results(start_time_ns / 1000000000, serv_addr, options);
 
-    if ( control_socket != -1 ) {
-        close(control_socket);
-    }
     if ( test_socket != -1 ) {
         close(test_socket);
     }
@@ -514,6 +510,7 @@ amp_test_result_t* run_throughput_client(int argc, char *argv[], int count,
     int duration = -1;
     enum tput_schedule_direction direction = DIRECTION_NOT_SET;
     amp_test_result_t *result;
+    struct ctrlstream *ctrl;
 
     Log(LOG_DEBUG, "Running throughput test as client");
 
@@ -525,7 +522,7 @@ amp_test_result_t* run_throughput_client(int argc, char *argv[], int count,
     test_options.sock_sndbuf = 0;
     test_options.sock_disable_nagle = 0;
     test_options.sock_mss = 0;
-    test_options.cport = DEFAULT_CONTROL_PORT;
+    test_options.cport = 0;
     test_options.tport = DEFAULT_TEST_PORT;
     test_options.disable_web10g = 0;
     test_options.schedule = NULL;
@@ -608,6 +605,16 @@ amp_test_result_t* run_throughput_client(int argc, char *argv[], int count,
 
         /* set the canonical name to be the address so we can print it later */
         dests[0]->ai_canonname = strdup(client);
+
+        /* use the throughput control port, rather than the amplet2 one */
+        if ( test_options.cport == 0 ) {
+            test_options.cport = DEFAULT_CONTROL_PORT;
+        }
+    } else {
+        /* use the amplet2 control port, rather than the udpstream one */
+        if ( test_options.cport == 0 ) {
+            test_options.cport = atoi(DEFAULT_AMPLET_CONTROL_PORT);
+        }
     }
 
     /*
@@ -697,6 +704,7 @@ amp_test_result_t* run_throughput_client(int argc, char *argv[], int count,
      * Only start the remote server if we expect it to be running as part
      * of amplet2/measured, otherwise it should be already running standalone.
      */
+#if 0
     if ( client == NULL ) {
         int remote_port;
         if ( (remote_port = start_remote_server(AMP_TEST_THROUGHPUT,
@@ -708,7 +716,26 @@ amp_test_result_t* run_throughput_client(int argc, char *argv[], int count,
         Log(LOG_DEBUG, "Got port %d from remote server", remote_port);
         test_options.cport = remote_port;
     }
-    result = runSchedule(dests[0], &test_options, &socket_options);
+#endif
+
+    /* connect to the control server to start/configure the test */
+    if ( (ctrl=connect_control_server(dests[0], test_options.cport,
+                    &meta)) == NULL ) {
+        Log(LOG_WARNING, "Failed to connect control server");
+        return NULL;
+    }
+
+    /* start the server if required (connected to an amplet) */
+    if ( ctrl->type == SSL_CONTROL_STREAM && client == NULL ) {
+        if ( start_remote_server(ctrl->stream.ssl, AMP_TEST_THROUGHPUT) < 0 ) {
+            Log(LOG_WARNING, "Failed to start remote server");
+            return NULL;
+        }
+    }
+
+    result = runSchedule(dests[0], &test_options, &socket_options, ctrl);
+
+    close_control_connection(ctrl);
 
     if ( client != NULL ) {
         freeaddrinfo(dests[0]);

@@ -8,6 +8,7 @@
 #include <getopt.h>
 #include <assert.h>
 
+#include "ssl.h"
 #include "serverlib.h"
 #include "throughput.h"
 #include "servers.pb-c.h"
@@ -40,7 +41,7 @@ static uint16_t getSocketPort(int sock_fd) {
 /*
  *
  */
-static int do_receive(int control_sock, int test_sock) {
+static int do_receive(struct ctrlstream *ctrl, int test_sock) {
     Amplet2__Throughput__Item *item;
     ProtobufCBinaryData packed;
     struct test_result_t result;
@@ -50,7 +51,7 @@ static int do_receive(int control_sock, int test_sock) {
     memset(&request, 0, sizeof(request));
 
     /* Send READY here so timestamp is accurate */
-    send_control_ready(control_sock, 0);
+    send_control_ready(AMP_TEST_THROUGHPUT, ctrl, 0);
 
     if ( incomingTest(test_sock, &result) != 0 ) {
         return -1;
@@ -73,7 +74,7 @@ static int do_receive(int control_sock, int test_sock) {
     packed.data = malloc(packed.len);
     amplet2__throughput__item__pack(item, packed.data);
 
-    if ( send_control_result(control_sock, &packed) < 0 ) {
+    if ( send_control_result(AMP_TEST_THROUGHPUT, ctrl, &packed) < 0 ) {
         free(item);
         free(packed.data);
         return -1;
@@ -92,8 +93,8 @@ static int do_receive(int control_sock, int test_sock) {
 }
 
 
-static int do_send(int control_sock, int test_sock, struct opt_t *options,
-        struct test_request_t *request) {
+static int do_send(struct ctrlstream *ctrl, int test_sock,
+        struct opt_t *options, struct test_request_t *request) {
 
     Amplet2__Throughput__Item *item;
     ProtobufCBinaryData packed;
@@ -115,17 +116,18 @@ static int do_send(int control_sock, int test_sock, struct opt_t *options,
         case -1:
             /* Failed to write to socket */
             return -1;
-
+#if 0
         case 1:
             /* Bad test request, lets send a packet to keep the
              * client happy it's still expecting something.
              * XXX Why do it like this?
              */
+            //XXX THIS WON"T WORK, ITS A NORMAL SOCKET
             if ( send_control_receive(test_sock, 0) < 0 ) {
                 return -1;
             }
             /* Fall through on purpose! */
-
+#endif
         case 0:
             /* Success or our fake success from case 1: */
 #if 0
@@ -146,7 +148,7 @@ static int do_send(int control_sock, int test_sock, struct opt_t *options,
             amplet2__throughput__item__pack(item, packed.data);
 
             /* send result to the client for reporting */
-            if ( send_control_result(control_sock, &packed) < 0 ) {
+            if ( send_control_result(AMP_TEST_THROUGHPUT, ctrl, &packed) < 0 ) {
                 free(item);
                 free(packed.data);
                 return -1;
@@ -154,7 +156,8 @@ static int do_send(int control_sock, int test_sock, struct opt_t *options,
 
             free(item);
             free(packed.data);
-    }
+            break;
+    };
 
 #if 0
     if ( web10g != NULL ) {
@@ -167,7 +170,7 @@ static int do_send(int control_sock, int test_sock, struct opt_t *options,
 
 
 
-static int do_renew(int control_sock, int test_sock, uint16_t port,
+static int do_renew(struct ctrlstream *ctrl, int test_sock, uint16_t port,
         uint16_t portmax, struct sockopt_t *sockopts) {
 
     struct packet_t packet;
@@ -205,7 +208,7 @@ static int do_renew(int control_sock, int test_sock, uint16_t port,
     }
     close(test_sock);
 
-    send_control_ready(control_sock, getSocketPort(t_listen));
+    send_control_ready(AMP_TEST_THROUGHPUT, ctrl, getSocketPort(t_listen));
     do {
         test_sock = accept(t_listen, NULL, NULL);
     } while (test_sock == -1 && errno == EINTR);
@@ -231,7 +234,7 @@ static int do_renew(int control_sock, int test_sock, uint16_t port,
  *
  * @return 0 if successful, -1 upon error.
  */
-static int serveTest(int control_sock, struct sockopt_t *sockopts) {
+static int serveTest(struct ctrlstream *ctrl, struct sockopt_t *sockopts) {
     int bytes;
     int t_listen = -1;
     int test_sock = -1;
@@ -242,7 +245,9 @@ static int serveTest(int control_sock, struct sockopt_t *sockopts) {
     struct opt_t *options = NULL;
 
     /* Read the hello and check we are compatible */
-    if ( read_control_hello(control_sock, (void**)&options, parse_hello) < 0 ) {
+    Log(LOG_DEBUG, "Waiting for HELLO message");
+    if ( read_control_hello(AMP_TEST_THROUGHPUT, ctrl, (void**)&options,
+                parse_hello) < 0 ) {
         goto errorCleanup;
     }
 
@@ -256,6 +261,7 @@ static int serveTest(int control_sock, struct sockopt_t *sockopts) {
     }
 
     /* No errors so far, make our new testsocket with the given test options */
+    Log(LOG_DEBUG, "Starting test socket");
     do {
         res = start_listening(&sockets, options->tport, sockopts);
     } while ( res == EADDRINUSE && options->tport++ < portmax );
@@ -280,8 +286,10 @@ static int serveTest(int control_sock, struct sockopt_t *sockopts) {
     }
 
     /* send a packet over the control connection containing the test port */
-    send_control_ready(control_sock, getSocketPort(t_listen));
+    send_control_ready(AMP_TEST_THROUGHPUT, ctrl, getSocketPort(t_listen));
+    Log(LOG_DEBUG, "Waiting for connection on test socket");
 
+    //XXX this can block forever!
     do {
         test_sock = accept(t_listen, NULL, NULL);
     } while (test_sock == -1 && errno == EINTR ); /* Repeat if interrupted */
@@ -297,17 +305,18 @@ static int serveTest(int control_sock, struct sockopt_t *sockopts) {
     }
 
     /* Wait for something to do from the client */
-    while ( (bytes=read_control_packet(control_sock, &data)) > 0 ) {
+    while ( (bytes = read_control_packet(ctrl, &data)) > 0 ) {
         Amplet2__Servers__Control *msg;
         msg = amplet2__servers__control__unpack(NULL, bytes, data);
 
         switch ( msg->type ) {
             case AMPLET2__SERVERS__CONTROL__TYPE__RECEIVE: {
-                if ( parse_control_receive(data, bytes, NULL, NULL) < 0 ) {
+                if ( parse_control_receive(AMP_TEST_THROUGHPUT, data, bytes,
+                            NULL, NULL) < 0 ) {
                     goto errorCleanup;
                 }
 
-                if ( do_receive(control_sock, test_sock) < 0 ) {
+                if ( do_receive(ctrl, test_sock) < 0 ) {
                     goto errorCleanup;
                 }
 
@@ -316,12 +325,12 @@ static int serveTest(int control_sock, struct sockopt_t *sockopts) {
 
             case AMPLET2__SERVERS__CONTROL__TYPE__SEND: {
                 struct test_request_t *request;
-                if ( parse_control_send(data, bytes, (void**)&request,
-                            parse_send) < 0 ) {
+                if ( parse_control_send(AMP_TEST_THROUGHPUT, data, bytes,
+                            (void**)&request, parse_send) < 0 ) {
                     goto errorCleanup;
                 }
 
-                if ( do_send(control_sock, test_sock, options, request) < 0 ) {
+                if ( do_send(ctrl, test_sock, options, request) < 0 ) {
                     goto errorCleanup;
                 }
 
@@ -332,7 +341,7 @@ static int serveTest(int control_sock, struct sockopt_t *sockopts) {
 
             case AMPLET2__SERVERS__CONTROL__TYPE__RENEW: {
 
-                if ( do_renew(control_sock, test_sock, options->tport,
+                if ( do_renew(ctrl, test_sock, options->tport,
                             portmax, sockopts) < 0 ) {
                     goto errorCleanup;
                 }
@@ -370,9 +379,6 @@ errorCleanup:
     if ( t_listen != -1 ) {
         close(t_listen);
     }
-    if ( control_sock != -1 ) {
-        close(control_sock);
-    }
 
     free(options);
 
@@ -398,6 +404,7 @@ void run_throughput_server(int argc, char *argv[], SSL *ssl) {
     extern struct option long_options[];
     uint16_t portmax;
     int res;
+    struct ctrlstream ctrl;
 
     /* Possibly could use dests to limit interfaces to listen on */
 
@@ -447,84 +454,108 @@ void run_throughput_server(int argc, char *argv[], SSL *ssl) {
         return;
     }
 
-    /*
-     * If SSL is not null, it means we have been started by the amplet client
-     * and need to tell the other end what port it should connect to. If it
-     * is NULL then we assume it is being run manually and the user knows
-     * what port they want to use.
-     */
+    client_addrlen = sizeof(client_addr);
+
     if ( ssl ) {
-        if ( send_server_port(ssl, port) < 0 ) {
-            Log(LOG_DEBUG, "Failed to send server port for throughput test\n");
+        /*
+         * We have an SSL connection already from when this test server was
+         * started by the amplet client - reuse it for test control.
+         */
+        ctrl.type = SSL_CONTROL_STREAM;
+        ctrl.stream.ssl = ssl;
+        if ( getpeername(SSL_get_fd(ssl), (struct sockaddr*)&client_addr,
+                    &client_addrlen) < 0 ) {
+            Log(LOG_WARNING, "Failed to get remote peer: %s", strerror(errno));
             return;
+        }
+    } else {
+
+        /* select on our listening sockets until someone connects */
+        maxwait = MAXIMUM_SERVER_WAIT_TIME;
+        if ( (family = wait_for_data(&listen_sockets, &maxwait)) <= 0 ) {
+            Log(LOG_DEBUG, "Timeout out waiting for connection");
+            return;
+        }
+
+        client_addrlen = sizeof(client_addr);
+        switch ( family ) {
+            case AF_INET: control_sock = accept(listen_sockets.socket,
+                                  (struct sockaddr*)&client_addr,
+                                  &client_addrlen);
+                          Log(LOG_DEBUG, "Got control connection on IPv4");
+                          /* clear out v6 address, it isn't needed any more */
+                          freeaddrinfo(sockopts.sourcev6);
+                          sockopts.sourcev6 = NULL;
+                          /* set v4 address to our local endpoint address */
+                          freeaddrinfo(sockopts.sourcev4);
+                          sockopts.sourcev4 = get_socket_address(control_sock);
+                          break;
+
+            case AF_INET6: control_sock = accept(listen_sockets.socket6,
+                                   (struct sockaddr*)&client_addr,
+                                   &client_addrlen);
+                           Log(LOG_DEBUG, "Got control connection on IPv6");
+                           /* clear out v4 address, it isn't needed any more */
+                           freeaddrinfo(sockopts.sourcev4);
+                           sockopts.sourcev4 = NULL;
+                           /* set v6 address to our local endpoint address */
+                           freeaddrinfo(sockopts.sourcev6);
+                           sockopts.sourcev6 = get_socket_address(control_sock);
+                           break;
+
+            default: return;
+        };
+
+        /* someone has connected, so close up all the listening sockets */
+        if ( listen_sockets.socket > 0 ) {
+            close(listen_sockets.socket);
+        }
+
+        if ( listen_sockets.socket6 > 0 ) {
+            close(listen_sockets.socket6);
+        }
+
+        if ( control_sock < 0 ) {
+            Log(LOG_WARNING, "Failed to accept connection: %s",strerror(errno));
+            return;
+        }
+
+        /* if we have an SSL context, expect the client to use SSL */
+        if ( ssl_ctx ) {
+            Log(LOG_DEBUG, "Got a secure client connection");
+            ctrl.type = SSL_CONTROL_STREAM;
+            if ( (ctrl.stream.ssl=ssl_accept(ssl_ctx, control_sock)) == NULL ) {
+                close(control_sock);
+                return;
+            }
         } else {
-            Log(LOG_DEBUG, "Sent server port %d for throughput test OK", port);
+            Log(LOG_DEBUG, "Got a plain client connection");
+            ctrl.type = PLAIN_CONTROL_STREAM;
+            ctrl.stream.sock = control_sock;
         }
     }
 
-    /* select on our listening sockets until someone connects */
-    maxwait = MAXIMUM_SERVER_WAIT_TIME;
-    if ( (family = wait_for_data(&listen_sockets, &maxwait)) <= 0 ) {
-        Log(LOG_DEBUG, "Timeout out waiting for connection");
-        return;
-    }
-
-    client_addrlen = sizeof(client_addr);
-    switch ( family ) {
-        case AF_INET: control_sock = accept(listen_sockets.socket,
-                              (struct sockaddr*)&client_addr, &client_addrlen);
-                      Log(LOG_DEBUG, "Got control connection on IPv4");
-                      /* clear out the v6 address, it isn't needed any more */
-                      freeaddrinfo(sockopts.sourcev6);
-                      sockopts.sourcev6 = NULL;
-                      /* set v4 address to where we received the connection */
-                      freeaddrinfo(sockopts.sourcev4);
-                      sockopts.sourcev4 = get_socket_address(control_sock);
-                      break;
-
-        case AF_INET6: control_sock = accept(listen_sockets.socket6,
-                              (struct sockaddr*)&client_addr, &client_addrlen);
-                      Log(LOG_DEBUG, "Got control connection on IPv6");
-                      /* clear out the v4 address, it isn't needed any more */
-                      freeaddrinfo(sockopts.sourcev4);
-                      sockopts.sourcev4 = NULL;
-                      /* set v6 address to where we received the connection */
-                      freeaddrinfo(sockopts.sourcev6);
-                      sockopts.sourcev6 = get_socket_address(control_sock);
-                      break;
-
-        default: return;
-    };
-
-    /* someone has connected, so close up all the listening sockets */
-    if ( listen_sockets.socket > 0 ) {
-        close(listen_sockets.socket);
-    }
-
-    if ( listen_sockets.socket6 > 0 ) {
-        close(listen_sockets.socket6);
-    }
-
-    if ( control_sock < 0 ) {
-        Log(LOG_WARNING, "Failed to accept connection: %s", strerror(errno));
-        return;
-    }
-
-    Log(LOG_DEBUG, "Got a client connection");
-
     /* this will serve the test only on the address we got connected to on */
-    serveTest(control_sock, &sockopts);
-    close(control_sock);
+    serveTest(&ctrl, &sockopts);
 
-    /* we made the addrinfo structs ourselves, so have to free them manually */
-    if ( sockopts.sourcev4 ) {
-        free(sockopts.sourcev4->ai_addr);
-        free(sockopts.sourcev4);
+    /* close the control connection if we created it */
+    if ( ctrl.type == PLAIN_CONTROL_STREAM ) {
+        close(ctrl.stream.sock);
+    } else if ( ctrl.type == SSL_CONTROL_STREAM && ssl == NULL ) {
+        ssl_shutdown(ctrl.stream.ssl);
     }
 
-    if ( sockopts.sourcev6 ) {
-        free(sockopts.sourcev6->ai_addr);
-        free(sockopts.sourcev6);
+    if ( !ssl ) {
+        /* we made the addrinfo structs ourselves, so free them manually */
+        if ( sockopts.sourcev4 ) {
+            free(sockopts.sourcev4->ai_addr);
+            free(sockopts.sourcev4);
+        }
+
+        if ( sockopts.sourcev6 ) {
+            free(sockopts.sourcev6->ai_addr);
+            free(sockopts.sourcev6);
+        }
     }
 
     return;

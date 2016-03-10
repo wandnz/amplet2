@@ -417,27 +417,39 @@ static int send_server_start(SSL *ssl, test_type_t type) {
 
 
 /*
+ *
+ */
+void close_control_connection(struct ctrlstream *ctrl) {
+    assert(ctrl);
+
+    switch ( ctrl->type ) {
+        case SSL_CONTROL_STREAM: ssl_shutdown(ctrl->stream.ssl); break;
+        case PLAIN_CONTROL_STREAM: close(ctrl->stream.sock); break;
+    };
+
+    free(ctrl);
+}
+
+
+
+/*
  * TODO apart from SSL stuff, this is very similar to the function in
  * serverlib.c used for connecting both control sockets and test sockets.
  * The control sockets within a test should move to using SSL (and this
  * function), maybe the SSL part can be split out and this function also used
  * with connecting to the test server itself?
  */
-SSL* connect_control_server(struct addrinfo *dest, uint16_t port,
+struct ctrlstream* connect_control_server(struct addrinfo *dest, uint16_t port,
         amp_test_meta_t *meta) {
-    SSL *ssl;
+
+    struct ctrlstream *ctrl;
     X509 *server_cert;
-    int sock;
     int res;
     int attempts;
+    int sock;
 
     assert(dest);
     assert(dest->ai_addr);
-
-    if ( ssl_ctx == NULL ) {
-        Log(LOG_WARNING, "Can't start remote server, no SSL configuration");
-        return NULL;
-    }
 
     Log(LOG_DEBUG, "Connecting to control socket tcp/%d on remote server",port);
 
@@ -529,37 +541,50 @@ SSL* connect_control_server(struct addrinfo *dest, uint16_t port,
         }
     } while ( res < 0 );
 
-    /* Open up the ssl channel and validate the cert against our CA cert */
-    /* TODO CRL or OCSP to deal with revocation of certificates */
+    ctrl = malloc(sizeof(struct ctrlstream));
 
-    /* Do the SSL handshake */
-    if ( (ssl = ssl_connect(ssl_ctx, sock) ) == NULL ) {
-        Log(LOG_DEBUG, "Failed to setup SSL connection");
-        close(sock);
-        return NULL;
-    }
+    if ( ssl_ctx ) {
+        /* Open up the ssl channel and validate the cert against our CA cert */
+        /* TODO CRL or OCSP to deal with revocation of certificates */
+        Log(LOG_DEBUG, "Setting up SSL connection to control server");
 
-    /* Recover the server's certificate */
-    server_cert = SSL_get_peer_certificate(ssl);
-    if ( server_cert == NULL ) {
-        Log(LOG_DEBUG, "Failed to get peer certificate");
-        ssl_shutdown(ssl);
-        return NULL;
-    }
+        /* Do the SSL handshake */
+        if ( (ctrl->stream.ssl = ssl_connect(ssl_ctx, sock) ) == NULL ) {
+            Log(LOG_DEBUG, "Failed to setup SSL connection");
+            close(sock);
+            free(ctrl);
+            return NULL;
+        }
 
-    /* Validate the hostname */
-    if ( matches_common_name(dest->ai_canonname, server_cert) != 0 ) {
-        Log(LOG_DEBUG, "Hostname validation failed");
+        /* Recover the server's certificate */
+        server_cert = SSL_get_peer_certificate(ctrl->stream.ssl);
+        if ( server_cert == NULL ) {
+            Log(LOG_DEBUG, "Failed to get peer certificate");
+            ssl_shutdown(ctrl->stream.ssl);
+            free(ctrl);
+            return NULL;
+        }
+
+        /* Validate the hostname */
+        if ( matches_common_name(dest->ai_canonname, server_cert) != 0 ) {
+            Log(LOG_DEBUG, "Hostname validation failed");
+            X509_free(server_cert);
+            ssl_shutdown(ctrl->stream.ssl);
+            free(ctrl);
+            return NULL;
+        }
+
         X509_free(server_cert);
-        ssl_shutdown(ssl);
-        return NULL;
+
+        ctrl->type = SSL_CONTROL_STREAM;
+        Log(LOG_DEBUG, "Successfully validated cert, connection established");
+    } else {
+        ctrl->type = PLAIN_CONTROL_STREAM;
+        ctrl->stream.sock = sock;
+        Log(LOG_DEBUG, "No SSL context, using plain control connection");
     }
 
-    X509_free(server_cert);
-
-    Log(LOG_DEBUG, "Successfully validated peer cert");
-
-    return ssl;
+    return ctrl;
 }
 
 
@@ -569,6 +594,7 @@ SSL* connect_control_server(struct addrinfo *dest, uint16_t port,
  * server for a particular test. This will return the port number that the
  * server is running on.
  */
+#if 0
 uint16_t start_remote_server(test_type_t type, struct addrinfo *dest,
         amp_test_meta_t *meta) {
     SSL *ssl;
@@ -603,6 +629,35 @@ uint16_t start_remote_server(test_type_t type, struct addrinfo *dest,
     ssl_shutdown(ssl);
 
     return server_port;
+}
+#endif
+
+
+int start_remote_server(SSL *ssl, test_type_t type) {
+
+    assert(ssl);
+    assert(type > AMP_TEST_INVALID && type < AMP_TEST_LAST);
+
+    /* Send the test type, so the other end knows which server to run */
+    /* TODO send any test parameters? */
+    if ( send_server_start(ssl, type) < 0 ) {
+        Log(LOG_DEBUG, "Failed to send test type");
+        return -1;
+    }
+#if 0
+    /* Get the port number the remote server is on */
+    if ( SSL_read(ssl, ((char*)&server_port), sizeof(server_port)) < 0 ) {
+        Log(LOG_WARNING, "Failed to read server port from remote end");
+        server_port = 0;
+    }
+
+    server_port = ntohs(server_port);
+
+    Log(LOG_DEBUG, "Remote port number: %d", server_port);
+
+    return server_port;
+#endif
+    return 0;
 }
 
 

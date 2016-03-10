@@ -2,22 +2,24 @@ package amplet2.servers;
 
 message Control {
         enum Type {
-                HELLO = 2;
-                READY = 3;
-                RECEIVE = 4;
-                SEND = 5;
-                RESULT = 6;
+                HELLO = 3;
+                READY = 4;
+                RECEIVE = 5;
+                SEND = 6;
+                RESULT = 7;
 
-                RENEW = 7;
+                RENEW = 8;
         }
 
-        optional Type type = 1;
+        /* test could be an enum or something, also used in measured.proto */
+        optional uint32 test = 1;
+        optional Type type = 2;
 
-        optional Hello hello = 2;
-        optional Ready ready = 3;
-        optional Receive receive = 4;
-        optional Send send = 5;
-        optional Result result = 6;
+        optional Hello hello = 3;
+        optional Ready ready = 4;
+        optional Receive receive = 5;
+        optional Send send = 6;
+        optional Result result = 7;
 
         /*
          * TODO ideally we could use extensions here, but in the medium term
@@ -26,7 +28,7 @@ message Control {
          * descriptions. We shouldn't have test specific messages at this
          * level.
          */
-        optional Renew renew = 7;
+        optional Renew renew = 8;
 }
 
 message Hello {

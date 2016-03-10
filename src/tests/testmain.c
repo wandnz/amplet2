@@ -92,6 +92,7 @@ int main(int argc, char *argv[]) {
     amp_test_result_t *result;
     int test_argc;
     char **test_argv;
+    int do_ssl;
 
 
     /* load information about the test, including the callback functions */
@@ -156,6 +157,18 @@ int main(int argc, char *argv[]) {
     /* null terminate the new argv for the test */
     test_argv[test_argc] = NULL;
 
+    /* make sure all or none of the SSL settings are set */
+    if ( vars.amqp_ssl.cacert || vars.amqp_ssl.cert || vars.amqp_ssl.key ) {
+        if ( !vars.amqp_ssl.cacert || !vars.amqp_ssl.cert ||
+                !vars.amqp_ssl.key ) {
+            Log(LOG_WARNING, "SSL needs --cacert, --cert and --key to be set");
+            return -1;
+        }
+        do_ssl = 1;
+    } else {
+        do_ssl = 0;
+    }
+
     /* set the nameserver to our custom one if specified */
     if ( nameserver ) {
         /* TODO we could parse the string and get up to MAXNS servers */
@@ -206,13 +219,12 @@ int main(int argc, char *argv[]) {
     }
 
     /*
-     * Initialise SSL if the test requires a remote server *and* the remote
-     * server has been specified as a destination. If it isn't specified then
-     * it is probably given as part of the test specific arguments and isn't
-     * expecting to talk to an amplet2/measured control port (so don't
-     * initialise SSL).
+     * Initialise SSL if the test requires a remote server and SSL
+     * configuration has been provided. This can either be used to start a
+     * remote server on an amplet client, or to talk securely to a standalone
+     * test server.
      */
-    if ( test_info->server_callback != NULL && count > 0 ) {
+    if ( test_info->server_callback != NULL && do_ssl ) {
         /*
          * These need values for standalone tests to work with remote servers,
          * but there aren't really any good default values we can use. If the
@@ -222,7 +234,7 @@ int main(int argc, char *argv[]) {
         /* TODO allow port to be set on command line, watch it doesn't clobber
          * other test options, they are a bit inconsistent!
          */
-        vars.control_port = atol(CONTROL_PORT);
+        vars.control_port = atol(DEFAULT_AMPLET_CONTROL_PORT);
 
         if ( initialise_ssl(&vars.amqp_ssl, NULL) < 0 ) {
             Log(LOG_ALERT, "Failed to initialise SSL, aborting");

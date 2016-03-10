@@ -83,10 +83,12 @@ int delay_send_packet(int sock, char *packet, int size, struct addrinfo *dest,
 char *address_to_name(struct addrinfo *address);
 int compare_addresses(const struct sockaddr *a,
         const struct sockaddr *b, int len);
-uint16_t start_remote_server(test_type_t type, struct addrinfo *dest,
+int start_remote_server(SSL *ssl, test_type_t type);
+//uint16_t start_remote_server(test_type_t type, struct addrinfo *dest,
+//        amp_test_meta_t *meta);
+struct ctrlstream* connect_control_server(struct addrinfo *dest, uint16_t port,
         amp_test_meta_t *meta);
-SSL* connect_control_server(struct addrinfo *dest, uint16_t port,
-        amp_test_meta_t *meta);
+void close_control_connection(struct ctrlstream *ctrl);
 int send_server_port(SSL *ssl, uint16_t port);
 struct addrinfo *get_numeric_address(char *interface, char *port);
 int bind_socket_to_device(int sock, char *device);
