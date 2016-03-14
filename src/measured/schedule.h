@@ -104,7 +104,6 @@ typedef struct fetch_schedule_item {
  *
  */
 typedef enum {
-    EVENT_CANCEL_TEST,		    /* scheduled item is a watchdog */
     EVENT_RUN_TEST,		    /* scheduled item is a test */
     EVENT_FETCH_SCHEDULE,           /* scheduled item is a schedule fetch */
 } event_type_t;
@@ -113,7 +112,7 @@ typedef enum {
  *
  */
 typedef struct schedule_item {
-    event_type_t type;		    /* type of schedule item (test, watchdog) */
+    event_type_t type;		    /* type of schedule item (test, fetch) */
     wand_event_handler_t *ev_hdl;   /* pointer to main event handler */
     union {
 	test_schedule_item_t *test;

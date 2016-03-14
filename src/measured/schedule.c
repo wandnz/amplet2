@@ -53,18 +53,7 @@ static void dump_event_run_test(test_schedule_item_t *item, FILE *out) {
 
 
 /*
- * Dump a debug information line about a scheduled watchdog to kill a test.
- */
-static void dump_event_cancel_test(kill_schedule_item_t *item, FILE *out) {
-    assert(item);
-
-    fprintf(out, "EVENT_CANCEL_TEST %s pid %d\n", item->testname, item->pid);
-}
-
-
-
-/*
- * Dump a debug information line about a scheduled watchdog to kill a test.
+ * Dump a debug information line about a scheduled schedule update.
  */
 static void dump_event_fetch_schedule(fetch_schedule_item_t *item, FILE *out) {
     assert(item);
@@ -103,9 +92,6 @@ void dump_schedule(wand_event_handler_t *ev_hdl, FILE *out) {
 	switch ( item->type ) {
 	    case EVENT_RUN_TEST:
                 dump_event_run_test(item->data.test, out);
-                break;
-	    case EVENT_CANCEL_TEST:
-                dump_event_cancel_test(item->data.kill, out);
                 break;
             case EVENT_FETCH_SCHEDULE:
                 dump_event_fetch_schedule(item->data.fetch, out);
@@ -182,8 +168,8 @@ static void free_fetch_schedule_item(fetch_schedule_item_t *item) {
 
 /*
  * Walk the list of timers and remove all of them, or just those that are
- * scheduled tests. Refreshing the test schedule will still leave watchdogs
- * and schedule fetches in the list.
+ * scheduled tests. Refreshing the test schedule will still leave schedule
+ * fetches in the list.
  */
 void clear_test_schedule(wand_event_handler_t *ev_hdl, int all) {
     struct wand_timer_t *timer = ev_hdl->timers;
@@ -193,10 +179,7 @@ void clear_test_schedule(wand_event_handler_t *ev_hdl, int all) {
     while ( timer != NULL ) {
 	tmp = timer;
 	timer = timer->next;
-	/*
-	 * only remove future scheduled tests, need to leave any tasks that
-	 * are watching currently executing tests
-	 */
+	/* only remove future scheduled tests */
 	if ( tmp->data != NULL ) {
 	    item = (schedule_item_t *)tmp->data;
 
@@ -211,11 +194,6 @@ void clear_test_schedule(wand_event_handler_t *ev_hdl, int all) {
                 case EVENT_RUN_TEST:
                     if ( item->data.test != NULL ) {
                         free_test_schedule_item(item->data.test);
-                    }
-                    break;
-                case EVENT_CANCEL_TEST:
-                    if ( item->data.kill != NULL ) {
-                        free_watchdog_schedule_item(item->data.kill);
                     }
                     break;
                 case EVENT_FETCH_SCHEDULE:
@@ -1073,18 +1051,23 @@ static void remote_schedule_callback(wand_event_handler_t *ev_hdl, void *data) {
                 strerror(errno));
         return;
     } else if ( pid == 0 ) {
+        /* add a watchdog to make sure this doesn't sit around forever */
+        timer_t watchdog;
+        if ( start_watchdog(SCHEDULE_FETCH_TIMEOUT, SIGKILL, &watchdog) < 0 ) {
+            Log(LOG_WARNING, "Not fetching remote schedule file");
+            exit(-1);
+        }
+
         if ( update_remote_schedule(fetch->schedule_dir, fetch->schedule_url,
                     fetch->cacert, fetch->cert, fetch->key) > 0 ) {
             /* send SIGUSR1 to parent to reload schedule */
             Log(LOG_DEBUG, "Sending SIGUSR1 to parent to reload schedule");
             kill(getppid(), SIGUSR1);
         }
+
+        stop_watchdog(watchdog);
         exit(0);
     }
-
-    /* TODO should we have a watchdog on this task? */
-    add_test_watchdog(item->ev_hdl, pid, SCHEDULE_FETCH_TIMEOUT, 0,
-            "Remote schedule fetch");
 
     /* reschedule checking for schedule updates */
     if ( wand_add_timer(ev_hdl, fetch->frequency, 0, data,

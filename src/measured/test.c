@@ -141,6 +141,7 @@ void run_test(const test_schedule_item_t * const item, SSL *ssl) {
     struct addrinfo **destinations = NULL;
     int total_resolve_count = 0;
     char *packet_delay_str = NULL;
+    timer_t watchdog;
 
     assert(item);
     assert(item->test_id < AMP_TEST_LAST);
@@ -148,8 +149,16 @@ void run_test(const test_schedule_item_t * const item, SSL *ssl) {
     assert((item->dest_count + item->resolve_count) >=
             amp_tests[item->test_id]->min_targets);
 
+    test = amp_tests[item->test_id];
+
+    /* Start the timer so the test will be killed if it runs too long */
+    if ( start_test_watchdog(test, &watchdog) < 0 ) {
+        Log(LOG_WARNING, "Aborting %s test run", test->name);
+        return;
+    }
+
     /* update process name so we can tell what is running */
-    set_proc_name(amp_tests[item->test_id]->name);
+    set_proc_name(test->name);
 
     /*
      * seed the random number generator, has to be after the fork() or each
@@ -159,13 +168,11 @@ void run_test(const test_schedule_item_t * const item, SSL *ssl) {
     srandom(time(NULL) + getpid());
     reseed_openssl_rng();
 
-    test = amp_tests[item->test_id];
-    argv[argc++] = test->name;
-
     /*
      * TODO should command line arguments clobber any per-test arguments?
      * Currently any arguments set in the schedule file will take precedence.
      */
+    argv[argc++] = test->name;
 
     /* set the inter packet delay if configured at the global level */
     if ( item->meta->inter_packet_delay != MIN_INTER_PACKET_DELAY ) {
@@ -173,6 +180,7 @@ void run_test(const test_schedule_item_t * const item, SSL *ssl) {
         if ( asprintf(&packet_delay_str, "%u",
                     item->meta->inter_packet_delay) < 0 ) {
             Log(LOG_WARNING, "Failed to build packet delay string, aborting");
+            stop_watchdog(watchdog);
             return;
         }
 
@@ -357,6 +365,9 @@ void run_test(const test_schedule_item_t * const item, SSL *ssl) {
         free(packet_delay_str);
     }
 
+    /* unload the watchdog, the test has completed in time */
+    stop_watchdog(watchdog);
+
     /* done running the test, exit */
     exit(0);
 }
@@ -368,7 +379,7 @@ void run_test(const test_schedule_item_t * const item, SSL *ssl) {
  * execution timers etc.
  * TODO maybe just move the contents of this into run_scheduled_test()?
  */
-static int fork_test(wand_event_handler_t *ev_hdl, test_schedule_item_t *item) {
+static int fork_test(test_schedule_item_t *item) {
     struct timeval now;
     pid_t pid;
     test_t *test;
@@ -408,16 +419,6 @@ static int fork_test(wand_event_handler_t *ev_hdl, test_schedule_item_t *item) {
 	perror("fork");
 	return 0;
     } else if ( pid == 0 ) {
-	/* child, prepare the environment and run the test functions */
-	//struct rlimit cpu_limits;
-	//cpu_limits.rlim_cur = 60;
-	//cpu_limits.rlim_max = 60;
-	/* XXX if this kills a test, how to distinguish it from the watchdog
-	 * doing so? in this case the watchdog timer still needs to be removed
-	 */
-	//setrlimit(RLIMIT_CPU, &cpu_limits);
-	/* TODO prepare environment */
-
         /*
          * close the unix domain sockets the parent had, if we keep them open
          * then things can get confusing (test threads end up holding the
@@ -429,11 +430,6 @@ static int fork_test(wand_event_handler_t *ev_hdl, test_schedule_item_t *item) {
 	Log(LOG_WARNING, "%s test failed to run", test->name);//XXX required?
 	exit(1);
     }
-
-    //XXX if the test aborts before we add this, will that cock things up?
-    /* schedule the watchdog to kill it if it takes too long */
-    add_test_watchdog(ev_hdl, pid, test->max_duration, test->sigint,
-            test->name);
 
     return 1;
 }
@@ -462,7 +458,7 @@ void run_scheduled_test(wand_event_handler_t *ev_hdl, void *data) {
      * run the test as soon as we know what it is, so it happens as close to
      * the right time as we can get it.
      */
-    run = fork_test(item->ev_hdl, test_item);
+    run = fork_test(test_item);
 
     /* while the test runs, reschedule it again */
     next = get_next_schedule_time(item->ev_hdl, test_item->period,

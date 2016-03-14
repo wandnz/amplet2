@@ -125,6 +125,7 @@ static int parse_schedule_test(void *data, uint32_t len,
  *
  */
 static void do_start_server(SSL *ssl, void *data, uint32_t len) {
+    timer_t watchdog;
     test_type_t test_type;
     test_t *test;
 
@@ -156,11 +157,16 @@ static void do_start_server(SSL *ssl, void *data, uint32_t len) {
         return;
     }
 
-    /*
-     * Run server function using callback in test, give it the ssl descriptor
-     * so that it can report the port number.
-     */
+    /* Start the timer so the test will be killed if it runs too long */
+    if ( start_test_watchdog(test, &watchdog) < 0 ) {
+        Log(LOG_WARNING, "Not starting server for %s test", test->name);
+        return;
+    }
+
+    /* Run server function using callback in test */
     test->server_callback(0, NULL, ssl);
+
+    stop_watchdog(watchdog);
 }
 
 
@@ -176,6 +182,7 @@ static void do_schedule_test(SSL *ssl, void *data, uint32_t len) {
     }
 
     Log(LOG_DEBUG, "Manually starting %s test", amp_tests[item.test_id]->name);
+
     run_test(&item, ssl);
 }
 
@@ -274,21 +281,6 @@ static void control_read_callback(wand_event_handler_t *ev_hdl, int fd,
 
     /* the parent process doesn't need the client file descriptor */
     close(fd);
-
-    /*
-     * TODO can't start a watchdog now, as the control message could be doing
-     * something other than starting a test server. The test server process
-     * can't really add this, can anyone, do we care anymore?
-     */
-    /*
-     * TODO when this child terminates, it tries to find a watchdog timer with
-     * this pid to kill, but it now doesn't exist. Is this a problem?
-     */
-#if 0
-    add_test_watchdog(ev_hdl, pid, test->max_duration + TEST_SERVER_EXTRA_TIME,
-            test->sigint, test->name);
-#endif
-    //add_test_watchdog(ev_hdl, pid, TEST_SERVER_MAXIMUM_TIME, 0, "server");
 }
 
 
