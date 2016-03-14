@@ -109,14 +109,15 @@ static void verify_errors(struct info_t *a, Amplet2__Icmp__Item *b) {
  * Verify that the message received and unpacked matches the original data
  * that was used to generate it.
  */
-static void verify_message(void *data, uint32_t len) {
+static void verify_message(amp_test_result_t *result) {
     Amplet2__Icmp__Report *msg;
     unsigned int i;
 
-    assert(data);
+    assert(result);
+    assert(result->data);
 
     /* unpack all the data */
-    msg = amplet2__icmp__report__unpack(NULL, len, data);
+    msg = amplet2__icmp__report__unpack(NULL, result->len, result->data);
 
     assert(msg);
     assert(msg->header);
@@ -164,8 +165,6 @@ int main(void) {
     struct addrinfo *addr = get_numeric_address("192.168.0.254", NULL);
     addr->ai_canonname = strdup("foo.bar.baz");
 
-    /* set the test not to report, so it will call the print function */
-    icmp_test.report = 0;
     /* replace the print function with one that will verify message contents */
     icmp_test.print_callback = verify_message;
     /* use this stripped down test in place of the normal ICMP test */

@@ -328,15 +328,16 @@ static void verify_server(struct server_stats_t *a, Amplet2__Http__Server *b) {
  * Verify that the message received and unpacked matches the original data
  * that was used to generate it.
  */
-static void verify_message(void *data, uint32_t len) {
+static void verify_message(amp_test_result_t *result) {
     Amplet2__Http__Report *msg;
     struct server_stats_t *tmpsrv;
     unsigned int i;
 
-    assert(data);
+    assert(result);
+    assert(result->data);
 
     /* unpack all the data */
-    msg = amplet2__http__report__unpack(NULL, len, data);
+    msg = amplet2__http__report__unpack(NULL, result->len, result->data);
 
     assert(msg);
     assert(msg->header);
@@ -497,8 +498,6 @@ int main(void) {
     //srand(time(NULL));
     srand(1);
 
-    /* set the test not to report, so it will call the print function */
-    http_test.report = 0;
     /* replace the print function with one that will verify message contents */
     http_test.print_callback = verify_message;
     /* use this stripped down test in place of the normal HTTP test */

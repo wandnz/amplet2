@@ -11,6 +11,7 @@
  */
 int main(void) {
     int pipefd[2];
+    struct ctrlstream sendctrl, recvctrl;
     uint16_t ports[] = {
         1, 100, 1024, 1025, 8816, 8817, 8826, 8827, 12345, 65535
     };
@@ -25,15 +26,19 @@ int main(void) {
         return -1;
     }
 
+    sendctrl.type = recvctrl.type = PLAIN_CONTROL_STREAM;
+    sendctrl.stream.sock = pipefd[1];
+    recvctrl.stream.sock = pipefd[0];
+
     /* try sending each of the test ports */
     for ( i = 0; i < count; i++ ) {
         /* write data into one end of the pipe */
-        if ( send_control_ready(pipefd[1], ports[i]) < 0 ) {
+        if ( send_control_ready(AMP_TEST_THROUGHPUT, &sendctrl,ports[i]) < 0 ) {
             return -1;
         }
 
         /* read it out the other and make sure it matches what we sent */
-        if ( read_control_ready(pipefd[0], &tport) != 0 ) {
+        if ( read_control_ready(AMP_TEST_THROUGHPUT, &recvctrl, &tport) != 0 ) {
             return -1;
         }
 

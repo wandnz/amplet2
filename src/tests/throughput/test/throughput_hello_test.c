@@ -11,6 +11,7 @@
  */
 int main(void) {
     int pipefd[2];
+    struct ctrlstream sendctrl, recvctrl;
     /* X tport X mss nagle rand web10g X rcv snd X X X X X */
     struct opt_t optionsA[] = {
         { 0, 12345, 0, 1460, 0, 0, 1, 0, 0, 0, 0,0,0,0,0},
@@ -31,16 +32,21 @@ int main(void) {
         return -1;
     }
 
+    sendctrl.type = recvctrl.type = PLAIN_CONTROL_STREAM;
+    sendctrl.stream.sock = pipefd[1];
+    recvctrl.stream.sock = pipefd[0];
+
     /* try sending each of the test option sets */
     for ( i = 0; i < count; i++ ) {
         /* write data into one end of the pipe */
-        if ( send_control_hello(pipefd[1],build_hello(&optionsA[i])) < 0 ) {
+        if ( send_control_hello(AMP_TEST_THROUGHPUT, &sendctrl,
+                    build_hello(&optionsA[i])) < 0 ) {
             return -1;
         }
 
         /* read it out the other and make sure it matches what we sent */
-        if ( read_control_hello(pipefd[0], (void**)&optionsB,
-                    parse_hello) != 0 ) {
+        if ( read_control_hello(AMP_TEST_THROUGHPUT, &recvctrl,
+                    (void**)&optionsB, parse_hello) != 0 ) {
             return -1;
         }
 

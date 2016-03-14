@@ -152,15 +152,16 @@ static void verify_response(struct test_request_t *a,
  * Verify that the message received and unpacked matches the original data
  * that was used to generate it.
  */
-static void verify_message(void *data, uint32_t len) {
+static void verify_message(amp_test_result_t *result) {
     Amplet2__Throughput__Report *msg;
     struct test_request_t *tmpinfo;
     unsigned int i;
 
-    assert(data);
+    assert(result);
+    assert(result->data);
 
     /* unpack all the data */
-    msg = amplet2__throughput__report__unpack(NULL, len, data);
+    msg = amplet2__throughput__report__unpack(NULL, result->len, result->data);
     tmpinfo = info;
 
     assert(msg);
@@ -191,8 +192,6 @@ int main(void) {
     addr = get_numeric_address("192.168.0.254", NULL);
     addr->ai_canonname = strdup("foo.bar.baz");
 
-    /* set the test not to report, so it will call the print function */
-    throughput_test.report = 0;
     /* replace the print function with one that will verify message contents */
     throughput_test.print_callback = verify_message;
     /* use this stripped down test in place of the normal ICMP test */
