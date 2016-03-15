@@ -223,6 +223,11 @@ static void process_control_message(int fd) {
         Amplet2__Measured__Control *msg;
         msg = amplet2__measured__control__unpack(NULL, bytes, data);
 
+        /* make sure the message was valid and unpacked properly */
+        if ( !msg || !msg->has_type ) {
+            break;
+        }
+
         switch ( msg->type ) {
             case AMPLET2__MEASURED__CONTROL__TYPE__SERVER: {
                 do_start_server(ssl, data, bytes);
