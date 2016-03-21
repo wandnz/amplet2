@@ -149,7 +149,6 @@ int send_udp_stream(int sock, struct addrinfo *remote, struct opt_t *options) {
 int receive_udp_stream(int sock, uint32_t packet_count, struct timeval *times) {
     char buffer[4096];//XXX
     int timeout;
-    int bytes;
     uint32_t i;
     struct timeval sent_time;
     struct socket_t sockets;
@@ -168,8 +167,8 @@ int receive_udp_stream(int sock, uint32_t packet_count, struct timeval *times) {
         /* reset timeout per packet, consider some global timer also? */
         timeout = UDPSTREAM_LOSS_TIMEOUT;
 
-        if ( (bytes = get_packet(&sockets, buffer, sizeof(buffer), NULL,
-                    &timeout, &times[i])) > 0 ) {
+        if ( get_packet(&sockets, buffer, sizeof(buffer), NULL,
+                    &timeout, &times[i]) > 0 ) {
             payload = (struct payload_t*)&buffer;
             /* this should cast appropriately whether 32 or 64 bit */
             sent_time.tv_sec = (time_t)be64toh(payload->sec);
@@ -225,7 +224,6 @@ Amplet2__Udpstream__Item* report_stream(enum udpstream_direction direction,
     Amplet2__Udpstream__Item *item =
         (Amplet2__Udpstream__Item*)malloc(sizeof(Amplet2__Udpstream__Item));
     uint32_t i;
-    int32_t total_diff = 0;
     uint32_t count = 0, received = 0;
     int32_t current = 0, prev = 0;
     int32_t ipdv[options->packet_count];
@@ -284,7 +282,6 @@ Amplet2__Udpstream__Item* report_stream(enum udpstream_direction direction,
         current = (times[i].tv_sec * 1000000) + times[i].tv_usec;
 
         ipdv[count] = current - prev;
-        total_diff += (current - prev);
 
         prev = current;
         count++;
