@@ -11,7 +11,7 @@
  */
 int main(void) {
     int pipefd[2];
-    struct ctrlstream sendctrl, recvctrl;
+    BIO *sendctrl, *recvctrl;
     /* type bytes duration write_size X X X X X X */
     struct test_request_t *request;
     struct test_request_t requests[] = {
@@ -34,20 +34,19 @@ int main(void) {
         return -1;
     }
 
-    sendctrl.type = recvctrl.type = PLAIN_CONTROL_STREAM;
-    sendctrl.stream.sock = pipefd[1];
-    recvctrl.stream.sock = pipefd[0];
+    sendctrl = BIO_new_socket(pipefd[1], BIO_CLOSE);
+    recvctrl = BIO_new_socket(pipefd[0], BIO_CLOSE);
 
     /* try sending each of the test option sets */
     for ( i = 0; i < count; i++ ) {
         /* write data into one end of the pipe */
-        if ( send_control_send(AMP_TEST_THROUGHPUT, &sendctrl,
+        if ( send_control_send(AMP_TEST_THROUGHPUT, sendctrl,
                     build_send(&requests[i])) < 0 ) {
             return -1;
         }
 
         /* read it out the other end... */
-        if ( (bytes=read_control_packet(&recvctrl, &data)) < 0 ) {
+        if ( (bytes=read_control_packet(recvctrl, &data)) < 0 ) {
             return -1;
         }
 
@@ -63,7 +62,8 @@ int main(void) {
         assert(requests[i].write_size == request->write_size);
     }
 
-    close(pipefd[0]);
-    close(pipefd[1]);
+    BIO_free_all(sendctrl);
+    BIO_free_all(recvctrl);
+
     return 0;
 }

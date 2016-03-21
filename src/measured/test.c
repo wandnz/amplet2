@@ -131,7 +131,7 @@ static void set_proc_name(char *testname) {
  * apply them to the proper test binary as provided by the test registration.
  * Run the test callback function and let it do its thing.
  */
-void run_test(const test_schedule_item_t * const item, SSL *ssl) {
+void run_test(const test_schedule_item_t * const item, BIO *ctrl) {
     char *argv[MAX_TEST_ARGS];
     uint32_t argc = 0;
     uint32_t offset;
@@ -338,9 +338,9 @@ void run_test(const test_schedule_item_t * const item, SSL *ssl) {
 
         if ( result ) {
             /* report the results to the appropriate location */
-            if ( ssl ) {
+            if ( ctrl ) {
                 /* SSL connection - single test run remotely, report remotely */
-                write_control_packet_ssl(ssl, result->data, result->len);
+                write_control_packet(ctrl, result->data, result->len);
             } else {
                 /* scheduled test, report to the rabbitmq broker */
                 report_to_broker(test->id, result);
@@ -358,6 +358,11 @@ void run_test(const test_schedule_item_t * const item, SSL *ssl) {
 	if ( destinations != NULL ) {
 	    free(destinations);
 	}
+    }
+
+    /* close the control connection if it exists */
+    if ( ctrl ) {
+        BIO_free_all(ctrl);
     }
 
     /* free any command line arguments we had to convert to strings */

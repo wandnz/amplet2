@@ -91,7 +91,7 @@ enum tput_type {
 amp_test_result_t* run_throughput(int argc, char *argv[], int count,
         struct addrinfo **dests);
 test_t *register_test(void);
-void run_throughput_server(int argc, char *argv[], SSL *ssl);
+void run_throughput_server(int argc, char *argv[], BIO *ctrl);
 amp_test_result_t* run_throughput_client(int argc, char *argv[], int count,
         struct addrinfo **dests);
 void print_throughput(amp_test_result_t *result);

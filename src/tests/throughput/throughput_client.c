@@ -7,6 +7,7 @@
 #include <getopt.h>
 #include <assert.h>
 
+#include "ssl.h"
 #include "serverlib.h"
 #include "throughput.h"
 #include "throughput.pb-c.h"
@@ -259,8 +260,7 @@ static amp_test_result_t* report_results(uint64_t start_time,
  * @return 0 if successful, otherwise -1 on failure
  */
 static amp_test_result_t* runSchedule(struct addrinfo *serv_addr,
-        struct opt_t *options, struct sockopt_t *socket_options,
-        struct ctrlstream *ctrl) {
+        struct opt_t *options, struct sockopt_t *socket_options, BIO *ctrl) {
     int test_socket = -1;
     struct packet_t packet;
     uint64_t start_time_ns;
@@ -510,7 +510,7 @@ amp_test_result_t* run_throughput_client(int argc, char *argv[], int count,
     int duration = -1;
     enum tput_schedule_direction direction = DIRECTION_NOT_SET;
     amp_test_result_t *result;
-    struct ctrlstream *ctrl;
+    BIO *ctrl;
 
     Log(LOG_DEBUG, "Running throughput test as client");
 
@@ -708,8 +708,8 @@ amp_test_result_t* run_throughput_client(int argc, char *argv[], int count,
     }
 
     /* start the server if required (connected to an amplet) */
-    if ( ctrl->type == SSL_CONTROL_STREAM && client == NULL ) {
-        if ( start_remote_server(ctrl->stream.ssl, AMP_TEST_THROUGHPUT) < 0 ) {
+    if ( ssl_ctx && client == NULL ) {
+        if ( start_remote_server(ctrl, AMP_TEST_THROUGHPUT) < 0 ) {
             Log(LOG_WARNING, "Failed to start remote server");
             return NULL;
         }

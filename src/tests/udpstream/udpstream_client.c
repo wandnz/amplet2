@@ -137,8 +137,7 @@ static struct test_request_t* build_schedule(struct opt_t *options) {
  * TODO could this be a library function too, with a function pointer?
  */
 static amp_test_result_t* run_test(struct addrinfo *server,
-        struct opt_t *options, struct sockopt_t *socket_options,
-        struct ctrlstream *ctrl) {
+        struct opt_t *options, struct sockopt_t *socket_options, BIO *ctrl) {
 
     int test_socket;
     struct sockaddr_storage ss;
@@ -165,7 +164,6 @@ static amp_test_result_t* run_test(struct addrinfo *server,
     if ( send_control_hello(AMP_TEST_UDPSTREAM, ctrl,
                 build_hello(options)) < 0 ) {
         Log(LOG_WARNING, "Failed to send HELLO packet, aborting");
-        //ssl_shutdown(ssl);
         return NULL;
     }
 
@@ -175,12 +173,14 @@ static amp_test_result_t* run_test(struct addrinfo *server,
     for ( current = schedule; current != NULL; current = current->next ) {
         switch ( current->direction ) {
             case UDPSTREAM_TO_SERVER:
-                send_control_receive(AMP_TEST_UDPSTREAM, ctrl, NULL);
+                if ( send_control_receive(AMP_TEST_UDPSTREAM, ctrl, NULL) < 0 ){
+                    Log(LOG_WARNING, "Failed to send RECEIVE packet, aborting");
+                    return NULL;
+                }
 
                 if ( read_control_ready(AMP_TEST_UDPSTREAM, ctrl,
                             &options->tport) < 0 ) {
                     Log(LOG_WARNING, "Failed to read READY packet, aborting");
-                    //ssl_shutdown(ssl);
                     return NULL;
                 }
                 ((struct sockaddr_in *)server->ai_addr)->sin_port =
@@ -192,7 +192,6 @@ static amp_test_result_t* run_test(struct addrinfo *server,
                 if ( read_control_result(AMP_TEST_UDPSTREAM, ctrl,
                             &data) < 0 ) {
                     Log(LOG_WARNING, "Failed to read RESULT packet, aborting");
-                    //ssl_shutdown(ssl);
                     return NULL;
                 }
                 remote_results = amplet2__udpstream__item__unpack(NULL,
@@ -201,15 +200,10 @@ static amp_test_result_t* run_test(struct addrinfo *server,
                 break;
 
             case UDPSTREAM_TO_CLIENT:
-                in_times = calloc(options->packet_count, sizeof(struct timeval));
+                in_times = calloc(options->packet_count,sizeof(struct timeval));
                 /* bind test socket to same address as the control socket */
-                if ( ctrl->type == SSL_CONTROL_STREAM ) {
-                    getsockname(SSL_get_fd(ctrl->stream.ssl),
-                            (struct sockaddr *)&ss, &socklen);
-                } else {
-                    getsockname(ctrl->stream.sock, (struct sockaddr *)&ss,
-                            &socklen);
-                }
+                getsockname(BIO_get_fd(ctrl, NULL), (struct sockaddr *)&ss,
+                        &socklen);
                 /* zero the port so it isn't the same as the control socket */
                 ((struct sockaddr_in *)&ss)->sin_port = 0;
                 bind(test_socket, (struct sockaddr *)&ss, socklen);
@@ -222,12 +216,10 @@ static amp_test_result_t* run_test(struct addrinfo *server,
 
                 /* wait for the data stream from the server */
                 receive_udp_stream(test_socket, options->packet_count,in_times);
-
                 break;
         };
     }
 
-    //ssl_shutdown(ssl);
     close(test_socket);
 
     /* report results */
@@ -259,7 +251,7 @@ amp_test_result_t* run_udpstream_client(int argc, char *argv[], int count,
     amp_test_meta_t meta;
     extern struct option long_options[];
     amp_test_result_t *result;
-    struct ctrlstream *ctrl;
+    BIO *ctrl;
 
     /* set some sensible defaults */
     //XXX set better inter packet delay, using MIN as a floor?
@@ -394,8 +386,8 @@ amp_test_result_t* run_udpstream_client(int argc, char *argv[], int count,
     }
 
     /* start the server if required (connected to an amplet) */
-    if ( ctrl->type == SSL_CONTROL_STREAM && client == NULL ) {
-        if ( start_remote_server(ctrl->stream.ssl, AMP_TEST_UDPSTREAM) < 0 ) {
+    if ( ssl_ctx && client == NULL ) {
+        if ( start_remote_server(ctrl, AMP_TEST_UDPSTREAM) < 0 ) {
             Log(LOG_WARNING, "Failed to start remote server");
             return NULL;
         }

@@ -5,7 +5,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netdb.h>
-#include <openssl/ssl.h>
+#include <openssl/bio.h>
 
 /* TODO move elsewhere to more global config file */
 #define MAX_PATH_LENGTH 10000
@@ -112,7 +112,7 @@ typedef struct test {
      * Pointer to a function that will start up the server portion of a test
      * if required.
      */
-    void (*server_callback)(int argc, char *argv[], SSL *ssl);
+    void (*server_callback)(int argc, char *argv[], BIO *ctrl);
 
 #if 0
     /*

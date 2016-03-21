@@ -1,6 +1,8 @@
 #include <unistd.h>
 #include <netinet/ip.h>
 #include <netinet/ip6.h>
+#include <sys/time.h>
+#include <string.h>
 
 #include "serverlib.h"
 #include "udpstream.h"

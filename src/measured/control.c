@@ -124,7 +124,7 @@ static int parse_schedule_test(void *data, uint32_t len,
 /*
  *
  */
-static void do_start_server(SSL *ssl, void *data, uint32_t len) {
+static void do_start_server(BIO *ctrl, void *data, uint32_t len) {
     timer_t watchdog;
     test_type_t test_type;
     test_t *test;
@@ -164,14 +164,14 @@ static void do_start_server(SSL *ssl, void *data, uint32_t len) {
     }
 
     /* Run server function using callback in test */
-    test->server_callback(0, NULL, ssl);
+    test->server_callback(0, NULL, ctrl);
 
     stop_watchdog(watchdog);
 }
 
 
 
-static void do_schedule_test(SSL *ssl, void *data, uint32_t len) {
+static void do_schedule_test(BIO *ctrl, void *data, uint32_t len) {
     test_schedule_item_t item;
 
     Log(LOG_DEBUG, "Got SCHEDULE message");
@@ -183,7 +183,7 @@ static void do_schedule_test(SSL *ssl, void *data, uint32_t len) {
 
     Log(LOG_DEBUG, "Manually starting %s test", amp_tests[item.test_id]->name);
 
-    run_test(&item, ssl);
+    run_test(&item, ctrl);
 }
 
 
@@ -192,8 +192,8 @@ static void do_schedule_test(SSL *ssl, void *data, uint32_t len) {
  *
  */
 static void process_control_message(int fd) {
-    SSL *ssl;
-    X509 *client_cert;
+    BIO *ctrl;
+    //X509 *client_cert;
     int bytes;
     void *data;
 
@@ -201,13 +201,14 @@ static void process_control_message(int fd) {
 
     /* Open up the ssl channel and validate the cert against our CA cert */
     /* TODO CRL or OCSP to deal with revocation of certificates */
-    if ( (ssl = ssl_accept(ssl_ctx, fd)) == NULL ) {
+    if ( (ctrl = establish_control_socket(ssl_ctx, fd, 0)) == NULL ) {
         close(fd);
         exit(0);
     }
 
     /* Get the peer certificate so we can validate it */
     //XXX this doesn't happen any more, do we need to get the cert still?
+#if 0
     client_cert = SSL_get_peer_certificate(ssl);
     if ( client_cert == NULL ) {
         Log(LOG_WARNING, "Failed to get peer certificate");
@@ -218,8 +219,9 @@ static void process_control_message(int fd) {
     X509_free(client_cert);
 
     Log(LOG_DEBUG, "Successfully validated peer cert");
+#endif
 
-    while ( (bytes = read_control_packet_ssl(ssl, &data)) > 0 ) {
+    while ( (bytes = read_control_packet(ctrl, &data)) > 0 ) {
         Amplet2__Measured__Control *msg;
         msg = amplet2__measured__control__unpack(NULL, bytes, data);
 
@@ -230,12 +232,12 @@ static void process_control_message(int fd) {
 
         switch ( msg->type ) {
             case AMPLET2__MEASURED__CONTROL__TYPE__SERVER: {
-                do_start_server(ssl, data, bytes);
+                do_start_server(ctrl, data, bytes);
                 break;
             }
 
             case AMPLET2__MEASURED__CONTROL__TYPE__SCHEDULE: {
-                do_schedule_test(ssl, data, bytes);
+                do_schedule_test(ctrl, data, bytes);
                 break;
             }
 
@@ -249,7 +251,7 @@ static void process_control_message(int fd) {
         free(data);
     }
 
-    ssl_shutdown(ssl);
+    close_control_connection(ctrl);
     exit(0);
 }
 

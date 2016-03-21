@@ -89,7 +89,7 @@ int main(int argc, char *argv[]) {
     int len;
     void *buffer;
     int bytes;
-    struct ctrlstream *ctrl;
+    BIO *ctrl;
     amp_ssl_opt_t sslopts;
     struct addrinfo hints, *dest;
     amp_test_result_t result;

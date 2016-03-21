@@ -97,7 +97,7 @@ struct payload_t {
 test_t *register_test(void);
 amp_test_result_t* run_udpstream(int argc, char *argv[], int count,
         struct addrinfo **dests);
-void run_udpstream_server(int argc, char *argv[], SSL *ssl);
+void run_udpstream_server(int argc, char *argv[], BIO *ctrl);
 amp_test_result_t* run_udpstream_client(int argc, char *argv[], int count,
         struct addrinfo **dests);
 void print_udpstream(amp_test_result_t *result);

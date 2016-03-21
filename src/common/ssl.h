@@ -35,9 +35,7 @@ SSL_CTX *ssl_ctx;
 void reseed_openssl_rng(void);
 int initialise_ssl(amp_ssl_opt_t *sslopts, char *collector);
 SSL_CTX *initialise_ssl_context(amp_ssl_opt_t *sslopts);
-SSL* ssl_accept(SSL_CTX *ssl_ctx, int fd);
-SSL* ssl_connect(SSL_CTX *ssl_ctx, int fd);
-void ssl_shutdown(SSL *ssl);
+BIO* establish_control_socket(SSL_CTX *ssl_ctx, int fd, int client);
 void ssl_cleanup(void);
 int matches_common_name(const char *hostname, const X509 *cert);
 

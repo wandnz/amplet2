@@ -11,7 +11,7 @@
  */
 int main(void) {
     int pipefd[2];
-    struct ctrlstream sendctrl, recvctrl;
+    BIO *sendctrl, *recvctrl;
     /* X tport X mss nagle rand web10g X rcv snd X X X X X */
     struct opt_t optionsA[] = {
         { 0, 12345, 0, 1460, 0, 0, 1, 0, 0, 0, 0,0,0,0,0},
@@ -32,20 +32,19 @@ int main(void) {
         return -1;
     }
 
-    sendctrl.type = recvctrl.type = PLAIN_CONTROL_STREAM;
-    sendctrl.stream.sock = pipefd[1];
-    recvctrl.stream.sock = pipefd[0];
+    sendctrl = BIO_new_socket(pipefd[1], BIO_CLOSE);
+    recvctrl = BIO_new_socket(pipefd[0], BIO_CLOSE);
 
     /* try sending each of the test option sets */
     for ( i = 0; i < count; i++ ) {
         /* write data into one end of the pipe */
-        if ( send_control_hello(AMP_TEST_THROUGHPUT, &sendctrl,
+        if ( send_control_hello(AMP_TEST_THROUGHPUT, sendctrl,
                     build_hello(&optionsA[i])) < 0 ) {
             return -1;
         }
 
         /* read it out the other and make sure it matches what we sent */
-        if ( read_control_hello(AMP_TEST_THROUGHPUT, &recvctrl,
+        if ( read_control_hello(AMP_TEST_THROUGHPUT, recvctrl,
                     (void**)&optionsB, parse_hello) != 0 ) {
             return -1;
         }
@@ -60,7 +59,8 @@ int main(void) {
         assert(optionsA[i].sock_sndbuf == optionsB->sock_sndbuf);
     }
 
-    close(pipefd[0]);
-    close(pipefd[1]);
+    BIO_free_all(sendctrl);
+    BIO_free_all(recvctrl);
+
     return 0;
 }

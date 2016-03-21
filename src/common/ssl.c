@@ -453,112 +453,56 @@ SSL_CTX* initialise_ssl_context(amp_ssl_opt_t *sslopts) {
 
 
 /*
- * Wait for and accept an incoming SSL session over top of an existing, open
- * socket and perform initial checks on certificate validity.
+ * Establish a control connection across an existing, connected socket. If
+ * there is an SSL context then this will perform the server/client side
+ * establishment as directed, otherwise it will just wrap the file descriptor
+ * in a BIO with no further action.
  */
-SSL* ssl_accept(SSL_CTX *ssl_ctx, int fd) {
-    SSL *ssl;
+BIO* establish_control_socket(SSL_CTX *ssl_ctx, int fd, int client) {
+    BIO *socket_bio, *top_bio;
 
-    assert(ssl_ctx);
-
-    Log(LOG_DEBUG, "Accepting new SSL connection");
-
-    if ( (ssl = SSL_new(ssl_ctx)) == NULL ) {
-        Log(LOG_DEBUG, "Failed to create new SSL connection descriptor");
+    if ( (socket_bio = BIO_new_socket(fd, BIO_CLOSE)) == NULL ) {
+        Log(LOG_WARNING, "Failed to create new socket BIO");
         return NULL;
     }
 
-    /* Set this fd as the input/output for this ssl */
-    if ( SSL_set_fd(ssl, fd) != 1 ) {
-        log_ssl("Failed to set SSL connection descriptor");
-        return NULL;
+    if ( ssl_ctx ) {
+        BIO *ssl_bio;
+        SSL *ssl;
+
+        Log(LOG_DEBUG, "Active SSL context, using SSL BIO");
+
+        /* 0 flags this as a server connection */
+        if ( (ssl_bio = BIO_new_ssl(ssl_ctx, client)) == NULL ) {
+            log_ssl("Failed to create new SSL BIO");
+            BIO_free(socket_bio);
+            return NULL;
+        }
+
+        top_bio = BIO_push(ssl_bio, socket_bio);
+
+        if ( BIO_do_handshake(top_bio) != 1 ) {
+            log_ssl("Failed to complete SSL handshake");
+            BIO_free_all(top_bio);
+            return NULL;
+        }
+
+        BIO_get_ssl(top_bio, &ssl);
+
+        /* Check that the cert presented is valid */
+        if ( SSL_get_verify_result(ssl) != X509_V_OK ) {
+            log_ssl("Failed to validate client certificate");
+            BIO_free_all(top_bio);
+            return NULL;
+        }
+    } else {
+        Log(LOG_DEBUG, "No SSL context, using plain socket BIO");
+        top_bio = socket_bio;
     }
 
-    /* Wait for the remote end to initiate handshake */
-    if ( SSL_accept(ssl) != 1 ) {
-        log_ssl("Failed to accept SSL connection");
-        return NULL;
-    }
+    Log(LOG_DEBUG, "Successfully established control connection");
 
-    /* Check that the cert presented is valid */
-    if ( SSL_get_verify_result(ssl) != X509_V_OK ) {
-        log_ssl("Failed to validate client certificate");
-        return NULL;
-    }
-
-    return ssl;
-}
-
-
-
-/*
- * Connect an SSL session over top of an existing, open socket and perform
- * initial checks on certificate validity.
- */
-SSL* ssl_connect(SSL_CTX *ssl_ctx, int fd) {
-    SSL *ssl;
-
-    assert(ssl_ctx);
-
-    Log(LOG_DEBUG, "Creating new SSL connection");
-
-    if ( (ssl = SSL_new(ssl_ctx)) == NULL ) {
-        Log(LOG_DEBUG, "Failed to create new SSL connection descriptor");
-        return NULL;
-    }
-
-    /* Set this fd as the input/output for this ssl */
-    if ( SSL_set_fd(ssl, fd) != 1 ) {
-        log_ssl("Failed to set SSL connection descriptor");
-        return NULL;
-    }
-
-    /* Initiate the handshake */
-    if ( SSL_connect(ssl) != 1 ) {
-        log_ssl("Failed to complete SSL handshake");
-        return NULL;
-    }
-
-    /* Check that the cert presented is valid */
-    if ( SSL_get_verify_result(ssl) != X509_V_OK ) {
-        log_ssl("Failed to validate client certificate");
-        return NULL;
-    }
-
-    return ssl;
-}
-
-
-
-/*
- * Shutdown and free an SSL session.
- */
-void ssl_shutdown(SSL *ssl) {
-    int sock;
-
-    assert(ssl);
-
-    Log(LOG_DEBUG, "Shutting down SSL connection");
-
-    sock = SSL_get_fd(ssl);
-
-#if 0
-    /* call shutdown twice to make sure bi-directional shutdown is complete */
-    if ( SSL_shutdown(ssl) == 0 ) {
-        SSL_shutdown(ssl);
-    }
-#endif
-    /*
-     * We can't rely on the other end to play nice and shutdown when we want
-     * to, so only call shutdown once and ignore whatever the other end thinks.
-     */
-    SSL_shutdown(ssl);
-    close(sock);
-
-    Log(LOG_DEBUG, "Finished shutting down SSL connection");
-
-    SSL_free(ssl);
-    ssl = NULL;
+    return top_bio;
 }
 
 

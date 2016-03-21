@@ -31,93 +31,62 @@
 
 
 /*
- * Write a control message onto the SSL stream.
+ * Write to the control stream.
  */
-int write_control_packet_ssl(SSL *ssl, void *data, uint32_t len) {
-    int result;
-    uint32_t datalen = ntohl(len);
-
-    /*
-     * There is no delimiter for protocol buffers, so we need to send the
-     * length of the message that will follow
-     */
-    result = SSL_write(ssl, (void *)&datalen, sizeof(datalen));
-
-    if ( result < 0 ) {
-        Log(LOG_WARNING, "Failed to write server control packet length: %s",
-                strerror(errno));
-        return -1;
-    }
-
-    assert(result == sizeof(datalen));
-
-    /* Send the actual protocol buffer message onto the stream now */
-    result = SSL_write(ssl, data, len);
-
-    if ( result < 0 ) {
-        Log(LOG_WARNING, "Failed to write server control packet length");
-        return -1;
-    }
-
-    assert(result == len);
-
-    return (sizeof(datalen) + len);
-}
-
-
-
-/*
- * Write a control message onto the stream.
- */
-static int write_control_packet_plain(int sock, void *data, uint32_t len) {
-    int result;
+static int do_control_write(BIO *ctrl, void *data, uint32_t datalen) {
+    fd_set writefds;
+    struct timeval timeout;
+    int fd;
+    int ready;
+    int bytes;
     uint32_t total_written = 0;
-    uint32_t datalen = ntohl(len);
 
-    /*
-     * There is no delimiter for protocol buffers, so we need to send the
-     * length of the message that will follow
-     */
+    assert(ctrl);
+    assert(data);
+
+    BIO_get_fd(ctrl, &fd);
+
     do {
-        result = write(sock, (uint8_t *)&datalen + total_written,
-                sizeof(datalen) - total_written);
+        /* make sure the underlying file descriptor is ready for writing */
+        do {
+            FD_ZERO(&writefds);
+            FD_SET(fd, &writefds);
 
-        if ( result < 0 && errno == EINTR ) {
-            continue;
+            timeout.tv_sec = CONTROL_CONNECTION_TIMEOUT;
+            timeout.tv_usec = 0;
+
+            ready = select(fd + 1, NULL, &writefds, NULL, &timeout);
+        } while ( ready < 0 && errno == EINTR );
+
+        if ( ready == 0 ) {
+            Log(LOG_DEBUG, "Timeout writing control packet, aborting");
+            return -1;
         }
 
-        if ( result < 0 ) {
-            Log(LOG_WARNING, "Failed to write server control packet length: %s",
+        if ( ready < 0 ) {
+            Log(LOG_WARNING, "Failed to write control packet: %s",
                     strerror(errno));
             return -1;
         }
 
-        total_written += result;
+        if ( FD_ISSET(fd, &writefds) ) {
+            bytes = BIO_write(ctrl, data+total_written, datalen-total_written);
+            if ( bytes == 0 ) {
+                Log(LOG_DEBUG, "Remote end closed control connection");
+                return -1;
+            }
 
-    } while ( total_written < sizeof(datalen));
-
-    assert(total_written == sizeof(datalen));
-
-    total_written = 0;
-
-    /* Send the actual protocol buffer message onto the stream now */
-    do {
-        result = write(sock, (uint8_t *)data+total_written, len-total_written);
-
-        if ( result < 0 && errno == EINTR ) {
-            continue;
+            if ( bytes < 0 ) {
+                if ( !BIO_should_retry(ctrl) ) {
+                    Log(LOG_WARNING, "Error reading from BIO");
+                    return -1;
+                }
+            } else {
+                /* there was enough data, record how much we wrote */
+                total_written += bytes;
+            }
         }
-
-        if ( result < 0 ) {
-            Log(LOG_WARNING, "Failed to write server control packet length");
-            return -1;
-        }
-
-        total_written += result;
-
-    } while ( total_written < len );
-
-    assert(total_written == len);
+    } while (total_written < datalen);
 
     return total_written;
 }
@@ -125,135 +94,128 @@ static int write_control_packet_plain(int sock, void *data, uint32_t len) {
 
 
 /*
- *
+ * XXX set SSL_MODE_AUTO_RETRY when creating SSL socket? Will that mean
+ * we never have to deal with reads while writing, or writes while reading?
  */
-int write_control_packet(struct ctrlstream *ctrl, void *data, uint32_t len) {
-    assert(ctrl);
-    assert(data);
+int write_control_packet(BIO *ctrl, void *data, uint32_t datalen) {
+    uint32_t ctrllen = ntohl(datalen);
 
-    switch ( ctrl->type ) {
-        case PLAIN_CONTROL_STREAM:
-            return write_control_packet_plain(ctrl->stream.sock, data, len);
-        case SSL_CONTROL_STREAM:
-            return write_control_packet_ssl(ctrl->stream.ssl, data, len);
-    };
-
-    return -1;
-}
-
-
-
-/*
- * Read a control message from the SSL stream.
- * XXX can block forever
- */
-int read_control_packet_ssl(SSL *ssl, void **data) {
-    int result;
-    uint32_t datalen = 0;
-
-    /* read the length of the following protocol buffer object */
-    result = SSL_read(ssl, (void *)&datalen, sizeof(datalen));
-
-    if ( result < 0 ) {
-        Log(LOG_WARNING, "Failed to read server control packet length");
+    /*
+     * There is no delimiter for protocol buffers, so we need to send the
+     * length of the message that will follow
+     */
+    if ( do_control_write(ctrl, &ctrllen, sizeof(ctrllen)) != sizeof(ctrllen) ){
+        Log(LOG_WARNING, "Failed to write server control packet length");
         return -1;
     }
 
-    if ( result == 0 ) {
-        Log(LOG_DEBUG, "Server control connection closed");
+    /* Send the actual protocol buffer message onto the stream now */
+    if ( do_control_write(ctrl, data, datalen) != datalen ) {
+        Log(LOG_WARNING, "Failed to write server control packet data");
         return -1;
     }
-
-    assert(result == sizeof(datalen));
-
-    datalen = ntohl(datalen);
-    *data = calloc(1, datalen);
-
-    /* read the protocol buffer object from the stream */
-    result = SSL_read(ssl, *data, datalen);
-
-    if ( result < 0 ) {
-        Log(LOG_WARNING, "Failed to read server control packet data");
-        free(*data);
-        return -1;
-    }
-
-    if ( result == 0 ) {
-        Log(LOG_DEBUG, "Server control connection closed");
-        free(*data);
-        return -1;
-    }
-
-    assert(result == datalen);
 
     return datalen;
 }
 
 
 
-/*
- * Read a control message from the stream.
- * XXX can block forever
- */
-static int read_control_packet_plain(int sock, void **data) {
-    int result;
-    uint32_t datalen = 0;
-    uint32_t bytes_read = 0;
+static int do_control_read(BIO *ctrl, void *data, int datalen) {
+    fd_set readfds;
+    struct timeval timeout;
+    int fd;
+    int ready;
+    int bytes;
+    int total_read = 0;
 
-    /* read the length of the following protocol buffer object */
+    assert(ctrl);
+    assert(data);
+
+    BIO_get_fd(ctrl, &fd);
+
     do {
-        result = read(sock, ((uint8_t *)&datalen) + bytes_read,
-                sizeof(datalen) - bytes_read);
+        /* make sure the underlying file descriptor is ready for reading */
+        do {
+            FD_ZERO(&readfds);
+            FD_SET(fd, &readfds);
 
-        if ( result < 0 && errno == EINTR ) {
-            continue;
+            timeout.tv_sec = CONTROL_CONNECTION_TIMEOUT;
+            timeout.tv_usec = 0;
+
+            ready = select(fd + 1, &readfds, NULL, NULL, &timeout);
+        } while ( ready < 0 && errno == EINTR );
+
+        if ( ready == 0 ) {
+            Log(LOG_DEBUG, "Timeout reading control packet, aborting");
+            return -1;
         }
 
+        if ( ready < 0 ) {
+            Log(LOG_WARNING, "Failed to read control packet: %s",
+                    strerror(errno));
+            return -1;
+        }
+
+        if ( FD_ISSET(fd, &readfds) ) {
+            bytes = BIO_read(ctrl, data + total_read, datalen - total_read);
+            if ( bytes == 0 ) {
+                Log(LOG_DEBUG, "Remote end closed control connection");
+                return 0;
+            }
+
+            /*
+             * if we get an error, it might just be there isn't enough data
+             * to decrypt the SSL response, we might need to wait for more
+             */
+            if ( bytes < 0 ) {
+                if ( !BIO_should_retry(ctrl) ) {
+                    Log(LOG_WARNING, "Error reading from BIO");
+                    return -1;
+                }
+            } else {
+                /* there was enough data, record how much we read */
+                total_read += bytes;
+            }
+        }
+    } while (total_read < datalen);
+
+    return total_read;
+}
+
+
+
+/*
+ * XXX set SSL_MODE_AUTO_RETRY when creating SSL socket?
+ */
+int read_control_packet(BIO *ctrl, void **data) {
+    uint32_t datalen = 0;
+    int result;
+
+    /* read the 32 bit length field for this message */
+    result = do_control_read(ctrl, &datalen, sizeof(datalen));
+
+    if ( result != sizeof(datalen) ) {
+        /* TODO do we want to return 0 and deal with it further up the chain? */
         if ( result < 0 ) {
             Log(LOG_WARNING, "Failed to read server control packet length");
-            return -1;
         }
+        return -1;
+    }
 
-        if ( result == 0 ) {
-            Log(LOG_DEBUG, "Server control connection closed");
-            return -1;
-        }
-
-        bytes_read += result;
-
-    } while ( bytes_read < sizeof(datalen) );
-
-    assert(bytes_read == sizeof(datalen));
-
-    bytes_read = 0;
+    /* allocate storage for the following message */
     datalen = ntohl(datalen);
     *data = calloc(1, datalen);
 
-    /* read the protocol buffer object from the stream */
-    do {
-        result = read(sock, ((uint8_t *)*data)+bytes_read, datalen-bytes_read);
+    /* read the message */
+    result = do_control_read(ctrl, *data, datalen);
 
-        if ( result < 0 && errno == EINTR ) {
-            continue;
-        }
-
+    if ( result != datalen ) {
         if ( result < 0 ) {
             Log(LOG_WARNING, "Failed to read server control packet data");
-            free(*data);
-            return -1;
         }
-
-        if ( result == 0 ) {
-            Log(LOG_DEBUG, "Server control connection closed");
-            free(*data);
-            return -1;
-        }
-
-        bytes_read += result;
-
-    } while ( bytes_read < datalen );
-
-    assert(datalen == bytes_read);
+        free(*data);
+        return -1;
+    }
 
     return datalen;
 }
@@ -263,26 +225,7 @@ static int read_control_packet_plain(int sock, void **data) {
 /*
  *
  */
-int read_control_packet(struct ctrlstream *ctrl, void **data) {
-    assert(ctrl);
-    assert(data);
-
-    switch ( ctrl->type ) {
-        case PLAIN_CONTROL_STREAM:
-            return read_control_packet_plain(ctrl->stream.sock, data);
-        case SSL_CONTROL_STREAM:
-            return read_control_packet_ssl(ctrl->stream.ssl, data);
-    };
-
-    return -1;
-}
-
-
-
-/*
- *
- */
-int send_control_hello(test_type_t test, struct ctrlstream *ctrl,
+int send_control_hello(test_type_t test, BIO *ctrl,
         ProtobufCBinaryData *options) {
 
     int len;
@@ -325,7 +268,7 @@ int send_control_hello(test_type_t test, struct ctrlstream *ctrl,
 /*
  *
  */
-int send_control_ready(test_type_t test, struct ctrlstream *ctrl,
+int send_control_ready(test_type_t test, BIO *ctrl,
         uint16_t port) {
 
     int len;
@@ -360,7 +303,7 @@ int send_control_ready(test_type_t test, struct ctrlstream *ctrl,
 /*
  *
  */
-int send_control_receive(test_type_t test, struct ctrlstream *ctrl,
+int send_control_receive(test_type_t test, BIO *ctrl,
         ProtobufCBinaryData *options){
 
     int len;
@@ -398,7 +341,7 @@ int send_control_receive(test_type_t test, struct ctrlstream *ctrl,
 /*
  *
  */
-int send_control_send(test_type_t test, struct ctrlstream *ctrl,
+int send_control_send(test_type_t test, BIO *ctrl,
         ProtobufCBinaryData *options) {
 
     int len;
@@ -449,7 +392,7 @@ int send_control_send(test_type_t test, struct ctrlstream *ctrl,
  * TODO how do extensions and things work? Better way to stick a specific
  * test report packet into a message than as a byte array?
  */
-int send_control_result(test_type_t test, struct ctrlstream *ctrl,
+int send_control_result(test_type_t test, BIO *ctrl,
         ProtobufCBinaryData *data) {
 
     int len;
@@ -484,7 +427,7 @@ int send_control_result(test_type_t test, struct ctrlstream *ctrl,
 /*
  *
  */
-int send_control_renew(test_type_t test, struct ctrlstream *ctrl) {
+int send_control_renew(test_type_t test, BIO *ctrl) {
     int len;
     void *buffer;
     int result;
@@ -733,7 +676,7 @@ static int parse_control_result(test_type_t test, void *data, uint32_t len,
 /*
  *
  */
-int read_control_hello(test_type_t test, struct ctrlstream *ctrl,
+int read_control_hello(test_type_t test, BIO *ctrl,
         void **options, void *(*parse_func)(ProtobufCBinaryData *data)) {
     void *data;
     int len;
@@ -761,7 +704,7 @@ int read_control_hello(test_type_t test, struct ctrlstream *ctrl,
 /*
  *
  */
-int read_control_ready(test_type_t test, struct ctrlstream *ctrl,
+int read_control_ready(test_type_t test, BIO *ctrl,
         uint16_t *port) {
 
     void *data;
@@ -788,7 +731,7 @@ int read_control_ready(test_type_t test, struct ctrlstream *ctrl,
 /*
  *
  */
-int read_control_result(test_type_t test, struct ctrlstream *ctrl,
+int read_control_result(test_type_t test, BIO *ctrl,
         ProtobufCBinaryData *results) {
 
     void *data;

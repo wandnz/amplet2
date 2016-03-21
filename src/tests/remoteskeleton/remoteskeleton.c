@@ -9,7 +9,7 @@
 #include <stdlib.h>
 #include <sys/time.h>
 #include <assert.h>
-#include <openssl/ssl.h>
+#include <openssl/bio.h>
 
 #include "tests.h"
 #include "debug.h"
@@ -18,7 +18,7 @@
 int run_remoteskeleton(int argc, char *argv[], int count,
         struct addrinfo **dests);
 void print_remoteskeleton(void *data, uint32_t len);
-void server_remoteskeleton(int argc, char *argv[], SSL *ssl);
+void server_remoteskeleton(int argc, char *argv[], BIO *ctrl);
 test_t *register_test(void);
 
 
@@ -119,15 +119,11 @@ void print_remoteskeleton(void *data, uint32_t len) {
 
 
 void server_remoteskeleton(__attribute__((unused))int argc,
-        __attribute__((unused))char *argv[], SSL *ssl) {
+        __attribute__((unused))char *argv[],
+        __attribute__((unused))BIO *bio) {
 
     printf("SKELETON SERVER\n");
 
-    if ( send_server_port(ssl, 6699) < 0 ) {
-        printf("failed to send server port\n");
-    } else {
-        printf("sent server port ok\n");
-    }
 }
 
 

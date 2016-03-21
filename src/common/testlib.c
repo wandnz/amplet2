@@ -10,6 +10,7 @@
 #include <sys/ioctl.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <openssl/bio.h>
 
 #include <amqp.h>
 #include <amqp_framing.h>
@@ -358,38 +359,9 @@ int compare_addresses(const struct sockaddr *a,
 
 
 /*
- * Send a port number over an SSL connection. Mostly just a convenience for
- * starting test servers to save having to remember how to send SSL data and
- * byteswap.
- */
-int send_server_port(SSL *ssl, uint16_t port) {
-    int result = 0;
-
-    assert(ssl);
-    assert(ssl_ctx);
-
-    Log(LOG_DEBUG, "Sending server port %d", port);
-
-    port = htons(port);
-
-    /*
-     * man SSL_write:
-     * SSL_write() will only return with success, when the complete contents
-     * of buf of length num has been written.
-     */
-    if ( SSL_write(ssl, &port, sizeof(port)) <= 0 ) {
-        result = -1;
-    }
-
-    return result;
-}
-
-
-
-/*
  *
  */
-static int send_server_start(SSL *ssl, test_type_t type) {
+static int send_server_start(BIO *ctrl, test_type_t type) {
     int len;
     void *buffer;
     int result;
@@ -407,7 +379,7 @@ static int send_server_start(SSL *ssl, test_type_t type) {
     buffer = malloc(len);
     amplet2__measured__control__pack(&msg, buffer);
 
-    result = write_control_packet_ssl(ssl, buffer, len);
+    result = write_control_packet(ctrl, buffer, len);
 
     free(buffer);
 
@@ -419,15 +391,15 @@ static int send_server_start(SSL *ssl, test_type_t type) {
 /*
  *
  */
-void close_control_connection(struct ctrlstream *ctrl) {
-    assert(ctrl);
+void close_control_connection(BIO *ctrl) {
+    Log(LOG_DEBUG, "Closing control connection");
 
-    switch ( ctrl->type ) {
-        case SSL_CONTROL_STREAM: ssl_shutdown(ctrl->stream.ssl); break;
-        case PLAIN_CONTROL_STREAM: close(ctrl->stream.sock); break;
-    };
+    if ( !ctrl ) {
+        Log(LOG_WARNING, "Tried to close NULL control connection");
+        return;
+    }
 
-    free(ctrl);
+    BIO_free_all(ctrl);
 }
 
 
@@ -439,10 +411,10 @@ void close_control_connection(struct ctrlstream *ctrl) {
  * function), maybe the SSL part can be split out and this function also used
  * with connecting to the test server itself?
  */
-struct ctrlstream* connect_control_server(struct addrinfo *dest, uint16_t port,
+BIO* connect_control_server(struct addrinfo *dest, uint16_t port,
         amp_test_meta_t *meta) {
 
-    struct ctrlstream *ctrl;
+    BIO *ctrl;
     X509 *server_cert;
     int res;
     int attempts;
@@ -514,15 +486,17 @@ struct ctrlstream* connect_control_server(struct addrinfo *dest, uint16_t port,
              * The destination is from our nametable, so it should have a
              * useful canonical name set, we aren't relying on getaddrinfo.
              */
-            Log(LOG_DEBUG, "Failed to connect to %s (%s) attempt %d/%d: %s",
-                    dest->ai_canonname,
-                    amp_inet_ntop(dest, addrstr), attempts,
+            Log(LOG_DEBUG,
+                    "Failed to connect to %s:%d (%s:%d) attempt %d/%d: %s",
+                    dest->ai_canonname, port,
+                    amp_inet_ntop(dest, addrstr), port, attempts,
                     MAX_CONNECT_ATTEMPTS, strerror(errno));
 
             if ( attempts >= MAX_CONNECT_ATTEMPTS ) {
                 Log(LOG_WARNING,
-                        "Failed too many times connecting to %s (%s), aborting",
-                        dest->ai_canonname, amp_inet_ntop(dest, addrstr));
+                        "Failed too many times connecting to %s:%d (%s:%d)",
+                        dest->ai_canonname, port, amp_inet_ntop(dest, addrstr),
+                        port);
                 return NULL;
             }
 
@@ -541,27 +515,21 @@ struct ctrlstream* connect_control_server(struct addrinfo *dest, uint16_t port,
         }
     } while ( res < 0 );
 
-    ctrl = malloc(sizeof(struct ctrlstream));
+    ctrl = establish_control_socket(ssl_ctx, sock, 1);
 
+    /* if there is an SSL context then we are expected to use SSL */
+    //XXX should this happen in connect? except we don't know destination
     if ( ssl_ctx ) {
+        SSL *ssl;
         /* Open up the ssl channel and validate the cert against our CA cert */
         /* TODO CRL or OCSP to deal with revocation of certificates */
-        Log(LOG_DEBUG, "Setting up SSL connection to control server");
-
-        /* Do the SSL handshake */
-        if ( (ctrl->stream.ssl = ssl_connect(ssl_ctx, sock) ) == NULL ) {
-            Log(LOG_DEBUG, "Failed to setup SSL connection");
-            close(sock);
-            free(ctrl);
-            return NULL;
-        }
+        BIO_get_ssl(ctrl, &ssl);
 
         /* Recover the server's certificate */
-        server_cert = SSL_get_peer_certificate(ctrl->stream.ssl);
+        server_cert = SSL_get_peer_certificate(ssl);
         if ( server_cert == NULL ) {
             Log(LOG_DEBUG, "Failed to get peer certificate");
-            ssl_shutdown(ctrl->stream.ssl);
-            free(ctrl);
+            BIO_free_all(ctrl);
             return NULL;
         }
 
@@ -569,18 +537,14 @@ struct ctrlstream* connect_control_server(struct addrinfo *dest, uint16_t port,
         if ( matches_common_name(dest->ai_canonname, server_cert) != 0 ) {
             Log(LOG_DEBUG, "Hostname validation failed");
             X509_free(server_cert);
-            ssl_shutdown(ctrl->stream.ssl);
-            free(ctrl);
+            BIO_free_all(ctrl);
             return NULL;
         }
 
         X509_free(server_cert);
 
-        ctrl->type = SSL_CONTROL_STREAM;
         Log(LOG_DEBUG, "Successfully validated cert, connection established");
     } else {
-        ctrl->type = PLAIN_CONTROL_STREAM;
-        ctrl->stream.sock = sock;
         Log(LOG_DEBUG, "No SSL context, using plain control connection");
     }
 
@@ -593,14 +557,14 @@ struct ctrlstream* connect_control_server(struct addrinfo *dest, uint16_t port,
  * Ask that a remote amplet client that we are connected to start a server
  * for a particular test.
  */
-int start_remote_server(SSL *ssl, test_type_t type) {
+int start_remote_server(BIO *ctrl, test_type_t type) {
 
-    assert(ssl);
+    assert(ctrl);
     assert(type > AMP_TEST_INVALID && type < AMP_TEST_LAST);
 
     /* Send the test type, so the other end knows which server to run */
     /* TODO send any test parameters? */
-    if ( send_server_start(ssl, type) < 0 ) {
+    if ( send_server_start(ctrl, type) < 0 ) {
         Log(LOG_DEBUG, "Failed to send test type");
         return -1;
     }

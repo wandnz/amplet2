@@ -15,8 +15,7 @@
 /*
  * TODO return failure from here if things go poorly
  */
-static void do_receive(struct ctrlstream *ctrl, int test_sock,
-        struct opt_t *options) {
+static void do_receive(BIO *ctrl, int test_sock, struct opt_t *options) {
 
     Amplet2__Udpstream__Item *result;
     ProtobufCBinaryData packed;
@@ -98,7 +97,7 @@ static void do_send(int test_sock, struct sockaddr_storage *remote,
 //TODO make error messages make sense and not duplicated at all levels
 // XXX can any of this move into a library function?
 //XXX need remote when it can be extracted from control sock?
-static int serve_test(struct ctrlstream *ctrl, struct sockaddr_storage *remote,
+static int serve_test(BIO *ctrl, struct sockaddr_storage *remote,
         struct sockopt_t *sockopts) {
     struct socket_t sockets;
     uint16_t portmax;
@@ -209,10 +208,10 @@ static int serve_test(struct ctrlstream *ctrl, struct sockaddr_storage *remote,
 /*
  *
  */
-void run_udpstream_server(int argc, char *argv[], SSL *ssl) {
+void run_udpstream_server(int argc, char *argv[], BIO *ctrl) {
     int port; /* Port to start server on */
     struct socket_t listen_sockets;
-    int control_sock; /* Our clients control socket connection */
+    int control_sock;
     int opt;
     struct sockopt_t sockopts;
     struct sockaddr_storage client_addr;
@@ -223,7 +222,6 @@ void run_udpstream_server(int argc, char *argv[], SSL *ssl) {
     extern struct option long_options[];
     uint16_t portmax;
     int res;
-    struct ctrlstream ctrl;
 
     /* Possibly could use dests to limit interfaces to listen on */
 
@@ -259,6 +257,7 @@ void run_udpstream_server(int argc, char *argv[], SSL *ssl) {
     sockopts.socktype = SOCK_STREAM;
     sockopts.protocol = IPPROTO_TCP;
     sockopts.reuse_addr = 1;
+    control_sock = -1;
 
     /* try to open a listen port for the control connection from a client */
     do {
@@ -274,14 +273,12 @@ void run_udpstream_server(int argc, char *argv[], SSL *ssl) {
 
     client_addrlen = sizeof(client_addr);
 
-    if ( ssl ) {
+    if ( ctrl ) {
         /*
          * We have an SSL connection already from when this test server was
          * started by the amplet client - reuse it for test control.
          */
-        ctrl.type = SSL_CONTROL_STREAM;
-        ctrl.stream.ssl = ssl;
-        if ( getpeername(SSL_get_fd(ssl), (struct sockaddr*)&client_addr,
+        if ( getpeername(BIO_get_fd(ctrl, NULL), (struct sockaddr*)&client_addr,
                     &client_addrlen) < 0 ) {
             Log(LOG_WARNING, "Failed to get remote peer: %s", strerror(errno));
             return;
@@ -300,7 +297,7 @@ void run_udpstream_server(int argc, char *argv[], SSL *ssl) {
                                   (struct sockaddr*)&client_addr,
                                   &client_addrlen);
                           Log(LOG_DEBUG, "Got control connection on IPv4");
-                          /* clear the v6 address, it isn't needed any more */
+                          /* clear out v6 address, it isn't needed any more */
                           freeaddrinfo(sockopts.sourcev6);
                           sockopts.sourcev6 = NULL;
                           /* set v4 address to our local endpoint address */
@@ -337,33 +334,18 @@ void run_udpstream_server(int argc, char *argv[], SSL *ssl) {
             return;
         }
 
-        /* if we have an SSL context, expect the client to use SSL */
-        if ( ssl_ctx ) {
-            Log(LOG_DEBUG, "Got a secure client connection");
-            ctrl.type = SSL_CONTROL_STREAM;
-            if ( (ctrl.stream.ssl=ssl_accept(ssl_ctx, control_sock)) == NULL ) {
-                close(control_sock);
-                return;
-            }
-        } else {
-            Log(LOG_DEBUG, "Got a plain client connection");
-            ctrl.type = PLAIN_CONTROL_STREAM;
-            ctrl.stream.sock = control_sock;
+        if ( (ctrl=establish_control_socket(ssl_ctx,control_sock,0)) == NULL ) {
+            Log(LOG_WARNING, "Failed to establish control connection");
+            return;
         }
     }
 
     /* this will serve the test only on the address we got connected to on */
-    serve_test(&ctrl, &client_addr, &sockopts);
+    serve_test(ctrl, &client_addr, &sockopts);
 
-    /* close the control connection if we created it */
-    if ( ctrl.type == PLAIN_CONTROL_STREAM ) {
-        close(ctrl.stream.sock);
-    } else if ( ctrl.type == SSL_CONTROL_STREAM && ssl == NULL ) {
-        ssl_shutdown(ctrl.stream.ssl);
-    }
-
-    if ( !ssl ) {
-        /* we made the addrinfo structs ourselves, so free them manually */
+    /* we made the control connection ourselves */
+    if ( control_sock > 0 ) {
+        /* addrinfo structs were manually allocated, so free them manually */
         if ( sockopts.sourcev4 ) {
             free(sockopts.sourcev4->ai_addr);
             free(sockopts.sourcev4);
@@ -373,6 +355,8 @@ void run_udpstream_server(int argc, char *argv[], SSL *ssl) {
             free(sockopts.sourcev6->ai_addr);
             free(sockopts.sourcev6);
         }
+
+        close_control_connection(ctrl);
     }
 
     return;

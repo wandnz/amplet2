@@ -8,18 +8,7 @@
 #define MIN(X,Y) (((X) < (Y)) ? (X) : (Y))
 #define MAXIMUM_SERVER_WAIT_TIME 60000000
 
-enum ctrlstream_type {
-    PLAIN_CONTROL_STREAM,
-    SSL_CONTROL_STREAM,
-};
-
-struct ctrlstream {
-    enum ctrlstream_type type;
-    union {
-        int sock;
-        SSL *ssl;
-    } stream;
-};
+#define CONTROL_CONNECTION_TIMEOUT 5
 
 
 struct sockopt_t {
@@ -37,28 +26,24 @@ struct sockopt_t {
 };
 
 
-int write_control_packet(struct ctrlstream *ctrl, void *data, uint32_t len);
-int read_control_packet(struct ctrlstream *ctrl, void **data);
-int write_control_packet_ssl(SSL *ssl, void *data, uint32_t len);
-int read_control_packet_ssl(SSL *ssl, void **data);
+int write_control_packet(BIO *ctrl, void *data, uint32_t len);
+int read_control_packet(BIO *ctrl, void **data);
 
-int send_control_hello(test_type_t test, struct ctrlstream *ctrl,
+int send_control_hello(test_type_t test, BIO *ctrl,
         ProtobufCBinaryData *options);
-int send_control_ready(test_type_t test, struct ctrlstream *ctrl,uint16_t port);
-int send_control_receive(test_type_t test, struct ctrlstream *ctrl,
+int send_control_ready(test_type_t test, BIO *ctrl,uint16_t port);
+int send_control_receive(test_type_t test, BIO *ctrl,
         ProtobufCBinaryData *options);
-int send_control_send(test_type_t test, struct ctrlstream *ctrl,
+int send_control_send(test_type_t test, BIO *ctrl,
         ProtobufCBinaryData *options);
-int send_control_result(test_type_t test, struct ctrlstream *ctrl,
-        ProtobufCBinaryData *data);
+int send_control_result(test_type_t test, BIO *ctrl, ProtobufCBinaryData *data);
 //XXX throughput specific
-int send_control_renew(test_type_t test, struct ctrlstream *ctrl);
+int send_control_renew(test_type_t test, BIO *ctrl);
 
-int read_control_hello(test_type_t test, struct ctrlstream *ctrl,
-        void **options, void *(*parse_func)(ProtobufCBinaryData *data));
-int read_control_ready(test_type_t test, struct ctrlstream *ctrl,
-        uint16_t *port);
-int read_control_result(test_type_t test, struct ctrlstream *ctrl,
+int read_control_hello(test_type_t test, BIO *ctrl, void **options,
+        void *(*parse_func)(ProtobufCBinaryData *data));
+int read_control_ready(test_type_t test, BIO *ctrl, uint16_t *port);
+int read_control_result(test_type_t test, BIO *ctrl,
         ProtobufCBinaryData *results);
 
 /* XXX how many parse functions can be static? */
