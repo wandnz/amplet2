@@ -29,6 +29,11 @@ fi
 # TODO might be able to tidy up some of these? If every program links with the
 # same library then just leave the action-if-found empty so it gets added to
 # the global $LIBS
+AC_CHECK_LIB([rt], [timer_create],lrt_found=1,lrt_found=0)
+if test "$lrt_found" = 0; then
+    AC_MSG_ERROR(Required library librt not found; use LDFLAGS to specify library location)
+fi
+
 AC_CHECK_LIB([crypto], [EVP_DigestInit_ex],crypto_found=1,crypto_found=0)
 if test "$crypto_found" = 0; then
     AC_MSG_ERROR(Required library libcrypto not found; use LDFLAGS to specify library location)
