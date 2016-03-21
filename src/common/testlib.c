@@ -415,7 +415,6 @@ BIO* connect_control_server(struct addrinfo *dest, uint16_t port,
         amp_test_meta_t *meta) {
 
     BIO *ctrl;
-    X509 *server_cert;
     int res;
     int attempts;
     int sock;
@@ -520,7 +519,9 @@ BIO* connect_control_server(struct addrinfo *dest, uint16_t port,
     /* if there is an SSL context then we are expected to use SSL */
     //XXX should this happen in connect? except we don't know destination
     if ( ssl_ctx ) {
+        X509 *server_cert;
         SSL *ssl;
+
         /* Open up the ssl channel and validate the cert against our CA cert */
         /* TODO CRL or OCSP to deal with revocation of certificates */
         BIO_get_ssl(ctrl, &ssl);
