@@ -37,6 +37,7 @@ struct opt_t {
     char *sourcev4;                             /* source v4 address */
     char *sourcev6;                             /* source v6 address */
     long sslversion;                            /* SSL version to use */
+    uint8_t dscp;
 };
 
 struct cache_headers_t {

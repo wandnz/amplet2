@@ -53,8 +53,8 @@ int compare_addresses(const struct sockaddr *a,
         const struct sockaddr *b, int len);
 
 #if UNIT_TEST
-int amp_traceroute_build_ipv4_probe(void *packet, uint16_t packet_size, int id,
-        int ttl, uint16_t ident, struct addrinfo *dest);
+int amp_traceroute_build_ipv4_probe(void *packet, uint16_t packet_size,
+        uint8_t dscp, int id, int ttl, uint16_t ident, struct addrinfo *dest);
 int amp_traceroute_build_ipv6_probe(void *packet, uint16_t packet_size, int id,
         uint16_t ident, struct addrinfo *dest);
 #endif
@@ -91,6 +91,7 @@ struct opt_t {
     int as;                     /* lookup the AS number of each address */
     uint16_t packet_size;	/* use this packet size (bytes) */
     uint32_t inter_packet_delay;/* minimum gap between packets (usec) */
+    uint8_t dscp;
 };
 
 /*

@@ -142,6 +142,7 @@ void run_test(const test_schedule_item_t * const item, BIO *ctrl) {
     int total_resolve_count = 0;
     char *packet_delay_str = NULL;
     timer_t watchdog;
+    char *dscp_str = NULL;
 
     assert(item);
     assert(item->test_id < AMP_TEST_LAST);
@@ -188,6 +189,17 @@ void run_test(const test_schedule_item_t * const item, BIO *ctrl) {
     }
 
     /* TODO don't do these if the test options are already set? */
+
+    /* set the DSCP bits if configured at the global level */
+    if ( item->meta->dscp != DEFAULT_DSCP_VALUE ) {
+        argv[argc++] = "-Q";
+        if ( asprintf(&dscp_str, "%u", item->meta->dscp) < 0 ) {
+            Log(LOG_WARNING, "Failed to build DSCP string, aborting");
+            return;
+        }
+
+        argv[argc++] = dscp_str;
+    }
 
     /* set the outgoing interface if configured at the global level */
     if ( item->meta->interface != NULL ) {
@@ -372,6 +384,10 @@ void run_test(const test_schedule_item_t * const item, BIO *ctrl) {
 
     /* unload the watchdog, the test has completed in time */
     stop_watchdog(watchdog);
+
+    if ( dscp_str ) {
+        free(dscp_str);
+    }
 
     /* done running the test, exit */
     exit(0);

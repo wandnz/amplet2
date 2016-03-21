@@ -34,6 +34,7 @@
 static struct option long_options[] = {
     {"help", no_argument, 0, 'h'},
     {"interface", required_argument, 0, 'I'},
+    {"dscp", required_argument, 0, 'Q'},
     {"interpacketgap", required_argument, 0, 'Z'},
     {"asn", no_argument, 0, 'a'},
     {"noip", no_argument, 0, 'b'},
@@ -52,8 +53,8 @@ static struct option long_options[] = {
  * Fill out the IP and UDP header in the given data blob with the appropriate
  * values for our probes.
  */
-static int build_ipv4_probe(void *packet, uint16_t packet_size, int id,
-        int ttl, uint16_t ident, struct addrinfo *dest) {
+static int build_ipv4_probe(void *packet, uint16_t packet_size, uint8_t dscp,
+        int id, int ttl, uint16_t ident, struct addrinfo *dest) {
 
     struct iphdr *ip;
     struct udphdr *udp;
@@ -66,6 +67,7 @@ static int build_ipv4_probe(void *packet, uint16_t packet_size, int id,
 
     ip->version = 4;
     ip->ihl = 5;
+    ip->tos = dscp;
     ip->tot_len = htons(packet_size);
     ip->id = htons(id);
     ip->ttl = ttl;
@@ -105,7 +107,7 @@ static int build_ipv6_probe(void *packet, uint16_t packet_size, int id,
  * Send the next probe packet towards a given destination.
  */
 static int send_probe(struct socket_t *ip_sockets, uint16_t ident,
-        uint16_t packet_size, uint32_t inter_packet_delay,
+        uint16_t packet_size, uint32_t inter_packet_delay, uint8_t dscp,
         struct dest_info_t *info) {
 
     char packet[packet_size];
@@ -123,7 +125,7 @@ static int send_probe(struct socket_t *ip_sockets, uint16_t ident,
     switch ( info->addr->ai_family ) {
         case AF_INET: {
             sock = ip_sockets->socket;
-            length = build_ipv4_probe(packet, packet_size, id,
+            length = build_ipv4_probe(packet, packet_size, dscp, id,
                     info->ttl, ident, info->addr);
         } break;
 
@@ -1260,7 +1262,8 @@ static void send_probe_callback(wand_event_handler_t *ev_hdl, void *data) {
     /* send probe to the destination at the appropriate TTL */
     if ( send_probe(probelist->sockets, probelist->ident,
                 probelist->opts->packet_size,
-                probelist->opts->inter_packet_delay, item) < 0 ) {
+                probelist->opts->inter_packet_delay,
+                probelist->opts->dscp, item) < 0 ) {
         item->next = probelist->done;
         probelist->done = item;
         probelist->done_count++;
@@ -1529,6 +1532,7 @@ amp_test_result_t* run_traceroute(int argc, char *argv[], int count,
     Log(LOG_DEBUG, "Starting TRACEROUTE test");
 
     /* set some sensible defaults */
+    options.dscp = DEFAULT_DSCP_VALUE;
     options.inter_packet_delay = MIN_INTER_PACKET_DELAY;
     options.packet_size = DEFAULT_TRACEROUTE_PROBE_LEN;
     options.random = 0;
@@ -1540,12 +1544,17 @@ amp_test_result_t* run_traceroute(int argc, char *argv[], int count,
     sourcev6 = NULL;
     device = NULL;
 
-    while ( (opt = getopt_long(argc, argv, "hvI:abfp:rs:4:6:Z:",
+    while ( (opt = getopt_long(argc, argv, "hvI:Q:abfp:rs:4:6:Z:",
                     long_options, NULL)) != -1 ) {
 	switch ( opt ) {
             case '4': sourcev4 = get_numeric_address(optarg, NULL); break;
             case '6': sourcev6 = get_numeric_address(optarg, NULL); break;
             case 'I': device = optarg; break;
+            case 'Q': if ( parse_dscp_value(optarg, &options.dscp) < 0 ) {
+                          Log(LOG_WARNING, "Invalid DSCP value, aborting");
+                          exit(-1);
+                      }
+                      break;
             case 'Z': options.inter_packet_delay = atoi(optarg); break;
 	    case 'a': options.as = 1; break;
 	    case 'b': options.ip = 0; break;
@@ -1591,6 +1600,15 @@ amp_test_result_t* run_traceroute(int argc, char *argv[], int count,
 
     if ( set_default_socket_options(&icmp_sockets) < 0 ) {
         Log(LOG_ERR, "Failed to set default socket options, aborting test");
+        exit(-1);
+    }
+
+    /*
+     * The raw ip sockets are used for sending the probes, set DSCP values
+     * (which are currently ignored by the IPv4 socket as IP_HDRINCL is set)
+     */
+    if ( set_dscp_socket_options(&ip_sockets, options.dscp) < 0 ) {
+        Log(LOG_ERR, "Failed to set DSCP socket options, aborting test");
         exit(-1);
     }
 
@@ -1909,9 +1927,9 @@ test_t *register_test() {
 
 
 #if UNIT_TEST
-int amp_traceroute_build_ipv4_probe(void *packet, uint16_t packet_size, int id,
-        int ttl, uint16_t ident, struct addrinfo *dest) {
-    return build_ipv4_probe(packet, packet_size, id, ttl, ident, dest);
+int amp_traceroute_build_ipv4_probe(void *packet, uint16_t packet_size,
+        uint8_t dscp, int id, int ttl, uint16_t ident, struct addrinfo *dest) {
+    return build_ipv4_probe(packet, packet_size, dscp, id, ttl, ident, dest);
 }
 
 int amp_traceroute_build_ipv6_probe(void *packet, uint16_t packet_size, int id,

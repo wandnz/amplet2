@@ -34,6 +34,7 @@ typedef struct amp_test_meta {
     char *nssock;
     int control_port;
     uint32_t inter_packet_delay;
+    uint8_t dscp;
 } amp_test_meta_t;
 
 typedef struct amp_test_result {

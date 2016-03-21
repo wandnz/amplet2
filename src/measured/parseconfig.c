@@ -11,6 +11,8 @@
 #include "parseconfig.h"
 #include "messaging.h"
 #include "global.h"
+#include "testlib.h"
+
 
 
 /*
@@ -61,6 +63,24 @@ static int callback_verify_packet_delay(cfg_t *cfg, cfg_opt_t *opt) {
                 opt->name, value);
         return -1;
     }
+    return 0;
+}
+
+
+
+/*
+ *
+ */
+static int callback_verify_dscp(cfg_t *cfg, cfg_opt_t *opt,
+        const char *value, void *result) {
+
+    if ( parse_dscp_value(value, (uint8_t *)result) < 0 ) {
+        cfg_error(cfg, "Invalid value for option %s: %s\n"
+                "Use 6 bit binary codepoint or shortname string",
+                opt->name, value);
+        return -1;
+    }
+
     return 0;
 }
 
@@ -319,6 +339,11 @@ amp_test_meta_t* get_interface_config(cfg_t *cfg, amp_test_meta_t *meta) {
         meta->inter_packet_delay = cfg_getint(cfg, "packetdelay");
     }
 
+    /* set the default differentiated services bits */
+    if ( meta->dscp == DEFAULT_DSCP_VALUE ) {
+        meta->dscp = cfg_getint(cfg, "dscp");
+    }
+
     return meta;
 }
 
@@ -405,6 +430,7 @@ cfg_t* parse_config(char *filename, struct amp_global_t *vars) {
 	CFG_STR("ipv6", NULL, CFGF_NONE),
         CFG_INT("packetdelay", MIN_INTER_PACKET_DELAY, CFGF_NONE),
         CFG_INT_CB("loglevel", LOG_INFO, CFGF_NONE, &callback_verify_loglevel),
+        CFG_INT_CB("dscp", DEFAULT_DSCP_VALUE, CFGF_NONE,&callback_verify_dscp),
         CFG_STR_LIST("nameservers", NULL, CFGF_NONE),
 	CFG_SEC("collector", opt_collector, CFGF_NONE),
         CFG_SEC("remotesched", opt_remotesched, CFGF_NONE),

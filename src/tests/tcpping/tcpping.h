@@ -43,6 +43,7 @@ struct opt_t {
     uint16_t packet_size;       /* Use this particular packet size (bytes) */
     uint16_t port;              /* Target port number */
     uint32_t inter_packet_delay;/* minimum gap between packets (usec) */
+    uint8_t dscp;
 };
 
 struct tcppingglobals {

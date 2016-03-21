@@ -460,6 +460,23 @@ static curl_socket_t open_socket(__attribute__((unused))void *clientp,
 
     sock = socket(address->family, address->socktype, address->protocol);
 
+    if ( options.dscp ) {
+        struct socket_t sockets;
+        /* wrap the socket in a socket_t so we can call other amp functions */
+        memset(&sockets, 0, sizeof(sockets));
+        switch ( address->family ) {
+            case AF_INET: sockets.socket = sock; break;
+            case AF_INET6: sockets.socket6 = sock; break;
+            default: Log(LOG_ERR, "Unknown address family %d", address->family);
+                     return CURL_SOCKET_BAD;
+        };
+
+        if ( set_dscp_socket_options(&sockets, options.dscp) < 0 ) {
+            Log(LOG_ERR, "Failed to set DSCP socket options, aborting test");
+            return CURL_SOCKET_BAD;
+        }
+    }
+
     /*
      * Bind to the device. We could use libcurl for this by setting
      * CURLOPT_INTERFACE, but for now we will use the same code that all
@@ -833,7 +850,8 @@ CURL *pipeline_next_object(CURLM *multi, struct server_stats_t *server) {
      * creation function to deal with it. Could pass in the options struct,
      * but it is currently global anyway.
      */
-    if ( options.device || options.sourcev4 || options.sourcev6 ) {
+    if ( options.device || options.sourcev4 || options.sourcev6 ||
+            options.dscp) {
         //curl_easy_setopt(object->handle, CURLOPT_OPENSOCKETDATA, &options);
         curl_easy_setopt(object->handle, CURLOPT_OPENSOCKETFUNCTION,
                 open_socket);
@@ -1306,12 +1324,18 @@ amp_test_result_t* run_http(int argc, char *argv[],
     options.sourcev4 = NULL;
     options.sourcev6 = NULL;
     options.sslversion = CURL_SSLVERSION_DEFAULT;
+    options.dscp = DEFAULT_DSCP_VALUE;
 
-    while ( (opt = getopt_long(argc, argv, "u:km:s:o:pr:cz:hvI:4:6:dS:Z:",
+    while ( (opt = getopt_long(argc, argv, "u:km:s:o:pr:cz:hvI:Q:4:6:dS:Z:",
                     long_options, NULL)) != -1 ) {
 	switch ( opt ) {
             case 'Z': /* option does nothing for this test */ break;
             case 'I': options.device = optarg; break;
+            case 'Q': if ( parse_dscp_value(optarg, &options.dscp) < 0 ) {
+                          Log(LOG_WARNING, "Invalid DSCP value, aborting");
+                          exit(-1);
+                      }
+                      break;
             case '4': options.sourcev4 = optarg; break;
             case '6': options.sourcev6 = optarg; break;
 	    //case 'u': strncpy(options.url, optarg, MAX_URL_LEN); break;

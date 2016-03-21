@@ -1,0 +1,509 @@
+amplet2 (0.5.6-2jessie1) unstable; urgency=low
+
+  * Do some of dh_installinit manually so that it works properly on jessie.
+  * Install a systemd service file.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Thu,  3 Mar 2016 16:19:10 +1300
+
+amplet2 (0.5.6-1) unstable; urgency=low
+
+  * Try to deal with URLs at the top level starting with "../" in the HTTP test.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Thu, 25 Feb 2016 15:34:46 +1300
+
+amplet2 (0.5.5-3) unstable; urgency=low
+
+  * Don't recursively modify key permissions on install.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Wed,  6 Jan 2016 14:52:23 +1300
+
+amplet2 (0.5.5-2) unstable; urgency=low
+
+  * Set the keys directory to be owned by root:rabbitmq on install.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Wed,  6 Jan 2016 13:45:05 +1300
+
+amplet2 (0.5.5-1) unstable; urgency=low
+
+  * Deal with Linux SLL frames as well as Ethernet frames in TCP ping test.
+  * Free BPF filters after they have been installed in TCP ping test.
+  * Fix permissions again for downloaded certificates.
+  * Exponentially backoff when checking for newly signed certificates.
+  * Update return values in init script to hopefully better work with systemd.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Tue,  5 Jan 2016 11:24:01 +1300
+
+amplet2 (0.5.4-1) unstable; urgency=low
+
+  * Fix crash when checking the address families on interfaces with no address.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Mon,  7 Dec 2015 10:45:12 +1300
+
+amplet2 (0.5.3-1) unstable; urgency=low
+
+  * Smarter default configuration for ampname.
+  * Fixed permissions for downloaded certificates.
+  * Quieten some unnecessary log messages.
+  * Write pidfile earlier to help prevent puppet starting multiple instances.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Tue,  1 Dec 2015 10:34:51 +1300
+
+amplet2 (0.5.2-1) unstable; urgency=low
+
+  * Init script should wait for each client to start before continuing.
+  * Dynamically link standalone tests to the specific test libraries.
+  * Prevent possible race in TCP ping test.
+  * Update TCP ping and HTTP test to work in Debian Jessie.
+  * Exit main event loop on SIGTERM so we can log shutdown messages.
+  * Updated documentation.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Tue, 27 Oct 2015 14:12:47 +1300
+
+amplet2 (0.5.0-1) unstable; urgency=low
+
+  * Use Google protocol buffers when reporting test results.
+  * Allow tests to accept zero targets if they have default behaviour.
+  * Lower traceroute timeout from 3s to 2s to speed up tests.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Mon, 31 Aug 2015 14:53:23 +1200
+
+amplet2 (0.4.8-1) unstable; urgency=low
+
+  * Rewrite ASN lookups to deal better with whois server issues.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Fri, 17 Jul 2015 14:17:01 +1200
+
+amplet2 (0.4.7-3) unstable; urgency=low
+
+  * More debug around ASN lookups during traceroute test.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Tue, 14 Jul 2015 15:01:54 +1200
+
+amplet2 (0.4.7-2) unstable; urgency=low
+
+  * More debug around ASN lookups during traceroute test.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Thu,  9 Jul 2015 17:04:57 +1200
+
+amplet2 (0.4.7-1) unstable; urgency=low
+
+  * Break report messages into blocks of 255 results.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Thu,  9 Jul 2015 14:23:49 +1200
+
+amplet2 (0.4.6-1) unstable; urgency=low
+
+  * Don't update HTTP endtime after cleaning up - let returned objects set it.
+  * Don't try to log an ampname before it has been set.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Tue, 12 May 2015 11:34:46 +1200
+
+amplet2 (0.4.5-1) unstable; urgency=low
+
+  * Don't count failed object fetches towards global HTTP test statistics.
+  * First basic attempt to include the ampname when logging to syslog.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Mon, 11 May 2015 16:09:20 +1200
+
+amplet2 (0.4.4-1) unstable; urgency=low
+
+  * Add runtime option to HTTP test to force SSL version.
+  * Add config option to amplet2 client to set minimum inter-packet delay.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Fri,  8 May 2015 13:37:11 +1200
+
+amplet2 (0.4.3-1) unstable; urgency=low
+
+  * Don't report HTTP test data if name resolution fails (same as other tests).
+  * Add HTTP test option to suppress parsing of initial object.
+  * Fix comparison of test schedule objects to properly check end time.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Fri, 27 Mar 2015 11:11:11 +1300
+
+amplet2 (0.4.2-1) unstable; urgency=low
+
+  * Don't do address to name translation when accepting on control socket.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Fri, 18 Mar 2015 14:40:26 +1300
+
+amplet2 (0.4.1-1) unstable; urgency=low
+
+  * Always initialise SSL, even if not needed for reporting to rabbitmq.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Fri, 13 Mar 2015 11:13:25 +1300
+
+amplet2 (0.4.0-1) unstable; urgency=low
+
+  * Add ability to generate keys and fetch signed certificates if not present.
+  * Fix HTTP test to deal with HTTPS URLs.
+  * Speed up random packet generation in throughput test by using /dev/urandom.
+  * Always configure rabbitmq if with a local broker (unless configured not to).
+  * Fix the nametable to properly use names as targets.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Tue, 10 Mar 2015 17:31:28 +1300
+
+amplet2 (0.3.9-1) unstable; urgency=low
+
+  * Fix rescheduling tests when slightly early around test period boundaries.
+  * Fix a possible infinite loop in the tcpping test.
+  * Replace an assert with a warning when a watchdog can't be removed.
+  * Add ability to dump schedule config when receiving a SIGUSR2.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Wed, 11 Feb 2015 14:44:54 +1300
+
+amplet2 (0.3.8-1) unstable; urgency=low
+
+  * Fix tcpping test when bound to a single interface.
+  * Quieten some too common, unhelpful warning messages.
+  * Fix tests being rescheduled immediately due to clock drift.
+  * No longer attempts to resolve address families the test interface lacks.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Wed,  3 Dec 2014 17:29:28 +1300
+
+amplet2 (0.3.7-1) unstable; urgency=low
+
+  * Bring the schedule parser in line with the generated schedules.
+  * Fix buffer management when fetching large amounts of ASN data.
+  * Fix HTTP test to record and follow 3XX redirects.
+  * Fix HTTP test to better deal with headers using weird separators/caps.
+  * Fix traceroute test when low TTL responses incorrectly decrement TTL.
+  * Allow tests to be warned before the watchdog attempts to kill them.
+  * Properly close local unix sockets (ASN, DNS) when forking for a test.
+  * Enabled Debian compile-time options to harden binaries.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Mon,  3 Nov 2014 16:40:42 +1300
+
+amplet2 (0.3.6-1) unstable; urgency=low
+
+  * Updated schedule file format to new testing YAML format.
+  * Updated ASN fetching for traceroute test to use TCP bulk whois interface.
+  * Fix HTTP test crashing with long URLs.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Tue, 30 Sep 2014 16:12:40 +1300
+
+amplet2 (0.3.5-1) unstable; urgency=low
+
+  * Use package name as ident when logging to syslog.
+  * Update test thread names to reflect the test being performed.
+  * Use socket timestamps rather than gettimeofday() where possible.
+  * Upgrade from libwandevent2 to libwandevent3.
+  * Use local stopsets in traceroute test to reduce nearby probing.
+  * Add option to traceroute test to fetch AS numbers for addresses in path.
+  * Added TCPPing test.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Thu, 28 Aug 2014 14:06:14 +1200
+
+amplet2 (0.3.3-2) unstable; urgency=low
+
+  * Use local resolvers from /etc/resolv.conf if none specified.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Wed, 18 Jun 2014 15:21:28 +1200
+
+amplet2 (0.3.2-1) unstable; urgency=low
+
+  * Fix name resolution threads writing to dead test processes.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Wed, 11 Jun 2014 16:26:59 +1200
+
+amplet2 (0.3.1-1) unstable; urgency=low
+
+  * New release for all currently deployed amplets.
+  * Fix name resolution to properly return address family.
+  * Fix race condition when counting outstanding DNS queries.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Fri,  6 Jun 2014 13:48:11 +1200
+
+amplet2 (0.3.0-1) unstable; urgency=low
+
+  * Tidy some build scripts (automake and python setuptools).
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Wed,  4 Jun 2014 17:44:26 +1200
+
+amplet2 (0.2.6-2) unstable; urgency=low
+
+  * Init script should stop all instances with a pidfile, rather than only
+    those that have a config file.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Fri,  30 May 2014 17:22:33 +1200
+
+amplet2 (0.2.6-1) unstable; urgency=low
+
+  * Minor bugfixes.
+  * Removed test timing code in ICMP test that was being included in packages.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Thu,  29 May 2014 16:55:20 +1200
+
+amplet2 (0.2.5-2) unstable; urgency=low
+
+  * Require libunbound2 rather than libunbound.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Wed,  28 May 2014 13:38:17 +1200
+
+amplet2 (0.2.5-1) unstable; urgency=low
+
+  * New upstream release.
+  * Name resolution now uses libunbound and happens in separate threads.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Thu,  22 May 2014 17:21:21 +1200
+
+amplet2 (0.2.4-1) unstable; urgency=low
+
+  * New upstream release.
+  * Set custom nameservers per test process rather than on the parent.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Wed,  14 May 2014 17:20:28 +1200
+
+amplet2 (0.2.3-1) unstable; urgency=low
+
+  * New upstream release.
+  * Fix test parameters where parameters included a delimiting comma.
+  * Allow multiple client configuration in configuration directory.
+  * Use vhosts with rabbitmq to isolate our data.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Fri,  9 May 2014 17:49:23 +1200
+
+amplet2 (0.2.2-1) unstable; urgency=low
+
+  * New upstream release.
+  * Now links binaries with fewer unnecessary libraries.
+  * Allows custom nameservers to be specified at runtime.
+  * Control socket will default to global interface configuration if no
+    specific configuration is given.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Tue, 29 Apr 2014 14:10:04 +1200
+
+amplet2 (0.2.1-1) unstable; urgency=low
+
+  * New upstream release.
+  * Added ability to set source address/interface to HTTP/throughput tests.
+  * Reported data for throughput test now includes target name.
+  * Throughput test will now try to find a free port to use rather than fail.
+  * Control socket can now be set to listen on a specific address/interface.
+  * Test saving functions now properly null undefined fields.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Mon, 31 Mar 2014 15:51:54 +1300
+
+amplet2 (0.2.0-1) unstable; urgency=low
+
+  * New upstream release.
+  * Removed fixed size buffers from most test report messages.
+  * Try to better avoid parsing javascript in the HTTP test.
+  * Fix nametable to work with more than one name.
+  * Added fetching schedules via HTTP/HTTPS.
+  * Added a control socket to start local test servers via HTTPS.
+  * Added ability to set source address/interface to ICMP/traceroute/DNS tests.
+  * Added throughput test.
+  * Added basic unit tests for some behaviour.
+  * More documentation.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Tue, 18 Mar 2014 15:57:03 +1300
+
+amplet2 (0.1.13-1) unstable; urgency=low
+
+  * New upstream release.
+  * Fix possibly uninitialised values being reported by DNS test.
+  * Fix segfault when exiting traceroute test.
+  * Increase watchdog timeouts for killing tests.
+  * Log basic information about any test that gets killed for running too long.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Thu, 16 Jan 2014 14:22:20 +1300
+
+amplet2 (0.1.12-1) unstable; urgency=low
+
+  * New upstream release.
+  * Resolve all target names in the schedule file by default.
+  * Deal more gracefully in tests with packets that can't be sent.
+  * Allow the same name to be defined multiple times in the nametable.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Wed, 18 Dec 2013 13:42:08 +1300
+
+amplet2 (0.1.11-1) unstable; urgency=low
+
+  * New upstream release.
+  * Properly terminate libconfuse option structures.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Thu, 12 Dec 2013 11:16:21 +1300
+
+amplet2 (0.1.10-10) unstable; urgency=low
+
+  * Use the correct argument to chown to get recursion.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Thu, 12 Dec 2013 09:36:50 +1300
+
+amplet2 (0.1.10-9) unstable; urgency=low
+
+  * Give the rabbitmq user access to the keys it needs to run the shovel.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Mon,  9 Dec 2013 14:35:32 +1300
+
+amplet2 (0.1.10-8) unstable; urgency=low
+
+  * Enable the http test.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Fri,  6 Dec 2013 15:41:22 +1300
+
+amplet2 (0.1.10-7) unstable; urgency=low
+
+  * Revert the specific amplet user changes, easier to run as root for now.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Fri,  6 Dec 2013 15:32:24 +1300
+
+amplet2 (0.1.10-6) unstable; urgency=low
+
+  * Don't do anything with rabbit during postinst if $HOME is not set.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Fri,  6 Dec 2013 14:18:20 +1300
+
+amplet2 (0.1.10-5) unstable; urgency=low
+
+  * Don't create home directory for amplet user.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Fri,  6 Dec 2013 13:26:58 +1300
+
+amplet2 (0.1.10-4) unstable; urgency=low
+
+  * Create the "amplet" user to run everything.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Fri,  6 Dec 2013 11:08:57 +1300
+
+amplet2 (0.1.10-3) unstable; urgency=low
+
+  * Fix empty if block in postinst.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Fri,  6 Dec 2013 10:34:27 +1300
+
+amplet2 (0.1.10-2) unstable; urgency=low
+
+  * Make sure init/default scripts are named appropriately in lite package.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Mon,  4 Dec 2013 12:03:19 +1300
+
+amplet2 (0.1.10-1) unstable; urgency=low
+
+  * Still struggling to find consistency with file names.
+  * Don't install both versions of the config file, limit it based on package.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Mon,  4 Dec 2013 11:15:37 +1300
+
+amplet2 (0.1.9-1) unstable; urgency=low
+
+  * Fix http test to use the correct start timestamp
+  * Make paths and filenames more consistent ("amplet2")
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Mon,  2 Dec 2013 13:53:06 +1300
+
+amplet2 (0.1.8-3) unstable; urgency=low
+
+  * Remove pointless init scripts and default files from amplet2-server, for
+    now it only needs to be the python test parsing.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Fri, 18 Oct 2013 11:44:55 +1300
+
+amplet2 (0.1.8-2) unstable; urgency=low
+
+  * Depend on custom librabbitmq library instead of normal one
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Wed, 16 Oct 2013 12:03:35 +1300
+
+amplet2 (0.1.8-1) unstable; urgency=low
+
+  * Quieten some log messages in tests.
+  * Deal properly with SIGHUP when not run as a daemon.
+  * Basic support for fetching remote configs over HTTP.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Tue, 15 Oct 2013 13:28:08 +1300
+
+amplet2 (0.1.7-2) unstable; urgency=low
+
+  * Create keys directory and set permissions appropriately.
+  * Prepare to create local rabbitmq users (but don't yet).
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Fri, 13 Sep 2013 15:27:39 +1200
+
+amplet2 (0.1.7-1) unstable; urgency=low
+
+  * New upstream release.
+  * Fixed incorrect packet sizes in traceroute test.
+  * Fixed method of dealing with late response packets in traceroute test.
+  * Schedule file can now limit name resolution to ipv4/ipv6.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Mon, 9 Sep 2013 14:29:56 +1200
+
+amplet2 (0.1.6-1) unstable; urgency=low
+
+  * New upstream release
+  * Split into two packages, one using a local broker, one without.
+  * Reworked messaging code slightly to use better userids.
+  * Use hostname as the default value of ampname.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Tue, 27 Aug 2013 19:06:38 +1200
+
+amplet2 (0.1.5-2) unstable; urgency=low
+
+  * Include rabbitmq configuration in the package and install if possible.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Thu, 22 Aug 2013 15:40:22 +1200
+
+amplet2 (0.1.5-1) unstable; urgency=low
+
+  * New upstream release.
+  * Fixed traceroute test to properly ignore other tests TTL exceeded messages.
+  * Fixed an issue where resolving test addresses would not return all of them.
+  * Added basic SSL authentication to the broker.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Mon, 19 Aug 2013 16:11:19 +1200
+
+amplet2 (0.1.4-1) unstable; urgency=low
+
+  * New upstream release.
+  * No longer uses inotify, configuration is updated after a SIGHUP.
+  * Schedule configuration is now a directory rather than a single file.
+  * Log level is now configurable and able to be overridden on command line.
+  * icmp test deals better with ICMP_REDIRECT.
+  * dns test will only calculate a response length when it is sensible.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Fri, 29 May 2013 18:01:35 +1200
+
+amplet2 (0.1.3-1) unstable; urgency=low
+
+  * New upstream release.
+  * Merge libamp and libmeasured into a single library, libamp.
+  * Fix install locations of files into the system.
+  * Be more consistent with use of package name.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Wed, 29 May 2013 14:15:03 +1200
+
+amplet2 (0.1.2-1) unstable; urgency=low
+
+  * New upstream release.
+  * Fix http test reporting to properly order and pack data structures.
+  * Add python code to extract http test data from a report
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Wed, 8 May 2013 14:09:58 +1200
+
+amplet2 (0.1.1-1) unstable; urgency=low
+
+  * New upstream release.
+  * Change logging to use syslog rather than writing logs manually.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Tue, 1 May 2013 17:19:22 +1200
+
+amplet2 (0.1-3) unstable; urgency=low
+
+  * Fix init scripts to actually start and stop measured.
+  * Don't try to start measured by default.
+  * Run configure with proper file locations set for private libraries.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Tue, 1 May 2013 15:52:55 +1200
+
+amplet2 (0.1-2) unstable; urgency=low
+
+  * Update dependencies to use correct package names.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Tue, 30 Apr 2013 16:26:28 +1200
+
+amplet2 (0.1-1) unstable; urgency=low
+
+  * Initial testing release.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Fri, 26 Apr 2013 15:17:17 +1200
