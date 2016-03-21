@@ -70,7 +70,8 @@ static int do_control_write(BIO *ctrl, void *data, uint32_t datalen) {
         }
 
         if ( FD_ISSET(fd, &writefds) ) {
-            bytes = BIO_write(ctrl, data+total_written, datalen-total_written);
+            bytes = BIO_write(ctrl, (uint8_t*)data + total_written,
+                    datalen - total_written);
             if ( bytes == 0 ) {
                 Log(LOG_DEBUG, "Remote end closed control connection");
                 return -1;
@@ -157,7 +158,8 @@ static int do_control_read(BIO *ctrl, void *data, int datalen) {
         }
 
         if ( FD_ISSET(fd, &readfds) ) {
-            bytes = BIO_read(ctrl, data + total_read, datalen - total_read);
+            bytes = BIO_read(ctrl, (uint8_t*)data + total_read,
+                    datalen - total_read);
             if ( bytes == 0 ) {
                 Log(LOG_DEBUG, "Remote end closed control connection");
                 return 0;
