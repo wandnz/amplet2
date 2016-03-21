@@ -11,7 +11,8 @@
 #include "ssl.h"
 #include "serverlib.h"
 #include "throughput.h"
-#include "servers.pb-c.h"
+#include "controlmsg.h"
+#include "controlmsg.pb-c.h"
 
 
 
@@ -306,11 +307,11 @@ static int serveTest(BIO *ctrl, struct sockopt_t *sockopts) {
 
     /* Wait for something to do from the client */
     while ( (bytes = read_control_packet(ctrl, &data)) > 0 ) {
-        Amplet2__Servers__Control *msg;
-        msg = amplet2__servers__control__unpack(NULL, bytes, data);
+        Amplet2__Controlmsg__Control *msg;
+        msg = amplet2__controlmsg__control__unpack(NULL, bytes, data);
 
         switch ( msg->type ) {
-            case AMPLET2__SERVERS__CONTROL__TYPE__RECEIVE: {
+            case AMPLET2__CONTROLMSG__CONTROL__TYPE__RECEIVE: {
                 if ( parse_control_receive(AMP_TEST_THROUGHPUT, data, bytes,
                             NULL, NULL) < 0 ) {
                     goto errorCleanup;
@@ -323,7 +324,7 @@ static int serveTest(BIO *ctrl, struct sockopt_t *sockopts) {
                 break;
             }
 
-            case AMPLET2__SERVERS__CONTROL__TYPE__SEND: {
+            case AMPLET2__CONTROLMSG__CONTROL__TYPE__SEND: {
                 struct test_request_t *request;
                 if ( parse_control_send(AMP_TEST_THROUGHPUT, data, bytes,
                             (void**)&request, parse_send) < 0 ) {
@@ -339,7 +340,7 @@ static int serveTest(BIO *ctrl, struct sockopt_t *sockopts) {
                 break;
             }
 
-            case AMPLET2__SERVERS__CONTROL__TYPE__RENEW: {
+            case AMPLET2__CONTROLMSG__CONTROL__TYPE__RENEW: {
 
                 if ( do_renew(ctrl, test_sock, options->tport,
                             portmax, sockopts) < 0 ) {
@@ -358,7 +359,7 @@ static int serveTest(BIO *ctrl, struct sockopt_t *sockopts) {
 
         /* both read_control_packet and unpacking the buffer allocate memory */
         free(data);
-        amplet2__servers__control__free_unpacked(msg, NULL);
+        amplet2__controlmsg__control__free_unpacked(msg, NULL);
     }
 
     free(options);

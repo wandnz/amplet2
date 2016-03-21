@@ -12,9 +12,6 @@
 #include <sys/stat.h>
 #include <openssl/bio.h>
 
-#include <amqp.h>
-#include <amqp_framing.h>
-
 #include <google/protobuf-c/protobuf-c.h>
 
 #include "testlib.h"
@@ -25,7 +22,7 @@
 #include "ssl.h"
 #include "global.h"
 #include "measured.pb-c.h"
-#include "serverlib.h"
+#include "controlmsg.h"
 
 
 

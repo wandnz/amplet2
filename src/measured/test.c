@@ -23,7 +23,7 @@
 #include "ssl.h"
 #include "testlib.h" /* only for MIN_INTER_PACKET_DELAY, can we move it? */
 #include "messaging.h" /* only for report_to_broker() */
-#include "serverlib.h" /* only for write_control_packet_ssl() */
+#include "controlmsg.h" /* only for write_control_packet() */
 
 
 

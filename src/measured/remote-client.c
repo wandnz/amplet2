@@ -17,7 +17,7 @@
 #include "testlib.h"
 #include "ssl.h"
 #include "measured.pb-c.h"
-#include "serverlib.h"
+#include "controlmsg.h"
 #include "modules.h"
 
 

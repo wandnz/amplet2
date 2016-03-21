@@ -11,6 +11,7 @@
 #include "serverlib.h"
 #include "throughput.h"
 #include "throughput.pb-c.h"
+#include "controlmsg.h"
 #include "../../measured/control.h"//XXX just for control port define
 
 

@@ -1,4 +1,4 @@
-package amplet2.servers;
+package amplet2.controlmsg;
 
 message Control {
         enum Type {

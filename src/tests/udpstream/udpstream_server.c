@@ -8,7 +8,8 @@
 #include "serverlib.h"
 #include "testlib.h"
 #include "udpstream.h"
-#include "servers.pb-c.h"
+#include "controlmsg.h"
+#include "controlmsg.pb-c.h"
 
 
 
@@ -158,11 +159,11 @@ static int serve_test(BIO *ctrl, struct sockaddr_storage *remote,
     }
 
     while ( (bytes = read_control_packet(ctrl, &data)) > 0 ) {
-        Amplet2__Servers__Control *msg;
-        msg = amplet2__servers__control__unpack(NULL, bytes, data);
+        Amplet2__Controlmsg__Control *msg;
+        msg = amplet2__controlmsg__control__unpack(NULL, bytes, data);
 
         switch ( msg->type ) {
-            case AMPLET2__SERVERS__CONTROL__TYPE__SEND: {
+            case AMPLET2__CONTROLMSG__CONTROL__TYPE__SEND: {
                 struct opt_t *send_opts;
                 /* validate as a proper SEND message and extract port */
                 if ( parse_control_send(AMP_TEST_UDPSTREAM, data, bytes,
@@ -175,7 +176,7 @@ static int serve_test(BIO *ctrl, struct sockaddr_storage *remote,
                 break;
             }
 
-            case AMPLET2__SERVERS__CONTROL__TYPE__RECEIVE: {
+            case AMPLET2__CONTROLMSG__CONTROL__TYPE__RECEIVE: {
                 /* validate it as a proper RECEIVE message */
                 if ( parse_control_receive(AMP_TEST_UDPSTREAM, data, bytes,
                             NULL, NULL) < 0 ) {
@@ -194,7 +195,7 @@ static int serve_test(BIO *ctrl, struct sockaddr_storage *remote,
 
         /* both read_control_packet and unpacking the buffer allocate memory */
         free(data);
-        amplet2__servers__control__free_unpacked(msg, NULL);
+        amplet2__controlmsg__control__free_unpacked(msg, NULL);
     }
 
     close(test_sock);

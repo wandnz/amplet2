@@ -8,6 +8,7 @@
 #include "udpstream.h"
 #include "testlib.h" //XXX separation between testlib and serverlib is poor
 #include "serverlib.h" //XXX this needs a better name
+#include "controlmsg.h"
 #include "udpstream.pb-c.h"
 #include "../../measured/control.h"//XXX just for control port define
 
