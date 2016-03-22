@@ -182,14 +182,15 @@ static void stop_running(wand_event_handler_t *ev_hdl,
 
 /*
  * If measured gets sent a SIGHUP or SIGUSR1 then it should reload all the
- * available test modules and then re-read the schedule file taking into
- * account the new list of available tests.
+ * available test modules and re-read the schedule file taking into account
+ * the new list of available tests.
  */
 static void reload(wand_event_handler_t *ev_hdl, int signum, void *data) {
     char nametable[PATH_MAX];
     char schedule[PATH_MAX];
     amp_test_meta_t *meta = (amp_test_meta_t*)data;
 
+    /* signal > 0 is a real signal meaning "reload", signal == 0 is "load" */
     if ( signum > 0 ) {
         Log(LOG_INFO, "Received signal %d, reloading all configuration",signum);
 
@@ -321,6 +322,7 @@ int main(int argc, char *argv[]) {
     struct amp_asn_info *asn_info;
     amp_test_meta_t meta;
     amp_control_t *control;
+    fetch_schedule_item_t *fetch;
     cfg_t *cfg;
 
     memset(&meta, 0, sizeof(meta));
@@ -551,13 +553,19 @@ int main(int argc, char *argv[]) {
     }
 
     /* if remote fetching is enabled, try to get the config for it */
-    if ( fetch_remote ) {
-        if ( enable_remote_schedule_fetch(ev_hdl,
-                    get_remote_schedule_config(cfg), &meta) < 0 ) {
+    if ( fetch_remote && (fetch = get_remote_schedule_config(cfg)) ) {
+        /* TODO fetch gets leaked, has lots of parts needing to be freed */
+        if ( enable_remote_schedule_fetch(ev_hdl, fetch) < 0 ) {
             Log(LOG_ALERT, "Failed to enable remote schedule fetching");
             cfg_free(cfg);
             return -1;
         }
+
+        /* SIGUSR2 should trigger a refetch of any remote schedule files */
+        wand_add_signal(SIGUSR2, fetch, signal_fetch_callback);
+    } else {
+        /* if fetching isn't enabled then just reload the current schedule */
+        wand_add_signal(SIGUSR2, &meta, reload);
     }
 
     /* set up a handler to deal with SIGINT/SIGTERM so we can shutdown nicely */
@@ -618,8 +626,8 @@ int main(int argc, char *argv[]) {
     /* SIGUSR1 should also reload tests/schedules, we use this internally */
     wand_add_signal(SIGUSR1, &meta, reload);
 
-    /* SIGUSR2 is a debug signal to dump internal state */
-    wand_add_signal(SIGUSR2, NULL, debug_dump);
+    /* SIGRTMAX is a debug signal to dump internal state */
+    wand_add_signal(SIGRTMAX, NULL, debug_dump);
 
     /* register all test modules, load nametable, load schedules */
     load_tests_and_schedules(ev_hdl, &meta);

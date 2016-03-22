@@ -24,6 +24,7 @@
 #include "nametable.h"
 #include "debug.h"
 #include "modules.h"
+#include "testlib.h"
 
 
 
@@ -1031,54 +1032,6 @@ void read_schedule_dir(wand_event_handler_t *ev_hdl, char *directory,
 
 
 /*
- *
- */
-static void remote_schedule_callback(wand_event_handler_t *ev_hdl, void *data) {
-    schedule_item_t *item;
-    fetch_schedule_item_t *fetch;
-    pid_t pid;
-
-    Log(LOG_DEBUG, "Timer fired for remote schedule checking");
-
-    item = (schedule_item_t *)data;
-    assert(item->type == EVENT_FETCH_SCHEDULE);
-
-    fetch = (fetch_schedule_item_t *)item->data.fetch;
-
-    /* fork off a process to do the actual check */
-    if ( (pid = fork()) < 0 ) {
-        Log(LOG_WARNING, "Failed to fork for fetching remote schedule: %s",
-                strerror(errno));
-        return;
-    } else if ( pid == 0 ) {
-        /* add a watchdog to make sure this doesn't sit around forever */
-        timer_t watchdog;
-        if ( start_watchdog(SCHEDULE_FETCH_TIMEOUT, SIGKILL, &watchdog) < 0 ) {
-            Log(LOG_WARNING, "Not fetching remote schedule file");
-            exit(-1);
-        }
-
-        if ( update_remote_schedule(fetch->schedule_dir, fetch->schedule_url,
-                    fetch->cacert, fetch->cert, fetch->key) > 0 ) {
-            /* send SIGUSR1 to parent to reload schedule */
-            Log(LOG_DEBUG, "Sending SIGUSR1 to parent to reload schedule");
-            kill(getppid(), SIGUSR1);
-        }
-
-        stop_watchdog(watchdog);
-        exit(0);
-    }
-
-    /* reschedule checking for schedule updates */
-    if ( wand_add_timer(ev_hdl, fetch->frequency, 0, data,
-                remote_schedule_callback) == NULL ) {
-        Log(LOG_ALERT, "Failed to reschedule remote update check");
-    }
-}
-
-
-
-/*
  * Try to fetch a schedule file from a remote server if there is a fresher one
  * available, replacing any existing one that has been previously fetched.
  * Returns -1 on error, 0 if no update was needed, 1 if the file was
@@ -1088,11 +1041,11 @@ static void remote_schedule_callback(wand_event_handler_t *ev_hdl, void *data) {
  * TODO keep history of downloaded schedules? Previous 1 or 2?
  * TODO connection timeout should be short, to not delay startup?
  */
-int update_remote_schedule(char *dir, char *url, char *cacert, char *cert,
-        char *key) {
+static int update_remote_schedule(fetch_schedule_item_t *fetch, int clobber) {
     CURL *curl;
 
-    Log(LOG_DEBUG, "Fetching remote schedule file from %s", url);
+    Log(LOG_DEBUG, "Fetching remote schedule file from %s (clobber=%d)",
+            fetch->schedule_url, clobber);
 
     curl = curl_easy_init();
 
@@ -1113,30 +1066,31 @@ int update_remote_schedule(char *dir, char *url, char *cacert, char *cert,
          * TODO Can we move towards asprintf stuff rather than fixed buffers?
          * This sort of thing is icky and problematic.
          */
-        snprintf(tmp_sched_file, MAX_PATH_LENGTH-1, "%s/%s", dir,
+        snprintf(tmp_sched_file, MAX_PATH_LENGTH-1, "%s/%s",fetch->schedule_dir,
                 TMP_REMOTE_SCHEDULE_FILE);
         tmp_sched_file[MAX_PATH_LENGTH-1] = '\0';
 
-        snprintf(sched_file, MAX_PATH_LENGTH-1, "%s/%s", dir,
+        snprintf(sched_file, MAX_PATH_LENGTH-1, "%s/%s", fetch->schedule_dir,
                 REMOTE_SCHEDULE_FILE);
         sched_file[MAX_PATH_LENGTH-1] = '\0';
 
         /* make sure the schedule directory exists */
-        stat_result = stat(dir, &statbuf);
+        stat_result = stat(fetch->schedule_dir, &statbuf);
 
         if ( stat_result < 0 && errno == ENOENT) {
-            Log(LOG_DEBUG, "Schedule dir doesn't exist, creating %s", dir);
+            Log(LOG_DEBUG, "Schedule dir doesn't exist, creating %s",
+                    fetch->schedule_dir);
             /* doesn't exist, try to create it */
-            if ( mkdir(dir, 0755) < 0 ) {
+            if ( mkdir(fetch->schedule_dir, 0755) < 0 ) {
                 Log(LOG_WARNING, "Failed to create schedule directory %s: %s",
-                        dir, strerror(errno));
+                        fetch->schedule_dir, strerror(errno));
                 curl_easy_cleanup(curl);
                 return -1;
             }
         } else if ( stat_result < 0 ) {
             /* error calling stat, report it and return */
             Log(LOG_WARNING, "Failed to stat schedule directory %s: %s",
-                    dir, strerror(errno));
+                    fetch->schedule_dir, strerror(errno));
             curl_easy_cleanup(curl);
             return -1;
         }
@@ -1149,7 +1103,7 @@ int update_remote_schedule(char *dir, char *url, char *cacert, char *cert,
             return -1;
         }
 
-        curl_easy_setopt(curl, CURLOPT_URL, url);
+        curl_easy_setopt(curl, CURLOPT_URL, fetch->schedule_url);
         curl_easy_setopt(curl, CURLOPT_USERAGENT, PACKAGE_STRING);
         curl_easy_setopt(curl, CURLOPT_FILETIME, 1);
         curl_easy_setopt(curl, CURLOPT_WRITEDATA, tmpfile);
@@ -1157,25 +1111,25 @@ int update_remote_schedule(char *dir, char *url, char *cacert, char *cert,
         curl_easy_setopt(curl, CURLOPT_ERRORBUFFER, errorbuf);
 
         /* use ssl if required (a good idea to at least validate the server) */
-        if ( strncasecmp(url, "https", strlen("https")) == 0 ) {
+        if ( strncasecmp(fetch->schedule_url, "https", strlen("https")) == 0 ) {
             /*
              * Set the CA cert that we validate the server against,
              * otherwise use the default cacert bundle.
              */
-            if ( cacert != NULL ) {
-                Log(LOG_DEBUG, "CACERT=%s", cacert);
-                curl_easy_setopt(curl, CURLOPT_CAINFO, cacert);
+            if ( fetch->cacert != NULL ) {
+                Log(LOG_DEBUG, "CACERT=%s", fetch->cacert);
+                curl_easy_setopt(curl, CURLOPT_CAINFO, fetch->cacert);
             }
 
             /* set the client cert and key that we present the server */
-            if ( cert != NULL && key != NULL ) {
-                Log(LOG_DEBUG, "KEY=%s", key);
-                Log(LOG_DEBUG, "CERT=%s", cert);
+            if ( fetch->cert != NULL && fetch->key != NULL ) {
+                Log(LOG_DEBUG, "KEY=%s", fetch->key);
+                Log(LOG_DEBUG, "CERT=%s", fetch->cert);
 
                 curl_easy_setopt(curl, CURLOPT_SSLCERTTYPE, "PEM");
-                curl_easy_setopt(curl, CURLOPT_SSLCERT, cert);
+                curl_easy_setopt(curl, CURLOPT_SSLCERT, fetch->cert);
                 curl_easy_setopt(curl, CURLOPT_SSLKEYTYPE, "PEM");
-                curl_easy_setopt(curl, CURLOPT_SSLKEY, key);
+                curl_easy_setopt(curl, CURLOPT_SSLKEY, fetch->key);
             }
 
             /* Try to verify the server certificate */
@@ -1198,7 +1152,7 @@ int update_remote_schedule(char *dir, char *url, char *cacert, char *cert,
             curl_easy_cleanup(curl);
             return -1;
 
-        } else if ( stat_result == 0 ) {
+        } else if ( clobber == 0 && stat_result == 0 ) {
             /* we have a file already, only fetch if there is a newer one */
             curl_easy_setopt(curl, CURLOPT_TIMECONDITION,
                     CURL_TIMECOND_IFMODSINCE);
@@ -1225,7 +1179,11 @@ int update_remote_schedule(char *dir, char *url, char *cacert, char *cert,
         curl_easy_getinfo(curl, CURLINFO_FILETIME, &filetime);
         curl_easy_getinfo(curl, CURLINFO_CONTENT_LENGTH_DOWNLOAD, &length);
 #if LIBCURL_VERSION_NUM >= 0x071309
-        curl_easy_getinfo(curl, CURLINFO_CONDITION_UNMET, &cond_unmet);
+        if ( clobber == 0 ) {
+            curl_easy_getinfo(curl, CURLINFO_CONDITION_UNMET, &cond_unmet);
+        } else {
+            cond_unmet = 0;
+        }
 #else
         cond_unmet = 0;
 #endif
@@ -1236,7 +1194,8 @@ int update_remote_schedule(char *dir, char *url, char *cacert, char *cert,
 
         /* if a new file was fetched then move it into position */
         if ( code == 200 && cond_unmet == 0 && length > 0 ) {
-            Log(LOG_INFO, "New schedule file fetched from %s", url);
+            Log(LOG_INFO, "New schedule file fetched from %s",
+                    fetch->schedule_url);
             if ( rename(tmp_sched_file, sched_file) < 0 ) {
                 Log(LOG_WARNING, "Error moving fetched schedule file %s to %s",
                         tmp_sched_file, sched_file);
@@ -1257,11 +1216,83 @@ int update_remote_schedule(char *dir, char *url, char *cacert, char *cert,
 
 
 /*
+ *
+ */
+static void fork_and_fetch(fetch_schedule_item_t *fetch, int clobber) {
+    pid_t pid;
+
+    /* fork off a process to do the actual check */
+    if ( (pid = fork()) < 0 ) {
+        Log(LOG_WARNING, "Failed to fork for fetching remote schedule: %s",
+                strerror(errno));
+        return;
+    } else if ( pid == 0 ) {
+        /* add a watchdog to make sure this doesn't sit around forever */
+        timer_t watchdog;
+        if ( start_watchdog(SCHEDULE_FETCH_TIMEOUT, SIGKILL, &watchdog) < 0 ) {
+            Log(LOG_WARNING, "Not fetching remote schedule file");
+            exit(-1);
+        }
+
+        set_proc_name("schedule fetch");
+
+        if ( update_remote_schedule(fetch, clobber) > 0 ) {
+            /* send SIGUSR1 to parent to reload schedule */
+            Log(LOG_DEBUG, "Sending SIGUSR1 to parent to reload schedule");
+            kill(getppid(), SIGUSR1);
+        }
+
+        stop_watchdog(watchdog);
+        exit(0);
+    }
+}
+
+
+
+/*
+ *
+ */
+void signal_fetch_callback(
+        __attribute__((unused))wand_event_handler_t *ev_hdl,
+        __attribute__((unused))int signum, void *data) {
+
+    Log(LOG_DEBUG, "Refetching schedule due to signal");
+    fork_and_fetch((fetch_schedule_item_t *)data, 1);
+}
+
+
+
+/*
+ *
+ */
+static void timer_fetch_callback(wand_event_handler_t *ev_hdl, void *data) {
+    schedule_item_t *item;
+    fetch_schedule_item_t *fetch;
+
+    Log(LOG_DEBUG, "Timer fired for remote schedule checking");
+
+    item = (schedule_item_t *)data;
+    assert(item->type == EVENT_FETCH_SCHEDULE);
+
+    fetch = (fetch_schedule_item_t *)item->data.fetch;
+
+    fork_and_fetch(fetch, 0);
+
+    /* reschedule checking for schedule updates */
+    if ( wand_add_timer(ev_hdl, fetch->frequency, 0, data,
+                timer_fetch_callback) == NULL ) {
+        Log(LOG_ALERT, "Failed to reschedule remote update check");
+    }
+}
+
+
+
+/*
  * Try to fetch the remote schedule right now, and create the recurring event
  * that will check for new schedules in the future.
  */
 int enable_remote_schedule_fetch(wand_event_handler_t *ev_hdl,
-        fetch_schedule_item_t *fetch, amp_test_meta_t *meta) {
+        fetch_schedule_item_t *fetch) {
 
     schedule_item_t *item;
 
@@ -1277,16 +1308,8 @@ int enable_remote_schedule_fetch(wand_event_handler_t *ev_hdl,
         return 0;
     }
 
-    /* need to determine the specific client schedule_dir */
-    if ( asprintf(&fetch->schedule_dir, "%s/%s", SCHEDULE_DIR,
-                meta->ampname) < 0 ) {
-        Log(LOG_ALERT, "Failed to build schedule directory path");
-        return -1;
-    }
-
     /* do a fetch now, while blocking the main process */
-    update_remote_schedule(fetch->schedule_dir, fetch->schedule_url,
-            fetch->cacert, fetch->cert, fetch->key);
+    update_remote_schedule(fetch, 1);
 
     item = (schedule_item_t *)malloc(sizeof(schedule_item_t));
     item->type = EVENT_FETCH_SCHEDULE;
@@ -1295,7 +1318,7 @@ int enable_remote_schedule_fetch(wand_event_handler_t *ev_hdl,
 
     /* create the timer event for fetching schedules */
     if ( wand_add_timer(ev_hdl, fetch->frequency, 0, item,
-                remote_schedule_callback) == NULL ) {
+                timer_fetch_callback) == NULL ) {
         Log(LOG_ALERT, "Failed to schedule remote update check");
         return -1;
     }

@@ -131,10 +131,9 @@ void read_schedule_dir(wand_event_handler_t *ev_hdl, char *directory,
 struct timeval get_next_schedule_time(wand_event_handler_t *ev_hdl,
         schedule_period_t period, uint64_t start, uint64_t end,
         uint64_t frequency, int run, struct timeval *abstime);
-int update_remote_schedule(char *dir, char *server, char *cacert, char *cert,
-        char *key);
+void signal_fetch_callback(wand_event_handler_t *ev_hdl, int signum,void *data);
 int enable_remote_schedule_fetch(wand_event_handler_t *ev_hdl,
-        fetch_schedule_item_t *fetch, amp_test_meta_t *meta);
+        fetch_schedule_item_t *fetch);
 #if UNIT_TEST
 time_t amp_test_get_period_max_value(char repeat);
 int64_t amp_test_check_time_range(int64_t value, schedule_period_t period);
