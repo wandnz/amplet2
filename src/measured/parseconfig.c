@@ -276,11 +276,20 @@ fetch_schedule_item_t* get_remote_schedule_config(cfg_t *cfg) {
         fetch = (fetch_schedule_item_t *) malloc(sizeof(fetch_schedule_item_t));
 
         if ( cfg_getstr(cfg_sub, "url") != NULL ) {
+            /* need to determine the specific client schedule_dir */
+            if ( asprintf(&fetch->schedule_dir, "%s/%s", SCHEDULE_DIR,
+                        vars.ampname) < 0 ) {
+                Log(LOG_ALERT, "Failed to build schedule directory path");
+                free(fetch);
+                return NULL;
+            }
+
             /* tack the ampname on the end if we need to identify ourselves */
             if ( cfg_getbool(cfg_sub, "identify") ) {
                 if ( asprintf(&fetch->schedule_url, "%s%s",
                             cfg_getstr(cfg_sub, "url"), vars.ampname) < 0 ) {
                     Log(LOG_ALERT, "Failed to build schedule fetching url");
+                    free(fetch->schedule_dir);
                     free(fetch);
                     return NULL;
                 }

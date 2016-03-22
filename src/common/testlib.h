@@ -77,6 +77,7 @@ struct socket_t {
     int socket6;                /* ipv6 socket, if available */
 };
 
+void set_proc_name(char *testname);
 int wait_for_data(struct socket_t *sockets, int *maxwait);
 int get_packet(struct socket_t *sockets, char *buf, int len,
 	struct sockaddr *saddr, int *timeout, struct timeval *now);
