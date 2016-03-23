@@ -27,5 +27,7 @@ struct addrinfo *get_socket_address(int sock);
 int start_listening(struct socket_t *sockets, int port,
         struct sockopt_t *sockopts);
 int connect_to_server(struct addrinfo *server, struct sockopt_t *options, int port);
+BIO* listen_control_server(uint16_t port, uint16_t portmax,
+        struct sockopt_t *sockopts);
 
 #endif

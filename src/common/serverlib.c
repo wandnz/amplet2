@@ -405,3 +405,82 @@ int connect_to_server(struct addrinfo *server, struct sockopt_t *options,
 
     return sock;
 }
+
+
+
+/*
+ *
+ */
+BIO* listen_control_server(uint16_t port, uint16_t portmax,
+        struct sockopt_t *sockopts) {
+
+    struct socket_t listen_sockets;
+    int control_sock;
+    int family;
+    BIO *ctrl;
+    int res;
+    int maxwait = MAXIMUM_SERVER_WAIT_TIME;
+
+    do {
+        Log(LOG_DEBUG, "test control server trying to listen on port %d", port);
+        //XXX pass a hints type struct?
+        res = start_listening(&listen_sockets, port, sockopts);
+    } while ( res == EADDRINUSE && port++ < portmax );
+
+    if ( res != 0 ) {
+        Log(LOG_ERR, "Failed to open listening control socket terminating");
+        return NULL;
+    }
+
+    if ( (family = wait_for_data(&listen_sockets, &maxwait)) <= 0 ) {
+        Log(LOG_DEBUG, "Timeout out waiting for control connection");
+        return NULL;
+    }
+
+    switch ( family ) {
+        case AF_INET:
+            control_sock = accept(listen_sockets.socket, NULL, NULL);
+            Log(LOG_DEBUG, "Got control connection on IPv4");
+            /* clear out v6 address, it isn't needed any more */
+            freeaddrinfo(sockopts->sourcev6);
+            sockopts->sourcev6 = NULL;
+            /* set v4 address to our local endpoint address */
+            freeaddrinfo(sockopts->sourcev4);
+            sockopts->sourcev4 = get_socket_address(control_sock);
+            break;
+
+        case AF_INET6:
+            control_sock = accept(listen_sockets.socket6, NULL, NULL);
+            Log(LOG_DEBUG, "Got control connection on IPv6");
+            /* clear out v4 address, it isn't needed any more */
+            freeaddrinfo(sockopts->sourcev4);
+            sockopts->sourcev4 = NULL;
+            /* set v6 address to our local endpoint address */
+            freeaddrinfo(sockopts->sourcev6);
+            sockopts->sourcev6 = get_socket_address(control_sock);
+            break;
+
+        default: return NULL;
+    };
+
+    /* someone has connected, so close up all the listening sockets */
+    if ( listen_sockets.socket > 0 ) {
+        close(listen_sockets.socket);
+    }
+
+    if ( listen_sockets.socket6 > 0 ) {
+        close(listen_sockets.socket6);
+    }
+
+    if ( control_sock < 0 ) {
+        Log(LOG_WARNING, "Failed to accept connection: %s", strerror(errno));
+        return NULL;
+    }
+
+    if ( (ctrl = establish_control_socket(ssl_ctx, control_sock, 0)) == NULL ) {
+        Log(LOG_WARNING, "Failed to establish control connection");
+        return NULL;
+    }
+
+    return ctrl;
+}
