@@ -20,6 +20,7 @@
 #include "watchdog.h"
 #include "modules.h"
 #include "testlib.h"
+#include "serverlib.h"
 #include "ssl.h"
 #include "measured.pb-c.h"
 #include "controlmsg.h"

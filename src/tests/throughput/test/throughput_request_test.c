@@ -4,7 +4,7 @@
 #include <unistd.h>
 #include "tests.h"
 #include "throughput.h"
-#include "serverlib.h"
+#include "controlmsg.h"
 
 /*
  * Check that the throughput test request messages are sensible.

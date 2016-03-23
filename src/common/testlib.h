@@ -87,10 +87,6 @@ int delay_send_packet(int sock, char *packet, int size, struct addrinfo *dest,
 char *address_to_name(struct addrinfo *address);
 int compare_addresses(const struct sockaddr *a,
         const struct sockaddr *b, int len);
-int start_remote_server(BIO *ctrl, test_type_t type);
-BIO* connect_control_server(struct addrinfo *dest, uint16_t port,
-        amp_test_meta_t *meta);
-void close_control_connection(BIO *ctrl);
 struct addrinfo *get_numeric_address(char *interface, char *port);
 int bind_socket_to_device(int sock, char *device);
 int bind_sockets_to_device(struct socket_t *sockets, char *device);

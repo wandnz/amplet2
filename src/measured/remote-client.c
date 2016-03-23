@@ -14,7 +14,7 @@
 
 #include "debug.h"
 #include "control.h"
-#include "testlib.h"
+#include "serverlib.h"
 #include "ssl.h"
 #include "measured.pb-c.h"
 #include "controlmsg.h"

@@ -29,5 +29,9 @@ int start_listening(struct socket_t *sockets, int port,
 int connect_to_server(struct addrinfo *server, struct sockopt_t *options, int port);
 BIO* listen_control_server(uint16_t port, uint16_t portmax,
         struct sockopt_t *sockopts);
+int start_remote_server(BIO *ctrl, test_type_t type);
+BIO* connect_control_server(struct addrinfo *dest, uint16_t port,
+        amp_test_meta_t *meta);
+void close_control_connection(BIO *ctrl);
 
 #endif
