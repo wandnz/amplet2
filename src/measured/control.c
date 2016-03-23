@@ -128,6 +128,7 @@ static void do_start_server(BIO *ctrl, void *data, uint32_t len) {
     timer_t watchdog;
     test_type_t test_type;
     test_t *test;
+    char *proc_name;
 
     /* TODO read test arguments if required */
     if ( parse_server_start(data, len, &test_type) < 0 ) {
@@ -163,10 +164,20 @@ static void do_start_server(BIO *ctrl, void *data, uint32_t len) {
         return;
     }
 
+    /* rename the process so we can tell it is a test server */
+    if ( asprintf(&proc_name, "%s server", test->name) < 0 ) {
+        Log(LOG_WARNING, "Failed to build process name string");
+        return;
+    }
+
+    set_proc_name(proc_name);
+
     /* Run server function using callback in test */
     test->server_callback(0, NULL, ctrl);
 
     stop_watchdog(watchdog);
+
+    free(proc_name);
 }
 
 
