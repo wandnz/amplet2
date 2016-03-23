@@ -1,8 +1,8 @@
 #ifndef _MEASURED_NAMETABLE_H
 #define _MEASURED_NAMETABLE_H
 
+#include <stdint.h>
 #include <libwandevent.h>
-#include "schedule.h"
 
 #define MAX_NAMETABLE_LINE 128
 #define NAMETABLE_DIR AMP_CONFIG_DIR "/nametables"

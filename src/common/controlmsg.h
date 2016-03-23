@@ -2,7 +2,6 @@
 #define _COMMON_CONTROLMSG_H
 
 #include "tests.h"
-#include "testlib.h"
 
 #define CONTROL_CONNECTION_TIMEOUT 5
 

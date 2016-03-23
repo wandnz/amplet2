@@ -10,6 +10,7 @@
 #include "udpstream.h"
 #include "controlmsg.h"
 #include "controlmsg.pb-c.h"
+#include "debug.h"
 
 
 

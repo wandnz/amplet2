@@ -24,8 +24,6 @@ typedef enum {
     AMP_TEST_LAST,
 } test_type_t;
 
-struct test_schedule_item;
-
 typedef struct amp_test_meta {
     char *interface;
     char *sourcev4;

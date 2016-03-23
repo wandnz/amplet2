@@ -10,7 +10,6 @@
 
 #include "config.h"
 #include "tests.h"
-#include "testlib.h"
 #include "udpstream.pb-c.h"
 
 

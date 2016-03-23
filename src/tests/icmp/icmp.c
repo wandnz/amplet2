@@ -18,9 +18,11 @@
 
 //TODO rename files and headers better?
 #include "config.h"
+#include "tests.h"
 #include "testlib.h"
 #include "icmp.h"
 #include "icmp.pb-c.h"
+#include "debug.h"
 
 
 /*

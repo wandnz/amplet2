@@ -1,5 +1,6 @@
 #include "config.h"
 #include "throughput.h"
+#include "debug.h"
 
 
 /* TODO update long options for all */

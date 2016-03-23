@@ -26,9 +26,9 @@
 #include "libwandevent.h"
 #include "as.h"
 #include "traceroute.pb-c.h"
-
 #include "global.h"
 #include "ampresolv.h"
+#include "debug.h"
 
 
 static struct option long_options[] = {

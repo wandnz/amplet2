@@ -4,7 +4,9 @@
 #include <string.h>
 
 #include "config.h"
+#include "testlib.h"
 #include "udpstream.h"
+#include "debug.h"
 
 
 struct option long_options[] = {

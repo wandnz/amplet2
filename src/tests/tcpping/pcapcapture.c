@@ -18,6 +18,7 @@
 #include "config.h"
 #include "testlib.h"
 #include "pcapcapture.h"
+#include "debug.h"
 
 struct ifaddrs *ifaddrlist = NULL;
 struct ifaddrs *ifaddrorig = NULL;

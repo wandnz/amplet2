@@ -14,8 +14,6 @@
 #include <string.h>
 #include <malloc.h>
 #include <stdio.h>
-#include <malloc.h>
-#include <string.h>
 #include <arpa/inet.h>
 #include <stdlib.h>
 #include <errno.h>
@@ -28,7 +26,6 @@
 #include <getopt.h>
 
 #include "tests.h"
-#include "testlib.h"
 #include "throughput.pb-c.h"
 
 /*

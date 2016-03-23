@@ -2,7 +2,6 @@
 #define _MEASURED_CONTROL_H
 
 #include <libwandevent.h>
-#include "testlib.h"
 
 /* control port is a string that gets given to getaddrinfo() */
 #define DEFAULT_AMPLET_CONTROL_PORT "8869"

@@ -1,9 +1,9 @@
 #ifndef _MEASURED_TEST_H
 #define _MEASURED_TEST_H
 
+#include <openssl/bio.h>
 #include <libwandevent.h>
 
-#include "ssl.h"
 #include "schedule.h"
 //XXX WHY CANT THIS BE FOUND in schedule.h?
 typedef struct test_schedule_item test_schedule_item_t;

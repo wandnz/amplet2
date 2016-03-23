@@ -13,6 +13,7 @@
 #include "config.h"
 #include "throughput.h"
 #include "serverlib.h"
+#include "debug.h"
 
 
 

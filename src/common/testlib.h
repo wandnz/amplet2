@@ -3,9 +3,8 @@
 
 #include <google/protobuf-c/protobuf-c.h>
 #include <openssl/bio.h>
+#include <netdb.h>
 
-#include "tests.h"
-#include "debug.h"
 
 /*
  * maximum length of a string in a report - the python code uses one byte

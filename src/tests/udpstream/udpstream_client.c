@@ -10,6 +10,7 @@
 #include "serverlib.h" //XXX this needs a better name
 #include "controlmsg.h"
 #include "udpstream.pb-c.h"
+#include "debug.h"
 #include "../../measured/control.h"//XXX just for control port define
 
 

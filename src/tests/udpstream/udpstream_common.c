@@ -6,7 +6,7 @@
 
 #include "serverlib.h"
 #include "udpstream.h"
-//#include "servers.pb-c.h"//XXX can I avoid having to include this?
+#include "debug.h"
 
 
 

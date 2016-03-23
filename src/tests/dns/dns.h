@@ -2,13 +2,12 @@
 #define _TESTS_DNS_H
 
 #include "tests.h"
-#include "testlib.h"
 
 /* use the current date with 2 digit count appended as version: YYYYMMDDXX */
 #define AMP_DNS_TEST_VERSION 2014020400
 
-/* maximum size in bytes of a DNS name - 255 bytes */
-#define MAX_DNS_NAME_LEN MAX_STRING_FIELD
+/* maximum size in bytes of a DNS name */
+#define MAX_DNS_NAME_LEN 255
 
 /* Apparently BIND has a limit of 256 characters per line in /etc/resolv.conf */
 #define MAX_RESOLV_CONF_LINE 256

@@ -5,6 +5,7 @@
 #include <sys/socket.h>
 #include <netdb.h>
 #include <libwandevent.h>
+#include "tests.h"
 #include "testlib.h"
 
 /* use the current date with 2 digit count appended as version: YYYYMMDDXX */

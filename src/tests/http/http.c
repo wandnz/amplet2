@@ -19,6 +19,7 @@
 #include "parsers.h"
 #include "output.h"
 #include "http.pb-c.h"
+#include "debug.h"
 
 #include <inttypes.h>
 #include <fcntl.h>

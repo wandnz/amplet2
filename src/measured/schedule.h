@@ -5,7 +5,6 @@
 #include <libwandevent.h>
 #include "tests.h" //TODO fix these names, test vs tests
 #include "test.h"
-#include "nametable.h"
 #include "ampresolv.h"
 
 /* debug schedule output file location */
