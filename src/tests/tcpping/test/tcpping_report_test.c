@@ -26,7 +26,7 @@ static void verify_header(struct opt_t *a, Amplet2__Tcpping__Header *b) {
     assert(b->has_packet_size);
     assert(b->has_port);
     assert(a->random == b->random);
-    assert((a->packet_size + 60U) == b->packet_size);
+    assert(a->packet_size == b->packet_size);
     assert(a->port == b->port);
 }
 
@@ -253,16 +253,23 @@ int main(void) {
     build_info(&info[23], addr, ICMP_REPLY, 4294967295U, 0x3f, 12, 2);
 
     /* try some different combinations of header options */
-    options.packet_size = 84;
+    options.packet_size = 0;
     options.random = 0;
-    options.port = 80;
+    options.port = 22;
     amp_test_report_results(&start_time, count, info, &options);
     options.random = 1;
     amp_test_report_results(&start_time, count, info, &options);
 
-    options.packet_size = 0;
+    options.packet_size = 64;
     options.random = 0;
-    options.port = 22;
+    options.port = 53;
+    amp_test_report_results(&start_time, count, info, &options);
+    options.random = 1;
+    amp_test_report_results(&start_time, count, info, &options);
+
+    options.packet_size = 84;
+    options.random = 0;
+    options.port = 80;
     amp_test_report_results(&start_time, count, info, &options);
     options.random = 1;
     amp_test_report_results(&start_time, count, info, &options);
