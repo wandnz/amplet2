@@ -293,9 +293,16 @@ static void control_read_callback(wand_event_handler_t *ev_hdl, int fd,
         /* TODO need to close up a bunch of file descriptors? dns/asn etc? */
         //close(vars.asnsock_fd);
         //close(vars.nssock_fd);
+
+        /* unblock signals and remove handlers that the parent process added */
+        if ( unblock_signals() < 0 ) {
+            Log(LOG_WARNING, "Failed to unblock signals, aborting");
+            exit(1);
+        }
+
         reseed_openssl_rng();
         process_control_message(fd);
-        assert(0);
+        exit(0);
     }
 
     /* the parent process doesn't need the client file descriptor */

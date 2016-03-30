@@ -11,6 +11,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <openssl/bio.h>
+#include <signal.h>
 
 #include <google/protobuf-c/protobuf-c.h>
 
@@ -119,6 +120,40 @@ void set_proc_name(char *testname) {
     memset(argv[0] + strlen(argv[0]) + 1, 0, buflen - strlen(argv[0]) - 1);
 
     Log(LOG_DEBUG, "Set name of process %d to '%s'", getpid(), argv[0]);
+}
+
+
+
+/*
+ * TODO maintain the list of signals dynamically?
+ */
+int unblock_signals(void) {
+    unsigned int i;
+    sigset_t sigset;
+    struct sigaction action;
+    int signals[] = {SIGINT, SIGTERM, SIGCHLD, SIGUSR1, SIGUSR2, SIGHUP,
+        SIGRTMAX};
+
+    /* remove the signal handlers that the parent process added */
+    action.sa_flags = 0;
+    action.sa_handler = SIG_DFL;
+    sigemptyset(&action.sa_mask);
+    for ( i = 0; i < sizeof(signals) / sizeof(int); i++ ) {
+        if ( sigaction(signals[i], &action, NULL) < 0 ) {
+            Log(LOG_WARNING,"Failed to set default signal handler: %s",
+                    strerror(errno));
+            return -1;
+        }
+    }
+
+    /* unblock all signals */
+    sigfillset(&sigset);
+    if ( sigprocmask(SIG_UNBLOCK, &sigset, NULL) < 0 ) {
+        Log(LOG_WARNING, "Failed to unblock signals: %s", strerror(errno));
+        return -1;
+    }
+
+    return 0;
 }
 
 

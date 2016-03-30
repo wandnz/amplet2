@@ -1227,8 +1227,15 @@ static void fork_and_fetch(fetch_schedule_item_t *fetch, int clobber) {
                 strerror(errno));
         return;
     } else if ( pid == 0 ) {
-        /* add a watchdog to make sure this doesn't sit around forever */
         timer_t watchdog;
+
+        /* unblock signals and remove handlers that the parent process added */
+        if ( unblock_signals() < 0 ) {
+            Log(LOG_WARNING, "Failed to unblock signals, aborting");
+            exit(1);
+        }
+
+        /* add a watchdog to make sure this doesn't sit around forever */
         if ( start_watchdog(SCHEDULE_FETCH_TIMEOUT, SIGKILL, &watchdog) < 0 ) {
             Log(LOG_WARNING, "Not fetching remote schedule file");
             exit(-1);

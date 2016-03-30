@@ -348,7 +348,15 @@ static int fork_test(test_schedule_item_t *item) {
          */
         close(vars.asnsock_fd);
         close(vars.nssock_fd);
+
+        /* unblock signals and remove handlers that the parent process added */
+        if ( unblock_signals() < 0 ) {
+            Log(LOG_WARNING, "Failed to unblock signals, aborting");
+            exit(1);
+        }
+
 	run_test(item, NULL);
+
 	Log(LOG_WARNING, "%s test failed to run", test->name);//XXX required?
 	exit(1);
     }

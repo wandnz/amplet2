@@ -154,6 +154,7 @@ do_stop()
     for pidfile in ${PIDDIR}/*.pid; do
         NAME=${pidfile#$PIDDIR/}
         NAME=${NAME%.pid}
+        PID=`cat $pidfile`
 
         # Stop the client if no client is specified, or if it matches
         if ([ $# -eq 0 ] || contains $NAME $@); then
@@ -168,6 +169,19 @@ do_stop()
                 2|3) FAILED=$((FAILED+1)); \
                     [ "$VERBOSE" != no ] && log_failure_msg $NAME ;;
             esac
+
+            # if there are any children left, send them a SIGTERM
+            /usr/bin/pgrep -s $PID
+            if [ $? -eq 0 ]; then
+                kill -s TERM -$PID
+            fi
+
+            # make sure they are stopped, otherwise send a SIGKILL
+            /usr/bin/pgrep -s $PID
+            if [ $? -eq 0 ]; then
+                sleep 3
+                kill -s KILL -$PID 2> /dev/null
+            fi
         fi
     done
 

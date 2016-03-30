@@ -78,6 +78,7 @@ struct socket_t {
 };
 
 void set_proc_name(char *testname);
+int unblock_signals(void);
 int wait_for_data(struct socket_t *sockets, int *maxwait);
 int get_packet(struct socket_t *sockets, char *buf, int len,
 	struct sockaddr *saddr, int *timeout, struct timeval *now);
