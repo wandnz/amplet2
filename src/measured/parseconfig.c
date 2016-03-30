@@ -273,7 +273,8 @@ fetch_schedule_item_t* get_remote_schedule_config(cfg_t *cfg) {
             return NULL;
         }
 
-        fetch = (fetch_schedule_item_t *) malloc(sizeof(fetch_schedule_item_t));
+        fetch = (fetch_schedule_item_t *)
+            calloc(1, sizeof(fetch_schedule_item_t));
 
         if ( cfg_getstr(cfg_sub, "url") != NULL ) {
             /* need to determine the specific client schedule_dir */
