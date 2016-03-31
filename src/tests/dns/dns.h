@@ -7,6 +7,12 @@
 /* use the current date with 2 digit count appended as version: YYYYMMDDXX */
 #define AMP_DNS_TEST_VERSION 2014020400
 
+/* Minimum requestors UDP payload size in bytes (RFC 6891) */
+#define MIN_UDP_PAYLOAD_SIZE 512
+
+/* Default requestors UDP payload size in bytes, using the same value as dig */
+#define DEFAULT_UDP_PAYLOAD_SIZE 4096
+
 /* maximum size in bytes of a DNS name - 255 bytes */
 #define MAX_DNS_NAME_LEN MAX_STRING_FIELD
 
