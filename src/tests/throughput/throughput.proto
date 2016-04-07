@@ -1,26 +1,66 @@
+/**
+ * Data reporting messages for the AMP throughput test.
+ *
+ * This test measures TCP throughput between two AMP monitors. It can run a
+ * small schedule of tests in either/both directions, of varying durations.
+ *
+ * Each message contains one Report.
+ * Each Report contains one Header and one Item per result.
+ * Each Item contains information on a test result.
+ */
 package amplet2.throughput;
 
+
+/**
+ * An instance of the test will generate one Report message.
+ */
 message Report {
+    /** Describes the test settings used in this test instance */
     optional Header header = 1;
+    /** Results for all test targets */
     repeated Item reports = 2;
 }
 
+
+/**
+ * The test header describes all of the settings that the test was configured
+ * to run with. These settings are the same for every result contained within
+ * the Report message.
+ */
 message Header {
+    /** The address that was tested to */
     optional bytes address = 1;
+    /** The family the tested address belongs to (AF_INET/AF_INET6) */
     optional int32 family = 2;
+    /** The test schedule string used for this test */
     optional string schedule = 3;
+    /** The write size in bytes used for this test */
     optional uint32 write_size = 4;
+    /** The name of the test target (as given in the schedule) */
     optional string name = 5;
 }
 
+
+/**
+ * A report will be generated for each item in the test schedule, describing
+ * how much data was transferred and how long it took.
+ */
 message Item {
+    /** Duration that this test ran, measured in nanoseconds */
     optional uint64 duration = 1;
+    /** The number of bytes transferred during the test */
     optional uint64 bytes = 2;
+    /**
+     * The direction of the data flow during the test. Each test is performed
+     * in one direction only, either from the server to the client or from the
+     * client to the server.
+     */
     enum Direction {
         NULL = 0;
         SERVER_TO_CLIENT = 1;
         CLIENT_TO_SERVER = 2;
     }
+    /** The direction of the data flow during the test */
     optional Direction direction = 3;
 }
 

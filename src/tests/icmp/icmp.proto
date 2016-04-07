@@ -1,21 +1,62 @@
+/**
+ * Data reporting messages for the AMP ICMP latency test.
+ *
+ * This test measures the latency taken between sending an ICMP echo request
+ * to a given list of targets and receiving a useful ICMP echo reply.
+ *
+ * Each message contains one Report.
+ * Each Report contains one Header and one Item per result.
+ * Each Item contains information on a test result.
+ */
 package amplet2.icmp;
 
+
+/**
+ * An instance of the test will generate one Report message.
+ */
 message Report {
-	optional Header header = 1;
-	repeated Item reports = 2;
+    /** Describes the test settings used in this test instance */
+    optional Header header = 1;
+    /** Results for all test targets */
+    repeated Item reports = 2;
 }
 
+
+/**
+ * The test header describes all of the settings that the test was configured
+ * to run with. These settings are the same for every result contained within
+ * the Report message.
+ */
 message Header {
-	optional uint32 packet_size = 1 [default = 84];
-	optional bool random = 2 [default = false];
+    /**
+     * Size of the ICMP echo request probe packets in bytes (including IP
+     * and ICMP headers).
+     */
+    optional uint32 packet_size = 1 [default = 84];
+    /** Was the packet size randomly selected? */
+    optional bool random = 2 [default = false];
 }
 
+
+/**
+ * A report will be generated for each test target, describing the target
+ * itself, what sort of response was received (including any ICMP errors),
+ * and how long it took to receive the response. All fields are optional -
+ * only those with useful and relevant data are included.
+ */
 message Item {
-	optional bytes address = 1;
-	optional int32 family = 2;
-	optional uint32 rtt = 3;
-	optional uint32 err_type = 4;
-	optional uint32 err_code = 5;
-	optional uint32 ttl = 6;
-	optional string name = 7;
+    /** The address that responded to the probe packet */
+    optional bytes address = 1;
+    /** The family the responding address belongs to (AF_INET/AF_INET6) */
+    optional int32 family = 2;
+    /** The round trip time to the target, measured in microseconds */
+    optional uint32 rtt = 3;
+    /** The ICMP error type, if present */
+    optional uint32 err_type = 4;
+    /** The ICMP error code, if present */
+    optional uint32 err_code = 5;
+    /** The TTL of the response (XXX: currently not reported) */
+    optional uint32 ttl = 6;
+    /** The name of the test target (as given in the schedule) */
+    optional string name = 7;
 }

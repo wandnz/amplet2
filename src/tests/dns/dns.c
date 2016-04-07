@@ -316,14 +316,25 @@ static void process_packet(char *packet, uint16_t ident, struct timeval *now,
 static void harvest(struct socket_t *sockets, uint16_t ident, int wait,
 	int count, struct info_t info[], struct opt_t *opt) {
 
-    char packet[opt->udp_payload_size];
+    char *packet;
+    int buflen;
     struct sockaddr_in6 addr;
     struct timeval now;
 
-    while ( get_packet(sockets, packet, opt->udp_payload_size,
-                (struct sockaddr *)&addr, &wait, &now) ) {
+    if ( opt->udp_payload_size > 0 ) {
+        buflen = opt->udp_payload_size;
+    } else {
+        buflen = DEFAULT_UDP_PAYLOAD_SIZE;
+    }
+
+    packet = calloc(1, buflen);
+
+    while ( get_packet(sockets, packet, buflen, (struct sockaddr *)&addr,
+                &wait, &now) ) {
 	process_packet(packet, ident, &now, count, info);
     }
+
+    free(packet);
 }
 
 
@@ -350,7 +361,7 @@ static char *create_dns_query(uint16_t ident, uint32_t *len, struct opt_t *opt){
      * if we are doing dnssec or nsid then there is an OPT pseudo RR header
      * with a 1 byte, zero length name field
      */
-    if ( opt->dnssec || opt->nsid ) {
+    if ( opt->dnssec || opt->nsid || opt->udp_payload_size ) {
 	total_len += SIZEOF_PSEUDO_RR;
 
 	if ( opt->nsid ) {
@@ -377,7 +388,7 @@ static char *create_dns_query(uint16_t ident, uint32_t *len, struct opt_t *opt){
     header->qd_count = htons(1);
 
     /* if doing dnssec or nsid then there is also an additional section */
-    if ( opt->dnssec || opt->nsid ) {
+    if ( opt->dnssec || opt->nsid || opt->udp_payload_size ) {
 	header->ar_count = htons(1);
     }
 
@@ -392,7 +403,7 @@ static char *create_dns_query(uint16_t ident, uint32_t *len, struct opt_t *opt){
     query_info->class = htons(opt->query_class);
 
     /* add the additional RR to end of the packet if doing dnssec or nsid */
-    if ( opt->dnssec || opt->nsid ) {
+    if ( opt->dnssec || opt->nsid || opt->udp_payload_size ) {
 	additional = (struct dns_opt_rr_t*)(query + query_string_len +
 		sizeof(struct dns_t) + sizeof(struct dns_query_t) +
 		sizeof(uint8_t));
@@ -792,7 +803,8 @@ static void usage(char *prog) {
     fprintf(stderr, "  -q <query>\tQuery string (eg the hostname to look up)\n");
     fprintf(stderr, "  -t <type>\tRecord type to search for (default: A)\n");
     fprintf(stderr, "  -c <class>\tClass type to search for (default: IN)\n");
-    fprintf(stderr, "  -z <size>\tUDP payload size (default: 4096)\n");
+    fprintf(stderr, "  -z <size>\tUDP payload size (default: %d, 0 to disable)\n",
+            DEFAULT_UDP_PAYLOAD_SIZE);
     fprintf(stderr, "  -p <ms>\tMaximum number of milliseconds to delay test\n");
     fprintf(stderr, "  -r\t\tAllow recursive queries (default: false)\n");
     fprintf(stderr, "  -s\t\tUse DNSSEC (default: false)\n");
@@ -846,7 +858,7 @@ amp_test_result_t* run_dns(int argc, char *argv[], int count,
     options.query_string = NULL;
     options.query_type = 0x01;
     options.query_class = 0x01;
-    options.udp_payload_size = 4096; /* dig defaults to 4096 bytes */
+    options.udp_payload_size = DEFAULT_UDP_PAYLOAD_SIZE;
     options.recurse = 0;
     options.dnssec = 0;
     options.nsid = 0;
@@ -888,7 +900,18 @@ amp_test_result_t* run_dns(int argc, char *argv[], int count,
     assert(strlen(options.query_string) < MAX_DNS_NAME_LEN);
     assert(options.query_type > 0);
     assert(options.query_class > 0);
-    assert(options.udp_payload_size > 512);
+
+    /*
+     * If we set this to zero (and aren't doing dnssec or nsid) then don't send
+     * an EDNS header. Otherwise values lower than 512 MUST be treated as equal
+     * to 512 (RFC 6891).
+     */
+    if ( (options.udp_payload_size != 0 || options.dnssec || options.nsid ) &&
+            options.udp_payload_size < MIN_UDP_PAYLOAD_SIZE ) {
+        Log(LOG_WARNING, "UDP payload size %d too low, increasing to %d",
+                options.udp_payload_size, MIN_UDP_PAYLOAD_SIZE);
+        options.udp_payload_size = MIN_UDP_PAYLOAD_SIZE;
+    }
 
     /* if no destinations have been set then try to use /etc/resolv.conf */
     if ( count == 0 && dests == NULL ) {

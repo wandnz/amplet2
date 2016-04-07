@@ -1,28 +1,79 @@
+/**
+ * Data reporting messages for the AMP traceroute test.
+ *
+ * This test performs a UDP traceroute to a given list of targets. It can
+ * return information about the addresses and Autonomous Systems in the path,
+ * as well as latency to each hop.
+ *
+ * Each message contains one Report.
+ * Each Report contains one Header and one Item per result.
+ * Each Item contains information on a test result, including one Hop for each
+ * hop in the path that responded.
+ * Each Hop contains information about response from the host at that TTL.
+ */
 package amplet2.traceroute;
 
+
+/**
+ * An instance of the test will generate one Report message.
+ */
 message Report {
+    /** Describes the test settings used in this test instance */
     optional Header header = 1;
+    /** Results for all test targets */
     repeated Item reports = 2;
 }
 
+
+/**
+ * The test header describes all of the settings that the test was configured
+ * to run with. These settings are the same for every result contained within
+ * the Report message.
+ */
 message Header {
+    /**
+     * Size of the UDP probe packets in bytes (including IP and UDP headers).
+     */
     optional uint32 packet_size = 1 [default = 60];
+    /** Was the packet size randomly selected? */
     optional bool random = 2 [default = false];
+    /** Should responding IP addresses be recorded at each hop? */
     optional bool ip = 3 [default = true];
+    /** Should responding ASNs be recorded at each hop? */
     optional bool asn = 4 [default = false];
 }
 
+
+/**
+ * A report will be generated for each test target, describing the target
+ * itself, any ICMP errors encountered and the path taken to the target. All
+ * fields are optional - only those with useful and relevant data are included.
+ */
 message Item {
+    /** The address that was tested to */
     optional bytes address = 1;
+    /** The family the tested address belongs to (AF_INET/AF_INET6) */
     optional int32 family = 2;
+    /** The ICMP error type, if present */
     optional uint32 err_type = 3;
+    /** The ICMP error code, if present */
     optional uint32 err_code = 4;
+    /** The name of the test target (as given in the schedule) */
     optional string name = 5;
+    /** The path taken to reach the target address */
     repeated Hop path = 6;
 }
 
+
+/**
+ * Each path consists of a number of hops, listed in the order they were
+ * encountered (based on TTL values).
+ */
 message Hop {
+    /** The address that responded to the probe packet */
     optional bytes address = 1;
+    /** The ASN that the responding address belongs to */
     optional sint64 asn = 2;
+    /** The round trip time to the responding host, measured in microseconds */
     optional uint32 rtt = 3;
 }

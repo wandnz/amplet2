@@ -1,61 +1,139 @@
+/**
+ * Data reporting messages for the AMP HTTP test.
+ *
+ * This test tries to fetch all the files that are necessary to properly
+ * represent the given URL (including images, css, javascript), in a manner
+ * similar to how a web browser might do it.
+ *
+ * Each message contains one Report.
+ * Each Report contains one Header and one Server per host involved.
+ * Each Server contains information about that host, and an Object for each
+ * object that was fetched from the host.
+ * Each Object contains info about that object, including one CacheHeaders.
+ * Each CacheHeaders contains information about the cache headers that were set.
+ */
 package amplet2.http;
 
+
+/**
+ * An instance of the test will generate one Report message.
+ */
 message Report {
+    /** Describes the test settings used in this test instance */
     optional Header header = 1;
+    /** List of servers contacted to download the contents of the page */
     repeated Server servers = 2;
 }
 
+
+/**
+ * The test header describes all of the settings that the test was configured
+ * to run with, as well as global statistics about how the test ran.
+ */
 message Header {
+    /** The URL of the page to fetch */
     optional string url = 1;
+    /** The duration of the test in milliseconds */
     optional uint32 duration = 2;
+    /** The total number of bytes fetched during the test */
     optional uint32 total_bytes = 3;
+    /** The total number of objects fetched during the test */
     optional uint32 total_objects = 4;
+    /** Maximum number of simultaneous connections */
     optional uint32 max_connections = 5 [default = 24];
+    /** Maximum number of simultaneous connections per server */
     optional uint32 max_connections_per_server = 6 [default = 8];
+    /** Maximum number of requests to be pipelined */
     optional uint32 pipelining_maxrequests = 7 [default = 4];
+    /** Maximum number of simultaneous persistent connections per server */
     optional uint32 max_persistent_connections_per_server = 8 [default = 2];
+    /** Were HTTP persistent connections used? */
     optional bool persist = 9 [default = true];
+    /** Was HTTP/1.1 pipelining enabled? */
     optional bool pipelining = 10 [default = false];
+    /** Was cached data allowed to be fetched? */
     optional bool caching = 11 [default = false];
 }
 
+
+/**
+ * Information about a server that objects were fetched from.
+ */
 message Server {
+    /** The hostname of the server, as given in the URI */
     optional string hostname = 1;
+    /** Time (UTC) that the first request was made to this server */
     optional double start = 2;
+    /** Time (UTC) that the last request to this server completed */
     optional double end = 3;
+    /** The IP address of the server */
     optional string address = 4;
     //optional bytes address = 4;
     //XXX need family if not going to use the string format
     //optional int32 family = 5;
+    /** Total number of bytes fetched from this server */
     optional uint32 total_bytes = 6;
+    /** List of objects that were fetched from this server */
     repeated Object objects = 7;
 }
 
+
+/**
+ * Information about how long it took to fetch a single page object (html page,
+ * an image, a javascript file, a css file, etc).
+ */
 message Object {
+    /** The path portion of the URI for this object */
     optional string path = 1;
+    /** Time (UTC) that the request for this object was made */
     optional double start = 2;
+    /** Time (UTC) that the request for this object was completed */
     optional double end = 3;
+    /** Time in seconds from start until name resolving completed */
     optional double lookup = 4;
+    /** Time in seconds from start until connection to host was completed */
     optional double connect = 5;
+    /** Time in seconds from start until the first byte is received */
     optional double start_transfer = 6;
+    /** Total time in seconds to fetch this object (including resolving, connecting, etc) */
     optional double total_time = 7;
+    /** HTTP response code when fetching this object */
     optional uint32 code = 8;
+    /** Size of the response in bytes */
     optional uint32 size = 9;
+    /** Number of (successful) new connections required to fetch this object */
     optional uint32 connect_count = 10;
+    /** Index of pipeline/connection used to fetch this object */
     optional uint32 pipeline = 11;
+    /** Cache control headers that were set on this object */
     optional CacheHeaders cache_headers = 12;
 }
 
+
+/**
+ * Information about the cache control headers that were set on an object.
+ */
 message CacheHeaders {
+    /** The value of the cache-control header "max-age" */
     optional int32 max_age = 1;
+    /** The value of the cache-control header "s-maxage" */
     optional int32 s_maxage = 2;
+    /** Was the x_cache header set? */
     optional bool x_cache = 3;
+    /** Was the x_cache_lookup header set? */
     optional bool x_cache_lookup = 4;
+    /** Did the cache-control header include "public"? */
     optional bool pub = 5;
+    /** Did the cache-control header include "private"? */
     optional bool priv = 6;
+    /** Did the cache-control header include "no-cache"? */
     optional bool no_cache = 7;
+    /** Did the cache-control header include "no-store"? */
     optional bool no_store = 8;
+    /** Did the cache-control header include "no-transform"? */
     optional bool no_transform = 9;
+    /** Did the cache-control header include "must-revalidate"? */
     optional bool must_revalidate = 10;
+    /** Did the cache-control header include "proxy-revalidate"? */
     optional bool proxy_revalidate = 11;
 }

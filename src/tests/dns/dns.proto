@@ -1,44 +1,106 @@
+/**
+ * Data reporting messages for the AMP DNS latency test.
+ *
+ * This test measures the latency when performing a UDP DNS query to a given
+ * list of targets.
+ *
+ * Each message contains one Report.
+ * Each Report contains one Header and one Item per result.
+ * Each Item contains information on a test result, including one DnsFlags.
+ */
 package amplet2.dns;
 
+
+/**
+ * An instance of the test will generate one Report message.
+ */
 message Report {
+    /** Describes the test settings used in this test instance */
     optional Header header = 1;
+    /** Results for all test targets */
     repeated Item reports = 2;
 }
 
+
+/**
+ * The test header describes all of the settings that the test was configured
+ * to run with. These settings are the same for every result contained within
+ * the Report message.
+ */
 message Header {
+    /** DNS query type (e.g. A/MX/AAAA) */
     optional uint32 query_type = 1 [default = 1];
+    /** DNS query class (e.g. IN) */
     optional uint32 query_class = 2 [default = 1];
+    /** EDNS maximum UDP payload size */
     optional uint32 udp_payload_size = 3 [default = 4096];
+    /** Was the Recursion Desired flag set? */
     optional bool recurse = 4 [default = false];
+    /** Was a DNSSEC response requested? */
     optional bool dnssec = 5 [default = false];
+    /** Was a NSID response requested? */
     optional bool nsid = 6 [default = false];
+    /** The query string */
     optional string query = 7;
 }
 
+
+/**
+ * A report will be generated for each test target, describing the target
+ * itself, what sort of response was received and how long it took to receive
+ * the response. All fields are optional - only those with useful and relevant
+ * data are included.
+ */
 message Item {
+    /** The address that responded to the probe packet */
     optional bytes address = 1;
+    /** The family the responding address belongs to (AF_INET/AF_INET6) */
     optional int32 family = 2;
+    /** The round trip time to the target, measured in microseconds */
     optional uint32 rtt = 3;
+    /** Length in bytes of both the DNS header and data of the probe packet */
     optional uint32 query_length = 4;
+    /** Length in bytes of the DNS header and data of the response packet */
     optional uint32 response_size = 5;
+    /** Number of entries in the returned answer resource record list */
     optional uint32 total_answer = 6;
+    /** Number of entries in the returned authority resource record list */
     optional uint32 total_authority = 7;
+    /** Number of entries in the returned additional resource record list */
     optional uint32 total_additional = 8;
+    /** The two bytes worth of flags set in the returned DNS header */
     optional DnsFlags flags = 9;
+    /** The TTL of the response (XXX: currently not reported) */
     optional uint32 ttl = 10;
+    /** The name of the test target (as given in the schedule) */
     optional string name = 11;
+    /** The name of the responding server as given by the NSID query (XXX: currently not reported) */
     optional string instance = 12;
 }
 
+
+/**
+ * Report all the flags and short fields that were in the response DNS header.
+ */
 message DnsFlags {
+    /** Was the packet a query (0) or a response (1)? */
     optional bool qr = 1;
+    /** DNS Opcode (4 bits) */
     optional uint32 opcode = 2;
+    /** Was the responding server an authority for the queried domain name? */
     optional bool aa = 3;;
+    /** Was the response truncated? */
     optional bool tc = 4;
+    /** Was recursion desired? (copied from query packet) */
     optional bool rd = 5;
+    /** Was recursion available? */
     optional bool ra = 6;
+    /** Z bit */
     optional bool z = 7;
+    /** Was the response authenticated/verified? */
     optional bool ad = 8;
+    /** Was checking disabled? */
     optional bool cd = 9;
+    /** Return code */
     optional uint32 rcode = 10;
 }

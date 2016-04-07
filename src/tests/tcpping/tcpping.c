@@ -201,15 +201,25 @@ static void process_options(struct tcppingglobals *tcpping) {
 
     /* pick a random packet size within allowable boundaries */
     if ( tcpping->options.random ) {
-        tcpping->options.packet_size =
-            (int)(1400 * (random()/(RAND_MAX+1.0)));
+        tcpping->options.packet_size = MIN_TCPPING_PROBE_LEN +
+            (int)((MAX_TCPPING_PROBE_LEN - MIN_TCPPING_PROBE_LEN) *
+                    (random()/(RAND_MAX+1.0)));
         Log(LOG_DEBUG, "Setting packetsize to random value: %d",
                 tcpping->options.packet_size);
     }
 
-    if ( tcpping->options.packet_size > 1400) {
-        Log(LOG_DEBUG, "Requested payload too large, limiting to 1400 bytes");
-        tcpping->options.packet_size = 1400;
+    /* make sure that the packet size is big enough for our data */
+    if ( tcpping->options.packet_size < MIN_TCPPING_PROBE_LEN ) {
+        Log(LOG_WARNING, "Packet size %d too small, raising to %d bytes",
+                tcpping->options.packet_size, MIN_TCPPING_PROBE_LEN);
+        tcpping->options.packet_size = MIN_TCPPING_PROBE_LEN;
+    }
+
+    /* make sure it isn't too big either */
+    if ( tcpping->options.packet_size > MAX_TCPPING_PROBE_LEN ) {
+        Log(LOG_WARNING, "Packet size %d too large, limiting to %d bytes",
+                tcpping->options.packet_size, MAX_TCPPING_PROBE_LEN);
+        tcpping->options.packet_size = MAX_TCPPING_PROBE_LEN;
     }
 
     /* delay the start by a random amount of perturbate is set */
@@ -283,10 +293,10 @@ static int set_tcp_checksum(struct tcphdr *tcp, int packet_size,
         pseudo = (char *)&pseudov4;
         pseudolen = sizeof(pseudov4);
     } else if (srcaddr->sa_family == AF_INET6) {
-        memcpy(pseudov6.saddr, 
+        memcpy(pseudov6.saddr,
                 ((struct sockaddr_in6 *)srcaddr)->sin6_addr.s6_addr,
                 sizeof(struct in6_addr));
-        memcpy(pseudov6.daddr, 
+        memcpy(pseudov6.daddr,
                 ((struct sockaddr_in6 *)destaddr->ai_addr)->sin6_addr.s6_addr,
                 sizeof(struct in6_addr));
         pseudov6.length = htonl(packet_size);
@@ -588,12 +598,12 @@ static void send_packet(wand_event_handler_t *ev_hdl,
     if (dest->ai_family == AF_INET) {
         srcport = tp->sourceportv4;
         sock = tp->raw_sockets.socket;
-        packet_size = sizeof(struct tcphdr) + 24 + tp->options.packet_size;
+        packet_size = tp->options.packet_size - sizeof(struct iphdr);
     }
     else if (dest->ai_family == AF_INET6) {
         srcport = tp->sourceportv6;
         sock = tp->raw_sockets.socket6;
-        packet_size = sizeof(struct tcphdr) + 4 + tp->options.packet_size;
+        packet_size = tp->options.packet_size - sizeof(struct ip6_hdr);
     } else {
         Log(LOG_WARNING, "Unknown address family: %d", dest->ai_family);
         goto nextdest;
@@ -619,7 +629,7 @@ static void send_packet(wand_event_handler_t *ev_hdl,
         goto nextdest;
     }
 
-    packet = calloc(packet_size, 1);
+    packet = calloc(1, packet_size);
 
     /* Form a TCP SYN packet */
     if (craft_tcp_syn(tp, packet, srcport, packet_size, srcaddr, dest) < 0) {
@@ -765,8 +775,7 @@ static amp_test_result_t* report_results(struct timeval *start_time, int count,
     Amplet2__Tcpping__Item **reports;
 
     header.has_packet_size = 1;
-    header.packet_size = sizeof(struct ip6_hdr) + sizeof(struct tcphdr) +
-        opt->packet_size;
+    header.packet_size = opt->packet_size;
     header.has_random = 1;
     header.random = opt->random;
     header.has_port = 1;
@@ -843,7 +852,7 @@ static void usage(char *prog) {
     fprintf(stderr, "  -P, --port                     The port number to probe on the target host\n");
     fprintf(stderr, "  -r, --random                   Use a random packet size for each test\n");
     fprintf(stderr, "  -p, --perturbate     <ms>      Maximum number of milliseconds to delay test\n");
-    fprintf(stderr, "  -s, --size           <bytes>   Amount of additional payload to append to the SYN\n");
+    fprintf(stderr, "  -s, --size           <bytes>   Fixed packet size to use for each probe\n");
     fprintf(stderr, "  -I, --interface      <iface>   Source interface name\n");
     fprintf(stderr, "  -Z, --interpacketgap <usec>    Minimum number of microseconds between packets\n");
     fprintf(stderr, "  -4, --ipv4           <address> Source IPv4 address\n");
@@ -874,7 +883,7 @@ amp_test_result_t* run_tcpping(int argc, char *argv[], int count,
     /* Set defaults before processing options */
     globals->options.inter_packet_delay = MIN_INTER_PACKET_DELAY;
     globals->options.dscp = DEFAULT_DSCP_VALUE;
-    globals->options.packet_size = 0;
+    globals->options.packet_size = MIN_TCPPING_PROBE_LEN;
     globals->options.random = 0;
     globals->options.perturbate = 0;
     globals->options.port = 80;  /* Default to testing port 80 */

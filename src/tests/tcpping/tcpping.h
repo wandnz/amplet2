@@ -11,14 +11,13 @@
 /* use the current date with 2 digit count appended as version: YYYYMMDDXX */
 #define AMP_TCPPING_TEST_VERSION 2014072100
 
-/* use the same packet size as ICMP, so we're directly comparable */
-#define DEFAULT_TCPPING_SYN_LENGTH 84
-
 /* The '4' here is to allow us to at least include an MSS option in
  * the SYN that we send.
  */
-#define MIN_PACKET_LEN ( \
+#define MIN_TCPPING_PROBE_LEN ( \
     sizeof(struct ip6_hdr) + sizeof(struct tcphdr) + 4)
+
+#define MAX_TCPPING_PROBE_LEN 1500
 
 
 /* Generally, we only need the TCP header of the response (no options) but
