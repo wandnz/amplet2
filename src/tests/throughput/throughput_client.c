@@ -266,7 +266,6 @@ static amp_test_result_t* runSchedule(struct addrinfo *serv_addr,
     int test_socket = -1;
     struct packet_t packet;
     uint64_t start_time_ns;
-    struct sockopt_t srv_opts;
     ProtobufCBinaryData data;
     Amplet2__Throughput__Item *remote_results = NULL;
     amp_test_result_t *result;
@@ -276,20 +275,13 @@ static amp_test_result_t* runSchedule(struct addrinfo *serv_addr,
 
     memset(&packet, 0, sizeof(packet));
 
-    //XXX use these up one level when connecting to server?
-    memset(&srv_opts, 0, sizeof(srv_opts));
-    srv_opts.device = options->device;
-    srv_opts.sourcev4 = options->sourcev4;
-    srv_opts.sourcev6 = options->sourcev6;
-    srv_opts.socktype = SOCK_STREAM;
-    srv_opts.protocol = IPPROTO_TCP;
-
     //XXX i think sourcev4 and source6 and device already exist in this?
     /* XXX TODO options should have these removed from it */
     socket_options->sock_mss = options->sock_mss;//XXX
     socket_options->sock_disable_nagle = options->sock_disable_nagle;//XXX
     socket_options->sock_rcvbuf = options->sock_rcvbuf;//XXX
     socket_options->sock_sndbuf = options->sock_sndbuf;//XXX
+    socket_options->dscp = options->dscp;//XXX
 
     socket_options->socktype = SOCK_STREAM;
     socket_options->protocol = IPPROTO_TCP;
@@ -518,6 +510,7 @@ amp_test_result_t* run_throughput_client(int argc, char *argv[], int count,
 
     /* set some sensible defaults */
     memset(&test_options, 0, sizeof(test_options));
+    test_options.dscp = DEFAULT_DSCP_VALUE;
     test_options.write_size = DEFAULT_WRITE_SIZE;
     test_options.randomise = 0;
     test_options.sock_rcvbuf = 0;
@@ -540,7 +533,8 @@ amp_test_result_t* run_throughput_client(int argc, char *argv[], int count,
 
     memset(&meta, 0, sizeof(meta));
 
-    while ( (opt = getopt_long(argc, argv, "?hp:P:rz:o:i:Nm:wS:c:d:4:6:I:t:Z:",
+    while ( (opt = getopt_long(argc, argv,
+                    "?hp:P:rz:o:i:Nm:wS:c:d:4:6:I:t:Q:Z:",
                     long_options, &option_index)) != -1 ) {
 
         switch ( opt ) {
@@ -554,6 +548,11 @@ amp_test_result_t* run_throughput_client(int argc, char *argv[], int count,
                       meta.sourcev4 = optarg;
                       break;
             case 'I': socket_options.device = meta.interface = optarg; break;
+            case 'Q': if ( parse_dscp_value(optarg, &test_options.dscp) < 0 ) {
+                          Log(LOG_WARNING, "Invalid DSCP value, aborting");
+                          exit(-1);
+                      }
+                      break;
             /* case 'B': for iperf compatability? */
             case 'c': client = optarg; break;
             case 'p': test_options.cport = atoi(optarg); break;

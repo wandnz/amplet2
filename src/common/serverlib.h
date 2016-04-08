@@ -20,6 +20,7 @@ struct sockopt_t {
     uint8_t reuse_addr;
     int32_t sock_rcvbuf;
     int32_t sock_sndbuf;
+    uint8_t dscp;
 };
 
 

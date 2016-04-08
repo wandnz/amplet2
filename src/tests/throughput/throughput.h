@@ -276,6 +276,7 @@ struct opt_t {
     uint8_t reuse_addr;
     int32_t sock_rcvbuf;
     int32_t sock_sndbuf;
+    uint8_t dscp;
     char *textual_schedule;
     struct test_request_t *schedule; /* The test sequence */
     char *device;

@@ -42,6 +42,8 @@ ProtobufCBinaryData* build_hello(struct opt_t *options) {
     hello.reuse_addr = options->reuse_addr;
     hello.has_write_size = 1;
     hello.write_size = options->write_size;
+    hello.has_dscp = 1;
+    hello.dscp = options->dscp;
 
     data->len = amplet2__throughput__hello__get_packed_size(&hello);
     data->data = malloc(data->len);
@@ -71,6 +73,7 @@ void* parse_hello(ProtobufCBinaryData *data) {
     options->randomise = hello->randomise;
     options->reuse_addr = hello->reuse_addr;
     options->write_size = hello->write_size;
+    options->dscp = hello->dscp;
 
     amplet2__throughput__hello__free_unpacked(hello, NULL);
 

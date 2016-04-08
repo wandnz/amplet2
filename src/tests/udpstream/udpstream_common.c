@@ -24,6 +24,8 @@ ProtobufCBinaryData* build_hello(struct opt_t *options) {
     hello.packet_spacing = options->packet_spacing;
     hello.has_percentile_count = 1;
     hello.percentile_count = options->percentile_count;
+    hello.has_dscp = 1;
+    hello.dscp = options->dscp;
 
     data->len = amplet2__udpstream__hello__get_packed_size(&hello);
     data->data = malloc(data->len);
@@ -46,6 +48,7 @@ void* parse_hello(ProtobufCBinaryData *data) {
     options->packet_count = hello->packet_count;
     options->packet_spacing = hello->packet_spacing;
     options->percentile_count = hello->percentile_count;
+    options->dscp = hello->dscp;
 
     amplet2__udpstream__hello__free_unpacked(hello, NULL);
 
@@ -105,6 +108,23 @@ int send_udp_stream(int sock, struct addrinfo *remote, struct opt_t *options) {
     Log(LOG_DEBUG, "Sending UDP stream, packets:%d size:%d spacing:%d",
             options->packet_count, options->packet_size,
             options->packet_spacing);
+
+    if ( options->dscp ) {
+        struct socket_t sockets;
+        /* wrap the socket in a socket_t so we can call other amp functions */
+        memset(&sockets, 0, sizeof(sockets));
+        switch ( remote->ai_family ) {
+            case AF_INET: sockets.socket = sock; break;
+            case AF_INET6: sockets.socket6 = sock; break;
+            default: Log(LOG_ERR,"Unknown address family %d",remote->ai_family);
+                     return -1;
+        };
+
+        if ( set_dscp_socket_options(&sockets, options->dscp) < 0 ) {
+            Log(LOG_ERR, "Failed to set DSCP socket options, aborting test");
+            return -1;
+        }
+    }
 
     //XXX put a pattern in the payload?
     /* the packet size option includes headers, so subtract them */

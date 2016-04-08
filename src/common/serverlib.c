@@ -106,7 +106,7 @@ static int set_and_verify_sockopt(int sock, int value, int proto,
  * Set all the relevant socket options that the test is requesting be set
  * (e.g. set buffer sizes, set MSS, disable Nagle).
  */
-static void do_socket_setup(struct sockopt_t *options, int sock) {
+static void do_socket_setup(struct sockopt_t *options, int sock, int family) {
 
     if ( options == NULL ) {
         return;
@@ -184,6 +184,24 @@ static void do_socket_setup(struct sockopt_t *options, int sock) {
         Log(LOG_WARNING, "SO_REUSEADDR undefined, can not set it");
 #endif
     }
+
+    if ( options->dscp ) {
+        struct socket_t sockets;
+        /* wrap the socket in a socket_t so we can call other amp functions */
+        memset(&sockets, 0, sizeof(sockets));
+        switch ( family ) {
+            case AF_INET: sockets.socket = sock; break;
+            case AF_INET6: sockets.socket6 = sock; break;
+            default: Log(LOG_ERR,"Unknown address family %d when setting DSCP",
+                             family);
+                     return;
+        };
+
+        if ( set_dscp_socket_options(&sockets, options->dscp) < 0 ) {
+            Log(LOG_ERR, "Failed to set DSCP socket options");
+            return;
+        }
+    }
 }
 
 
@@ -228,14 +246,14 @@ int start_listening(struct socket_t *sockets, int port,
 
     /* set all the socket options that have been asked for */
     if ( sockets->socket >= 0 ) {
-        do_socket_setup(sockopts, sockets->socket);
+        do_socket_setup(sockopts, sockets->socket, AF_INET);
         ((struct sockaddr_in*)
          (sockopts->sourcev4->ai_addr))->sin_port = ntohs(port);
     }
 
     if ( sockets->socket6 >= 0 ) {
         int one = 1;
-        do_socket_setup(sockopts, sockets->socket6);
+        do_socket_setup(sockopts, sockets->socket6, AF_INET6);
         /*
          * If we dont set IPV6_V6ONLY this socket will try to do IPv4 as well
          * and it will fail.
@@ -338,6 +356,8 @@ int start_listening(struct socket_t *sockets, int port,
 
 /*
  * XXX should port be included in options?
+ * XXX this function is a mess, so much duplication with others and it's only
+ * used by the throughput test. Can we fix it?
  */
 int connect_to_server(struct addrinfo *server, struct sockopt_t *options,
         int port) {
@@ -351,7 +371,7 @@ int connect_to_server(struct addrinfo *server, struct sockopt_t *options,
         return -1;
     }
 
-    do_socket_setup(options, sock);
+    do_socket_setup(options, sock, server->ai_family);
 
     /*
      * Set options that are at the AMP test level rather than specific

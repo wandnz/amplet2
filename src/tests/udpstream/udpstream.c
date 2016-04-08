@@ -18,6 +18,7 @@ struct option long_options[] = {
     {"client", required_argument, 0, 'c'},
     {"version", no_argument, 0, 'v'},
     {"interface", required_argument, 0, 'I'},
+    {"dscp", required_argument, 0, 'Q'},
     {"interpacketgap", required_argument, 0, 'Z'},
     {"ipv4", required_argument, 0, '4'},
     {"ipv6", required_argument, 0, '6'},
@@ -88,7 +89,7 @@ amp_test_result_t* run_udpstream(int argc, char *argv[], int count,
 
     Log(LOG_DEBUG, "Starting udpstream test");
 
-    while ( (opt = getopt_long(argc, argv, "?4:6:cd:hI:p:n:P:svz:Z:",
+    while ( (opt = getopt_long(argc, argv, "?4:6:cd:hI:p:n:P:Q:svz:Z:",
                     long_options, &option_index)) != -1 ) {
         switch ( opt ) {
             case 's': server_flag_index = optind - 1; break;

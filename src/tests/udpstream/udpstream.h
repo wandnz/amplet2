@@ -61,6 +61,7 @@ struct opt_t {
     uint16_t packet_count;
     uint32_t packet_spacing;
     uint32_t percentile_count;
+    uint8_t dscp;
     enum udpstream_schedule_direction direction;
 };
 

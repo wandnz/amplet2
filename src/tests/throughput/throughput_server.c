@@ -253,6 +253,9 @@ static int serveTest(BIO *ctrl, struct sockopt_t *sockopts) {
         goto errorCleanup;
     }
 
+    /* set the options that we don't know until the remote end tells us */
+    sockopts->dscp = options->dscp;//XXX
+
     /* If test port has been manually set, only try that port. If it is
      * still the default, try a few ports till we hopefully find a free one.
      */

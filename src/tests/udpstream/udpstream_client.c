@@ -257,6 +257,7 @@ amp_test_result_t* run_udpstream_client(int argc, char *argv[], int count,
 
     /* set some sensible defaults */
     //XXX set better inter packet delay, using MIN as a floor?
+    test_options.dscp = DEFAULT_DSCP_VALUE;
     test_options.packet_spacing = MIN_INTER_PACKET_DELAY;
     test_options.packet_size = DEFAULT_UDPSTREAM_PACKET_LENGTH;
     test_options.packet_count = DEFAULT_UDPSTREAM_PACKET_COUNT;
@@ -275,7 +276,7 @@ amp_test_result_t* run_udpstream_client(int argc, char *argv[], int count,
     memset(&meta, 0, sizeof(meta));
 
     /* TODO udp port */
-    while ( (opt = getopt_long(argc, argv, "hvI:Z:p:rz:c:d:n:4:6:",
+    while ( (opt = getopt_long(argc, argv, "hvI:Q:Z:p:rz:c:d:n:4:6:",
                     long_options, NULL)) != -1 ) {
 	switch ( opt ) {
             case '4':
@@ -288,6 +289,11 @@ amp_test_result_t* run_udpstream_client(int argc, char *argv[], int count,
                 break;
             case 'I': socket_options.device = meta.interface = optarg; break;
             case 'c': client = optarg; break;
+            case 'Q': if ( parse_dscp_value(optarg, &test_options.dscp) < 0 ) {
+                          Log(LOG_WARNING, "Invalid DSCP value, aborting");
+                          exit(-1);
+                      }
+                      break;
             case 'Z': test_options.packet_spacing = atoi(optarg); break;
 	    case 'p': test_options.perturbate = atoi(optarg); break;
 	    case 'z': test_options.packet_size = atoi(optarg); break;

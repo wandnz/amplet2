@@ -80,6 +80,7 @@ message Hello {
     optional bool randomise = 7;
     optional bool reuse_addr = 8;
     optional uint32 write_size = 9;
+    optional uint32 dscp = 10;
 }
 
 message Send {
