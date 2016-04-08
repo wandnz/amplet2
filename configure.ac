@@ -327,6 +327,7 @@ reportopt "Compiled with syslog logging" $want_syslog
 reportopt "Compiled with skeleton test support" $want_skeleton_test
 reportopt "Compiled with remote skeleton test support" $want_remoteskeleton_test
 reportopt "Compiled with icmp test support" $want_icmp_test
+reportopt "Compiled with traceroute test support" $want_traceroute_test
 reportopt "Compiled with dns test support" $want_dns_test
 reportopt "Compiled with http test support" $want_http_test
 reportopt "Compiled with throughput test support" $want_throughput_test
