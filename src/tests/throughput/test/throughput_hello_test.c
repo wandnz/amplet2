@@ -13,14 +13,14 @@
 int main(void) {
     int pipefd[2];
     BIO *sendctrl, *recvctrl;
-    /* X tport X mss nagle rand web10g X rcv snd X X X X X */
+    /* X tport X mss nagle rand web10g X rcv snd dscp X X X X X */
     struct opt_t optionsA[] = {
-        { 0, 12345, 0, 1460, 0, 0, 1, 0, 0, 0, 0,0,0,0,0},
-        { 0, 1, 0, 536, 0, 1, 0, 0, 4096, 0, 0,0,0,0,0},
-        { 0, DEFAULT_CONTROL_PORT, 0, 1220, 0, 1, 1, 0, 0, 4096, 0,0,0,0,0},
-        { 0, DEFAULT_TEST_PORT, 0, 5960, 1, 0, 0, 0, 4096, 4096, 0, 0, 0, 0, 0},
-        { 0, 65535, 0, 8960, 1, 1, 1, 0, 1234, 5678, 0, 0, 0, 0, 0},
-        { 0, 65535, 0, 8960, 0, 0, 0, 0, 98765, 54321, 0, 0, 0, 0, 0},
+        { 0, 12345, 0, 1460, 0, 0, 1, 0, 0, 0, 0, 0,0,0,0,0},
+        { 0, 1, 0, 536, 0, 1, 0, 0, 4096, 0, 0x20, 0,0,0,0,0},
+        { 0, DEFAULT_CONTROL_PORT, 0, 1220, 0, 1, 1, 0, 0, 4096, 0xe0, 0,0,0,0,0},
+        { 0, DEFAULT_TEST_PORT, 0, 5960, 1, 0, 0, 0, 4096, 4096, 0x38, 0,0,0,0,0},
+        { 0, 65535, 0, 8960, 1, 1, 1, 0, 1234, 5678, 0x88, 0,0,0,0,0},
+        { 0, 65535, 0, 8960, 0, 0, 0, 0, 98765, 54321, 0xb8, 0,0,0,0,0},
     };
     struct opt_t *optionsB;
     int count;
@@ -58,6 +58,7 @@ int main(void) {
         assert(optionsA[i].sock_mss == optionsB->sock_mss);
         assert(optionsA[i].sock_rcvbuf == optionsB->sock_rcvbuf);
         assert(optionsA[i].sock_sndbuf == optionsB->sock_sndbuf);
+        assert(optionsA[i].dscp == optionsB->dscp);
     }
 
     BIO_free_all(sendctrl);
