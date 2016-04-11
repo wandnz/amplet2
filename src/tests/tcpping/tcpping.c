@@ -25,6 +25,7 @@
 #include "pcapcapture.h"
 #include "tcpping.pb-c.h"
 #include "debug.h"
+#include "icmpcode.h"
 
 static struct option long_options[] = {
     {"help", no_argument, 0, 'h'},
@@ -1040,8 +1041,10 @@ void print_tcpping(amp_test_result_t *result) {
             if ( item->flags->has_ack && item->flags->ack )
                 printf("ACK ");
         } else if ( item->has_icmptype && item->has_icmpcode ) {
-                /* print any icmp errors we got, there won't be an rtt */
-                printf(" ICMP (%u/%u ", item->icmptype, item->icmpcode);
+            /* print any icmp errors we got, there won't be an rtt */
+            printf(" %s (icmp %u/%u)",
+                    icmp_code_str(item->family, item->icmptype, item->icmpcode),
+                    item->icmptype, item->icmpcode);
         } else {
             /* no response of any sort */
             printf(" missing " );

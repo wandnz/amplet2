@@ -23,6 +23,7 @@
 #include "icmp.h"
 #include "icmp.pb-c.h"
 #include "debug.h"
+#include "icmpcode.h"
 
 
 /*
@@ -764,10 +765,13 @@ void print_icmp(amp_test_result_t *result) {
             if ( item->err_type == 0 ) {
                 printf(" missing");
             } else {
-                printf(" error");
+                printf(" %s (icmp %u/%u)",
+                        icmp_code_str(item->family,
+                            item->err_type, item->err_code),
+                        item->err_type, item->err_code);
             }
         }
-        printf(" (%u/%u)\n", item->err_type, item->err_code);
+        printf("\n");
     }
     printf("\n");
 
