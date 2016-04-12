@@ -437,14 +437,14 @@ static void print_item(Amplet2__Udpstream__Item *item, uint32_t packet_count) {
             packet_count, item->packets_received,
             100 - ((double)item->packets_received / (double)packet_count*100));
 
-    printf("      delay variation min/median/max = %d/%d/%d\n",
-            item->minimum, item->median, item->maximum);
+    printf("      delay variation min/median/max = %.03f/%.03f/%.03f ms\n",
+            item->minimum/1000.0, item->median/1000.0, item->maximum/1000.0);
 
-    printf("      percentiles:");
+    printf("      percentiles:\n");
     for ( i = 0; i < item->n_percentiles; i++ ) {
-        printf(" %d:%d", (i+1) * 10, item->percentiles[i]);
+        printf("        %3d: %+.03f ms\n", (i+1) * 10,
+                item->percentiles[i]/1000.0);
     }
-    printf("\n");
 
     printf("      arrival patterns:");
     for ( i = 0; i < item->n_loss_periods; i++ ) {
