@@ -48,9 +48,8 @@ collector {
 }
 
 # The control interface is used by other amplets to request test servers be
-# started. This is only useful if you expect to be the target of tests such
-# as throughput. Anyone connecting to this port has to provide a valid SSL
-# certificate before a test server will be started.
+# started (i.e. throughput, udpstream), or to remotely run tests from a client.
+# Anyone connecting to this port has to provide a valid SSL certificate.
 control {
     enabled = true
 #    ipv4 = 1.2.3.4
@@ -63,8 +62,8 @@ control {
 # remote source, without the need to use systems like puppet etc. If you use
 # https then the server will be verified (using the built in CA bundle, or
 # the specified cacert). If you specify client certs then they will be sent to
-# the server for possible verification too. Setting identify to true will send
-# the ampname of this client as a GET parameter.
+# the server for possible verification too. Setting identify to true will
+# append the ampname of this client to the URL.
 remotesched {
     fetch = false
 #    url = https://amp.example.com/schedule
