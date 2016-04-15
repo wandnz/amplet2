@@ -1,3 +1,16 @@
+amplet2 (0.6.0-1) unstable; urgency=low
+
+  * Add ability to set DSCP bits for all tests.
+  * Reuse SSL control connection when being asked by a remote client to start
+    a test server rather than creating a new redundant one.
+  * Use the same code path for control traffic whether using SSL or not.
+  * Watchdog timers are now run inside the child process.
+  * Add ability to remotely trigger test execution.
+  * Force refetch of remote schedule on a SIGUSR2.
+  * Unblock signals on child processes so they can be killed by init scripts.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Thu, 14 Apr 2016 16:40:13 +1200
+
 amplet2 (0.5.6-2) unstable; urgency=low
 
   * Reinstate (slightly broken) return values in init script so install works.

@@ -4,7 +4,7 @@ except ImportError:
     from distutils.core import setup
 
 setup(name="ampsave",
-    version="0.5.0",
+    version="0.6.0",
     description="AMP server data storage package",
     author="Brendon Jones",
     author_email='contact@wand.net.nz',
