@@ -17,5 +17,5 @@ udpstream_la_LDFLAGS=-module -avoid-version -L../../common/ -lamp -lprotobuf-c
 INCLUDES=-I../ -I../../common/
 
 udpstream.pb-c.c: Makefile
-	protoc-c --proto_path=../../ --proto_path=. --c_out=. udpstream.proto
-	protoc --proto_path=../../ --proto_path=. --python_out=../python/ampsave/tests/ udpstream.proto
+	protoc-c --c_out=. udpstream.proto
+	protoc --python_out=../python/ampsave/tests/ udpstream.proto
