@@ -173,14 +173,14 @@ do_stop()
             # if there are any children left, send them a SIGTERM
             /usr/bin/pgrep -s $PID
             if [ $? -eq 0 ]; then
-                kill -s TERM -$PID
+                kill -s TERM -- -$PID
             fi
 
             # make sure they are stopped, otherwise send a SIGKILL
             /usr/bin/pgrep -s $PID
             if [ $? -eq 0 ]; then
                 sleep 3
-                kill -s KILL -$PID 2> /dev/null
+                kill -s KILL -- -$PID 2> /dev/null
             fi
         fi
     done
