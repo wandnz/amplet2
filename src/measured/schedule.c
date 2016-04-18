@@ -1107,6 +1107,7 @@ static int update_remote_schedule(fetch_schedule_item_t *fetch, int clobber) {
         curl_easy_setopt(curl, CURLOPT_USERAGENT, PACKAGE_STRING);
         curl_easy_setopt(curl, CURLOPT_FILETIME, 1);
         curl_easy_setopt(curl, CURLOPT_WRITEDATA, tmpfile);
+        curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1);
         /* get slightly more detailed error messages, useful with ssl */
         curl_easy_setopt(curl, CURLOPT_ERRORBUFFER, errorbuf);
 
