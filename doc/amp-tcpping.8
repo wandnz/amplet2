@@ -2,7 +2,7 @@
 .\" First parameter, NAME, should be all caps
 .\" Second parameter, SECTION, should be 1-8, maybe w/ subsection
 .\" other parameters are allowed: see man(7), man(1)
-.TH AMP-TCPPING 8 "Jul 24, 2014" "amplet2-client" "The Active Measurement Project"
+.TH AMP-TCPPING 8 "Apr 20, 2016" "amplet2-client" "The Active Measurement Project"
 .\" Please adjust this date whenever revising the manpage.
 .\"
 .\" Some roff macros, for reference:
@@ -53,16 +53,14 @@ Delay the test by a random number of milliseconds, up to a maximum of \fImillise
 Use a random packet size for each test.
 .TP
 \fB-s, --size \fIpacketsize\fB\fR
-Specifies the total number of bytes to be sent per packet (EXCLUDING headers).
-The default is 0 bytes, i.e. no payload. Payload-bearing SYNs are typically
-dropped by firewalls and other security appliances so take this into
-consideration before setting this option.
-
-Note that IPv4 packets are padded with an additional 20 bytes of TCP options
-to ensure that the packet sizes match for both IPv4 and IPv6. Any requested
-payload is in addition to any padding. In our experience, this padding does
-NOT cause our SYNs to be dropped, but unfortunately the maximum allowable
-amount of options is very small.
+Specifies the total number of bytes to be sent per packet (including headers).
+The minimum (and default) packet size is 64 bytes to ensure that both IPv4
+and IPv6 probes are the same size - IPv4 packets are padded with an additional
+20 bytes of TCP options. Payload-bearing SYNs are typically dropped by
+firewalls and other security appliances so take this into consideration before
+increasing the packet size. In our experience, just adding padding does NOT
+cause our SYNs to be dropped, but unfortunately the maximum allowable amount of
+options is very small.
 .TP
 \fB-v, --version\fR
 Show version of program.
