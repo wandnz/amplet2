@@ -371,6 +371,23 @@ static int craft_tcp_syn(struct tcppingglobals *tp, char *packet,
     return set_tcp_checksum(tcp, packet_size, srcaddr,  destaddr);
 }
 
+
+
+/*
+ * Unpack the destination ID from the sequence number offset. Each destination
+ * has a sequence number 100 more than the initial one, which needs to be
+ * converted back to the original ID number.
+ */
+static int unpack_destid(int destid, int max) {
+    if ( destid < 0 || destid >= (max * 100) || destid % 100 != 0 ) {
+        return -1;
+    }
+
+    return destid / 100;
+}
+
+
+
 /* Given a TCP header from a response packet, find the index of the
  * test target that generated the response.
  */
@@ -387,17 +404,28 @@ static inline int match_response(struct tcppingglobals *tp,
      * we want to look at the sequence number because we will be looking
      * at a copy of the packet we originally sent.
      */
-    if (istcp)
-        destid = (ntohl(tcp->ack_seq) - tp->seqindex) - 1;
-    else
-        destid = (ntohl(tcp->seq) - tp->seqindex);
-
-    if (destid < 0 || destid >= (tp->destcount * 100) || (destid % 100) != 0) {
-        return -1;
+    if ( istcp ) {
+        /*
+         * RST ACK packets have been observed to ack the whole SYN packet
+         * including payload, but SYN ACKS often only acknowledge 1 byte.
+         * If the destid doesn't look sensible, try adjusting it by the
+         * payload length. Hopefully no TCP will decide to partially
+         * acknowledge the SYN payload...
+         */
+        int packed_destid = ntohl(tcp->ack_seq) - tp->seqindex - 1;
+        destid = unpack_destid(packed_destid, tp->destcount);
+        if ( destid < 0 ) {
+            int payload = tp->options.packet_size - MIN_TCPPING_PROBE_LEN;
+            destid = unpack_destid(packed_destid - payload, tp->destcount);
+        }
+    } else {
+        destid = unpack_destid((ntohl(tcp->seq) - tp->seqindex), tp->destcount);
     }
 
-    destid = destid / 100;
-    assert(destid < tp->destcount);
+    if ( destid < 0 || destid >= tp->destcount ) {
+        Log(LOG_DEBUG, "Invalid destid %d, ignoring", destid);
+        return -1;
+    }
 
     if (tp->info[destid].reply != NO_REPLY) {
         /* Already got a reply for this SYN */
