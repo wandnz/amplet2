@@ -66,6 +66,10 @@ message Item {
     optional Direction direction = 3;
 }
 
+
+/**
+ * @exclude
+ */
 message Hello {
     /*
     extend amplet2.servers.Hello {
@@ -85,6 +89,10 @@ message Hello {
     optional uint32 dscp = 10;
 }
 
+
+/**
+ * @exclude
+ */
 message Send {
     /*
     extend amplet2.servers.Send {
