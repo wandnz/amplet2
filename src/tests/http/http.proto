@@ -53,6 +53,8 @@ message Header {
     optional bool pipelining = 10 [default = false];
     /** Was cached data allowed to be fetched? */
     optional bool caching = 11 [default = false];
+    /** Differentiated Services Code Point (DSCP) used */
+    optional uint32 dscp = 12 [default = 0];
 }
 
 

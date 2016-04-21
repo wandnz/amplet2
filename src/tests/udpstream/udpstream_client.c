@@ -12,6 +12,7 @@
 #include "udpstream.pb-c.h"
 #include "debug.h"
 #include "../../measured/control.h"//XXX just for control port define
+#include "dscp.h"
 
 
 
@@ -42,6 +43,8 @@ static amp_test_result_t* report_results(struct timeval *start_time,
     header.percentile_count = options->percentile_count;
     header.name = address_to_name(dest);
     header.has_address = copy_address_to_protobuf(&header.address, dest);
+    header.has_dscp = 1;
+    header.dscp = options->dscp;
 
     /* only report the results that are available */
     if ( in_times && server_report ) {
@@ -478,9 +481,11 @@ void print_udpstream(amp_test_result_t *result) {
     inet_ntop(msg->header->family, msg->header->address.data, addrstr,
             INET6_ADDRSTRLEN);
     printf("AMP udpstream test to %s (%s)\n", msg->header->name, addrstr);
-    printf("packet count:%" PRIu32 " size:%" PRIu32 " spacing:%" PRIu32 "\n",
+    printf("packet count:%" PRIu32 " size:%" PRIu32 " spacing:%" PRIu32
+            " DSCP:%s(0x%x)\n",
             msg->header->packet_count, msg->header->packet_size,
-            msg->header->packet_spacing);
+            msg->header->packet_spacing, dscp_to_str(msg->header->dscp),
+            msg->header->dscp);
 
     /* print the individual test runs in each direction */
     for ( i=0; i < msg->n_reports; i++ ) {

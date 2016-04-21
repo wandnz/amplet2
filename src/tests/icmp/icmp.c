@@ -24,6 +24,7 @@
 #include "icmp.pb-c.h"
 #include "debug.h"
 #include "icmpcode.h"
+#include "dscp.h"
 
 
 /*
@@ -488,8 +489,8 @@ static amp_test_result_t* report_results(struct timeval *start_time, int count,
     int i;
     amp_test_result_t *result = calloc(1, sizeof(amp_test_result_t));
 
-    Log(LOG_DEBUG, "Building icmp report, count:%d, psize:%d, rand:%d\n",
-            count, opt->packet_size, opt->random);
+    Log(LOG_DEBUG, "Building icmp report, count:%d psize:%d rand:%d dscp:%0x\n",
+            count, opt->packet_size, opt->random, opt->dscp);
 
     Amplet2__Icmp__Report msg = AMPLET2__ICMP__REPORT__INIT;
     Amplet2__Icmp__Header header = AMPLET2__ICMP__HEADER__INIT;
@@ -500,6 +501,8 @@ static amp_test_result_t* report_results(struct timeval *start_time, int count,
     header.packet_size = opt->packet_size;
     header.has_random = 1;
     header.random = opt->random;
+    header.has_dscp = 1;
+    header.dscp = opt->dscp;
 
     /* build up the repeated reports section with each of the results */
     reports = malloc(sizeof(Amplet2__Icmp__Item*) * count);
@@ -746,10 +749,13 @@ void print_icmp(amp_test_result_t *result) {
             msg->n_reports, msg->header->packet_size);
 
     if ( msg->header->random ) {
-        printf("(random size)\n");
+        printf("(random size)");
     } else {
-        printf("(fixed size)\n");
+        printf("(fixed size)");
     }
+
+    printf(", DSCP %s (0x%0x)\n", dscp_to_str(msg->header->dscp),
+            msg->header->dscp);
 
     /* print each of the test results */
     for ( i = 0; i < msg->n_reports; i++ ) {

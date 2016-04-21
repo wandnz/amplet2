@@ -14,6 +14,7 @@
 #include "controlmsg.h"
 #include "debug.h"
 #include "../../measured/control.h"//XXX just for control port define
+#include "dscp.h"
 
 
 
@@ -213,6 +214,8 @@ static amp_test_result_t* report_results(uint64_t start_time,
     header.write_size = options->write_size;
     header.name = address_to_name(dest);
     header.has_address = copy_address_to_protobuf(&header.address, dest);
+    header.has_dscp = 1;
+    header.dscp = options->dscp;
 
     /* build up the repeated reports section with each of the results */
     for ( i = 0, item = options->schedule; item != NULL; item = item->next ) {
@@ -815,8 +818,10 @@ void print_throughput(amp_test_result_t *result) {
     inet_ntop(msg->header->family, msg->header->address.data, addrstr,
             INET6_ADDRSTRLEN);
     printf("AMP throughput test to %s (%s)\n", msg->header->name, addrstr);
-    printf("writesize:%" PRIu32 " schedule:%s\n", msg->header->write_size,
+    printf("writesize:%" PRIu32 " schedule:%s ", msg->header->write_size,
             msg->header->schedule);
+    printf(" DSCP:%s(0x%0x)\n", dscp_to_str(msg->header->dscp),
+            msg->header->dscp);
 
     for ( i=0; i < msg->n_reports; i++ ) {
         item = msg->reports[i];

@@ -35,6 +35,8 @@ message Header {
     optional uint32 packet_size = 1 [default = 84];
     /** Was the packet size randomly selected? */
     optional bool random = 2 [default = false];
+    /** Differentiated Services Code Point (DSCP) used */
+    optional uint32 dscp = 3 [default = 0];
 }
 
 

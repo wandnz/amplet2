@@ -21,6 +21,7 @@
 #include "testlib.h"
 #include "dns.h"
 #include "dns.pb-c.h"
+#include "dscp.h"
 
 
 static struct option long_options[] = {
@@ -641,6 +642,8 @@ static amp_test_result_t* report_results(struct timeval *start_time, int count,
     header.has_udp_payload_size = 1;
     header.udp_payload_size = opt->udp_payload_size;
     header.query = opt->query_string;
+    header.has_dscp = 1;
+    header.dscp = opt->dscp;
 
     /* build up the repeated reports section with each of the results */
     reports = malloc(sizeof(Amplet2__Dns__Item*) * count);
@@ -1083,10 +1086,12 @@ void print_dns(amp_test_result_t *result) {
 
     /* print global configuration options */
     printf("\n");
-    printf("AMP dns test, %zu destinations, %s %s %s",
+    printf("AMP dns test, %zu destinations, %s %s %s,",
 	    msg->n_reports, msg->header->query,
 	    get_query_class_string(msg->header->query_class),
 	    get_query_type_string(msg->header->query_type));
+    printf(" DSCP %s (0x%0x)", dscp_to_str(msg->header->dscp),
+            msg->header->dscp);
     printf("\n");
 
     if ( msg->header->recurse || msg->header->dnssec || msg->header->nsid ) {

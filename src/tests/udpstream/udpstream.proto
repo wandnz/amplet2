@@ -16,6 +16,8 @@ message Header {
 	optional uint32 packet_count = 6 [default = 11];
         optional uint32 percentile_count = 7 [default = 10];
         optional string name = 8;
+        /** Differentiated Services Code Point (DSCP) used */
+        optional uint32 dscp = 9 [default = 0];
 }
 
 message Item {

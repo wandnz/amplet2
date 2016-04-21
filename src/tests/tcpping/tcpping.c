@@ -26,6 +26,7 @@
 #include "tcpping.pb-c.h"
 #include "debug.h"
 #include "icmpcode.h"
+#include "dscp.h"
 
 static struct option long_options[] = {
     {"help", no_argument, 0, 'h'},
@@ -809,6 +810,8 @@ static amp_test_result_t* report_results(struct timeval *start_time, int count,
     header.random = opt->random;
     header.has_port = 1;
     header.port = opt->port;
+    header.has_dscp = 1;
+    header.dscp = opt->dscp;
 
     /* build up the repeated reports section with each of the results */
     reports = malloc(sizeof(Amplet2__Tcpping__Item*) * count);
@@ -1043,6 +1046,9 @@ void print_tcpping(amp_test_result_t *result) {
     } else {
         printf("(fixed size)\n");
     }
+
+    printf("    DSCP %s (0x%0x)\n", dscp_to_str(msg->header->dscp),
+            msg->header->dscp);
 
     /* print each of the test results */
     for ( i = 0; i < msg->n_reports; i++ ) {

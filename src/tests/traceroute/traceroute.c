@@ -29,6 +29,7 @@
 #include "global.h"
 #include "ampresolv.h"
 #include "debug.h"
+#include "dscp.h"
 
 
 static struct option long_options[] = {
@@ -1166,6 +1167,8 @@ static amp_test_result_t*  report_results(struct timeval *start_time, int count,
     header.ip = opt->ip;
     header.has_asn = 1;
     header.asn = opt->as;
+    header.has_dscp = 1;
+    header.dscp = opt->dscp;
 
     /* build up the repeated reports section with each of the results */
     reports = malloc(sizeof(Amplet2__Traceroute__Item*) * count);
@@ -1827,6 +1830,10 @@ void print_traceroute(amp_test_result_t *result) {
     } else {
 	printf("(fixed size)\n");
     }
+
+    printf("    DSCP %s (0x%0x)\n", dscp_to_str(msg->header->dscp),
+            msg->header->dscp);
+    printf("\n");
 
     /* print each of the test results */
     for ( i = 0; i < msg->n_reports; i++ ) {

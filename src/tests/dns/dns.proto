@@ -42,6 +42,8 @@ message Header {
     optional bool nsid = 6 [default = false];
     /** The query string */
     optional string query = 7;
+    /** Differentiated Services Code Point (DSCP) used */
+    optional uint32 dscp = 8 [default = 0];
 }
 
 

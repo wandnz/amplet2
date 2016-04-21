@@ -93,6 +93,8 @@ static void report_header_results(Amplet2__Http__Header *header,
     header->pipelining = opt->pipelining;
     header->has_caching = 1;
     header->caching = opt->caching;
+    header->has_dscp = 1;
+    header->dscp = opt->dscp;
 }
 
 

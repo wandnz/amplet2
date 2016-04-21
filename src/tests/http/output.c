@@ -3,6 +3,7 @@
 #include "http.h"
 #include "output.h"
 #include "http.pb-c.h"
+#include "dscp.h"
 
 
 
@@ -28,6 +29,8 @@ static void print_global_info(Amplet2__Http__Report *report) {
     printf("\tpipelining_maxrequests:\t\t\t%d\n",
             report->header->pipelining_maxrequests);
     printf("\tcaching:\t\t\t\t%d\n", report->header->caching);
+    printf("\tdscp:\t\t\t\t\t%s (0x%x)\n", dscp_to_str(report->header->dscp),
+            report->header->dscp);
 }
 
 

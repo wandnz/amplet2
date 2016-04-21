@@ -38,6 +38,8 @@ message Header {
     optional uint32 write_size = 4;
     /** The name of the test target (as given in the schedule) */
     optional string name = 5;
+    /** Differentiated Services Code Point (DSCP) used */
+    optional uint32 dscp = 6 [default = 0];
 }
 
 

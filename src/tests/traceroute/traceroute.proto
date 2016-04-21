@@ -41,6 +41,8 @@ message Header {
     optional bool ip = 3 [default = true];
     /** Should responding ASNs be recorded at each hop? */
     optional bool asn = 4 [default = false];
+    /** Differentiated Services Code Point (DSCP) used */
+    optional uint32 dscp = 5 [default = 0];
 }
 
 

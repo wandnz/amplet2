@@ -36,6 +36,8 @@ message Header {
     optional bool random = 2 [default = false];
     /** The TCP port that the probe was directed at */
     optional uint32 port = 3 [default = 80];
+    /** Differentiated Services Code Point (DSCP) used */
+    optional uint32 dscp = 4 [default = 0];
 }
 
 
