@@ -16,6 +16,8 @@ struct option long_options[] = {
     {"size", required_argument, 0, 'z'},
     {"server", no_argument, 0, 's'},
     {"client", required_argument, 0, 'c'},
+    {"direction", required_argument, 0, 'd'},
+    {"delay", required_argument, 0, 'D'},
     {"version", no_argument, 0, 'v'},
     {"interface", required_argument, 0, 'I'},
     {"dscp", required_argument, 0, 'Q'},
@@ -50,10 +52,10 @@ void usage(char *prog) {
     //fprintf(stderr, "  -r, --randomise          randomise data in every packet sent\n");
     fprintf(stderr, "  -p, --perturbate     <ms>    maximum number of milliseconds to delay test\n");
     fprintf(stderr, "  -d, --direction      <dir>   TODO magic value describing direction\n");
+    fprintf(stderr, "  -D, --delay          <usec>  delay interval between packets (default %dus)\n", DEFAULT_UDPSTREAM_INTER_PACKET_DELAY);
     fprintf(stderr, "  -n, --packet-count   <count> number of packet to send (default %d)\n", DEFAULT_UDPSTREAM_PACKET_COUNT);
     fprintf(stderr, "  -P, --test-port      <port>  port number to test on (default %d)\n", DEFAULT_TEST_PORT);
     fprintf(stderr, "  -z, --packet-size    <bytes> size of datagrams to send (default %d)\n", DEFAULT_UDPSTREAM_PACKET_LENGTH);
-    fprintf(stderr, "  -Z, --interpacketgap <usec>  minimum delay between packets (default %d)\n", MIN_INTER_PACKET_DELAY);
     fprintf(stderr, "\n");
 
     fprintf(stderr, "Miscellaneous:\n");
@@ -89,7 +91,7 @@ amp_test_result_t* run_udpstream(int argc, char *argv[], int count,
 
     Log(LOG_DEBUG, "Starting udpstream test");
 
-    while ( (opt = getopt_long(argc, argv, "?4:6:cd:hI:p:n:P:Q:svz:Z:",
+    while ( (opt = getopt_long(argc, argv, "?4:6:cd:hI:p:n:D:P:Q:svz:Z:",
                     long_options, &option_index)) != -1 ) {
         switch ( opt ) {
             case 's': server_flag_index = optind - 1; break;

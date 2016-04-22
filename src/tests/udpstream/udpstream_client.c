@@ -257,11 +257,11 @@ amp_test_result_t* run_udpstream_client(int argc, char *argv[], int count,
     extern struct option long_options[];
     amp_test_result_t *result;
     BIO *ctrl;
+    int minimum_delay = MIN_INTER_PACKET_DELAY;
 
     /* set some sensible defaults */
-    //XXX set better inter packet delay, using MIN as a floor?
     test_options.dscp = DEFAULT_DSCP_VALUE;
-    test_options.packet_spacing = MIN_INTER_PACKET_DELAY;
+    test_options.packet_spacing = DEFAULT_UDPSTREAM_INTER_PACKET_DELAY;
     test_options.packet_size = DEFAULT_UDPSTREAM_PACKET_LENGTH;
     test_options.packet_count = DEFAULT_UDPSTREAM_PACKET_COUNT;
     test_options.percentile_count = DEFAULT_UDPSTREAM_PERCENTILE_COUNT;
@@ -279,7 +279,7 @@ amp_test_result_t* run_udpstream_client(int argc, char *argv[], int count,
     memset(&meta, 0, sizeof(meta));
 
     /* TODO udp port */
-    while ( (opt = getopt_long(argc, argv, "hvI:Q:Z:p:rz:c:d:n:4:6:",
+    while ( (opt = getopt_long(argc, argv, "hvI:D:Q:Z:p:rz:c:d:n:4:6:",
                     long_options, NULL)) != -1 ) {
 	switch ( opt ) {
             case '4':
@@ -292,12 +292,17 @@ amp_test_result_t* run_udpstream_client(int argc, char *argv[], int count,
                 break;
             case 'I': socket_options.device = meta.interface = optarg; break;
             case 'c': client = optarg; break;
+            case 'D': test_options.packet_spacing = atoi(optarg); break;
             case 'Q': if ( parse_dscp_value(optarg, &test_options.dscp) < 0 ) {
                           Log(LOG_WARNING, "Invalid DSCP value, aborting");
                           exit(-1);
                       }
                       break;
-            case 'Z': test_options.packet_spacing = atoi(optarg); break;
+            /*
+             * accept -Z because it might be set globally, but that is only a
+             * lower bound on the interval that we use
+             */
+            case 'Z': minimum_delay = atoi(optarg); break;
 	    case 'p': test_options.perturbate = atoi(optarg); break;
 	    case 'z': test_options.packet_size = atoi(optarg); break;
 	    case 'n': test_options.packet_count = atoi(optarg); break;
@@ -378,6 +383,13 @@ amp_test_result_t* run_udpstream_client(int argc, char *argv[], int count,
 	Log(LOG_WARNING, "Packet size %d below minimum, raising to %d",
 		test_options.packet_size, MINIMUM_UDPSTREAM_PACKET_LENGTH);
 	test_options.packet_size = MINIMUM_UDPSTREAM_PACKET_LENGTH;
+    }
+
+    /* make sure we aren't sending packets too quickly */
+    if ( test_options.packet_spacing < minimum_delay ) {
+	Log(LOG_WARNING, "Packet spacing %d below minimum, raising to %d",
+		test_options.packet_spacing, minimum_delay);
+	test_options.packet_spacing = minimum_delay;
     }
 
     /* delay the start by a random amount of perturbate is set */
