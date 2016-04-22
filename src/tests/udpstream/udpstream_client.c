@@ -493,8 +493,8 @@ void print_udpstream(amp_test_result_t *result) {
     inet_ntop(msg->header->family, msg->header->address.data, addrstr,
             INET6_ADDRSTRLEN);
     printf("AMP udpstream test to %s (%s)\n", msg->header->name, addrstr);
-    printf("packet count:%" PRIu32 " size:%" PRIu32 " spacing:%" PRIu32
-            " DSCP:%s(0x%x)\n",
+    printf("packet count:%" PRIu32 ", size:%" PRIu32 " bytes, spacing:%" PRIu32
+            "us, DSCP:%s(0x%x)\n",
             msg->header->packet_count, msg->header->packet_size,
             msg->header->packet_spacing, dscp_to_str(msg->header->dscp),
             msg->header->dscp);
