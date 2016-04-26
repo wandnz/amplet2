@@ -467,6 +467,13 @@ static void print_item(Amplet2__Udpstream__Item *item, uint32_t packet_count) {
                 item->loss_periods[i]->status ? "ok" : "lost");
     }
     printf("\n");
+
+    printf("      Voice Score Values (assuming G.711 codec):\n");
+    printf("        Calculated Planning Impairment Factor (ICPIF): %d\n",
+            item->icpif);
+    printf("        Cisco MOS: %.02f\n", item->cisco_mos);
+    printf("        Transmission Rating Factor R: %.02f\n", item->itu_rating);
+    printf("        ITU E-model MOS: %.02f\n", item->itu_mos);
 }
 
 

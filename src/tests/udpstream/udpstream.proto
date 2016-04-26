@@ -33,6 +33,10 @@ message Item {
         optional uint32 packets_received = 5;
         repeated int32 percentiles = 6;
         repeated Period loss_periods = 7;
+        optional int32 icpif = 8;
+        optional float cisco_mos = 9;
+        optional float itu_rating = 10;
+        optional float itu_mos = 11;
 }
 
 message Period {
@@ -44,6 +48,10 @@ message Period {
         optional int32 length = 2;
 }
 
+
+/**
+ * @exclude
+ */
 message Hello {
     /*
     extend amplet2.servers.Hello {
@@ -59,6 +67,10 @@ message Hello {
     optional uint32 dscp = 6;
 }
 
+
+/**
+ * @exclude
+ */
 message Send {
     /*
     extend amplet2.servers.Send {

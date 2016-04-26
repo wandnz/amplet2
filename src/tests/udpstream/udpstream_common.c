@@ -7,6 +7,7 @@
 #include "serverlib.h"
 #include "udpstream.h"
 #include "debug.h"
+#include "mos.h"
 
 
 
@@ -247,6 +248,8 @@ Amplet2__Udpstream__Item* report_stream(enum udpstream_direction direction,
     uint32_t count = 0, received = 0;
     int32_t current = 0, prev = 0;
     int32_t ipdv[options->packet_count];
+    float loss_percent;
+    int loss_runs = 0;
     Amplet2__Udpstream__Period *period = NULL;
 
     Log(LOG_DEBUG, "Reporting udpstream results");
@@ -272,6 +275,7 @@ Amplet2__Udpstream__Item* report_stream(enum udpstream_direction direction,
                     new_loss_period(AMPLET2__UDPSTREAM__PERIOD__STATUS__LOST);
 
                 item->n_loss_periods++;
+                loss_runs++;
             }
             continue;
         }
@@ -355,6 +359,29 @@ Amplet2__Udpstream__Item* report_stream(enum udpstream_direction direction,
         item->percentiles[i] = ipdv[(int)
             (count / item->n_percentiles * (i+1)) - 1];
     }
+
+    /* calculate the various MOS type scores that we report */
+    loss_percent = 100 - ((double)item->packets_received /
+            (double)options->packet_count*100);
+
+    /* cisco icpif is pretty basic, similar to cisco sla voip jitter test */
+    item->has_icpif = 1;
+    item->icpif = calculate_icpif(10000/*XXX OWD*/ + item->maximum,
+            loss_percent);
+
+    /* cisco mos is calculated from the icpif score */
+    item->has_cisco_mos = 1;
+    item->cisco_mos = calculate_cisco_mos(item->icpif);
+
+    /* itu r rating from g.107 e-model */
+    item->has_itu_rating = 1;
+    item->itu_rating = calculate_itu_rating(10000/*XXX OWD*/ + item->maximum,
+            loss_percent, loss_runs ?
+            (options->packet_count - item->packets_received) / loss_runs : 0);
+
+    /* convert r rating to mos */
+    item->has_itu_mos = 1;
+    item->itu_mos = calculate_itu_mos(item->itu_rating);
 
     return item;
 }
