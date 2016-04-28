@@ -1,63 +1,132 @@
-/*import "common/servers.proto";*/
-
+/**
+ * Data reporting messages for the AMP UDP jitter test.
+ *
+ * This test sends a stream of UDP packets to a cooperating AMP client, which
+ * it uses to observe jitter, latency and loss along the path.
+ *
+ * Each message contains one Report.
+ * Each Report contains one Header and one Item per result.
+ * Each Item contains information on a test result.
+ */
 package amplet2.udpstream;
 
+
+/**
+ * An instance of the test will generate one Report message.
+ */
 message Report {
-	optional Header header = 1;
-	repeated Item reports = 2;
+    /** Describes the test settings used in this test instance */
+    optional Header header = 1;
+    /** Results for all test targets */
+    repeated Item reports = 2;
 }
 
+
+/**
+ * The test header describes all of the settings that the test was configured
+ * to run with. These settings are the same for every result contained within
+ * the Report message.
+ */
 message Header {
-        optional bytes address = 1;
-        optional int32 family = 2;
-        optional string schedule = 3;
-	optional uint32 packet_size = 4 [default = 100];
-	optional uint32 packet_spacing = 5 [default = 1000];
-	optional uint32 packet_count = 6 [default = 11];
-        optional string name = 8;
-        /** Differentiated Services Code Point (DSCP) used */
-        optional uint32 dscp = 9 [default = 0];
+    /** The address that was tested to */
+    optional bytes address = 1;
+    /** The family the tested address belongs to (AF_INET/AF_INET6) */
+    optional int32 family = 2;
+    /** The test schedule string used for this test (XXX: currently unused) */
+    optional string schedule = 3;
+    /** Size of the UDP probe packets in bytes (including IP and UDP headers) */
+    optional uint32 packet_size = 4 [default = 100];
+    /** Gap between sending probe packets in milliseconds */
+    optional uint32 packet_spacing = 5 [default = 1000];
+    /** Number of packets to send in the stream */
+    optional uint32 packet_count = 6 [default = 11];
+    /** The name of the test target (as given in the schedule file) */
+    optional string name = 7;
+    /** Differentiated Services Code Point (DSCP) used */
+    optional uint32 dscp = 8 [default = 0];
 }
 
+
+/**
+ * A report will be generated for each direction tested, describing what the
+ * quality of the data stream was like.
+ */
 message Item {
-        enum Direction {
-            NULL = 0;
-            SERVER_TO_CLIENT = 1;
-            CLIENT_TO_SERVER = 2;
-        }
-        optional Direction direction = 1;
-        optional SummaryStats rtt = 2;
-        optional SummaryStats jitter = 3;
-        repeated int32 percentiles = 4;
-        optional uint32 packets_received = 5;
-        repeated Period loss_periods = 6;
-        optional float loss_percent = 7;
-        optional Voip voip = 8;
+    /**
+     * The direction of the data flow during the test. Each test is performed
+     * in one direction only, either from the server to the client or from the
+     * client to the server.
+     */
+    enum Direction {
+        NULL = 0;
+        SERVER_TO_CLIENT = 1;
+        CLIENT_TO_SERVER = 2;
+    }
+    /** The direction of the data flow during the test */
+    optional Direction direction = 1;
+    /** Summary statistics about the round trip time observed */
+    optional SummaryStats rtt = 2;
+    /** Summary statistics about the inter packet delay variation observed */
+    optional SummaryStats jitter = 3;
+    /** Percentile data about the inter packet delay variation observed */
+    repeated int32 percentiles = 4;
+    /** Total number of probe packets received during the test */
+    optional uint32 packets_received = 5;
+    /** Number of periods (bursts) of loss during the test */
+    repeated Period loss_periods = 6;
+    /** Percentage of probe packets that were lost */
+    optional float loss_percent = 7;
+    /** Stats on (calculated) quality of a voice connection using the path */
+    optional Voip voip = 8;
 }
 
+
+/**
+ * A report on a single period of the test where packets were either received
+ * or lost. This is essentially run length encoded description of which packets
+ * in the stream dropped.
+ */
 message Period {
-        enum Status {
-            LOST = 0;
-            RECEIVED = 1;
-        }
-        optional Status status = 1;
-        optional int32 length = 2;
+    /** Descriptor for this period - received packets or lost packets */
+    enum Status {
+        LOST = 0;
+        RECEIVED = 1;
+    }
+    /** Were the packets in this period received or lost? */
+    optional Status status = 1;
+    /** How many packets in this period had this status */
+    optional int32 length = 2;
 }
 
+
+/**
+ * Simple summary statistics.
+ */
 message SummaryStats {
+    /** Maximum value observed */
     optional int32 maximum = 1;
+    /** Minimum value observed */
     optional int32 minimum = 2;
+    /** Mean value observed */
     optional int32 mean = 3;
+    /** Number of samples observed */
     optional uint32 samples = 4;
 }
 
+
+/**
+ * Voice over IP related statistics calculated during the test.
+ */
 message Voip {
+    /** Calculated Planning Impairment Factor (ICPIF) */
     optional int32 icpif = 1;
+    /** Cisco style Mean Opinion Score calculated from ICPIF */
     optional float cisco_mos = 2;
+    /** ITU-T G.107 (06/2015) E-model R rating value */
     optional float itu_rating = 3;
+    /** Mean Opinion Score calculated from R rating value */
     optional float itu_mos = 4;
 }
-
 
 
 /**
