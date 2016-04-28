@@ -22,7 +22,6 @@ static void do_receive(BIO *ctrl, int test_sock, struct opt_t *options) {
     Amplet2__Udpstream__Item *result;
     ProtobufCBinaryData packed;
     struct timeval *times = NULL;
-    unsigned int i;
 
     Log(LOG_DEBUG, "got RECEIVE command");
 
@@ -46,14 +45,7 @@ static void do_receive(BIO *ctrl, int test_sock, struct opt_t *options) {
     /* send the result to the client for reporting */
     send_control_result(AMP_TEST_UDPSTREAM, ctrl, &packed);
 
-    for ( i = 0; i < result->n_loss_periods; i++ ) {
-        free(result->loss_periods[i]);
-    }
-    free(result->loss_periods);
-    if ( result->percentiles ) {
-        free(result->percentiles);
-    }
-    free(result);
+    amplet2__udpstream__item__free_unpacked(result, NULL);
     free(packed.data);
     free(times);
 }
