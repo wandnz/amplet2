@@ -17,6 +17,8 @@ int calculate_icpif(uint32_t delay, double loss /* codec */) {
     /* Equipment Impairment Factor */
     int ie = 0;
 
+    Log(LOG_DEBUG, "Calculating ICPIF");
+
 
     /* TODO delay should include codec delay, look ahead delay, DSP delay */
     /* TODO this should be a function rather than a look up table? */
@@ -32,7 +34,7 @@ int calculate_icpif(uint32_t delay, double loss /* codec */) {
         idd = 7;
     }
 
-    Log(LOG_DEBUG, "Delay Impairment Factor: %d", idd);
+    Log(LOG_DEBUG, "  Delay Impairment Factor: %d", idd);
 
     /* TODO this should be a function rather than a look up table? */
     if ( loss < 2.0 ) {
@@ -47,7 +49,7 @@ int calculate_icpif(uint32_t delay, double loss /* codec */) {
         ie = 32;
     }
 
-    Log(LOG_DEBUG, "Equipment Impairment Factor: %d", ie);
+    Log(LOG_DEBUG, "  Equipment Impairment Factor: %d", ie);
 
     return idd + ie;
 }
@@ -79,7 +81,7 @@ int calculate_cisco_mos(int icpif) {
 }
 
 
-
+#if 0
 double calculate_ian_mcdonald_rating(uint32_t delay, double loss) {
     double rating;
     double ie;
@@ -119,6 +121,8 @@ double calculate_ian_mcdonald_rating(uint32_t delay, double loss) {
 
     return rating;
 }
+#endif
+
 
 
 /*
@@ -145,6 +149,8 @@ double calculate_itu_rating(uint32_t delay, double loss,
     double x;
     double Idd, part1, part2;
 
+    Log(LOG_DEBUG, "Calculating ITU R value");
+
     /* calculate impact of loss on the rating */
     Ppl = loss;
 
@@ -168,7 +174,7 @@ double calculate_itu_rating(uint32_t delay, double loss,
     /* formula 7-29 from ITU-T G.107 */
     Ieeff = Ie + (95 - Ie) * (Ppl / ((Ppl / BurstR) + Bpl));
 
-    Log(LOG_DEBUG, "Loss Impact: %f\n", Ieeff);
+    Log(LOG_DEBUG, "  Loss Impact: %f\n", Ieeff);
 
     /* ignore the effect of delay if it is under the minimum perceivable */
     if ( Ta <= mT ) {
@@ -181,7 +187,7 @@ double calculate_itu_rating(uint32_t delay, double loss,
         Idd = 25 * (part1 - part2 + 2);
     }
 
-    Log(LOG_DEBUG, "Delay Impact: %f\n", Idd);
+    Log(LOG_DEBUG, "  Delay Impact: %f\n", Idd);
 
     /*
      * R = Ro - Is - Id - Ie-eff + A
@@ -190,7 +196,7 @@ double calculate_itu_rating(uint32_t delay, double loss,
      */
     rating = DEFAULT_R_VALUE - Idd - Ieeff;
 
-    Log(LOG_DEBUG, "R value: %f\n", rating);
+    Log(LOG_DEBUG, "R value: %.02f\n", rating);
 
     return rating;
 }
@@ -204,6 +210,8 @@ double calculate_itu_rating(uint32_t delay, double loss,
  */
 double calculate_itu_mos(double rating) {
     double mos;
+
+    Log(LOG_DEBUG, "Calculating ITU MOS with R: %.02f", rating);
 
     if ( rating < 0 ) {
         mos = 1;
