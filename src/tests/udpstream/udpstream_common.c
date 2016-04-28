@@ -171,7 +171,7 @@ int receive_udp_stream(int sock, uint32_t packet_count, struct timeval *times) {
     char buffer[4096];//XXX
     int timeout;
     uint32_t i;
-    struct timeval sent_time;
+    struct timeval sent_time, recv_time;
     struct socket_t sockets;
     struct payload_t *payload;
 
@@ -190,7 +190,7 @@ int receive_udp_stream(int sock, uint32_t packet_count, struct timeval *times) {
         timeout = UDPSTREAM_LOSS_TIMEOUT;
 
         if ( get_packet(&sockets, buffer, sizeof(buffer), NULL,
-                    &timeout, &times[i]) > 0 ) {
+                    &timeout, &recv_time) > 0 ) {
             payload = (struct payload_t*)&buffer;
 
             /* get the packet index number so we record it correctly */
@@ -201,7 +201,7 @@ int receive_udp_stream(int sock, uint32_t packet_count, struct timeval *times) {
                 /* this should cast appropriately whether 32 or 64 bit */
                 sent_time.tv_sec = (time_t)be64toh(payload->sec);
                 sent_time.tv_usec = (time_t)be64toh(payload->usec);
-                timersub(&times[index], &sent_time, &times[index]);
+                timersub(&recv_time, &sent_time, &times[index]);
                 Log(LOG_DEBUG, "Got UDP stream packet %d (id:%d)", i, index);
             }
         } else {
