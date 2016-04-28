@@ -385,6 +385,13 @@ amp_test_result_t* run_udpstream_client(int argc, char *argv[], int count,
 	test_options.packet_size = MINIMUM_UDPSTREAM_PACKET_LENGTH;
     }
 
+    /* make sure that the packet size isn't too big either */
+    if ( test_options.packet_size > MAXIMUM_UDPSTREAM_PACKET_LENGTH ) {
+	Log(LOG_WARNING, "Packet size %d above maximum, lowering to %d",
+		test_options.packet_size, MAXIMUM_UDPSTREAM_PACKET_LENGTH);
+	test_options.packet_size = MAXIMUM_UDPSTREAM_PACKET_LENGTH;
+    }
+
     /* make sure we aren't sending packets too quickly */
     if ( test_options.packet_spacing < minimum_delay ) {
 	Log(LOG_WARNING, "Packet spacing %d below minimum, raising to %d",

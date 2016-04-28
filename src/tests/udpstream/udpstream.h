@@ -26,6 +26,7 @@
 #define MINIMUM_UDPSTREAM_PACKET_LENGTH ( \
         sizeof(struct ip6_hdr) + sizeof(struct udphdr) + \
         sizeof(struct payload_t))
+#define MAXIMUM_UDPSTREAM_PACKET_LENGTH 1500
 #define DEFAULT_UDPSTREAM_PACKET_LENGTH 100
 #define DEFAULT_UDPSTREAM_PACKET_COUNT 11
 #define DEFAULT_UDPSTREAM_PERCENTILE_COUNT 10

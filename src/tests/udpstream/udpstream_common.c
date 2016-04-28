@@ -168,7 +168,7 @@ int send_udp_stream(int sock, struct addrinfo *remote, struct opt_t *options) {
  * Receive a stream of UDP packets, expecting the specified number of packets.
  */
 int receive_udp_stream(int sock, uint32_t packet_count, struct timeval *times) {
-    char buffer[4096];//XXX
+    char buffer[MAXIMUM_UDPSTREAM_PACKET_LENGTH];
     int timeout;
     uint32_t i;
     struct timeval sent_time, recv_time;
