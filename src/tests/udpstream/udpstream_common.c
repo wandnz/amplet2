@@ -3,6 +3,7 @@
 #include <netinet/ip6.h>
 #include <sys/time.h>
 #include <string.h>
+#include <math.h>
 
 #include "serverlib.h"
 #include "udpstream.h"
@@ -100,41 +101,51 @@ void* parse_send(ProtobufCBinaryData *data) {
  * Send a stream of UDP packets towards the remote target, with the given
  * test options (size, spacing and count).
  */
-int send_udp_stream(int sock, struct addrinfo *remote, struct opt_t *options) {
+struct summary_t* send_udp_stream(int sock, struct addrinfo *remote,
+        struct opt_t *options) {
     struct timeval now;
     struct payload_t *payload;
-    uint32_t i;
     size_t payload_len;
+    char response[MAXIMUM_UDPSTREAM_PACKET_LENGTH];
+    ssize_t bytes;
+    uint32_t i;
+    int wait;
+    struct socket_t sockets;
+    struct summary_t *rtt;
+    double mean = 0;
 
     Log(LOG_DEBUG, "Sending UDP stream, packets:%d size:%d spacing:%d",
             options->packet_count, options->packet_size,
             options->packet_spacing);
 
-    if ( options->dscp ) {
-        struct socket_t sockets;
-        /* wrap the socket in a socket_t so we can call other amp functions */
-        memset(&sockets, 0, sizeof(sockets));
-        switch ( remote->ai_family ) {
-            case AF_INET: sockets.socket = sock; break;
-            case AF_INET6: sockets.socket6 = sock; break;
-            default: Log(LOG_ERR,"Unknown address family %d",remote->ai_family);
-                     return -1;
-        };
+    /* wrap the socket in a socket_t so we can call other amp functions */
+    memset(&sockets, 0, sizeof(sockets));
+    switch ( remote->ai_family ) {
+        case AF_INET:
+            sockets.socket = sock;
+            payload_len = options->packet_size - sizeof(struct iphdr);
+            break;
+        case AF_INET6:
+            sockets.socket6 = sock;
+            payload_len = options->packet_size - sizeof(struct ip6_hdr);
+            break;
+        default:
+            Log(LOG_ERR,"Unknown address family %d",remote->ai_family);
+            return NULL;
+    };
 
+    if ( options->dscp ) {
         if ( set_dscp_socket_options(&sockets, options->dscp) < 0 ) {
             Log(LOG_ERR, "Failed to set DSCP socket options, aborting test");
-            return -1;
+            return NULL;
         }
     }
 
+    rtt = calloc(1, sizeof(struct summary_t));
+    rtt->minimum = UINT32_MAX;
+
     //XXX put a pattern in the payload?
     /* the packet size option includes headers, so subtract them */
-    if ( remote->ai_family == AF_INET ) {
-        payload_len = options->packet_size - sizeof(struct iphdr);
-    } else {
-        payload_len = options->packet_size - sizeof(struct ip6_hdr);
-    }
-
     payload_len -= sizeof(struct udphdr);
     payload = (struct payload_t *)calloc(1, payload_len);
 
@@ -149,16 +160,45 @@ int send_udp_stream(int sock, struct addrinfo *remote, struct opt_t *options) {
                     remote->ai_addr, remote->ai_addrlen) < 0 ) {
             Log(LOG_WARNING, "Error sending udpstream packet: %s",
                     strerror(errno));
-            return -1;
+            return NULL;
         }
 
-        /* TODO not accurate, but good enough for now */
-        usleep(options->packet_spacing);
+        /*
+         * After sending the packet, check for any reflected packets before
+         * sending the next one.
+         */
+        wait = options->packet_spacing;
+        /* TODO timing won't be super accurate, but good enough for now */
+        while ( (bytes = get_packet(&sockets, response,
+                        MAXIMUM_UDPSTREAM_PACKET_LENGTH,
+                        NULL, &wait, &now)) > 0 ) {
+            struct payload_t *recv_payload;
+            struct timeval sent_time;
+            uint32_t value;
+            double delta;
+
+            recv_payload = (struct payload_t*)&response;
+            /* this should cast appropriately whether 32 or 64 bit */
+            sent_time.tv_sec = (time_t)be64toh(recv_payload->sec);
+            sent_time.tv_usec = (time_t)be64toh(recv_payload->usec);
+            value = DIFF_TV_US(now, sent_time);
+            if ( value > rtt->maximum ) {
+                rtt->maximum = value;
+            }
+            if ( value < rtt->minimum ) {
+                rtt->minimum = value;
+            }
+            rtt->samples++;
+            delta = (double)value - mean;
+            mean += delta / rtt->samples;
+        }
     }
+
+    rtt->mean = (uint32_t)round(mean);
 
     free(payload);
 
-    return 0;
+    return rtt;
 }
 
 
@@ -174,14 +214,29 @@ int receive_udp_stream(int sock, uint32_t packet_count, struct timeval *times) {
     struct timeval sent_time, recv_time;
     struct socket_t sockets;
     struct payload_t *payload;
-
-    /*
-     * TODO not ideal, but just put the same socket in both slots, unless we
-     * really feel like working out the address family
-     */
-    sockets.socket = sock;
-    sockets.socket6 = sock;
+    struct sockaddr_storage ss;
+    socklen_t socklen;
+    ssize_t bytes;
     uint32_t index;
+
+    socklen = sizeof(ss);
+    getsockname(sock, (struct sockaddr *)&ss, &socklen);
+
+    switch ( ss.ss_family ) {
+        case AF_INET:
+            sockets.socket = sock;
+            sockets.socket6 = -1;
+            socklen = sizeof(struct sockaddr_in);
+            break;
+        case AF_INET6:
+            sockets.socket = -1;
+            sockets.socket6 = sock;
+            socklen = sizeof(struct sockaddr_in6);
+            break;
+        default:
+            Log(LOG_ERR,"Unknown address family %d", ss.ss_family);
+            return -1;
+    };
 
     Log(LOG_DEBUG, "Receiving UDP stream, packets:%d", packet_count);
 
@@ -189,8 +244,9 @@ int receive_udp_stream(int sock, uint32_t packet_count, struct timeval *times) {
         /* reset timeout per packet, consider some global timer also? */
         timeout = UDPSTREAM_LOSS_TIMEOUT;
 
-        if ( get_packet(&sockets, buffer, sizeof(buffer), NULL,
-                    &timeout, &recv_time) > 0 ) {
+        if ( (bytes = get_packet(&sockets, buffer, sizeof(buffer),
+                        (struct sockaddr*)&ss, &timeout, &recv_time)) > 0 ) {
+
             payload = (struct payload_t*)&buffer;
 
             /* get the packet index number so we record it correctly */
@@ -198,6 +254,13 @@ int receive_udp_stream(int sock, uint32_t packet_count, struct timeval *times) {
 
             /* TODO better checks that the packet belongs to our stream? */
             if ( index < packet_count ) {
+                /* immediately reflect the packet back for rtt measurements */
+                if ( sendto(sock, buffer, bytes, 0,
+                            (struct sockaddr*)&ss, socklen) < 0 ) {
+                    Log(LOG_DEBUG, "Error reflecting udpstream packet: %s",
+                            strerror(errno));
+                }
+
                 /* this should cast appropriately whether 32 or 64 bit */
                 sent_time.tv_sec = (time_t)be64toh(payload->sec);
                 sent_time.tv_usec = (time_t)be64toh(payload->usec);
@@ -246,21 +309,105 @@ static Amplet2__Udpstream__Period *new_loss_period(
 /*
  *
  */
+Amplet2__Udpstream__Voip* report_voip(Amplet2__Udpstream__Item *item) {
+    Amplet2__Udpstream__Voip *voip;
+    uint32_t owd;
+    int lost = 0, runs = 0;
+    unsigned int i;
+
+    if ( !item ) {
+        return NULL;
+    }
+
+    voip = calloc(1, sizeof(Amplet2__Udpstream__SummaryStats));
+    amplet2__udpstream__voip__init(voip);
+
+    /* assume one-way delay is half the round trip time */
+    owd = item->rtt->mean / 2;
+
+    /* calculate the average length of loss runs */
+    for ( i = 0; i < item->n_loss_periods; i++ ) {
+        if ( item->loss_periods[i]->status ==
+                AMPLET2__UDPSTREAM__PERIOD__STATUS__LOST ) {
+            lost += item->loss_periods[i]->length;
+            runs++;
+        }
+    }
+
+    /* cisco icpif is pretty basic, similar to cisco sla voip jitter test */
+    voip->has_icpif = 1;
+    voip->icpif = calculate_icpif(owd + item->jitter->maximum,
+            item->loss_percent);
+
+    /* cisco mos is calculated from the icpif score */
+    voip->has_cisco_mos = 1;
+    voip->cisco_mos = calculate_cisco_mos(voip->icpif);
+
+    /* itu r rating from g.107 e-model */
+    voip->has_itu_rating = 1;
+    voip->itu_rating = calculate_itu_rating(owd + item->jitter->maximum,
+            item->loss_percent, runs ? (lost / runs) : 0);
+
+    /* convert r rating to mos */
+    voip->has_itu_mos = 1;
+    voip->itu_mos = calculate_itu_mos(voip->itu_rating);
+
+    return voip;
+}
+
+
+
+/*
+ *
+ */
+Amplet2__Udpstream__SummaryStats* report_summary(struct summary_t *summary) {
+    Amplet2__Udpstream__SummaryStats *stats;
+
+    if ( !summary ) {
+        return NULL;
+    }
+
+    Log(LOG_DEBUG, "RTT information available");
+
+    stats = calloc(1, sizeof(Amplet2__Udpstream__SummaryStats));
+    amplet2__udpstream__summary_stats__init(stats);
+
+    stats->has_maximum = 1;
+    stats->maximum = summary->maximum;
+    stats->has_minimum = 1;
+    stats->minimum = summary->minimum;
+    stats->has_mean = 1;
+    stats->mean = summary->mean;
+    stats->has_samples = 1;
+    stats->samples = summary->samples;
+
+    return stats;
+}
+
+
+
+/*
+ *
+ */
 Amplet2__Udpstream__Item* report_stream(enum udpstream_direction direction,
-        struct timeval *times, struct opt_t *options) {
+        struct summary_t *rtt, struct timeval *times, struct opt_t *options) {
+
     Amplet2__Udpstream__Item *item =
         (Amplet2__Udpstream__Item*)malloc(sizeof(Amplet2__Udpstream__Item));
     uint32_t i;
-    uint32_t count = 0, received = 0;
+    uint32_t received = 0;
     int32_t current = 0, prev = 0;
     int32_t ipdv[options->packet_count];
-    float loss_percent;
     int loss_runs = 0;
     Amplet2__Udpstream__Period *period = NULL;
+    struct summary_t jitter;
+    double mean = 0, delta;
 
     Log(LOG_DEBUG, "Reporting udpstream results");
 
     amplet2__udpstream__item__init(item);
+
+    memset(&jitter, 0, sizeof(jitter));
 
     item->n_loss_periods = 0;
     item->loss_periods = NULL;
@@ -311,13 +458,13 @@ Amplet2__Udpstream__Item* report_stream(enum udpstream_direction direction,
 
         current = (times[i].tv_sec * 1000000) + times[i].tv_usec;
 
-        ipdv[count] = current - prev;
-
+        ipdv[jitter.samples] = current - prev;
         prev = current;
-        count++;
-    }
 
-    qsort(&ipdv, count, sizeof(int32_t), cmp);
+        delta = (double)ipdv[jitter.samples] - mean;
+        jitter.samples++;
+        mean += delta / jitter.samples;
+    }
 
     Log(LOG_DEBUG, "Packets received: %d", received);
     Log(LOG_DEBUG, "Loss periods: %d", item->n_loss_periods);
@@ -327,67 +474,50 @@ Amplet2__Udpstream__Item* report_stream(enum udpstream_direction direction,
     item->direction = direction;
     item->has_packets_received = 1;
     item->packets_received = received;
+    item->has_loss_percent = 1;
+    item->loss_percent = 100 - ((double)item->packets_received /
+            (double)options->packet_count*100);
+
 
     /* no useful delay variance, not enough packets arrived */
-    if ( count == 0 ) {
+    if ( jitter.samples == 0 ) {
         return item;
     }
 
     /* at least two packets arrived - we have one delay variance measurement */
-    item->has_maximum = 1;
-    item->maximum = ipdv[count -1];
-    item->has_minimum = 1;
-    item->minimum = ipdv[0];
-
-    item->has_median = 1;
-    if ( count % 2 ) {
-        /* odd number of results, take the middle one */
-        item->median = ipdv[count / 2];
-    } else {
-        /* round up the difference in the middle values, so we get an integer */
-        item->median = (ipdv[count / 2] + ipdv[(count / 2) - 1]) / 2;
-    }
+    qsort(&ipdv, jitter.samples, sizeof(int32_t), cmp);
+    jitter.maximum = ipdv[jitter.samples - 1];
+    jitter.minimum = ipdv[0];
+    jitter.mean = mean;
+    item->jitter = report_summary(&jitter);
 
     /*
      * Base the number of percentiles around the minimum of what the user
      * wanted, and the number of measurements we have. We might be duplicating
      * data by including the min/max here as well, but it makes life easier.
      */
-    item->n_percentiles = MIN(options->percentile_count, count);
+    item->n_percentiles = MIN(options->percentile_count, jitter.samples);
     item->percentiles = calloc(item->n_percentiles, sizeof(int32_t));
 
     Log(LOG_DEBUG, "Reporting %d percentiles", item->n_percentiles);
 
     for ( i = 0; i < item->n_percentiles; i++ ) {
         Log(LOG_DEBUG, "Percentile %d (%d): %d\n", (i+1) * 10,
-                (int)(count / item->n_percentiles * (i+1)) - 1,
-                ipdv[(int)(count / item->n_percentiles * (i+1)) - 1]);
+                (int)(jitter.samples / item->n_percentiles * (i+1)) - 1,
+                ipdv[(int)(jitter.samples / item->n_percentiles * (i+1)) - 1]);
         item->percentiles[i] = ipdv[(int)
-            (count / item->n_percentiles * (i+1)) - 1];
+            (jitter.samples / item->n_percentiles * (i+1)) - 1];
     }
 
-    /* calculate the various MOS type scores that we report */
-    loss_percent = 100 - ((double)item->packets_received /
-            (double)options->packet_count*100);
-
-    /* cisco icpif is pretty basic, similar to cisco sla voip jitter test */
-    item->has_icpif = 1;
-    item->icpif = calculate_icpif(10000/*XXX OWD*/ + item->maximum,
-            loss_percent);
-
-    /* cisco mos is calculated from the icpif score */
-    item->has_cisco_mos = 1;
-    item->cisco_mos = calculate_cisco_mos(item->icpif);
-
-    /* itu r rating from g.107 e-model */
-    item->has_itu_rating = 1;
-    item->itu_rating = calculate_itu_rating(10000/*XXX OWD*/ + item->maximum,
-            loss_percent, loss_runs ?
-            (options->packet_count - item->packets_received) / loss_runs : 0);
-
-    /* convert r rating to mos */
-    item->has_itu_mos = 1;
-    item->itu_mos = calculate_itu_mos(item->itu_rating);
+    /*
+     * If we have an rtt then we can calculate MOS scores. This will generally
+     * only happen on the client before reporting because the server doesn't
+     * have enough information to do so.
+     */
+    if ( rtt ) {
+        item->rtt = report_summary(rtt);
+        item->voip = report_voip(item);
+    }
 
     return item;
 }

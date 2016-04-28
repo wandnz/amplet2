@@ -21,7 +21,8 @@
  * onwards (to either the printing function or the rabbitmq server).
  */
 static amp_test_result_t* report_results(struct timeval *start_time,
-        struct addrinfo *dest, struct opt_t *options, struct timeval *in_times,
+        struct addrinfo *dest, struct opt_t *options,
+        Amplet2__Udpstream__Item *local_report,
         Amplet2__Udpstream__Item *server_report) {
 
     Amplet2__Udpstream__Report msg = AMPLET2__UDPSTREAM__REPORT__INIT;
@@ -47,18 +48,19 @@ static amp_test_result_t* report_results(struct timeval *start_time,
     header.dscp = options->dscp;
 
     /* only report the results that are available */
-    if ( in_times && server_report ) {
+    if ( local_report && server_report ) {
         msg.n_reports = 2;
-    } else if ( in_times || server_report ) {
+    } else if ( local_report || server_report ) {
         msg.n_reports = 1;
     } else {
         assert(0);
     }
 
+    Log(LOG_DEBUG, "Generating reports for %d directions", msg.n_reports);
     reports = calloc(msg.n_reports, sizeof(Amplet2__Udpstream__Item*));
 
-    if ( in_times ) {
-        reports[i++] = report_stream(UDPSTREAM_TO_CLIENT, in_times, options);
+    if ( local_report ) {
+        reports[i++] = local_report;
     }
 
     if ( server_report ) {
@@ -76,15 +78,8 @@ static amp_test_result_t* report_results(struct timeval *start_time,
     amplet2__udpstream__report__pack(&msg, result->data);
 
     /* free up all the memory we had to allocate to report items */
-    if ( in_times ) {
-        for ( i = 0; i < reports[0]->n_loss_periods; i++ ) {
-            free(reports[0]->loss_periods[i]);
-        }
-        free(reports[0]->loss_periods);
-        if ( reports[0]->percentiles ) {
-            free(reports[0]->percentiles);
-        }
-        free(reports[0]);
+    if ( local_report ) {
+        amplet2__udpstream__item__free_unpacked(local_report, NULL);
     }
 
     if ( server_report ) {
@@ -94,6 +89,46 @@ static amp_test_result_t* report_results(struct timeval *start_time,
     free(reports);
 
     return result;
+}
+
+
+
+/*
+ *
+ */
+static Amplet2__Udpstream__Item* merge_results(ProtobufCBinaryData *data,
+        struct summary_t *rtt) {
+
+    Amplet2__Udpstream__Item *results = amplet2__udpstream__item__unpack(NULL,
+            data->len, data->data);
+
+    results->rtt = report_summary(rtt);
+    results->voip = report_voip(results);
+
+    return results;
+}
+
+
+
+/*
+ *
+ */
+static struct summary_t *extract_summary(ProtobufCBinaryData *data) {
+    struct summary_t *stats;
+    Amplet2__Udpstream__Item *item = amplet2__udpstream__item__unpack(
+            NULL, data->len, data->data);
+
+    Log(LOG_DEBUG, "Extracting rtt information from results");
+
+    stats = malloc(sizeof(struct summary_t));
+    stats->maximum = item->rtt->maximum;
+    stats->minimum = item->rtt->minimum;
+    stats->mean = item->rtt->mean;
+    stats->samples = item->rtt->samples;
+
+    amplet2__udpstream__item__free_unpacked(item, NULL);
+
+    return stats;
 }
 
 
@@ -150,9 +185,10 @@ static amp_test_result_t* run_test(struct addrinfo *server,
     struct timeval *in_times = NULL;
     struct test_request_t *schedule = NULL, *current;
     ProtobufCBinaryData data;
-    Amplet2__Udpstream__Item *remote_results = NULL;
+    Amplet2__Udpstream__Item *remote_results = NULL, *local_results = NULL;
     struct timeval start_time;
     amp_test_result_t *result;
+    struct summary_t *rtt = NULL, *remote_rtt = NULL;
 
     socket_options->socktype = SOCK_STREAM;
     socket_options->protocol = IPPROTO_TCP;
@@ -191,7 +227,7 @@ static amp_test_result_t* run_test(struct addrinfo *server,
                 ((struct sockaddr_in *)server->ai_addr)->sin_port =
                     ntohs(options->tport);
 
-                send_udp_stream(test_socket, server, options);
+                rtt = send_udp_stream(test_socket, server, options);
 
                 /* wait for the results from the stream we just sent */
                 if ( read_control_result(AMP_TEST_UDPSTREAM, ctrl,
@@ -199,9 +235,11 @@ static amp_test_result_t* run_test(struct addrinfo *server,
                     Log(LOG_WARNING, "Failed to read RESULT packet, aborting");
                     return NULL;
                 }
-                remote_results = amplet2__udpstream__item__unpack(NULL,
-                        data.len, data.data);
+
+                Log(LOG_DEBUG, "Merging local RTT calculations with results");
+                remote_results = merge_results(&data, rtt);
                 free(data.data);
+                free(rtt);
                 break;
 
             case UDPSTREAM_TO_CLIENT:
@@ -221,6 +259,19 @@ static amp_test_result_t* run_test(struct addrinfo *server,
 
                 /* wait for the data stream from the server */
                 receive_udp_stream(test_socket, options->packet_count,in_times);
+
+                /* wait for the rtt for the stream we just sent */
+                if ( read_control_result(AMP_TEST_UDPSTREAM, ctrl,
+                            &data) < 0 ) {
+                    Log(LOG_WARNING, "Failed to read RESULT packet, aborting");
+                    return NULL;
+                }
+                Log(LOG_DEBUG, "Merging remote RTT calculations with results");
+                remote_rtt = extract_summary(&data);
+                local_results = report_stream(UDPSTREAM_TO_CLIENT, remote_rtt,
+                        in_times, options);
+                free(data.data);
+                free(remote_rtt);
                 break;
         };
     }
@@ -228,7 +279,7 @@ static amp_test_result_t* run_test(struct addrinfo *server,
     close(test_socket);
 
     /* report results */
-    result = report_results(&start_time, server, options, in_times,
+    result = report_results(&start_time, server, options, local_results,
             remote_results);
 
     /* TODO should these be freed here or in report_results? */
@@ -257,7 +308,7 @@ amp_test_result_t* run_udpstream_client(int argc, char *argv[], int count,
     extern struct option long_options[];
     amp_test_result_t *result;
     BIO *ctrl;
-    int minimum_delay = MIN_INTER_PACKET_DELAY;
+    uint32_t minimum_delay = MIN_INTER_PACKET_DELAY;
 
     /* set some sensible defaults */
     test_options.dscp = DEFAULT_DSCP_VALUE;
@@ -459,8 +510,17 @@ static void print_item(Amplet2__Udpstream__Item *item, uint32_t packet_count) {
             packet_count, item->packets_received,
             100 - ((double)item->packets_received / (double)packet_count*100));
 
-    printf("      delay variation min/median/max = %.03f/%.03f/%.03f ms\n",
-            item->minimum/1000.0, item->median/1000.0, item->maximum/1000.0);
+    if ( item->rtt ) {
+        printf("      %d rtt samples min/mean/max = %.03f/%.03f/%.03f ms\n",
+                item->rtt->samples, item->rtt->minimum/1000.0,
+                item->rtt->mean/1000.0, item->rtt->maximum/1000.0);
+    }
+
+    if ( item->jitter ) {
+        printf("      %d jitter samples min/mean/max = %.03f/%.03f/%.03f ms\n",
+                item->jitter->samples, item->jitter->minimum/1000.0,
+                item->jitter->mean/1000.0, item->jitter->maximum/1000.0);
+    }
 
     printf("      percentiles:\n");
     for ( i = 0; i < item->n_percentiles; i++ ) {
@@ -477,10 +537,11 @@ static void print_item(Amplet2__Udpstream__Item *item, uint32_t packet_count) {
 
     printf("      Voice Score Values (assuming G.711 codec):\n");
     printf("        Calculated Planning Impairment Factor (ICPIF): %d\n",
-            item->icpif);
-    printf("        Cisco MOS: %.02f\n", item->cisco_mos);
-    printf("        Transmission Rating Factor R: %.02f\n", item->itu_rating);
-    printf("        ITU E-model MOS: %.02f\n", item->itu_mos);
+            item->voip->icpif);
+    printf("        Cisco MOS: %.02f\n", item->voip->cisco_mos);
+    printf("        Transmission Rating Factor R: %.02f\n",
+            item->voip->itu_rating);
+    printf("        ITU E-model MOS: %.02f\n", item->voip->itu_mos);
 }
 
 

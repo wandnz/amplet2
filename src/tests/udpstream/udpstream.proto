@@ -27,16 +27,13 @@ message Item {
             CLIENT_TO_SERVER = 2;
         }
         optional Direction direction = 1;
-        optional int32 maximum = 2;
-        optional int32 minimum = 3;
-        optional int32 median = 4;
+        optional SummaryStats rtt = 2;
+        optional SummaryStats jitter = 3;
+        repeated int32 percentiles = 4;
         optional uint32 packets_received = 5;
-        repeated int32 percentiles = 6;
-        repeated Period loss_periods = 7;
-        optional int32 icpif = 8;
-        optional float cisco_mos = 9;
-        optional float itu_rating = 10;
-        optional float itu_mos = 11;
+        repeated Period loss_periods = 6;
+        optional float loss_percent = 7;
+        optional Voip voip = 8;
 }
 
 message Period {
@@ -47,6 +44,21 @@ message Period {
         optional Status status = 1;
         optional int32 length = 2;
 }
+
+message SummaryStats {
+    optional int32 maximum = 1;
+    optional int32 minimum = 2;
+    optional int32 mean = 3;
+    optional uint32 samples = 4;
+}
+
+message Voip {
+    optional int32 icpif = 1;
+    optional float cisco_mos = 2;
+    optional float itu_rating = 3;
+    optional float itu_mos = 4;
+}
+
 
 
 /**
