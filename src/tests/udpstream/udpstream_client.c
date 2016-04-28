@@ -40,8 +40,6 @@ static amp_test_result_t* report_results(struct timeval *start_time,
     header.packet_spacing = options->packet_spacing;
     header.has_packet_count = 1;
     header.packet_count = options->packet_count;
-    header.has_percentile_count = 1;
-    header.percentile_count = options->percentile_count;
     header.name = address_to_name(dest);
     header.has_address = copy_address_to_protobuf(&header.address, dest);
     header.has_dscp = 1;
