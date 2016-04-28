@@ -181,6 +181,7 @@ int receive_udp_stream(int sock, uint32_t packet_count, struct timeval *times) {
      */
     sockets.socket = sock;
     sockets.socket6 = sock;
+    uint32_t index;
 
     Log(LOG_DEBUG, "Receiving UDP stream, packets:%d", packet_count);
 
@@ -191,13 +192,18 @@ int receive_udp_stream(int sock, uint32_t packet_count, struct timeval *times) {
         if ( get_packet(&sockets, buffer, sizeof(buffer), NULL,
                     &timeout, &times[i]) > 0 ) {
             payload = (struct payload_t*)&buffer;
-            /* this should cast appropriately whether 32 or 64 bit */
-            sent_time.tv_sec = (time_t)be64toh(payload->sec);
-            sent_time.tv_usec = (time_t)be64toh(payload->usec);
-            timersub(&times[i], &sent_time, &times[i]);
-            Log(LOG_DEBUG, "Got UDP stream packet %d (id:%d)", i,
-                    ntohl(payload->index));
-            /* TODO check that the packet belongs to our stream */
+
+            /* get the packet index number so we record it correctly */
+            index = ntohl(payload->index);
+
+            /* TODO better checks that the packet belongs to our stream? */
+            if ( index < packet_count ) {
+                /* this should cast appropriately whether 32 or 64 bit */
+                sent_time.tv_sec = (time_t)be64toh(payload->sec);
+                sent_time.tv_usec = (time_t)be64toh(payload->usec);
+                timersub(&times[index], &sent_time, &times[index]);
+                Log(LOG_DEBUG, "Got UDP stream packet %d (id:%d)", i, index);
+            }
         } else {
             Log(LOG_DEBUG, "UDP stream packet didn't arrive in time");
         }
