@@ -72,10 +72,10 @@ message Item {
     repeated int32 percentiles = 4;
     /** Total number of probe packets received during the test */
     optional uint32 packets_received = 5;
-    /** Number of periods (bursts) of loss during the test */
+    /** Number of periods (bursts) of loss or receipt during the test */
     repeated Period loss_periods = 6;
     /** Percentage of probe packets that were lost */
-    optional float loss_percent = 7;
+    optional double loss_percent = 7;
     /** Stats on (calculated) quality of a voice connection using the path */
     optional Voip voip = 8;
 }
@@ -121,11 +121,11 @@ message Voip {
     /** Calculated Planning Impairment Factor (ICPIF) */
     optional int32 icpif = 1;
     /** Cisco style Mean Opinion Score calculated from ICPIF */
-    optional float cisco_mos = 2;
+    optional double cisco_mos = 2;
     /** ITU-T G.107 (06/2015) E-model R rating value */
-    optional float itu_rating = 3;
+    optional double itu_rating = 3;
     /** Mean Opinion Score calculated from R rating value */
-    optional float itu_mos = 4;
+    optional double itu_mos = 4;
 }
 
 
