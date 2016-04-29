@@ -533,13 +533,15 @@ static void print_item(Amplet2__Udpstream__Item *item, uint32_t packet_count) {
     }
     printf("\n");
 
-    printf("      Voice Score Values (assuming G.711 codec):\n");
-    printf("        Calculated Planning Impairment Factor (ICPIF): %d\n",
-            item->voip->icpif);
-    printf("        Cisco MOS: %.02f\n", item->voip->cisco_mos);
-    printf("        Transmission Rating Factor R: %.02f\n",
-            item->voip->itu_rating);
-    printf("        ITU E-model MOS: %.02f\n", item->voip->itu_mos);
+    if ( item->voip ) {
+        printf("      Voice Score Values (assuming G.711 codec):\n");
+        printf("        Calculated Planning Impairment Factor (ICPIF): %d\n",
+                item->voip->icpif);
+        printf("        Cisco MOS: %.02f\n", item->voip->cisco_mos);
+        printf("        Transmission Rating Factor R: %.02f\n",
+                item->voip->itu_rating);
+        printf("        ITU E-model MOS: %.02f\n", item->voip->itu_mos);
+    }
 }
 
 
