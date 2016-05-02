@@ -22,7 +22,6 @@ static void do_receive(BIO *ctrl, int test_sock, struct opt_t *options) {
     Amplet2__Udpstream__Item *result;
     ProtobufCBinaryData packed;
     struct timeval *times = NULL;
-    unsigned int i;
 
     Log(LOG_DEBUG, "got RECEIVE command");
 
@@ -36,7 +35,7 @@ static void do_receive(BIO *ctrl, int test_sock, struct opt_t *options) {
     receive_udp_stream(test_sock, options->packet_count, times);
 
     /* build a protobuf message containing our side of the results */
-    result = report_stream(UDPSTREAM_TO_SERVER, times, options);
+    result = report_stream(UDPSTREAM_TO_SERVER, NULL, times, options);
 
     /* pack the result for sending to the client */
     packed.len = amplet2__udpstream__item__get_packed_size(result);
@@ -46,14 +45,7 @@ static void do_receive(BIO *ctrl, int test_sock, struct opt_t *options) {
     /* send the result to the client for reporting */
     send_control_result(AMP_TEST_UDPSTREAM, ctrl, &packed);
 
-    for ( i = 0; i < result->n_loss_periods; i++ ) {
-        free(result->loss_periods[i]);
-    }
-    free(result->loss_periods);
-    if ( result->percentiles ) {
-        free(result->percentiles);
-    }
-    free(result);
+    amplet2__udpstream__item__free_unpacked(result, NULL);
     free(packed.data);
     free(times);
 }
@@ -63,10 +55,13 @@ static void do_receive(BIO *ctrl, int test_sock, struct opt_t *options) {
 /*
  * TODO return failure from here if things go poorly
  */
-static void do_send(int test_sock, struct sockaddr_storage *remote,
+static void do_send(BIO *ctrl, int test_sock, struct sockaddr_storage *remote,
         uint16_t port, struct opt_t *options) {
 
+    Amplet2__Udpstream__Item *item;
+    ProtobufCBinaryData packed;
     struct addrinfo client;
+    struct summary_t *rtt;
 
     Log(LOG_DEBUG, "got SEND command with port %d", port);
 
@@ -91,7 +86,25 @@ static void do_send(int test_sock, struct sockaddr_storage *remote,
     client.ai_next = NULL;
 
     /* perform the actual test to the client destination we just created */
-    send_udp_stream(test_sock, &client, options);
+    rtt = send_udp_stream(test_sock, &client, options);
+
+    /* build a protobuf message containing the measured rtt */
+    item = (Amplet2__Udpstream__Item*)malloc(sizeof(Amplet2__Udpstream__Item));
+    amplet2__udpstream__item__init(item);
+    item->rtt = report_summary(rtt);
+
+    /* pack the result for sending to the client */
+    packed.len = amplet2__udpstream__item__get_packed_size(item);
+    packed.data = malloc(packed.len);
+    amplet2__udpstream__item__pack(item, packed.data);
+
+    /* send the result to the client for reporting */
+    send_control_result(AMP_TEST_UDPSTREAM, ctrl, &packed);
+
+    free(rtt);
+    free(item->rtt);
+    free(item);
+    free(packed.data);
 }
 
 
@@ -182,7 +195,7 @@ static int serve_test(BIO *ctrl, struct sockopt_t *sockopts) {
                     return -1;
                 }
 
-                do_send(test_sock, &remote, send_opts->tport, options);
+                do_send(ctrl, test_sock, &remote, send_opts->tport, options);
                 free(send_opts);
                 break;
             }

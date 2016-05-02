@@ -26,6 +26,7 @@
 #define MINIMUM_UDPSTREAM_PACKET_LENGTH ( \
         sizeof(struct ip6_hdr) + sizeof(struct udphdr) + \
         sizeof(struct payload_t))
+#define MAXIMUM_UDPSTREAM_PACKET_LENGTH 1500
 #define DEFAULT_UDPSTREAM_PACKET_LENGTH 100
 #define DEFAULT_UDPSTREAM_PACKET_COUNT 11
 #define DEFAULT_UDPSTREAM_PERCENTILE_COUNT 10
@@ -96,6 +97,18 @@ struct payload_t {
 } __attribute__((__packed__));
 
 
+
+/*
+ *
+ */
+struct summary_t {
+    uint32_t maximum;
+    uint32_t minimum;
+    uint32_t mean;
+    uint32_t samples;
+};
+
+
 test_t *register_test(void);
 amp_test_result_t* run_udpstream(int argc, char *argv[], int count,
         struct addrinfo **dests);
@@ -105,10 +118,13 @@ amp_test_result_t* run_udpstream_client(int argc, char *argv[], int count,
 void print_udpstream(amp_test_result_t *result);
 void usage(char *prog);
 void version(char *prog);
-int send_udp_stream(int sock, struct addrinfo *remote, struct opt_t *options);
+struct summary_t* send_udp_stream(int sock, struct addrinfo *remote,
+        struct opt_t *options);
 int receive_udp_stream(int sock, uint32_t packet_count, struct timeval *times);
+Amplet2__Udpstream__SummaryStats* report_summary(struct summary_t *rtt);
+Amplet2__Udpstream__Voip* report_voip(Amplet2__Udpstream__Item *item);
 Amplet2__Udpstream__Item* report_stream(enum udpstream_direction direction,
-        struct timeval *times, struct opt_t *options);
+        struct summary_t *rtt, struct timeval *times, struct opt_t *options);
 
 ProtobufCBinaryData* build_hello(struct opt_t *options);
 void* parse_hello(ProtobufCBinaryData *data);
