@@ -319,7 +319,7 @@ Amplet2__Udpstream__Voip* report_voip(Amplet2__Udpstream__Item *item) {
         return NULL;
     }
 
-    voip = calloc(1, sizeof(Amplet2__Udpstream__SummaryStats));
+    voip = calloc(1, sizeof(Amplet2__Udpstream__Voip));
     amplet2__udpstream__voip__init(voip);
 
     /* assume one-way delay is half the round trip time */
