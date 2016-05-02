@@ -36,8 +36,8 @@ message Header {
     optional string schedule = 3;
     /** Size of the UDP probe packets in bytes (including IP and UDP headers) */
     optional uint32 packet_size = 4 [default = 100];
-    /** Gap between sending probe packets in milliseconds */
-    optional uint32 packet_spacing = 5 [default = 1000];
+    /** Gap between sending probe packets in microseconds */
+    optional uint32 packet_spacing = 5 [default = 20000];
     /** Number of packets to send in the stream */
     optional uint32 packet_count = 6 [default = 11];
     /** The name of the test target (as given in the schedule file) */
