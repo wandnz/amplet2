@@ -322,7 +322,7 @@ amp_test_result_t* run_udpstream_client(int argc, char *argv[], int count,
     test_options.percentile_count = DEFAULT_UDPSTREAM_PERCENTILE_COUNT;
     test_options.cport = 0;
     test_options.tport = DEFAULT_TEST_PORT;
-    test_options.perturbate = 0;
+    //test_options.perturbate = 0;
     test_options.direction = CLIENT_THEN_SERVER;
     test_options.rtt_samples = DEFAULT_UDPSTREAM_RTT_SAMPLES;
 
@@ -335,7 +335,7 @@ amp_test_result_t* run_udpstream_client(int argc, char *argv[], int count,
     memset(&meta, 0, sizeof(meta));
 
     /* TODO udp port */
-    while ( (opt = getopt_long(argc, argv, "hvI:D:Q:Z:p:r:z:c:d:n:4:6:",
+    while ( (opt = getopt_long(argc, argv, "hvI:D:Q:Z:p:P:r:z:c:d:n:4:6:",
                     long_options, NULL)) != -1 ) {
 	switch ( opt ) {
             case '4':
@@ -359,7 +359,8 @@ amp_test_result_t* run_udpstream_client(int argc, char *argv[], int count,
              * lower bound on the interval that we use
              */
             case 'Z': minimum_delay = atoi(optarg); break;
-	    case 'p': test_options.perturbate = atoi(optarg); break;
+            case 'p': test_options.cport = atoi(optarg); break;
+            case 'P': test_options.tport = atoi(optarg); break;
 	    case 'r': test_options.rtt_samples = atoi(optarg); break;
 	    case 'z': test_options.packet_size = atoi(optarg); break;
 	    case 'n': test_options.packet_count = atoi(optarg); break;
@@ -463,6 +464,7 @@ amp_test_result_t* run_udpstream_client(int argc, char *argv[], int count,
 	test_options.rtt_samples = test_options.packet_count;
     }
 
+#if 0
     /* delay the start by a random amount of perturbate is set */
     if ( test_options.perturbate ) {
 	int delay;
@@ -471,6 +473,7 @@ amp_test_result_t* run_udpstream_client(int argc, char *argv[], int count,
 		test_options.perturbate, delay);
 	usleep(delay);
     }
+#endif
 
     /* connect to the control server to start/configure the test */
     if ( (ctrl=connect_control_server(dests[0], test_options.cport,

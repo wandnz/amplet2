@@ -59,7 +59,7 @@ struct test_request_t {
  * User defined test options that control packet size and timing.
  */
 struct opt_t {
-    uint16_t perturbate;
+    //uint16_t perturbate;
     uint16_t cport; /* The control port to connect to */
     uint16_t tport; /* The test port to connect to or create */
     uint16_t packet_size;

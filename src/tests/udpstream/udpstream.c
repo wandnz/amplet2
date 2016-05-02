@@ -38,7 +38,7 @@ void usage(char *prog) {
     fprintf(stderr, "\n");
 
     fprintf(stderr, "Server/Client options:\n");
-    //fprintf(stderr, "  -p, --port       <port>  port number to listen on/connect to (default %d)\n", DEFAULT_CONTROL_PORT);
+    fprintf(stderr, "  -p, --port       <port>  port number to listen on/connect to (default %d)\n", DEFAULT_CONTROL_PORT);
     fprintf(stderr, "  -I, --interface  <iface> source interface name\n");
     fprintf(stderr, "  -4, --ipv4       <addr>  source IPv4 address\n");
     fprintf(stderr, "  -6, --ipv6       <addr>  source IPv6 address\n");
@@ -51,12 +51,12 @@ void usage(char *prog) {
     fprintf(stderr, "Client specific options:\n");
     fprintf(stderr, "  -c, --client         <host>  run in client mode, connecting to <host>\n");
     //fprintf(stderr, "  -r, --randomise          randomise data in every packet sent\n");
-    fprintf(stderr, "  -p, --perturbate     <ms>    maximum number of milliseconds to delay test\n");
+    //fprintf(stderr, "  -p, --perturbate     <ms>    maximum number of milliseconds to delay test\n");
     fprintf(stderr, "  -d, --direction      <dir>   TODO magic value describing direction\n");
     fprintf(stderr, "  -D, --delay          <usec>  delay interval between packets (default %dus)\n", DEFAULT_UDPSTREAM_INTER_PACKET_DELAY);
-    fprintf(stderr, "  -n, --packet-count   <count> number of packet to send (default %d)\n", DEFAULT_UDPSTREAM_PACKET_COUNT);
+    fprintf(stderr, "  -n, --packet-count   <count> number of packets to send (default %d)\n", DEFAULT_UDPSTREAM_PACKET_COUNT);
     fprintf(stderr, "  -P, --test-port      <port>  port number to test on (default %d)\n", DEFAULT_TEST_PORT);
-    fprintf(stderr, "  -r, --rtt-samples    <N>     reflect every Nth packet for RTT sampling (default %d)\n", DEFAULT_UDPSTREAM_RTT_SAMPLES);
+    fprintf(stderr, "  -r, --rtt-samples    <N>     echo every Nth packet to sample RTT (default %d)\n", DEFAULT_UDPSTREAM_RTT_SAMPLES);
     fprintf(stderr, "  -z, --packet-size    <bytes> size of datagrams to send (default %d)\n", DEFAULT_UDPSTREAM_PACKET_LENGTH);
     fprintf(stderr, "\n");
 
