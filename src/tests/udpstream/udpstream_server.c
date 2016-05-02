@@ -32,7 +32,7 @@ static void do_receive(BIO *ctrl, int test_sock, struct opt_t *options) {
     send_control_ready(AMP_TEST_UDPSTREAM, ctrl, options->tport);
 
     /* wait for the data stream from the client */
-    receive_udp_stream(test_sock, options->packet_count, times);
+    receive_udp_stream(test_sock, options, times);
 
     /* build a protobuf message containing our side of the results */
     result = report_stream(UDPSTREAM_TO_SERVER, NULL, times, options);

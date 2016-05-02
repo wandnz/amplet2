@@ -70,6 +70,7 @@ def get_data(data):
         "packet_spacing": msg.header.packet_spacing,
         "packet_count": msg.header.packet_count,
         "dscp": msg.header.dscp,
+        "rtt_samples": msg.header.rtt_samples,
         "results": results,
     }
 

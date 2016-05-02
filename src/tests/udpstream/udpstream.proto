@@ -44,6 +44,8 @@ message Header {
     optional string name = 7;
     /** Differentiated Services Code Point (DSCP) used */
     optional uint32 dscp = 8 [default = 0];
+    /** Sample every Nth packet to reflect for RTT calculations */
+    optional uint32 rtt_samples = 9 [default = 1];
 }
 
 
@@ -145,6 +147,7 @@ message Hello {
     optional uint32 packet_count = 4 [default = 11];
     optional uint32 percentile_count = 5 [default = 10];
     optional uint32 dscp = 6;
+    optional uint32 rtt_samples = 7 [default = 1];
 }
 
 

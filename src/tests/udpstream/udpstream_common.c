@@ -28,6 +28,8 @@ ProtobufCBinaryData* build_hello(struct opt_t *options) {
     hello.percentile_count = options->percentile_count;
     hello.has_dscp = 1;
     hello.dscp = options->dscp;
+    hello.has_rtt_samples = 1;
+    hello.rtt_samples = options->rtt_samples;
 
     data->len = amplet2__udpstream__hello__get_packed_size(&hello);
     data->data = malloc(data->len);
@@ -51,6 +53,7 @@ void* parse_hello(ProtobufCBinaryData *data) {
     options->packet_spacing = hello->packet_spacing;
     options->percentile_count = hello->percentile_count;
     options->dscp = hello->dscp;
+    options->rtt_samples = hello->rtt_samples;
 
     amplet2__udpstream__hello__free_unpacked(hello, NULL);
 
@@ -109,9 +112,8 @@ struct summary_t* send_udp_stream(int sock, struct addrinfo *remote,
     char response[MAXIMUM_UDPSTREAM_PACKET_LENGTH];
     ssize_t bytes;
     uint32_t i;
-    int wait;
     struct socket_t sockets;
-    struct summary_t *rtt;
+    struct summary_t *rtt = NULL;
     double mean = 0;
 
     Log(LOG_DEBUG, "Sending UDP stream, packets:%d size:%d spacing:%d",
@@ -141,8 +143,10 @@ struct summary_t* send_udp_stream(int sock, struct addrinfo *remote,
         }
     }
 
-    rtt = calloc(1, sizeof(struct summary_t));
-    rtt->minimum = UINT32_MAX;
+    if ( options->rtt_samples > 0 ) {
+        rtt = calloc(1, sizeof(struct summary_t));
+        rtt->minimum = UINT32_MAX;
+    }
 
     //XXX put a pattern in the payload?
     /* the packet size option includes headers, so subtract them */
@@ -163,38 +167,47 @@ struct summary_t* send_udp_stream(int sock, struct addrinfo *remote,
             return NULL;
         }
 
-        /*
-         * After sending the packet, check for any reflected packets before
-         * sending the next one.
-         */
-        wait = options->packet_spacing;
-        /* TODO timing won't be super accurate, but good enough for now */
-        while ( (bytes = get_packet(&sockets, response,
-                        MAXIMUM_UDPSTREAM_PACKET_LENGTH,
-                        NULL, &wait, &now)) > 0 ) {
-            struct payload_t *recv_payload;
-            struct timeval sent_time;
-            uint32_t value;
-            double delta;
+        if ( options->rtt_samples > 0 ) {
+            /*
+             * After sending the packet, check for any reflected packets
+             * before sending the next one.
+             */
+            int wait = options->packet_spacing;
 
-            recv_payload = (struct payload_t*)&response;
-            /* this should cast appropriately whether 32 or 64 bit */
-            sent_time.tv_sec = (time_t)be64toh(recv_payload->sec);
-            sent_time.tv_usec = (time_t)be64toh(recv_payload->usec);
-            value = DIFF_TV_US(now, sent_time);
-            if ( value > rtt->maximum ) {
-                rtt->maximum = value;
+            /* TODO timing won't be super accurate, but good enough for now */
+            while ( (bytes = get_packet(&sockets, response,
+                            MAXIMUM_UDPSTREAM_PACKET_LENGTH,
+                            NULL, &wait, &now)) > 0 ) {
+                struct payload_t *recv_payload;
+                struct timeval sent_time;
+                uint32_t value;
+                double delta;
+
+                //XXX check that this is actually a related packet
+
+                recv_payload = (struct payload_t*)&response;
+                /* this should cast appropriately whether 32 or 64 bit */
+                sent_time.tv_sec = (time_t)be64toh(recv_payload->sec);
+                sent_time.tv_usec = (time_t)be64toh(recv_payload->usec);
+                value = DIFF_TV_US(now, sent_time);
+                if ( value > rtt->maximum ) {
+                    rtt->maximum = value;
+                }
+                if ( value < rtt->minimum ) {
+                    rtt->minimum = value;
+                }
+                rtt->samples++;
+                delta = (double)value - mean;
+                mean += delta / rtt->samples;
             }
-            if ( value < rtt->minimum ) {
-                rtt->minimum = value;
-            }
-            rtt->samples++;
-            delta = (double)value - mean;
-            mean += delta / rtt->samples;
+        } else {
+            usleep(options->packet_spacing);
         }
     }
 
-    rtt->mean = (uint32_t)round(mean);
+    if ( options->rtt_samples > 0 ) {
+        rtt->mean = (uint32_t)round(mean);
+    }
 
     free(payload);
 
@@ -204,10 +217,9 @@ struct summary_t* send_udp_stream(int sock, struct addrinfo *remote,
 
 
 /*
- * XXX packet_count or a full options struct?
  * Receive a stream of UDP packets, expecting the specified number of packets.
  */
-int receive_udp_stream(int sock, uint32_t packet_count, struct timeval *times) {
+int receive_udp_stream(int sock, struct opt_t *options, struct timeval *times) {
     char buffer[MAXIMUM_UDPSTREAM_PACKET_LENGTH];
     int timeout;
     uint32_t i;
@@ -238,9 +250,9 @@ int receive_udp_stream(int sock, uint32_t packet_count, struct timeval *times) {
             return -1;
     };
 
-    Log(LOG_DEBUG, "Receiving UDP stream, packets:%d", packet_count);
+    Log(LOG_DEBUG, "Receiving UDP stream, packets:%d", options->packet_count);
 
-    for ( i = 0; i < packet_count; i++ ) {
+    for ( i = 0; i < options->packet_count; i++ ) {
         /* reset timeout per packet, consider some global timer also? */
         timeout = UDPSTREAM_LOSS_TIMEOUT;
 
@@ -253,12 +265,16 @@ int receive_udp_stream(int sock, uint32_t packet_count, struct timeval *times) {
             index = ntohl(payload->index);
 
             /* TODO better checks that the packet belongs to our stream? */
-            if ( index < packet_count ) {
-                /* immediately reflect the packet back for rtt measurements */
-                if ( sendto(sock, buffer, bytes, 0,
-                            (struct sockaddr*)&ss, socklen) < 0 ) {
-                    Log(LOG_DEBUG, "Error reflecting udpstream packet: %s",
-                            strerror(errno));
+            if ( index < options->packet_count ) {
+                /* check if we need to reflect this packet */
+                if ( options->rtt_samples > 0 &&
+                        index % options->rtt_samples == 0 ) {
+                    /* reflect the packet back for rtt measurements */
+                    if ( sendto(sock, buffer, bytes, 0,
+                                (struct sockaddr*)&ss, socklen) < 0 ) {
+                        Log(LOG_DEBUG, "Error reflecting udpstream packet: %s",
+                                strerror(errno));
+                    }
                 }
 
                 /* this should cast appropriately whether 32 or 64 bit */
@@ -315,7 +331,7 @@ Amplet2__Udpstream__Voip* report_voip(Amplet2__Udpstream__Item *item) {
     int lost = 0, runs = 0;
     unsigned int i;
 
-    if ( !item ) {
+    if ( !item || !item->rtt ) {
         return NULL;
     }
 

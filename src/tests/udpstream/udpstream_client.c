@@ -44,6 +44,8 @@ static amp_test_result_t* report_results(struct timeval *start_time,
     header.has_address = copy_address_to_protobuf(&header.address, dest);
     header.has_dscp = 1;
     header.dscp = options->dscp;
+    header.has_rtt_samples = 1;
+    header.rtt_samples = options->rtt_samples;
 
     /* only report the results that are available */
     if ( local_report && server_report ) {
@@ -100,8 +102,10 @@ static Amplet2__Udpstream__Item* merge_results(ProtobufCBinaryData *data,
     Amplet2__Udpstream__Item *results = amplet2__udpstream__item__unpack(NULL,
             data->len, data->data);
 
-    results->rtt = report_summary(rtt);
-    results->voip = report_voip(results);
+    if ( rtt ) {
+        results->rtt = report_summary(rtt);
+        results->voip = report_voip(results);
+    }
 
     return results;
 }
@@ -112,17 +116,19 @@ static Amplet2__Udpstream__Item* merge_results(ProtobufCBinaryData *data,
  *
  */
 static struct summary_t *extract_summary(ProtobufCBinaryData *data) {
-    struct summary_t *stats;
+    struct summary_t *stats = NULL;
     Amplet2__Udpstream__Item *item = amplet2__udpstream__item__unpack(
             NULL, data->len, data->data);
 
     Log(LOG_DEBUG, "Extracting rtt information from results");
 
-    stats = malloc(sizeof(struct summary_t));
-    stats->maximum = item->rtt->maximum;
-    stats->minimum = item->rtt->minimum;
-    stats->mean = item->rtt->mean;
-    stats->samples = item->rtt->samples;
+    if ( item->rtt ) {
+        stats = malloc(sizeof(struct summary_t));
+        stats->maximum = item->rtt->maximum;
+        stats->minimum = item->rtt->minimum;
+        stats->mean = item->rtt->mean;
+        stats->samples = item->rtt->samples;
+    }
 
     amplet2__udpstream__item__free_unpacked(item, NULL);
 
@@ -256,7 +262,7 @@ static amp_test_result_t* run_test(struct addrinfo *server,
                         build_send(options));
 
                 /* wait for the data stream from the server */
-                receive_udp_stream(test_socket, options->packet_count,in_times);
+                receive_udp_stream(test_socket, options, in_times);
 
                 /* wait for the rtt for the stream we just sent */
                 if ( read_control_result(AMP_TEST_UDPSTREAM, ctrl,
@@ -318,6 +324,7 @@ amp_test_result_t* run_udpstream_client(int argc, char *argv[], int count,
     test_options.tport = DEFAULT_TEST_PORT;
     test_options.perturbate = 0;
     test_options.direction = CLIENT_THEN_SERVER;
+    test_options.rtt_samples = DEFAULT_UDPSTREAM_RTT_SAMPLES;
 
     memset(&socket_options, 0, sizeof(socket_options));
     socket_options.sourcev4 = NULL;
@@ -328,7 +335,7 @@ amp_test_result_t* run_udpstream_client(int argc, char *argv[], int count,
     memset(&meta, 0, sizeof(meta));
 
     /* TODO udp port */
-    while ( (opt = getopt_long(argc, argv, "hvI:D:Q:Z:p:rz:c:d:n:4:6:",
+    while ( (opt = getopt_long(argc, argv, "hvI:D:Q:Z:p:r:z:c:d:n:4:6:",
                     long_options, NULL)) != -1 ) {
 	switch ( opt ) {
             case '4':
@@ -353,6 +360,7 @@ amp_test_result_t* run_udpstream_client(int argc, char *argv[], int count,
              */
             case 'Z': minimum_delay = atoi(optarg); break;
 	    case 'p': test_options.perturbate = atoi(optarg); break;
+	    case 'r': test_options.rtt_samples = atoi(optarg); break;
 	    case 'z': test_options.packet_size = atoi(optarg); break;
 	    case 'n': test_options.packet_count = atoi(optarg); break;
             case 'd': test_options.direction = atoi(optarg); break;
@@ -448,6 +456,13 @@ amp_test_result_t* run_udpstream_client(int argc, char *argv[], int count,
 	test_options.packet_spacing = minimum_delay;
     }
 
+    /* make sure we are sampling a vaguely sensible number of rtt packets */
+    if ( test_options.rtt_samples > test_options.packet_count ) {
+	Log(LOG_WARNING, "RTT samples %d above packet count, clamping to %d",
+		test_options.rtt_samples, test_options.packet_count);
+	test_options.rtt_samples = test_options.packet_count;
+    }
+
     /* delay the start by a random amount of perturbate is set */
     if ( test_options.perturbate ) {
 	int delay;
@@ -512,12 +527,16 @@ static void print_item(Amplet2__Udpstream__Item *item, uint32_t packet_count) {
         printf("      %d rtt samples min/mean/max = %.03f/%.03f/%.03f ms\n",
                 item->rtt->samples, item->rtt->minimum/1000.0,
                 item->rtt->mean/1000.0, item->rtt->maximum/1000.0);
+    } else {
+        printf("      no rtt information available\n");
     }
 
     if ( item->jitter ) {
         printf("      %d jitter samples min/mean/max = %.03f/%.03f/%.03f ms\n",
                 item->jitter->samples, item->jitter->minimum/1000.0,
                 item->jitter->mean/1000.0, item->jitter->maximum/1000.0);
+    } else {
+        printf("      no jitter information available\n");
     }
 
     printf("      percentiles:\n");
@@ -541,6 +560,8 @@ static void print_item(Amplet2__Udpstream__Item *item, uint32_t packet_count) {
         printf("        Transmission Rating Factor R: %.02f\n",
                 item->voip->itu_rating);
         printf("        ITU E-model MOS: %.02f\n", item->voip->itu_mos);
+    } else {
+        printf("      no voip information available\n");
     }
 }
 

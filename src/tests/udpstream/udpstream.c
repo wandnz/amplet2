@@ -20,6 +20,7 @@ struct option long_options[] = {
     {"delay", required_argument, 0, 'D'},
     {"version", no_argument, 0, 'v'},
     {"interface", required_argument, 0, 'I'},
+    {"rtt-samples", required_argument, 0, 'r'},
     {"dscp", required_argument, 0, 'Q'},
     {"interpacketgap", required_argument, 0, 'Z'},
     {"ipv4", required_argument, 0, '4'},
@@ -55,6 +56,7 @@ void usage(char *prog) {
     fprintf(stderr, "  -D, --delay          <usec>  delay interval between packets (default %dus)\n", DEFAULT_UDPSTREAM_INTER_PACKET_DELAY);
     fprintf(stderr, "  -n, --packet-count   <count> number of packet to send (default %d)\n", DEFAULT_UDPSTREAM_PACKET_COUNT);
     fprintf(stderr, "  -P, --test-port      <port>  port number to test on (default %d)\n", DEFAULT_TEST_PORT);
+    fprintf(stderr, "  -r, --rtt-samples    <N>     reflect every Nth packet for RTT sampling (default %d)\n", DEFAULT_UDPSTREAM_RTT_SAMPLES);
     fprintf(stderr, "  -z, --packet-size    <bytes> size of datagrams to send (default %d)\n", DEFAULT_UDPSTREAM_PACKET_LENGTH);
     fprintf(stderr, "\n");
 
@@ -91,7 +93,7 @@ amp_test_result_t* run_udpstream(int argc, char *argv[], int count,
 
     Log(LOG_DEBUG, "Starting udpstream test");
 
-    while ( (opt = getopt_long(argc, argv, "?4:6:cd:hI:p:n:D:P:Q:svz:Z:",
+    while ( (opt = getopt_long(argc, argv, "?4:6:cd:hI:p:n:D:P:Q:r:svz:Z:",
                     long_options, &option_index)) != -1 ) {
         switch ( opt ) {
             case 's': server_flag_index = optind - 1; break;

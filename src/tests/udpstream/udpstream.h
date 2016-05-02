@@ -33,6 +33,8 @@
 /* 20ms interval between packets is common for VOIP */
 #define DEFAULT_UDPSTREAM_INTER_PACKET_DELAY 20000
 #define UDPSTREAM_LOSS_TIMEOUT 2000000
+/* by default reflect every packet for an RTT sample */
+#define DEFAULT_UDPSTREAM_RTT_SAMPLES 1
 
 
 enum udpstream_schedule_direction {
@@ -64,6 +66,7 @@ struct opt_t {
     uint16_t packet_count;
     uint32_t packet_spacing;
     uint32_t percentile_count;
+    uint32_t rtt_samples;
     uint8_t dscp;
     enum udpstream_schedule_direction direction;
 };
@@ -120,7 +123,7 @@ void usage(char *prog);
 void version(char *prog);
 struct summary_t* send_udp_stream(int sock, struct addrinfo *remote,
         struct opt_t *options);
-int receive_udp_stream(int sock, uint32_t packet_count, struct timeval *times);
+int receive_udp_stream(int sock, struct opt_t *options, struct timeval *times);
 Amplet2__Udpstream__SummaryStats* report_summary(struct summary_t *rtt);
 Amplet2__Udpstream__Voip* report_voip(Amplet2__Udpstream__Item *item);
 Amplet2__Udpstream__Item* report_stream(enum udpstream_direction direction,
