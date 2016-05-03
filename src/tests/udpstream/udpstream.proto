@@ -143,10 +143,10 @@ message Hello {
 
     optional uint32 test_port = 1;
     optional uint32 packet_size = 2 [default = 100];
-    optional uint32 packet_spacing = 3 [default = 1000];
+    optional uint32 packet_spacing = 3 [default = 20000];
     optional uint32 packet_count = 4 [default = 11];
     optional uint32 percentile_count = 5 [default = 10];
-    optional uint32 dscp = 6;
+    optional uint32 dscp = 6 [default = 0];
     optional uint32 rtt_samples = 7 [default = 1];
 }
 
