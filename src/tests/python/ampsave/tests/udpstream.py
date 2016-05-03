@@ -1,5 +1,5 @@
 import ampsave.tests.udpstream_pb2
-from ampsave.common import getPrintableAddress
+from ampsave.common import getPrintableAddress, getPrintableDscp
 
 
 def build_loss_periods(data):
@@ -69,7 +69,7 @@ def get_data(data):
         "packet_size": msg.header.packet_size,
         "packet_spacing": msg.header.packet_spacing,
         "packet_count": msg.header.packet_count,
-        "dscp": msg.header.dscp,
+        "dscp": getPrintableDscp(msg.header.dscp),
         "rtt_samples": msg.header.rtt_samples,
         "results": results,
     }
