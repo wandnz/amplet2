@@ -659,7 +659,6 @@ char **populate_target_lists(test_schedule_item_t *test, char **targets) {
     for ( ; targets != NULL && *targets != NULL && (max_targets == 0 ||
             (test->dest_count + test->resolve_count) < max_targets);
             targets++ ) {
-        printf("populate_target_lists, *targets=%s\n", *targets);
         addr_str = strtok(*targets, ":");
         family = AF_UNSPEC;
         count = 0;
@@ -723,7 +722,6 @@ char **populate_target_lists(test_schedule_item_t *test, char **targets) {
     Log(LOG_DEBUG, "%d known targets, %d to resolve", test->dest_count,
             test->resolve_count);
 
-        printf("done populate_target_lists, *targets=%s\n", *targets);
     return targets;
 }
 
