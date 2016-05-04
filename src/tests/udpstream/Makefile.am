@@ -1,5 +1,5 @@
 EXTRA_DIST=*.h udpstream.proto
-#SUBDIRS= . test
+SUBDIRS= . test
 BUILT_SOURCES=udpstream.pb-c.c
 CLEANFILES=udpstream.pb-c.c udpstream.pb-c.h
 
