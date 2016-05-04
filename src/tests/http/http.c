@@ -1478,8 +1478,8 @@ test_t *register_test() {
 void amp_test_http_split_url(char *orig_url, char *server, char *path, int set){
     split_url(orig_url, server, path, set);
 }
-void amp_test_report_results(struct timeval *start_time,
+amp_test_result_t* amp_test_report_results(struct timeval *start_time,
         struct server_stats_t *server_stats, struct opt_t *opt) {
-    report_results(start_time, server_stats, opt);
+    return report_results(start_time, server_stats, opt);
 }
 #endif

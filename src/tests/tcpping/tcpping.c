@@ -1114,9 +1114,9 @@ test_t *register_test() {
 
 
 #if UNIT_TEST
-void amp_test_report_results(struct timeval *start_time, int count,
-        struct info_t info[], struct opt_t *opt) {
-    report_results(start_time, count, info, opt);
+amp_test_result_t* amp_test_report_results(struct timeval *start_time,
+        int count, struct info_t info[], struct opt_t *opt) {
+    return report_results(start_time, count, info, opt);
 }
 #endif
 

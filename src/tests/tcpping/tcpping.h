@@ -114,8 +114,8 @@ void print_tcpping(amp_test_result_t *result);
 test_t *register_test(void);
 
 #if UNIT_TEST
-void amp_test_report_results(struct timeval *start_time, int count,
-        struct info_t info[], struct opt_t *opt);
+amp_test_result_t* amp_test_report_results(struct timeval *start_time,
+        int count, struct info_t info[], struct opt_t *opt);
 #endif
 
 #endif

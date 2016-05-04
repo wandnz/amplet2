@@ -1201,9 +1201,9 @@ char *amp_test_dns_decode(char *result, char *data, char *start) {
     return decode(result, data, start);
 }
 
-void amp_test_report_results(struct timeval *start_time, int count,
-	struct info_t info[], struct opt_t *opt) {
-    report_results(start_time, count, info, opt);
+amp_test_result_t* amp_test_report_results(struct timeval *start_time,
+        int count, struct info_t info[], struct opt_t *opt) {
+    return report_results(start_time, count, info, opt);
 }
 
 #endif

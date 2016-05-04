@@ -490,7 +490,6 @@ static void free_servers(void) {
  * it comes out correctly on the other side.
  */
 int main(void) {
-    test_t http_test;
     int count, i;
     struct timeval start = {1, 0};
 
@@ -498,17 +497,12 @@ int main(void) {
     //srand(time(NULL));
     srand(1);
 
-    /* replace the print function with one that will verify message contents */
-    http_test.print_callback = verify_message;
-    /* use this stripped down test in place of the normal HTTP test */
-    amp_tests[AMP_TEST_HTTP] = &http_test;
-
     memset(&global, 0, sizeof(struct globalStats_t));
 
     count = sizeof(options) / sizeof(struct opt_t);
     for ( i = 0; i < count; i++ ) {
         build_servers();
-        amp_test_report_results(&start, servers, &options[i]);
+        verify_message(amp_test_report_results(&start, servers, &options[i]));
         free_servers();
     }
 

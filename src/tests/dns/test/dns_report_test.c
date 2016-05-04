@@ -211,7 +211,6 @@ static void build_info(struct info_t *item, struct addrinfo *addr,
  */
 int main(void) {
     unsigned int i;
-    test_t dns_test;
     struct timeval start_time;
     struct addrinfo *addr = get_numeric_address("192.168.0.254", NULL);
     struct opt_t full_options[] = {
@@ -238,11 +237,6 @@ int main(void) {
     };
 
     addr->ai_canonname = strdup("foo.bar.baz");
-
-    /* replace the print function with one that will verify message contents */
-    dns_test.print_callback = verify_message;
-    /* use this stripped down test in place of the normal DNS test */
-    amp_tests[AMP_TEST_DNS] = &dns_test;
 
     /* build some different sets of result structures */
     count = 20;
@@ -293,7 +287,8 @@ int main(void) {
     /* check these results with a series of different test options */
     for ( i = 0; i < sizeof(full_options) / sizeof(struct opt_t); i++ ) {
         options = &full_options[i];
-        amp_test_report_results(&start_time, count, info, options);
+        verify_message(amp_test_report_results(&start_time, count, info,
+                    options));
     }
 
     free(info);

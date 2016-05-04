@@ -121,7 +121,7 @@ struct server_stats_t *add_object(char *url, int parse);
 
 #if UNIT_TEST
 void amp_test_http_split_url(char *orig_url, char *server, char *path, int set);
-void amp_test_report_results(struct timeval *start_time,
+amp_test_result_t* amp_test_report_results(struct timeval *start_time,
         struct server_stats_t *server_stats, struct opt_t *opt);
 #endif
 

@@ -854,8 +854,8 @@ void print_throughput(amp_test_result_t *result) {
 
 
 #if UNIT_TEST
-void amp_test_report_results(uint64_t start_time, struct addrinfo *dest,
-        struct opt_t *options) {
-    report_results(start_time, dest, options);
+amp_test_result_t* amp_test_report_results(uint64_t start_time,
+        struct addrinfo *dest, struct opt_t *options) {
+    return report_results(start_time, dest, options);
 }
 #endif

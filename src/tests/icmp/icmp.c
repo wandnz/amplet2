@@ -833,8 +833,8 @@ int amp_test_process_ipv4_packet(char *packet, uint32_t bytes, uint16_t ident,
     return process_ipv4_packet(packet, bytes, ident, now, count, info);
 }
 
-void amp_test_report_results(struct timeval *start_time, int count,
-        struct info_t info[], struct opt_t *opt) {
-    report_results(start_time, count, info, opt);
+amp_test_result_t* amp_test_report_results(struct timeval *start_time,
+        int count, struct info_t info[], struct opt_t *opt) {
+    return report_results(start_time, count, info, opt);
 }
 #endif

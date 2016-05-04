@@ -69,8 +69,8 @@ test_t *register_test(void);
 uint16_t amp_test_icmp_checksum(uint16_t *packet, int size);
 int amp_test_process_ipv4_packet(char *packet, uint32_t bytes, uint16_t ident,
         struct timeval now, int count, struct info_t info[]);
-void amp_test_report_results(struct timeval *start_time, int count,
-        struct info_t info[], struct opt_t *opt);
+amp_test_result_t* amp_test_report_results(struct timeval *start_time,
+        int count, struct info_t info[], struct opt_t *opt);
 #endif
 
 

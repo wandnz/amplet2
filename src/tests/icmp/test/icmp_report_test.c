@@ -160,15 +160,9 @@ static void build_info(struct info_t *item, struct addrinfo *addr,
  *
  */
 int main(void) {
-    test_t icmp_test;
     struct timeval start_time;
     struct addrinfo *addr = get_numeric_address("192.168.0.254", NULL);
     addr->ai_canonname = strdup("foo.bar.baz");
-
-    /* replace the print function with one that will verify message contents */
-    icmp_test.print_callback = verify_message;
-    /* use this stripped down test in place of the normal ICMP test */
-    amp_tests[AMP_TEST_ICMP] = &icmp_test;
 
     count = 30;
     info = (struct info_t*)malloc(sizeof(struct info_t) * count);
@@ -238,27 +232,27 @@ int main(void) {
     /* try some different combinations of header options */
     options.packet_size = 84;
     options.random = 0;
-    amp_test_report_results(&start_time, count, info, &options);
+    verify_message(amp_test_report_results(&start_time, count, info, &options));
     options.random = 1;
-    amp_test_report_results(&start_time, count, info, &options);
+    verify_message(amp_test_report_results(&start_time, count, info, &options));
 
     options.packet_size = 0;
     options.random = 0;
-    amp_test_report_results(&start_time, count, info, &options);
+    verify_message(amp_test_report_results(&start_time, count, info, &options));
     options.random = 1;
-    amp_test_report_results(&start_time, count, info, &options);
+    verify_message(amp_test_report_results(&start_time, count, info, &options));
 
     options.packet_size = 1500;
     options.random = 0;
-    amp_test_report_results(&start_time, count, info, &options);
+    verify_message(amp_test_report_results(&start_time, count, info, &options));
     options.random = 1;
-    amp_test_report_results(&start_time, count, info, &options);
+    verify_message(amp_test_report_results(&start_time, count, info, &options));
 
     options.packet_size = 9000;
     options.random = 0;
-    amp_test_report_results(&start_time, count, info, &options);
+    verify_message(amp_test_report_results(&start_time, count, info, &options));
     options.random = 1;
-    amp_test_report_results(&start_time, count, info, &options);
+    verify_message(amp_test_report_results(&start_time, count, info, &options));
 
     free(info);
     freeaddrinfo(addr);

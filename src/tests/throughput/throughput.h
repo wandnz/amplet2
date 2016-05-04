@@ -351,8 +351,8 @@ struct report_web10g_t * getWeb10GSnap(int socket);
 #endif
 
 #if UNIT_TEST
-void amp_test_report_results(uint64_t start_time, struct addrinfo *dest,
-        struct opt_t *options);
+amp_test_result_t* amp_test_report_results(uint64_t start_time,
+        struct addrinfo *dest, struct opt_t *options);
 #endif
 
 #endif /* _TESTS_THROUGHPUT_H */

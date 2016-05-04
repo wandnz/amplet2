@@ -187,15 +187,8 @@ static void verify_message(amp_test_result_t *result) {
  *
  */
 int main(void) {
-    test_t throughput_test;
-
     addr = get_numeric_address("192.168.0.254", NULL);
     addr->ai_canonname = strdup("foo.bar.baz");
-
-    /* replace the print function with one that will verify message contents */
-    throughput_test.print_callback = verify_message;
-    /* use this stripped down test in place of the normal ICMP test */
-    amp_tests[AMP_TEST_THROUGHPUT] = &throughput_test;
 
     count = 26;
 
@@ -248,19 +241,19 @@ int main(void) {
      */
     options.write_size = 0;
     options.textual_schedule = "s1000,r,S2000";
-    amp_test_report_results(0, addr, &options);
+    verify_message(amp_test_report_results(0, addr, &options));
 
     options.write_size = 84;
     options.textual_schedule = "t1000,r,T2000";
-    amp_test_report_results(0, addr, &options);
+    verify_message(amp_test_report_results(0, addr, &options));
 
     options.write_size = DEFAULT_WRITE_SIZE;
     options.textual_schedule = "s0,s4294967296";
-    amp_test_report_results(0, addr, &options);
+    verify_message(amp_test_report_results(0, addr, &options));
 
     options.write_size = 4294967295U;
     options.textual_schedule = "s4294967296,s4294967296";
-    amp_test_report_results(0, addr, &options);
+    verify_message(amp_test_report_results(0, addr, &options));
 
     free_info();
     free(info);
