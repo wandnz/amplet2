@@ -164,6 +164,9 @@ struct summary_t* send_udp_stream(int sock, struct addrinfo *remote,
                     remote->ai_addr, remote->ai_addrlen) < 0 ) {
             Log(LOG_WARNING, "Error sending udpstream packet: %s",
                     strerror(errno));
+            if ( rtt ) {
+                free(rtt);
+            }
             return NULL;
         }
 
