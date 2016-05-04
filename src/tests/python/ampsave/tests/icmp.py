@@ -1,5 +1,5 @@
 import ampsave.tests.icmp_pb2
-from ampsave.common import getPrintableAddress
+from ampsave.common import getPrintableAddress, getPrintableDscp
 
 def get_data(data):
     """
@@ -23,6 +23,7 @@ def get_data(data):
                 "packet_size": msg.header.packet_size,
                 "random": msg.header.random,
                 "loss": 0 if i.HasField("rtt") else 1,
+                "dscp": getPrintableDscp(msg.header.dscp),
             }
         )
 

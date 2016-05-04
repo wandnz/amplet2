@@ -1,5 +1,5 @@
 import ampsave.tests.traceroute_pb2
-from ampsave.common import getPrintableAddress
+from ampsave.common import getPrintableAddress, getPrintableDscp
 
 def get_data(data):
     """
@@ -25,6 +25,7 @@ def get_data(data):
             "random": msg.header.random,
             "ip": msg.header.ip,
             "as": msg.header.asn,
+            "dscp": getPrintableDscp(msg.header.dscp),
             "hops": [],
         }
 

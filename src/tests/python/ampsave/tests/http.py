@@ -1,5 +1,5 @@
 import ampsave.tests.http_pb2
-from ampsave.common import getPrintableAddress
+from ampsave.common import getPrintableAddress, getPrintableDscp
 
 def get_data(data):
     """
@@ -23,6 +23,7 @@ def get_data(data):
         "pipelining": msg.header.pipelining,
         "pipelining_maxrequests": msg.header.pipelining_maxrequests,
         "caching": msg.header.caching,
+        "dscp": getPrintableDscp(msg.header.dscp),
         "servers": []
     }
 

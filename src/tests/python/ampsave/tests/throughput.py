@@ -1,5 +1,5 @@
 import ampsave.tests.throughput_pb2
-from ampsave.common import getPrintableAddress
+from ampsave.common import getPrintableAddress, getPrintableDscp
 
 
 def schedule_to_test_params(schedule):
@@ -56,6 +56,7 @@ def get_data(data):
         "address": getPrintableAddress(msg.header.family, msg.header.address),
         "schedule": msg.header.schedule,
         "write_size": msg.header.write_size,
+        "dscp": getPrintableDscp(msg.header.dscp),
         "results": results,
     }
 

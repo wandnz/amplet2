@@ -1,5 +1,5 @@
 import ampsave.tests.dns_pb2
-from ampsave.common import getPrintableAddress
+from ampsave.common import getPrintableAddress, getPrintableDscp
 
 def get_data(data):
     """
@@ -54,6 +54,7 @@ def get_data(data):
 	"recurse": msg.header.recurse,
 	"dnssec": msg.header.dnssec,
 	"nsid": msg.header.nsid,
+        "dscp": getPrintableDscp(msg.header.dscp),
 	"results": results,
     }
 
