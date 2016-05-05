@@ -271,6 +271,7 @@ static void process_control_message(int fd) {
 
 /*
  * Short callback to fork a new process for dealing with the control message.
+ * TODO this is very very similar to test.c:fork_test()
  */
 static void control_read_callback(wand_event_handler_t *ev_hdl, int fd,
         __attribute__((unused))void *data,
@@ -290,9 +291,13 @@ static void control_read_callback(wand_event_handler_t *ev_hdl, int fd,
                 strerror(errno));
         return;
     } else if ( pid == 0 ) {
-        /* TODO need to close up a bunch of file descriptors? dns/asn etc? */
-        //close(vars.asnsock_fd);
-        //close(vars.nssock_fd);
+        /*
+         * close the unix domain sockets the parent had, if we keep them open
+         * then things can get confusing (test threads end up holding the
+         * socket open when it should be closed).
+         */
+        close(vars.asnsock_fd);
+        close(vars.nssock_fd);
 
         /* unblock signals and remove handlers that the parent process added */
         if ( unblock_signals() < 0 ) {
