@@ -15,6 +15,7 @@
 #include "schedule.h"
 #include "watchdog.h"
 #include "test.h"
+#include "control.h"
 #include "debug.h"
 #include "nametable.h"
 #include "modules.h"
@@ -44,6 +45,7 @@ void run_test(const test_schedule_item_t * const item, BIO *ctrl) {
     char *packet_delay_str = NULL;
     timer_t watchdog;
     char *dscp_str = NULL;
+    char *port_str = NULL;
 
     assert(item);
     assert(item->test_id < AMP_TEST_LAST);
@@ -90,6 +92,18 @@ void run_test(const test_schedule_item_t * const item, BIO *ctrl) {
     }
 
     /* TODO don't do these if the test options are already set? */
+
+    /* set the control port if configured at the global level */
+    if ( test->server_callback &&
+            vars.control_port != atol(DEFAULT_AMPLET_CONTROL_PORT) ) {
+        argv[argc++] = "-p";
+        if ( asprintf(&port_str, "%u", vars.control_port) < 0 ) {
+            Log(LOG_WARNING, "Failed to build control port string, aborting");
+            return;
+        }
+
+        argv[argc++] = port_str;
+    }
 
     /* set the DSCP bits if configured at the global level */
     if ( item->meta->dscp != DEFAULT_DSCP_VALUE ) {
@@ -288,6 +302,10 @@ void run_test(const test_schedule_item_t * const item, BIO *ctrl) {
 
     if ( dscp_str ) {
         free(dscp_str);
+    }
+
+    if ( port_str ) {
+        free(port_str);
     }
 
     /* done running the test, exit */

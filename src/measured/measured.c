@@ -599,7 +599,10 @@ int main(int argc, char *argv[]) {
 
     /* save the port, tests need to know where to connect */
     control = get_control_config(cfg, &meta);
-    vars.control_port = atol(control->port); /* TODO move to meta */
+
+    /* TODO what is the best way to get this port to the tests that need it? */
+    vars.control_port = atol(control->port); /* XXX */
+    //meta.control_port = atol(control->port); /* XXX */
 
     /* if SSL is properly enabled then try to create the control sockets */
     if ( ssl_ctx != NULL && control->enabled ) {
