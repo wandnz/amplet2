@@ -319,7 +319,14 @@ static time_t get_period_start(schedule_period_t period, time_t *now) {
 char **parse_param_string(char *param_string) {
     int i;
     char *tmp, *arg;
-    char **result = (char**)malloc(sizeof(char*) * MAX_TEST_ARGS);
+    char **result;
+
+    if ( param_string == NULL ) {
+        return NULL;
+    }
+
+    /* TODO we can realloc this as we go */
+    result = (char**)malloc(sizeof(char*) * MAX_TEST_ARGS);
 
     /* splitting on space, grab each part of the parameter string into array */
     for ( i = 0, tmp = param_string; ; i++, tmp = NULL ) {
