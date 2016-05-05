@@ -19,7 +19,6 @@
 #include "modules.h"
 #include "messaging.h"
 #include "ssl.h"
-#include "global.h"
 #include "controlmsg.h"
 #include "controlmsg.pb-c.h"
 

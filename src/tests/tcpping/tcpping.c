@@ -19,7 +19,6 @@
 #include <signal.h>
 
 #include "config.h"
-#include "global.h"
 #include "testlib.h"
 #include "tcpping.h"
 #include "pcapcapture.h"

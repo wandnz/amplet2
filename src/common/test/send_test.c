@@ -7,7 +7,6 @@
 #include <string.h>
 
 #include "testlib.h"
-#include "global.h" /* required just for inter packet delay */
 
 #define TEST_PACKETS 10000
 #define MAX_PACKET_LEN 512

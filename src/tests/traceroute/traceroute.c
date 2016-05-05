@@ -26,7 +26,6 @@
 #include "libwandevent.h"
 #include "as.h"
 #include "traceroute.pb-c.h"
-#include "global.h"
 #include "ampresolv.h"
 #include "debug.h"
 #include "dscp.h"

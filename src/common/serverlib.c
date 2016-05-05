@@ -20,7 +20,6 @@
 #include "modules.h"
 #include "messaging.h"
 #include "ssl.h"
-#include "global.h"
 #include "serverlib.h"
 #include "controlmsg.h"
 #include "measured.pb-c.h"
