@@ -511,7 +511,10 @@ static int fetch_certificate(amp_ssl_opt_t *sslopts, char *ampname,
         return -1;
     }
 
-    Log(LOG_INFO, "Checking for signed certificate at %s", url);
+    /* generally we don't want to expose the signature, don't log by default */
+    Log(LOG_INFO, "Checking for signed certificate at https://%s:%d/cert/%s/",
+            collector, AMP_PKI_SSL_PORT, ampname);
+    Log(LOG_DEBUG, "Signature: %s", urlsig);
 
     /* open the file that the certificate will be written to */
     if ( (certfile = fopen(sslopts->cert, "w")) == NULL ) {
