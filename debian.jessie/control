@@ -30,7 +30,7 @@ Description: AMP Network Performance Measurement Suite - Client Tools
 
 Package: amplet2-server
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}, rabbitmq-server, python-protobuf
+Depends: ${shlibs:Depends}, ${misc:Depends}, rabbitmq-server (>= 3.1.5), python-protobuf, amqp-tools
 Conflicts: amp-server
 Description: AMP Network Performance Measurement Suite - Collector Server
  This package contains the server tools used to run an AMP collector.
