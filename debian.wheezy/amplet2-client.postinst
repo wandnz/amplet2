@@ -39,17 +39,15 @@ case "$1" in
         # taken care of anyway.
         if [ -n "$HOME" ]; then
             # Enable the shovel plugin for rabbitmq
-            if [ -x "`which rabbitmq-plugins 2>/dev/null`" ]; then
+            if ! rabbitmq-plugins list -e rabbitmq_shovel | \
+                    cut -d ' ' -f 2 | grep -qx rabbitmq_shovel; then
+
                 rabbitmq-plugins enable rabbitmq_shovel || exit $?
-                # TODO don't restart rabbitmq if shovel was already enabled
                 if [ -x "`which invoke-rc.d 2>/dev/null`" ]; then
                     invoke-rc.d rabbitmq-server restart || exit $?
                 else
                     /etc/init.d/rabbitmq-server restart || exit $?
                 fi
-            else
-                echo "Can't enable shovel plugin, aborting"
-                exit 1
             fi
         fi
     ;;
