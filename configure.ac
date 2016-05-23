@@ -272,7 +272,7 @@ fi
 
 AC_ARG_ENABLE(udpstream,
     AC_HELP_STRING([--enable-udpstream],
-	[Enable the udpstream test (default: no)]),
+	[Enable the udpstream test (default: yes)]),
     [case "${enableval}" in
     true) ;&
     yes) want_udpstream_test=true ;;
@@ -280,7 +280,7 @@ AC_ARG_ENABLE(udpstream,
     no)	 want_udpstream_test=false ;;
     *) AC_MSG_ERROR(bad value ${enableval} for --enable-udpstream) ;;
     esac],
-    [want_udpstream_test=false])
+    [want_udpstream_test=true])
 # using AM_CONDITIONAL propagates this value through to all Makefile.am files
 AM_CONDITIONAL(WANT_UDPSTREAM_TEST, [test x"$want_udpstream_test" = xtrue])
 
