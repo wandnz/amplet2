@@ -20,7 +20,7 @@ export DH_OPTIONS
 # to build the package slightly differently to normal. Don't appear to have
 # access to all the variables I want to use (e.g. $pythondir) so this is
 # currently hardcoded...
-export DEB_PYTHON_INSTALL_ARGS = --install-layout=deb
+export DEB_PYTHON_INSTALL_ARGS = --install-layout=deb --single-version-externally-managed --record $(CURDIR)/debian/tmp/usr/lib/python2.7/dist-packages/ampsave/install_files.txt
 
 
 %:
