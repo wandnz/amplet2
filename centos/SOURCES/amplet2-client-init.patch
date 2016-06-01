@@ -1,6 +1,6 @@
 --- a/amplet2-client.init	1970-01-01 00:00:00.000000000 +0000
-+++ b/amplet2-client.init	2014-06-25 03:43:56.000000000 +0000
-@@ -0,0 +1,246 @@
++++ b/amplet2-client.init	2016-05-31 05:35:58.000000000 +0000
+@@ -0,0 +1,305 @@
 +#!/bin/sh
 +### BEGIN INIT INFO
 +# Provides:          amplet2
@@ -27,7 +27,10 @@
 +PIDDIR=/var/run/amplet2
 +
 +# Exit if the package is not installed
-+[ -x $DAEMON ] || exit 0
++if [ ! -x $DAEMON ]; then
++    echo "Cannot find $DAEMON, aborting"
++    exit 5
++fi
 +
 +# Read configuration variable file if it is present
 +[ -r /etc/default/$PKG_NAME ] && . /etc/default/$PKG_NAME
@@ -35,18 +38,27 @@
 +# Don't start the daemon unless it has been manually enabled in
 +# /etc/default/amplet2-client. There is too much configuration required
 +# to assume it can be started initially.
-+[ $START_DAEMON -gt 0 ] || exit 0
++if [ $START_DAEMON -le 0 ]; then
++    echo "$PKG_NAME is disabled in /etc/default/$PKG_NAME, not starting."
++    echo "Ensure configuration in /etc/amplet2/ is up to date before enabling."
++    exit 0
++fi
 +
 +# source function library
 +. /etc/rc.d/init.d/functions
 +
 +#
-+# Simple function to check if an item is contained within a space seperated list
++# Simple function to check if an item is contained within a list. The first
++# argument is the item to search for, the rest of the arguments are the
++# haystack to search.
 +#
 +contains()
 +{
-+    for item in $1; do
-+        if [ $item = $2 ]; then
++    first=1
++    for item in $@; do
++        if [ $first -eq 1 ]; then
++            first=0
++        elif [ $item = $1 ]; then
 +            return 0
 +        fi
 +    done
@@ -54,10 +66,36 @@
 +}
 +
 +#
++# Wait for the pidfile to be populated and to contain a running pid
++#
++do_wait()
++{
++    attempt=0
++    while [ $attempt -lt 100 ]; do
++        attempt=$((attempt+1))
++        if [ -f $1 ]; then
++            # check if valid, running pid
++            ps -p `cat $PIDFILE` > /dev/null
++            if [ $? -eq 0 ]; then
++                # return success, amplet2 client started ok
++                return 0
++            fi
++        fi
++        sleep 0.1
++    done
++    # return failure, for some reason it didn't start properly
++    return 2
++}
++
++
++#
 +# Function that starts the daemon/service
 +#
 +do_start()
 +{
++    SUCCESS=0
++    FAILED=0
++
 +    # Make sure that the pid dir exists
 +    if [ ! -d $PIDDIR ]; then
 +        mkdir -p $PIDDIR
@@ -72,12 +110,19 @@
 +        PIDFILE=${PIDDIR}/${NAME%.conf}.pid
 +
 +        # Start the client if no client is specified, or if it matches
-+        if ([ $# -eq 0 ] || contains $@ $NAME); then
++        if ([ $# -eq 0 ] || contains $NAME $@); then
 +            # TODO return appropriate thing if already running
 +            # use start-stop-daemon --test?
 +	    echo -n $NAME
 +            daemon --user=measure --pidfile=$PIDFILE \
 +		    $DAEMON $DAEMON_OPTS -c $client -p $PIDFILE
++
++            # if the client was started right now then wait for the pidfile
++            # to be correct before continuing (makes sure puppet doesn't try
++            # to start extra copies thinking it isn't running ok).
++            if [ $? -eq 0 ]; then
++                do_wait $PIDFILE
++            fi
 +
 +            case "$?" in
 +                0) SUCCESS=$((SUCCESS+1)); \
@@ -90,12 +135,12 @@
 +    done
 +
 +    # No failures and at least one success, return success
-+    if [[ $FAILED -eq 0 && $SUCCESS -gt 0 ]]; then
++    if ([ $FAILED -eq 0 ] && [ $SUCCESS -gt 0 ]); then
 +        return 0
 +    fi
 +
 +    # Some failures and some successes, return warning
-+    if [[ $FAILED -gt 0 && $SUCCESS -gt 0 ]]; then
++    if ([ $FAILED -gt 0 ] && [ $SUCCESS -gt 0 ]); then
 +        return 1
 +    fi
 +
@@ -117,9 +162,10 @@
 +	fi
 +        NAME=${pidfile#$PIDDIR/}
 +        NAME=${NAME%.pid}
++        PID=`cat $pidfile`
 +
 +        # Stop the client if no client is specified, or if it matches
-+        if ([ $# -eq 0 ] || contains $@ $NAME); then
++        if ([ $# -eq 0 ] || contains $NAME $@); then
 +	    echo -n $NAME
 +	    killproc -p $pidfile $DAEMON
 +
@@ -130,22 +176,35 @@
 +                    [ "$VERBOSE" != no ] && echo_failure $NAME ;;
 +            esac
 +	    echo
++
++            # if there are any children left, send them a SIGTERM
++            /usr/bin/pgrep -s $PID > /dev/null
++            if [ $? -eq 0 ]; then
++                /bin/kill -s TERM -- -$PID
++            fi
++
++            # make sure they are stopped, otherwise send a SIGKILL
++            /usr/bin/pgrep -s $PID > /dev/null
++            if [ $? -eq 0 ]; then
++                sleep 3
++                /bin/kill -s KILL -- -$PID 2> /dev/null
++            fi
 +        fi
 +    done
 +
 +    # No failures and no successes - client(s) not running
-+    if [[ $FAILED -eq 0 && $SUCCESS -eq 0 ]]; then
++    if ([ $FAILED -eq 0 ] && [ $SUCCESS -eq 0 ]); then
 +	echo "Not running"
 +        return 0
 +    fi
 +
 +    # No failures and at least one success, return success
-+    if [[ $FAILED -eq 0 && $SUCCESS -gt 0 ]]; then
++    if ([ $FAILED -eq 0 ] && [ $SUCCESS -gt 0 ]); then
 +        return 0
 +    fi
 +
 +    # Some failures and some successes, return warning
-+    if [[ $FAILED -gt 0 && $SUCCESS -gt 0 ]]; then
++    if ([ $FAILED -gt 0 ] && [ $SUCCESS -gt 0 ]); then
 +        return 1
 +    fi
 +
@@ -164,7 +223,7 @@
 +        PIDFILE=${PIDDIR}/${NAME%.conf}.pid
 +
 +        # Query the client if no client is specified, or if it matches
-+        if ([ $# -eq 0 ] || contains $@ $NAME); then
++        if ([ $# -eq 0 ] || contains $NAME $@); then
 +            status -p $PIDFILE "$NAME"
 +            if [ $? -gt 0 ]; then
 +                RETVAL=2
@@ -189,7 +248,7 @@
 +        PIDFILE=${PIDDIR}/${NAME%.conf}.pid
 +
 +        # Reload the client if no client is specified, or if it matches
-+        if ([ $# -eq 0 ] || contains $@ $NAME); then
++        if ([ $# -eq 0 ] || contains $NAME $@); then
 +	    echo -n $NAME
 +	    killproc -p $PIDFILE $DAEMON -HUP
 +	    echo

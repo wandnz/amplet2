@@ -1,12 +1,12 @@
 Name: amplet2
-Version: 0.5.0
+Version: 0.6.2
 Release: 1%{?dist}
 Summary: AMP Network Performance Measurement Suite - Client Tools
 
 Group: Applications/Internet
 License: AMP
 URL: http://research.wand.net.nz/software/amp.php
-Source0: http://research.wand.net.nz/software/amp/amplet2-0.5.0.tar.gz
+Source0: http://research.wand.net.nz/software/amp/amplet2-0.6.2.tar.gz
 Patch0: amplet2-client-init.patch
 Patch1: amplet2-client-default.patch
 Patch2: amplet2-client-makefile.patch
@@ -193,10 +193,36 @@ fi
 
 
 %changelog
-* Mon Aug 31 2015 Brendon Jones <brendonj@waikato.ac.nz> 0.5.0-1
+* Tue May 31 2016 Brendon Jones <brendonj@waikato.ac.nz> 0.6.2-1
+- Added new test to perform udp jitter/latency/loss/mos tests.
+- Exit main event loop on SIGTERM so we can log shutdown messages.
+- Smarter default configuration for ampname.
+- Fixed permissions for downloaded certificates.
+- Write pidfile earlier to help prevent puppet starting multiple instances.
+- Fix crash when checking the address families on interfaces with no address.
+- Exponentially backoff when checking for newly signed certificates.
+- Add ability to remotely trigger test execution.
+- Reuse SSL control connection when being asked by a remote client to start
+  a test server rather than creating a new redundant one.
+- Use the same code path for control traffic whether using SSL or not.
+- Fix bug where non-default control port wasn't being passed to tests.
+- Watchdog timers are now run inside the child process.
+- Unblock signals on child processes so they can be killed by init scripts.
+- Print short error messages on init script failure.
+- Dynamically link standalone tests to the specific test libraries.
+- Add ability to set DSCP bits for all tests.
+- Prevent possible race in TCP ping test.
+- Free BPF filters after they have been installed in TCP ping test.
+- Fix bug in tcpping test where SYN payload could prevent matching packets.
+- Fix bug in tcpping test where packet size was incorrectly calculated.
+- Fix bug in dns test where payload size EDNS option wasn't being set.
+- Try to deal with URLs at the top level starting with "../" in the HTTP test.
+- Follow redirects when fetching remote schedule files.
+- Force refetch of remote schedule on a SIGUSR2.
+- Updated documentation.
+
+* Fri Aug 21 2015 Brendon Jones <brendonj@waikato.ac.nz> 0.5.0-1
 - Use Google protocol buffers when reporting test results.
-- Allow tests to accept zero targets if they have default behaviour.
-- Lower traceroute timeout from 3s to 2s to speed up tests.
 
 * Tue Jul 21 2015 Brendon Jones <brendonj@waikato.ac.nz> 0.4.8-1
 - Rewrite ASN lookups to deal better with whois server issues.
