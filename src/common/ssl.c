@@ -1,7 +1,7 @@
 #include <openssl/ssl.h>
 #include <openssl/err.h>
 #include <openssl/rand.h>
-#include <openssl/dh.h>
+#include <openssl/ec.h>
 #include <assert.h>
 #include <sys/types.h>
 #include <unistd.h>
@@ -101,57 +101,6 @@ void reseed_openssl_rng(void) {
     seed[0] = (long long)time(NULL);
     seed[1] = (long long)getpid();
     RAND_seed(seed, sizeof(seed));
-}
-
-
-
-/*
- * Generated using `openssl dhparam -C -in openssl-1.0.1e/apps/dh1024.pem`
- * and reformatted to better match existing code.
- *
- * TODO: are we marginally more secure if we generate these during
- * installation? We set SSL_OP_SINGLE_DH_USE, which should mitigate most of
- * what we lose by compiling it in?
- *
- * "Application authors may compile in DH parameters. Files dh512.pem,
- * dh1024.pem, dh2048.pem, and dh4096 in the 'apps' directory of current
- * version of the OpenSSL distribution contain the ' SKIP ' DH parameters,
- * which use safe primes and were generated verifiably pseudo-randomly. These
- * files can be converted into C code using the -C option of the dhparam(1)
- * application"
- */
-static DH *get_dh1024(void) {
-    static unsigned char dh1024_p[] = {
-        0xF4,0x88,0xFD,0x58,0x4E,0x49,0xDB,0xCD,0x20,0xB4,0x9D,0xE4,
-        0x91,0x07,0x36,0x6B,0x33,0x6C,0x38,0x0D,0x45,0x1D,0x0F,0x7C,
-        0x88,0xB3,0x1C,0x7C,0x5B,0x2D,0x8E,0xF6,0xF3,0xC9,0x23,0xC0,
-        0x43,0xF0,0xA5,0x5B,0x18,0x8D,0x8E,0xBB,0x55,0x8C,0xB8,0x5D,
-        0x38,0xD3,0x34,0xFD,0x7C,0x17,0x57,0x43,0xA3,0x1D,0x18,0x6C,
-        0xDE,0x33,0x21,0x2C,0xB5,0x2A,0xFF,0x3C,0xE1,0xB1,0x29,0x40,
-        0x18,0x11,0x8D,0x7C,0x84,0xA7,0x0A,0x72,0xD6,0x86,0xC4,0x03,
-        0x19,0xC8,0x07,0x29,0x7A,0xCA,0x95,0x0C,0xD9,0x96,0x9F,0xAB,
-        0xD0,0x0A,0x50,0x9B,0x02,0x46,0xD3,0x08,0x3D,0x66,0xA4,0x5D,
-        0x41,0x9F,0x9C,0x7C,0xBD,0x89,0x4B,0x22,0x19,0x26,0xBA,0xAB,
-        0xA2,0x5E,0xC3,0x55,0xE9,0x2F,0x78,0xC7,
-    };
-    static unsigned char dh1024_g[] = {
-        0x02,
-    };
-    DH *dh;
-
-    if ( (dh = DH_new()) == NULL ) {
-        return NULL;
-    }
-
-    dh->p = BN_bin2bn(dh1024_p, sizeof(dh1024_p), NULL);
-    dh->g = BN_bin2bn(dh1024_g, sizeof(dh1024_g), NULL);
-
-    if ( (dh->p == NULL) || (dh->g == NULL) ) {
-        DH_free(dh);
-        return NULL;
-    }
-
-    return dh;
 }
 
 
@@ -282,8 +231,6 @@ int initialise_ssl(amp_ssl_opt_t *sslopts, char *collector) {
 SSL_CTX* initialise_ssl_context(amp_ssl_opt_t *sslopts) {
     SSL_CTX *ssl_ctx = NULL;
     EC_KEY *ecdh;
-    DH *dh;
-    int codes = 0;
 
     Log(LOG_DEBUG, "Initialising SSL context");
 
@@ -347,82 +294,6 @@ SSL_CTX* initialise_ssl_context(amp_ssl_opt_t *sslopts) {
         return NULL;
     }
 
-    Log(LOG_DEBUG, "Setting up Diffie-Hellman parameters");
-
-    /*
-     * Help prevent small subgroup attacks by always creating a new key when
-     * using Diffie-Hellman. Has a slight cost during connection negotiation,
-     * but improves forward secrecy.
-     */
-    SSL_CTX_set_options(ssl_ctx, SSL_OP_SINGLE_DH_USE);
-
-    /*
-     * To use Diffie-Hellman ciphers for PFS, we need to set up the parameters
-     * or our cipher choices will forever be silently ignored.
-     *
-     * http://en.wikibooks.org/wiki/OpenSSL/Diffie-Hellman_parameters
-     * http://wiki.openssl.org/index.php/Diffie-Hellman_parameters
-     */
-    if ( (dh = get_dh1024()) == NULL ) {
-        Log(LOG_WARNING, "Failed to generate Diffie-Hellman parameters");
-        ssl_cleanup();
-        return NULL;
-    }
-
-    /* make sure that we got sensible DH parameters */
-    if ( DH_check(dh, &codes) != 1 ) {
-        log_ssl("Failed to validate Diffie-Hellman parameters");
-        DH_free(dh);
-        ssl_cleanup();
-        return NULL;
-    }
-
-    /*
-     * As suggested by the openssl wiki page. Using IETF parameters (g = 2)
-     * will fail validation when it is actually fine.
-     * See also http://crypto.stackexchange.com/questions/12961/
-     */
-    if ( BN_is_word(dh->g, DH_GENERATOR_2) ) {
-        long residue = BN_mod_word(dh->p, 24);
-        if ( residue == 11 || residue == 23 ) {
-            codes &= ~DH_NOT_SUITABLE_GENERATOR;
-        }
-    }
-
-    /* the bit flags of codes will hopefully describe what was wrong */
-    if ( codes ) {
-        Log(LOG_WARNING, "DH parameters failed validation");
-
-        if ( codes & DH_UNABLE_TO_CHECK_GENERATOR ) {
-            Log(LOG_WARNING, "Unable to check DH generator");
-        }
-
-        if ( codes & DH_NOT_SUITABLE_GENERATOR ) {
-            Log(LOG_WARNING, "DH parameter g is not a suitable generator");
-        }
-
-        if ( codes & DH_CHECK_P_NOT_PRIME ) {
-            Log(LOG_WARNING, "DH parameter p is not a prime");
-        }
-
-        if ( codes & DH_CHECK_P_NOT_SAFE_PRIME ) {
-            Log(LOG_WARNING, "DH parameter p is not a safe prime");
-        }
-
-        DH_free(dh);
-        ssl_cleanup();
-        return NULL;
-    }
-
-    if ( SSL_CTX_set_tmp_dh(ssl_ctx, dh) != 1 ) {
-        log_ssl("Failed to set Diffie-Hellman keys");
-        DH_free(dh);
-        ssl_cleanup();
-        return NULL;
-    }
-
-    DH_free(dh);
-
     /*
      * To use elliptic curve Diffie-Hellman ciphers for PFS, we need to set up
      * the parameters or our cipher choices will forever be silently ignored.
@@ -440,12 +311,12 @@ SSL_CTX* initialise_ssl_context(amp_ssl_opt_t *sslopts) {
 
     if ( SSL_CTX_set_tmp_ecdh(ssl_ctx, ecdh) != 1 ) {
         Log(LOG_WARNING, "Failed to set elliptic curve");
-        EC_KEY_free (ecdh);
+        EC_KEY_free(ecdh);
         ssl_cleanup();
         return NULL;
     }
 
-    EC_KEY_free (ecdh);
+    EC_KEY_free(ecdh);
 
     return ssl_ctx;
 }
