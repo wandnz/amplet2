@@ -1,3 +1,33 @@
+amplet2 (0.6.2-1) unstable; urgency=low
+
+  * Added new test to perform udp jitter/latency/loss/mos tests.
+  * Fix bug in tcpping test where SYN payload could prevent matching packets.
+  * Fix bug where non-default control port wasn't being passed to tests.
+  * DSCP bits are now reported for all tests.
+  * Print short error messages on init script failure.
+  * Minor updates to man pages.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Tue, 31 May 2016 15:22:01 +1200
+
+amplet2 (0.6.1-1) unstable; urgency=low
+
+  * Follow redirects when fetching remote schedule files.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Mon, 18 Apr 2016 16:51:01 +1200
+
+amplet2 (0.6.0-3) unstable; urgency=low
+
+  * Call /bin/kill rather than using the shell builtin in init script.
+  * Prevent process group member PIDs from being printed by the init script.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Mon, 18 Apr 2016 14:04:37 +1200
+
+amplet2 (0.6.0-2) unstable; urgency=low
+
+  * Try not to confuse kill command with negative pids that look like flags.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Mon, 18 Apr 2016 11:41:59 +1200
+
 amplet2 (0.6.0-1) unstable; urgency=low
 
   * Add ability to set DSCP bits for all tests.
@@ -8,6 +38,8 @@ amplet2 (0.6.0-1) unstable; urgency=low
   * Add ability to remotely trigger test execution.
   * Force refetch of remote schedule on a SIGUSR2.
   * Unblock signals on child processes so they can be killed by init scripts.
+  * Fix bug in tcpping test where packet size was incorrectly calculated.
+  * Fix bug in dns test where payload size EDNS option wasn't being set.
 
  -- Brendon Jones <brendonj@waikato.ac.nz>  Thu, 14 Apr 2016 16:40:13 +1200
 
