@@ -20,6 +20,18 @@ set -e
 
 case "$1" in
     configure)
+        # Enable the ssl authentication plugin for rabbitmq
+        if ! /usr/sbin/rabbitmq-plugins list -e rabbitmq_auth_mechanism_ssl | \
+                cut -d ' ' -f 2 | grep -qx rabbitmq_auth_mechanism_ssl; then
+
+            rabbitmq-plugins enable rabbitmq_auth_mechanism_ssl || exit $?
+            if [ -x "`which invoke-rc.d 2>/dev/null`" ]; then
+                invoke-rc.d rabbitmq-server restart || exit $?
+            else
+                /etc/init.d/rabbitmq-server restart || exit $?
+            fi
+        fi
+
         # If the amp_exchange exists then assume we have already set it up the
         # way we want it and make no further changes. If it doesn't exist then
         # set up the exchange, queues, bindings etc to match the default config
