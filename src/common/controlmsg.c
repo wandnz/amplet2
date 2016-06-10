@@ -457,7 +457,7 @@ int send_control_renew(test_type_t test, BIO *ctrl) {
 /*
  *
  */
-int parse_control_hello(test_type_t test, void *data, uint32_t len,
+static int parse_control_hello(test_type_t test, void *data, uint32_t len,
         void **options, void *(*parse_func)(ProtobufCBinaryData *data)) {
 
     Amplet2__Controlmsg__Control *msg;
@@ -502,7 +502,7 @@ int parse_control_hello(test_type_t test, void *data, uint32_t len,
 /*
  *
  */
-int parse_control_ready(test_type_t test, void *data, uint32_t len,
+static int parse_control_ready(test_type_t test, void *data, uint32_t len,
         uint16_t *port) {
 
     Amplet2__Controlmsg__Control *msg;

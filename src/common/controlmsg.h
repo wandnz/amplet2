@@ -26,11 +26,7 @@ int read_control_ready(test_type_t test, BIO *ctrl, uint16_t *port);
 int read_control_result(test_type_t test, BIO *ctrl,
         ProtobufCBinaryData *results);
 
-/* XXX how many parse functions can be static? */
-int parse_control_hello(test_type_t test, void *data, uint32_t len,
-        void **options, void *(*parse_func)(ProtobufCBinaryData *data));
-int parse_control_ready(test_type_t test, void *data, uint32_t len,
-        uint16_t *port);
+/* extract data from send/receive for remote servers (udp, throughput) */
 int parse_control_receive(test_type_t test, void *data, uint32_t len,
         void **options, void *(*parse_func)(ProtobufCBinaryData *data));
 int parse_control_send(test_type_t test, void *data, uint32_t len,
