@@ -74,7 +74,7 @@ static int build_ipv4_probe(void *packet, uint16_t packet_size, uint8_t dscp,
     ip->protocol = IPPROTO_UDP;
     ip->daddr = ((struct sockaddr_in *)dest->ai_addr)->sin_addr.s_addr;
 
-    udp = (struct udphdr *)(packet + (ip->ihl << 2));
+    udp = (struct udphdr *)((uint8_t *)packet + (ip->ihl << 2));
     udp->source = htons(ident);
     udp->dest = htons(TRACEROUTE_DEST_PORT);
     udp->len = htons(packet_size - ((ip->ihl << 2)));

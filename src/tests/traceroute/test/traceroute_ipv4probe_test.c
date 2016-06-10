@@ -36,7 +36,7 @@ static void check_ipv4_probe(void *packet, uint16_t size, uint8_t dscp, int id,
     assert(ip->daddr == ((struct sockaddr_in *)dest->ai_addr)->sin_addr.s_addr);
 
     /* check that the UDP header is set correctly */
-    udp = (struct udphdr *)(packet + (ip->ihl << 2));
+    udp = (struct udphdr *)((uint8_t *)packet + (ip->ihl << 2));
     assert(ntohs(udp->source) == ident);
     assert(ntohs(udp->dest) == TRACEROUTE_DEST_PORT);
     assert(ntohs(udp->len) == (size - ((ip->ihl << 2))));
