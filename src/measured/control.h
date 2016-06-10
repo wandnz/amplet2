@@ -9,13 +9,6 @@
 /* Allow the test server to run slightly longer than the client test */
 #define TEST_SERVER_EXTRA_TIME 60
 
-/*
- * Hopefully temporary, until I can figure out how to get access to the
- * maximum test duration at the right location to start a watchdog timer
- * and can go back to max test duration + TEST_SERVER_EXTRA_TIME.
- */
-#define TEST_SERVER_MAXIMUM_TIME 120
-
 typedef struct amp_control {
     int enabled;
     char *port;

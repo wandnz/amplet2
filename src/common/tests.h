@@ -73,22 +73,6 @@ typedef struct test {
      */
     uint16_t max_duration;
 
-#if 0
-    /*
-     * Pointer to a function that will perform any pre-test configuration
-     * that is required (such as starting remote programs). It can report any
-     * extra configuration information to the test through the return value.
-     * If no extra setup or configuration is required this pointer can be null.
-     */
-    void * (*setup_callback)(void *data);
-
-    /*
-     * Pointer to a function that will convert the extra configuration into
-     * useful arguments to the binary and passes them through to amp_test_exec.
-     */
-    void (*run_callback)(/*test_info_t *info, */void *data);
-#endif
-
     /*
      * Pointer to a function that will perform any pre-test configuration that
      * is required (such as asking a remote measured process to start server
@@ -96,7 +80,6 @@ typedef struct test {
      * negotiated or calculated values as command line options to the test
      * binary. This function is also responsible for starting the test.
      */
-    //void (*run_callback)(const struct test_schedule_item * const info);
     amp_test_result_t* (*run_callback)(int argc, char *argv[], int count,
 	    struct addrinfo **dests);
 
@@ -112,15 +95,6 @@ typedef struct test {
      * if required.
      */
     void (*server_callback)(int argc, char *argv[], BIO *ctrl);
-
-#if 0
-    /*
-     * A string containing the name of the binary that should be run to perform
-     * this test. The name will be taken relative to the test path configured
-     * by XXX
-     */
-    char *run_binary;
-#endif
 
     /*
      * Pointer to the module that implements the callback functions for

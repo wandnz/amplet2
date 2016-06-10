@@ -88,6 +88,7 @@ int register_tests(char *location) {
 }
 
 
+
 /*
  * Close all the dlhandles pointing to test objects.
  */

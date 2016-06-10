@@ -11,18 +11,13 @@
 
 #include <config.h>
 
-#include <stdlib.h>
 #include <stdio.h>
 #include <getopt.h>
 #include <assert.h>
-#include <time.h>
 #include <signal.h>
 #include <unistd.h>
-#include <confuse.h>
 #include <string.h>
-#include <limits.h>
 #include <sys/types.h>
-#include <sys/stat.h>
 #include <fcntl.h>
 #include <errno.h>
 
@@ -33,12 +28,10 @@
 #include "test.h"
 #include "nametable.h"
 #include "debug.h"
-#include "messaging.h"
 #include "modules.h"
 #include "global.h"
 #include "control.h"
 #include "ssl.h"
-#include "ampresolv.h"
 #include "testlib.h"
 #include "rabbitcfg.h"
 #include "nssock.h"

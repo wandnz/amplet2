@@ -627,9 +627,6 @@ int bind_sockets_to_address(struct socket_t *sockets,
 
 /*
  * Enable socket timestamping if it is available.
- *
- * TODO should this whole function be contained within the ifdef as well as
- * the call? Or better to always call it but maybe do no work?
  */
 static void set_timestamp_socket_option(int sock) {
     assert(sock >= 0);
@@ -639,6 +636,8 @@ static void set_timestamp_socket_option(int sock) {
     if ( setsockopt(sock, SOL_SOCKET, SO_TIMESTAMP, &one, sizeof(one)) < 0 ) {
         Log(LOG_DEBUG, "No SO_TIMESTAMP support, using SIOCGSTAMP");
     }
+#else
+    Log(LOG_DEBUG, "No SO_TIMESTAMP support, using SIOCGSTAMP");
 #endif
 }
 
