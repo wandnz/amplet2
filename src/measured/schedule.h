@@ -76,17 +76,6 @@ typedef struct test_schedule_item {
 
 
 /*
- * Data block for limiting test event duration
- */
-typedef struct kill_schedule_item {
-    pid_t pid;			    /* pid of test process to kill */
-    char *testname;                 /* name of the test to kill */
-    uint8_t sigint;                 /* should we send a SIGINT warning shot */
-} kill_schedule_item_t;
-
-
-
-/*
  * Data block for fetching remote schedule files.
  */
 typedef struct fetch_schedule_item {
@@ -114,7 +103,6 @@ typedef struct schedule_item {
     wand_event_handler_t *ev_hdl;   /* pointer to main event handler */
     union {
 	test_schedule_item_t *test;
-	kill_schedule_item_t *kill;
         fetch_schedule_item_t *fetch;
     } data;			    /* schedule item data based on type */
 } schedule_item_t;
