@@ -1,0 +1,100 @@
+.\"                                      Hey, EMACS: -*- nroff -*-
+.\" First parameter, NAME, should be all caps
+.\" Second parameter, SECTION, should be 1-8, maybe w/ subsection
+.\" other parameters are allowed: see man(7), man(1)
+.TH AMPLET2-REMOTE 8 "Jun 2016" "amplet2-client" "The Active Measurement Project"
+.\" Please adjust this date whenever revising the manpage.
+.\"
+.\" Some roff macros, for reference:
+.\" .nh        disable hyphenation
+.\" .hy        enable hyphenation
+.\" .ad l      left justify
+.\" .ad b      justify to both left and right margins
+.\" .nf        disable filling
+.\" .fi        enable filling
+.\" .br        insert line break
+.\" .sp <n>    insert n+1 empty lines
+.\" for manpage-specific macros, see man(7)
+.SH NAME
+amplet2-remote \- AMP client remote control
+.SH SYNOPSIS
+\fBamplet2-remote\fR [\fB-hlx\fR] \fB-c \fIhost\fB\fR \fB-t \fItest\fB\fR \fB--cacert \fIfile\fB\fR \fB--cert \fIfile\fB\fR \fB--key \fIfile\fB\fR [\fB-p \fIport\fB\fR] [\fB-I \fIiface\fB\fR] [\fB-4 \fIaddress\fB\fR] [\fB-6 \fIaddress\fB\fR] [\fB-a \fIarguments\fB\fR] -- \fIdestination1\fR [\fIdestination2\fR \fI...\fR]
+.SH DESCRIPTION
+.\" TeX users may be more comfortable with the \fB<whatever>\fP and
+.\" \fI<whatever>\fP escape sequences to invode bold face and italics,
+.\" respectively.
+\fBamplet2-remote\fP can be used to connect to a running \fBamplet2\fP process
+and trigger tests to be run remotely. All destinations listed on the
+command line will be passed to the specified test. Any destinations that are
+hostnames will be resolved by the remote client.
+
+\fBamplet2\fP only accepts secure connections, you must specify \fB--cacert\fP,
+\fB--cert\fP and \fB--key\fP with appropriate credentials that will be trusted.
+.SH OPTIONS
+.TP
+\fB-a, --args \fIarguments\fB\fR
+A quoted string of all the arguments that should be passed through to the test
+being run on the remote \fBamplet2\fP process.
+.TP
+\fB-c, --connect \fIhost\fB\fR
+Connect to the \fBamplet2\fP process running on \fIhost\fR.
+.TP
+\fB--cacert \fIfile\fB\fR
+Use the specified \fIfile\fR as the trusted CA certificate.
+.TP
+\fB--cert \fIfile\fB\fR
+Use the specified \fIfile\fR as the certificate to present when connecting to
+the remote \fBamplet2\fP process. The certificate should be in PEM format.
+.TP
+\fB-h, --help\fR
+Show summary of options.
+.TP
+\fB-I, --interface \fIiface\fB\fR
+Specifies the interface (device) that tests should use when sending packets.
+By default the interface will be selected according to the routing table.
+.TP
+\fB--key \fIfile\fB\fR
+Use the specified \fIfile\fR as the private key when connecting to
+the remote \fBamplet2\fP process. The key should be in PEM format.
+.TP
+\fB-l, --list\fR
+List all the available tests that this program (but not necessarily the remote
+client!) understands.
+.TP
+\fB-p, --port \fIport\fB\fR
+Connect to the \fBamplet2\fP control socket on port \fIport\fR. The default is
+8869.
+.TP
+\fB-t, --test \fItest\fB\fR
+Run \fItest\fR on the remote \fBamplet2\fP process. Use \fB-l\fP to see all
+available tests that this program (but not necessarily the remote client!)
+understands.
+.TP
+\fB-x, --debug\fR
+Enable extra debugging output.
+.TP
+\fB-4, --ipv4 \fIa.b.c.d\fB\fR
+Specifies the source IPv4 address that tests should use when sending packets to
+IPv4 targets. This address must belong to one of the interfaces.
+By default the IPv4 address of the outgoing interface will be used.
+.TP
+\fB-6, --ipv6 \fIa:b:c:d:e:f:g:h\fB\fR
+Specifies the source IPv6 address that tests should use when sending packets to
+IPv6 targets. This address must belong to one of the interfaces.
+By default the IPv6 address of the outgoing interface will be used.
+
+.SH SEE ALSO
+.BR amplet (8),
+.BR amp-icmp (8),
+.BR amp-trace (8),
+.BR amp-dns (8),
+.BR amp-throughput (8),
+.BR amp-http (8),
+.BR amp-tcpping (8),
+.BR amp-udpstream (8).
+
+.SH AUTHOR
+amplet2-remote was written by Brendon Jones <brendonj@waikato.ac.nz>.
+.PP
+This manual page was written by Brendon Jones <brendonj@waikato.ac.nz>,
+for the Debian project (and may be used by others).
