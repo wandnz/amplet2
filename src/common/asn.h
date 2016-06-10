@@ -1,5 +1,5 @@
-#ifndef _MEASURED_ASN_H
-#define _MEASURED_ASN_H
+#ifndef _COMMON_ASN_H
+#define _COMMON_ASN_H
 
 #include <sys/types.h>
 #include <sys/socket.h>

@@ -1,5 +1,5 @@
-#ifndef _MEASURED_GLOBAL_H
-#define _MEASURED_GLOBAL_H
+#ifndef _COMMON_GLOBAL_H
+#define _COMMON_GLOBAL_H
 
 #include <stdint.h>
 #include <unbound.h>

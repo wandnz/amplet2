@@ -1,5 +1,5 @@
-#ifndef _MEASURED_DEBUG_H_
-#define _MEASURED_DEBUG_H_
+#ifndef _COMMON_DEBUG_H_
+#define _COMMON_DEBUG_H_
 
 #include <syslog.h>
 #include <netdb.h>

@@ -1,5 +1,5 @@
-#ifndef _MEASURED_SSL_H
-#define _MEASURED_SSL_H
+#ifndef _COMMON_SSL_H
+#define _COMMON_SSL_H
 
 #include <openssl/ssl.h>
 

@@ -1,5 +1,5 @@
-#ifndef _MEASURED_MESSAGING_H
-#define _MEASURED_MESSAGING_H
+#ifndef _COMMON_MESSAGING_H
+#define _COMMON_MESSAGING_H
 
 #include <amqp.h>
 #include <amqp_framing.h>
