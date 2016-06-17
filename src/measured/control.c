@@ -483,5 +483,6 @@ void free_control_config(amp_control_t *control) {
     if ( control->ipv4 ) free(control->ipv4);
     if ( control->ipv6 ) free(control->ipv6);
     if ( control->port ) free(control->port);
+    if ( control->acl ) free_acl(control->acl);
     free(control);
 }

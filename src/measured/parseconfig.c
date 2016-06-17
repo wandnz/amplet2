@@ -12,6 +12,7 @@
 #include "messaging.h"
 #include "global.h"
 #include "testlib.h"
+#include "acl.h"
 
 
 
@@ -199,7 +200,8 @@ int should_wait_for_cert(cfg_t *cfg) {
  */
 amp_control_t* get_control_config(cfg_t *cfg, amp_test_meta_t *meta) {
     amp_control_t* control = NULL;
-    cfg_t *cfg_sub;
+    cfg_t *cfg_sub, *cfg_acl;
+    unsigned int i;
 
     assert(cfg);
     cfg_sub = cfg_getsec(cfg, "control");
@@ -207,6 +209,7 @@ amp_control_t* get_control_config(cfg_t *cfg, amp_test_meta_t *meta) {
     if ( cfg_sub ) {
         control = (amp_control_t *) malloc(sizeof(amp_control_t));
 
+        control->acl = initialise_acl();
         control->enabled = cfg_getbool(cfg_sub, "enabled");
         control->port = strdup(cfg_getstr(cfg_sub, "port"));
 
@@ -246,6 +249,38 @@ amp_control_t* get_control_config(cfg_t *cfg, amp_test_meta_t *meta) {
             control->ipv6 = strdup(meta->sourcev6);
         } else {
             control->ipv6 = strdup("::");
+        }
+
+        /* build up the access control lists for the control socket */
+        for ( i = 0; i < cfg_size(cfg_sub, "acl"); i++ ) {
+            unsigned int j;
+            uint8_t property;
+
+            cfg_acl = cfg_getnsec(cfg_sub, "acl", i);
+
+            if ( strcmp(cfg_title(cfg_acl), "server") == 0 ) {
+                property = ACL_SERVER;
+            } else if ( strcmp(cfg_title(cfg_acl), "test") == 0 ) {
+                property = ACL_TEST;
+            } else if ( strcmp(cfg_title(cfg_acl), "schedule") == 0 ) {
+                property = ACL_SCHEDULE;
+            } else {
+                continue;
+            }
+
+            /*
+             * Add all the allow rules first, so that if it is "all" it will
+             * update the root node and be inherited properly.
+             */
+            for ( j = 0; j < cfg_size(cfg_acl, "allow"); j++ ) {
+                add_acl(control->acl, cfg_getnstr(cfg_acl, "allow", j),
+                        property, 1);
+            }
+
+            for ( j = 0; j < cfg_size(cfg_acl, "deny"); j++ ) {
+                add_acl(control->acl, cfg_getnstr(cfg_acl, "deny", j),
+                        property, 0);
+            }
         }
     }
 
@@ -424,12 +459,20 @@ cfg_t* parse_config(char *filename, struct amp_global_t *vars) {
         CFG_END()
     };
 
+    cfg_opt_t opt_acl[] = {
+        CFG_STR_LIST("allow", NULL, CFGF_NONE),
+        CFG_STR_LIST("deny", NULL, CFGF_NONE),
+        CFG_END()
+    };
+
+
     cfg_opt_t opt_control[] = {
         CFG_BOOL("enabled", cfg_false, CFGF_NONE),
         CFG_STR("port", DEFAULT_AMPLET_CONTROL_PORT, CFGF_NONE),
         CFG_STR("interface", NULL, CFGF_NONE),
         CFG_STR("ipv4", NULL, CFGF_NONE),
         CFG_STR("ipv6", NULL, CFGF_NONE),
+        CFG_SEC("acl", opt_acl, CFGF_TITLE | CFGF_MULTI),
         CFG_END()
     };
 
