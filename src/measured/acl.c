@@ -123,41 +123,23 @@ uint8_t get_acl(struct acl_root *root, char *fqdn, uint8_t property) {
  *
  */
 static struct acl_node* add_acl_internal(struct acl_node *root, char *fqdn,
-        uint8_t value, uint8_t defaults) {
+        uint8_t value) {
     char *label;
     int i;
 
+    /* if the acl was initialised, we will have at least an "all" node */
+    assert(root);
+
     label = get_label(fqdn);
 
-    /* nothing exists at this level, create the label */
-    if ( root == NULL ) {
-        Log(LOG_WARNING, "\tCREATING NODE %s", label);
-        if ( label == fqdn ) {
-            /* leaf node, it needs proper permissions set */
-            root = new_acl_node(label, value);
-        } else {
-            /* interior node, copy parent permissions and move onto child */
-            root = new_acl_node(label, defaults);
-            label[0] = '\0';
-
-            root->children = realloc(root->children,
-                    (sizeof(struct acl_node*)) * (root->num_children+1));
-            root->children[root->num_children++] =
-                add_acl_internal(NULL, fqdn, value, defaults);
-        }
-
-        return root;
-    }
-
-    /* otherwise something exists, check if this name is already in the list */
+    /* check if this name is already in the list of children */
     for ( i = 0; i < root->num_children; i++ ) {
         if ( strcmp(root->children[i]->label, label) == 0 ) {
             if ( label != fqdn ) {
                 /* on the right track, keep traversing looking for the node */
                 label[0] = '\0';
                 root->children[i] =
-                    add_acl_internal(root->children[i], fqdn, value,
-                            root->permissions);
+                    add_acl_internal(root->children[i], fqdn, value);
             } else {
                 /* this is the end node we wanted - modify it */
                 root->children[i]->permissions = value;
@@ -168,11 +150,19 @@ static struct acl_node* add_acl_internal(struct acl_node *root, char *fqdn,
     }
 
     /* the label is new, add it to the tree and keep going */
-    Log(LOG_WARNING, "IGNORE NEXT CREATION for %s", label);
     root->children = realloc(root->children,
             (sizeof(struct acl_node*)) * (root->num_children+1));
-    root->children[root->num_children++] =
-        add_acl_internal(NULL, fqdn, value, root->permissions);
+
+    if ( label == fqdn ) {
+        /* leaf node, set the permissions as given by the user */
+        root->children[root->num_children++] = new_acl_node(label, value);
+    } else {
+        /* internal node, set the same permissions as the parent */
+        struct acl_node *child = new_acl_node(label, root->permissions);
+        label[0] = '\0';
+        root->children[root->num_children++] =
+            add_acl_internal(child, fqdn, value);
+    }
 
     return root;
 }
@@ -198,7 +188,7 @@ int add_acl(struct acl_root *root, char *fqdn, uint8_t property, uint8_t value) 
     if ( strcmp(fqdn, "all") == 0 ) {
         subtree->permissions = value;
     } else {
-        add_acl_internal(subtree, fqdn, value, ACL_NONE);
+        add_acl_internal(subtree, fqdn, value);
     }
 
     return 0;
