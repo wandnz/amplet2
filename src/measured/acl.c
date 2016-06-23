@@ -72,7 +72,7 @@ struct acl_root* initialise_acl(void) {
 
 
 /*
- *
+ * Internal recursive function to find an ACL label, or the closest parent.
  */
 static uint8_t get_acl_internal(struct acl_node *root, char *fqdn) {
     assert(root);
@@ -101,7 +101,7 @@ static uint8_t get_acl_internal(struct acl_node *root, char *fqdn) {
 
 
 /*
- *
+ * Find and return the permissions for the given FQDN and property.
  */
 uint8_t get_acl(struct acl_root *root, char *fqdn, uint8_t property) {
     struct acl_node *subtree = NULL;
@@ -158,7 +158,7 @@ static void update_acl_subtree(struct acl_node *root, uint8_t value) {
 
 
 /*
- *
+ * Internal recursive function to add a rule to the ACL.
  */
 static struct acl_node* add_acl_internal(struct acl_node *root, char *fqdn,
         uint8_t value) {
@@ -218,6 +218,9 @@ static struct acl_node* add_acl_internal(struct acl_node *root, char *fqdn,
 
 
 
+/*
+ * Add a rule to the ACL.
+ */
 int add_acl(struct acl_root *root, char *fqdn, uint8_t property, uint8_t value) {
     struct acl_node *subtree = NULL;
 
@@ -251,6 +254,9 @@ int add_acl(struct acl_root *root, char *fqdn, uint8_t property, uint8_t value) 
 
 
 
+/*
+ *
+ */
 static void print_acl_internal(struct acl_node *root) {
     int i;
 
@@ -290,6 +296,9 @@ void print_acl(struct acl_root *root) {
 
 
 
+/*
+ *
+ */
 static void free_acl_internal(struct acl_node *root) {
     int i;
 
@@ -306,6 +315,9 @@ static void free_acl_internal(struct acl_node *root) {
 
 
 
+/*
+ *
+ */
 void free_acl(struct acl_root *root) {
     if ( root == NULL ) {
         return;
