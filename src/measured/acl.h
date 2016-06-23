@@ -12,6 +12,7 @@
 struct acl_node {
     char *label;
     uint8_t permissions;
+    uint8_t isset;
     uint8_t num_children;
     struct acl_node **children;
 };
