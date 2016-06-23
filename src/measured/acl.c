@@ -103,6 +103,8 @@ static uint8_t get_acl_internal(struct acl_node *root, char *fqdn) {
  */
 uint8_t get_acl(struct acl_root *root, char *fqdn, uint8_t property) {
     struct acl_node *subtree = NULL;
+    char *label;
+    uint8_t value;
 
     assert(root);
     assert(fqdn);
@@ -114,7 +116,11 @@ uint8_t get_acl(struct acl_root *root, char *fqdn, uint8_t property) {
         default: return 0;
     };
 
-    return get_acl_internal(subtree, fqdn);
+    label = strdup(fqdn);
+    value = get_acl_internal(subtree, label);
+    free(label);
+
+    return value;
 }
 
 
@@ -188,7 +194,9 @@ int add_acl(struct acl_root *root, char *fqdn, uint8_t property, uint8_t value) 
     if ( strcmp(fqdn, "all") == 0 ) {
         subtree->permissions = value;
     } else {
-        add_acl_internal(subtree, fqdn, value);
+        char *label = strdup(fqdn);
+        add_acl_internal(subtree, label, value);
+        free(label);
     }
 
     return 0;
