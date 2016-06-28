@@ -106,13 +106,9 @@ void reseed_openssl_rng(void) {
 
 
 /*
- * See: https://github.com/iSECPartners/ssl-conservatory/
  *
- * Make sure that the hostname of the machine we are connecting to/from matches
- * the common name in the certificate. We don't want to talk to someone who
- * has a valid cert, but is not issued to them!
  */
-int matches_common_name(const char *hostname, const X509 *cert) {
+char* get_common_name(const X509 *cert) {
     int common_name_loc;
     X509_NAME_ENTRY *common_name_entry = NULL;
     ASN1_STRING *common_name_asn1 = NULL;
@@ -123,7 +119,7 @@ int matches_common_name(const char *hostname, const X509 *cert) {
                 (X509*)cert), NID_commonName, -1);
     if (common_name_loc < 0) {
         Log(LOG_WARNING, "Error finding position of Common Name field in cert");
-        return -2;
+        return NULL;
     }
 
     /* Extract the CN field */
@@ -131,14 +127,14 @@ int matches_common_name(const char *hostname, const X509 *cert) {
                 (X509 *)cert), common_name_loc);
     if (common_name_entry == NULL) {
         Log(LOG_WARNING, "Error extracting Common Name from cert");
-        return -2;
+        return NULL;
     }
 
     /* Convert the CN field to a C string */
     common_name_asn1 = X509_NAME_ENTRY_get_data(common_name_entry);
     if (common_name_asn1 == NULL) {
         Log(LOG_WARNING, "Error converting Common Name");
-        return -2;
+        return NULL;
     }
     common_name_str = (char *) ASN1_STRING_data(common_name_asn1);
 
@@ -146,17 +142,37 @@ int matches_common_name(const char *hostname, const X509 *cert) {
     if ((size_t)ASN1_STRING_length(common_name_asn1) !=
             strlen(common_name_str)) {
         Log(LOG_WARNING, "Malformed Common Name in cert");
-        return -3;
+        return NULL;
+    }
+
+    return common_name_str;
+}
+
+
+
+/*
+ * See: https://github.com/iSECPartners/ssl-conservatory/
+ *
+ * Make sure that the hostname of the machine we are connecting to/from matches
+ * the common name in the certificate. We don't want to talk to someone who
+ * has a valid cert, but is not issued to them!
+ */
+int matches_common_name(const char *hostname, const X509 *cert) {
+    char *common_name = NULL;
+
+    if ( (common_name = get_common_name(cert)) == NULL ) {
+        Log(LOG_WARNING, "Failed to get common name from certificate");
+        return -1;
     }
 
     /* Compare expected hostname with the CN */
-    if (strcasecmp(hostname, common_name_str) == 0) {
+    if (strcasecmp(hostname, common_name) == 0) {
         Log(LOG_DEBUG, "Hostname '%s' matches Common Name in cert", hostname);
         return 0;
     }
 
     Log(LOG_WARNING, "Hostname '%s' does not match Common Name '%s'", hostname,
-            common_name_str);
+            common_name);
 
     return -1;
 }

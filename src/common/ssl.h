@@ -37,6 +37,7 @@ int initialise_ssl(amp_ssl_opt_t *sslopts, char *collector);
 SSL_CTX *initialise_ssl_context(amp_ssl_opt_t *sslopts);
 BIO* establish_control_socket(SSL_CTX *ssl_ctx, int fd, int client);
 void ssl_cleanup(void);
+char* get_common_name(const X509 *cert);
 int matches_common_name(const char *hostname, const X509 *cert);
 
 #endif
