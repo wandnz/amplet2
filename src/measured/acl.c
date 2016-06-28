@@ -108,8 +108,9 @@ uint8_t get_acl(struct acl_root *root, char *fqdn, uint8_t property) {
     char *label;
     uint8_t value;
 
-    assert(root);
-    assert(fqdn);
+    if ( root == NULL || fqdn == NULL ) {
+        return 0;
+    }
 
     switch ( property ) {
         case ACL_SERVER: subtree = root->server; break;
