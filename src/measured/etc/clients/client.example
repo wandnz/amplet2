@@ -49,13 +49,27 @@ collector {
 
 # The control interface is used by other amplets to request test servers be
 # started (i.e. throughput, udpstream), or to remotely run tests from a client.
-# Anyone connecting to this port has to provide a valid SSL certificate.
+# Anyone connecting to this port has to provide a valid SSL certificate and
+# have an appropriate "allow" rule for the command they send. All rules default
+# to deny all, with more specific rules overriding less specific rules.
 control {
     enabled = true
 #    ipv4 = 1.2.3.4
 #    ipv6 = 2001:dead:beef::1
 #    interface = eth0
 #    port = 8869
+    acl server {
+        allow = all
+        deny = {}
+    }
+#    acl test {
+#        allow = { .amp.example.com }
+#        deny = { foo.amp.example.com }
+#    }
+#    acl schedule {
+#        allow = {}
+#        deny = all
+#    }
 }
 
 # Schedule fetching allows the schedule file to be kept up to date with a
