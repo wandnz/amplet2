@@ -11,6 +11,9 @@
 /* Allow the test server to run slightly longer than the client test */
 #define TEST_SERVER_EXTRA_TIME 60
 
+#define MEASURED_CONTROL_FORBIDDEN 403
+#define MEASURED_CONTROL_NOTIMPLEMENTED 501
+
 typedef struct amp_control {
     int enabled;
     char *port;

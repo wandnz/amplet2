@@ -4,12 +4,14 @@ message Control {
         enum Type {
             SERVER = 2;
             SCHEDULE = 3;
+            ERROR = 5;
         }
 
         optional Type type = 1;
 
         optional Server server = 2;
         optional Schedule schedule = 3;
+        optional Error error = 5;
 }
 
 message Server {
@@ -38,4 +40,9 @@ message Schedule {
         /* TODO make test permanent or not */
         /* TODO how to remove permanent tests */
         /*optional bool repeat = 8 [default = false];*/
+}
+
+message Error {
+        optional uint32 code = 1;
+        optional string message = 2;
 }

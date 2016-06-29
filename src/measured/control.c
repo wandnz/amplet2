@@ -204,6 +204,39 @@ static void do_schedule_test(BIO *ctrl, void *data, uint32_t len) {
 /*
  *
  */
+static int send_control_error(BIO *ctrl, uint32_t code, char *message) {
+    int len;
+    void *buffer;
+    int result;
+    Amplet2__Measured__Control msg = AMPLET2__MEASURED__CONTROL__INIT;
+    Amplet2__Measured__Error error = AMPLET2__MEASURED__ERROR__INIT;
+
+    Log(LOG_DEBUG, "Sending ERROR");
+
+    error.has_code = 1;
+    error.code = code;
+    error.message = message;
+
+    msg.error = &error;
+    msg.has_type = 1;
+    msg.type = AMPLET2__MEASURED__CONTROL__TYPE__ERROR;
+
+    len = amplet2__measured__control__get_packed_size(&msg);
+    buffer = malloc(len);
+    amplet2__measured__control__pack(&msg, buffer);
+
+    result = write_control_packet(ctrl, buffer, len);
+
+    free(buffer);
+
+    return result;
+}
+
+
+
+/*
+ *
+ */
 static void process_control_message(int fd, struct acl_root *acl) {
     BIO *ctrl;
     SSL *ssl;
@@ -265,6 +298,8 @@ static void process_control_message(int fd, struct acl_root *acl) {
                     /* TODO report failure to remote end */
                     Log(LOG_WARNING, "Host %s lacks ACL_SERVER permissions",
                             common_name);
+                    send_control_error(ctrl, MEASURED_CONTROL_FORBIDDEN,
+                        "Requires SERVER permissions");
                 }
                 break;
             }
@@ -276,6 +311,8 @@ static void process_control_message(int fd, struct acl_root *acl) {
                     /* TODO report failure to remote end */
                     Log(LOG_WARNING, "Host %s lacks ACL_TEST permissions",
                             common_name);
+                    send_control_error(ctrl, MEASURED_CONTROL_FORBIDDEN,
+                        "Requires TEST permissions");
                 }
                 break;
             }

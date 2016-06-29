@@ -95,6 +95,7 @@ int main(int argc, char *argv[]) {
     amp_test_result_t result;
     Amplet2__Measured__Control msg = AMPLET2__MEASURED__CONTROL__INIT;
     Amplet2__Measured__Schedule schedule = AMPLET2__MEASURED__SCHEDULE__INIT;
+    Amplet2__Measured__Control *response;
 
     int i;
     int opt;
@@ -206,11 +207,32 @@ int main(int argc, char *argv[]) {
         return -1;
     }
 
-    result.data = buffer;
-    result.len = bytes;
+    /*
+     * This is a bit nasty, because we can get either a test level control
+     * message with a result in it, or we can get a measured level control
+     * message with an error in it. Try to unpack a measured level control
+     * message and if that fails assume it actually has results...
+     */
+    response = amplet2__measured__control__unpack(NULL, bytes, buffer);
+    if ( response && response->has_type ) {
+        /* measured error - the remote end won't let us run the test */
+        switch ( response->type ) {
+            case AMPLET2__MEASURED__CONTROL__TYPE__ERROR:
+                printf("error: %d\n", response->error->code);
+                break;
+            default:
+                printf("unexpected message type\n");
+                break;
+        };
+        amplet2__measured__control__free_unpacked(response, NULL);
+    } else {
+        /* not an error, assume it is a result and print it */
+        result.data = buffer;
+        result.len = bytes;
 
-    /* print result using the test print functions, as if it was run locally */
-    amp_tests[test_type]->print_callback(&result);
+        /* print result using the test print functions, as if run locally */
+        amp_tests[test_type]->print_callback(&result);
+    }
 
     free(buffer);
     close_control_connection(ctrl);
