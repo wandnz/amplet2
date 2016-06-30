@@ -470,7 +470,9 @@ static int parse_control_hello(test_type_t test, void *data, uint32_t len,
     if ( !msg || !msg->has_type ||
             msg->type != AMPLET2__CONTROLMSG__CONTROL__TYPE__HELLO ) {
         Log(LOG_WARNING, "Not a HELLO packet, aborting");
-        amplet2__controlmsg__control__free_unpacked(msg, NULL);
+        if ( msg ) {
+            amplet2__controlmsg__control__free_unpacked(msg, NULL);
+        }
         return -1;
     }
 
@@ -515,7 +517,9 @@ static int parse_control_ready(test_type_t test, void *data, uint32_t len,
     if ( !msg || !msg->has_type ||
             msg->type != AMPLET2__CONTROLMSG__CONTROL__TYPE__READY ) {
         Log(LOG_WARNING, "Not a READY packet, aborting");
-        amplet2__controlmsg__control__free_unpacked(msg, NULL);
+        if ( msg ) {
+            amplet2__controlmsg__control__free_unpacked(msg, NULL);
+        }
         return -1;
     }
 
@@ -556,7 +560,9 @@ int parse_control_receive(test_type_t test, void *data, uint32_t len,
     if ( !msg || !msg->has_type ||
             msg->type != AMPLET2__CONTROLMSG__CONTROL__TYPE__RECEIVE ) {
         Log(LOG_WARNING, "Not a RECEIVE packet, aborting");
-        amplet2__controlmsg__control__free_unpacked(msg, NULL);
+        if ( msg ) {
+            amplet2__controlmsg__control__free_unpacked(msg, NULL);
+        }
         return -1;
     }
 
@@ -601,7 +607,9 @@ int parse_control_send(test_type_t test, void *data, uint32_t len,
     if ( !msg || !msg->has_type ||
             msg->type != AMPLET2__CONTROLMSG__CONTROL__TYPE__SEND ) {
         Log(LOG_WARNING, "Not a SEND packet, aborting");
-        amplet2__controlmsg__control__free_unpacked(msg, NULL);
+        if ( msg ) {
+            amplet2__controlmsg__control__free_unpacked(msg, NULL);
+        }
         return -1;
     }
 
@@ -645,7 +653,9 @@ static int parse_control_result(test_type_t test, void *data, uint32_t len,
     if ( !msg || !msg->has_type ||
             msg->type != AMPLET2__CONTROLMSG__CONTROL__TYPE__RESULT ) {
         Log(LOG_WARNING, "Not a RESULT packet, aborting");
-        amplet2__controlmsg__control__free_unpacked(msg, NULL);
+        if ( msg ) {
+            amplet2__controlmsg__control__free_unpacked(msg, NULL);
+        }
         return -1;
     }
 
