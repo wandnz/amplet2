@@ -524,7 +524,7 @@ static int parse_control_ready(test_type_t test, void *data, uint32_t len,
     }
 
     if ( !msg->has_test || msg->test != test ) {
-        Log(LOG_WARNING, "HELLO is for wrong test type, aborting");
+        Log(LOG_WARNING, "READY is for wrong test type, aborting");
         amplet2__controlmsg__control__free_unpacked(msg, NULL);
         return -1;
     }
@@ -567,7 +567,7 @@ int parse_control_receive(test_type_t test, void *data, uint32_t len,
     }
 
     if ( !msg->has_test || msg->test != test ) {
-        Log(LOG_WARNING, "HELLO is for wrong test type, aborting");
+        Log(LOG_WARNING, "RECEIVE is for wrong test type, aborting");
         amplet2__controlmsg__control__free_unpacked(msg, NULL);
         return -1;
     }
@@ -614,7 +614,7 @@ int parse_control_send(test_type_t test, void *data, uint32_t len,
     }
 
     if ( !msg->has_test || msg->test != test ) {
-        Log(LOG_WARNING, "HELLO is for wrong test type, aborting");
+        Log(LOG_WARNING, "SEND is for wrong test type, aborting");
         amplet2__controlmsg__control__free_unpacked(msg, NULL);
         return -1;
     }
@@ -660,7 +660,7 @@ static int parse_control_result(test_type_t test, void *data, uint32_t len,
     }
 
     if ( !msg->has_test || msg->test != test ) {
-        Log(LOG_WARNING, "HELLO is for wrong test type, aborting");
+        Log(LOG_WARNING, "RESULT is for wrong test type, aborting");
         amplet2__controlmsg__control__free_unpacked(msg, NULL);
         return -1;
     }
