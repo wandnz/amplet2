@@ -261,12 +261,12 @@ static void process_control_message(int fd, struct acl_root *acl) {
             case AMPLET2__MEASURED__CONTROL__TYPE__SERVER: {
                 if ( get_acl(acl, common_name, ACL_SERVER) ) {
                     //TODO move this after we know server started ok?
-                    send_control_response(ctrl, MEASURED_CONTROL_OK, "OK");
+                    send_measured_response(ctrl, MEASURED_CONTROL_OK, "OK");
                     do_start_server(ctrl, data, bytes);
                 } else {
                     Log(LOG_WARNING, "Host %s lacks ACL_SERVER permissions",
                             common_name);
-                    send_control_response(ctrl, MEASURED_CONTROL_FORBIDDEN,
+                    send_measured_response(ctrl, MEASURED_CONTROL_FORBIDDEN,
                         "Requires SERVER permissions");
                 }
                 break;
@@ -275,12 +275,12 @@ static void process_control_message(int fd, struct acl_root *acl) {
             case AMPLET2__MEASURED__CONTROL__TYPE__TEST: {
                 if ( get_acl(acl, common_name, ACL_TEST) ) {
                     //TODO move this after we know test was parsed ok?
-                    send_control_response(ctrl, MEASURED_CONTROL_OK, "OK");
+                    send_measured_response(ctrl, MEASURED_CONTROL_OK, "OK");
                     do_single_test(ctrl, data, bytes);
                 } else {
                     Log(LOG_WARNING, "Host %s lacks ACL_TEST permissions",
                             common_name);
-                    send_control_response(ctrl, MEASURED_CONTROL_FORBIDDEN,
+                    send_measured_response(ctrl, MEASURED_CONTROL_FORBIDDEN,
                         "Requires TEST permissions");
                 }
                 break;
@@ -288,7 +288,7 @@ static void process_control_message(int fd, struct acl_root *acl) {
 
             default: Log(LOG_WARNING, "Unhandled measured control message %d",
                              msg->type);
-                     send_control_response(ctrl, MEASURED_CONTROL_BADREQUEST,
+                     send_measured_response(ctrl, MEASURED_CONTROL_BADREQUEST,
                              "Bad request");
                      break;
         };

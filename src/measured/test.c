@@ -25,7 +25,7 @@
 #include "testlib.h"
 #include "messaging.h" /* only for report_to_broker() */
 #include "controlmsg.h" /* only for write_control_packet() */
-#include "serverlib.h" /* only for send_control_response() */
+#include "serverlib.h" /* only for send_measured_response() */
 
 
 
@@ -268,7 +268,7 @@ void run_test(const test_schedule_item_t * const item, BIO *ctrl) {
             /* report the results to the appropriate location */
             if ( ctrl ) {
                 /* SSL connection - single test run remotely, report remotely */
-                send_XXX_result(ctrl, test->id, result);
+                send_measured_result(ctrl, test->id, result);
             } else {
                 /* scheduled test, report to the rabbitmq broker */
                 report_to_broker(test->id, result);
@@ -283,7 +283,7 @@ void run_test(const test_schedule_item_t * const item, BIO *ctrl) {
              * This might mean tests need to return a control message
              * rather than a result structure?
              */
-            send_control_response(ctrl, MEASURED_CONTROL_FAILED, "No result");
+            send_measured_response(ctrl, MEASURED_CONTROL_FAILED, "No result");
         }
 
 	/* free any destinations that we looked up just for this test */

@@ -725,7 +725,7 @@ int start_remote_server(BIO *ctrl, test_type_t type) {
 /*
  *
  */
-int parse_control_response(void *data, uint32_t len,
+int parse_measured_response(void *data, uint32_t len,
         Amplet2__Measured__Response *response) {
 
     Amplet2__Measured__Control *msg;
@@ -763,7 +763,7 @@ int parse_control_response(void *data, uint32_t len,
 /*
  *
  */
-int read_control_response(BIO *ctrl, Amplet2__Measured__Response *response) {
+int read_measured_response(BIO *ctrl, Amplet2__Measured__Response *response) {
 
     void *data;
     int len;
@@ -775,7 +775,7 @@ int read_control_response(BIO *ctrl, Amplet2__Measured__Response *response) {
         return -1;
     }
 
-    if ( parse_control_response(data, len, response) < 0 ) {
+    if ( parse_measured_response(data, len, response) < 0 ) {
         Log(LOG_WARNING, "Failed to parse RESPONSE packet");
         free(data);
         return -1;
@@ -791,7 +791,7 @@ int read_control_response(BIO *ctrl, Amplet2__Measured__Response *response) {
 /*
  *
  */
-int send_control_response(BIO *ctrl, uint32_t code, char *message) {
+int send_measured_response(BIO *ctrl, uint32_t code, char *message) {
     int len;
     void *buffer;
     int result;
@@ -824,7 +824,7 @@ int send_control_response(BIO *ctrl, uint32_t code, char *message) {
 /*
  *
  */
-int send_XXX_result(BIO *ctrl, test_type_t test, amp_test_result_t *data) {
+int send_measured_result(BIO *ctrl, test_type_t test, amp_test_result_t *data) {
 
     int len;
     void *buffer;

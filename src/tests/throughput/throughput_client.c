@@ -720,7 +720,7 @@ amp_test_result_t* run_throughput_client(int argc, char *argv[], int count,
         }
 
         /* make sure the server was started properly */
-        if ( read_control_response(ctrl, &response) < 0 ) {
+        if ( read_measured_response(ctrl, &response) < 0 ) {
             Log(LOG_WARNING, "Failed to read server control response");
             return NULL;
         }

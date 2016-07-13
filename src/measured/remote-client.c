@@ -202,7 +202,7 @@ int main(int argc, char *argv[]) {
     free(buffer);
 
     /* make sure the test was started properly */
-    if ( read_control_response(ctrl, &response) < 0 ) {
+    if ( read_measured_response(ctrl, &response) < 0 ) {
         printf("failed to read response\n");
         return -1;
     }
@@ -251,7 +251,7 @@ int main(int argc, char *argv[]) {
              */
             case AMPLET2__MEASURED__CONTROL__TYPE__RESPONSE: {
                 Amplet2__Measured__Response runresponse;
-                if ( parse_control_response(buffer, bytes, &runresponse) < 0 ) {
+                if ( parse_measured_response(buffer, bytes, &runresponse) < 0 ){
                     break;
                 }
                 printf("error running test: %d %s\n", runresponse.code,

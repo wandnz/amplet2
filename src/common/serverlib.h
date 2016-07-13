@@ -37,9 +37,9 @@ BIO* connect_control_server(struct addrinfo *dest, uint16_t port,
 void close_control_connection(BIO *ctrl);
 
 //XXX is this the correct location for this function? serverlib.c?
-int read_control_response(BIO *ctrl, Amplet2__Measured__Response *response);
-int send_control_response(BIO *ctrl, uint32_t code, char *message);
-int send_XXX_result(BIO *ctrl, test_type_t test, amp_test_result_t *data);
-int parse_control_response(void *data, uint32_t len,
+int read_measured_response(BIO *ctrl, Amplet2__Measured__Response *response);
+int send_measured_response(BIO *ctrl, uint32_t code, char *message);
+int send_measured_result(BIO *ctrl, test_type_t test, amp_test_result_t *data);
+int parse_measured_response(void *data, uint32_t len,
         Amplet2__Measured__Response *response);
 #endif
