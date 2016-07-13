@@ -2,16 +2,18 @@ package amplet2.measured;
 
 message Control {
         enum Type {
-            SERVER = 2;
-            SCHEDULE = 3;
-            ERROR = 5;
+            SERVER = 1002;
+            SCHEDULE = 1003;
+            RESPONSE = 1005;
+            RESULT = 1006;
         }
 
         optional Type type = 1;
 
         optional Server server = 2;
         optional Schedule schedule = 3;
-        optional Error error = 5;
+        optional Response response = 5;
+        optional Result result = 6;
 }
 
 message Server {
@@ -42,7 +44,12 @@ message Schedule {
         /*optional bool repeat = 8 [default = false];*/
 }
 
-message Error {
+message Response {
         optional uint32 code = 1;
         optional string message = 2;
+}
+
+message Result {
+        optional uint32 test_type = 1;
+        optional bytes result = 2;
 }

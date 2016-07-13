@@ -3,6 +3,7 @@
 
 #include "tests.h"
 #include "testlib.h"
+#include "measured.pb-c.h"
 
 #define MIN(X,Y) (((X) < (Y)) ? (X) : (Y))
 #define MAXIMUM_SERVER_WAIT_TIME 60000000
@@ -35,4 +36,12 @@ BIO* connect_control_server(struct addrinfo *dest, uint16_t port,
         amp_test_meta_t *meta);
 void close_control_connection(BIO *ctrl);
 
+//XXX is this the correct location for this function? serverlib.c?
+int read_control_response(BIO *ctrl, Amplet2__Measured__Response *response);
+int send_control_response(BIO *ctrl, uint32_t code, char *message);
+int send_XXX_result(BIO *ctrl, test_type_t test, amp_test_result_t *data);
+int read_XXX_result(BIO *ctrl, amp_test_result_t *result);
+int parse_XXX_result(void *data, uint32_t len, amp_test_result_t *result);
+int parse_control_response(void *data, uint32_t len,
+        Amplet2__Measured__Response *response);
 #endif

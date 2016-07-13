@@ -93,9 +93,10 @@ int main(int argc, char *argv[]) {
     amp_ssl_opt_t sslopts;
     struct addrinfo hints, *dest;
     amp_test_result_t result;
-    Amplet2__Measured__Control msg = AMPLET2__MEASURED__CONTROL__INIT;
+    Amplet2__Measured__Control out_msg = AMPLET2__MEASURED__CONTROL__INIT;
     Amplet2__Measured__Schedule schedule = AMPLET2__MEASURED__SCHEDULE__INIT;
-    Amplet2__Measured__Control *response;
+    Amplet2__Measured__Response response;
+    Amplet2__Measured__Control *in_msg; //XXX
 
     int i;
     int opt;
@@ -171,18 +172,18 @@ int main(int argc, char *argv[]) {
         schedule.targets[i - optind] = argv[i];
     }
 
-    msg.schedule = &schedule;
-    msg.has_type = 1;
-    msg.type = AMPLET2__MEASURED__CONTROL__TYPE__SCHEDULE;
+    out_msg.schedule = &schedule;
+    out_msg.has_type = 1;
+    out_msg.type = AMPLET2__MEASURED__CONTROL__TYPE__SCHEDULE;
 
-    len = amplet2__measured__control__get_packed_size(&msg);
+    len = amplet2__measured__control__get_packed_size(&out_msg);
     buffer = malloc(len);
-    amplet2__measured__control__pack(&msg, buffer);
+    amplet2__measured__control__pack(&out_msg, buffer);
 
     free(schedule.targets);
 
     memset(&hints, 0, sizeof(hints));
-    hints.ai_family = AF_INET;
+    hints.ai_family = AF_UNSPEC;
     hints.ai_socktype = SOCK_STREAM;
     hints.ai_flags = AI_CANONNAME;
     getaddrinfo(host, port, &hints, &dest);
@@ -201,40 +202,69 @@ int main(int argc, char *argv[]) {
 
     free(buffer);
 
-    /* wait for the result */
-    if ( (bytes = read_control_packet(ctrl, &buffer)) < 0 ) {
-        printf("failed to read\n");
+    /* make sure the test was started properly */
+    if ( read_control_response(ctrl, &response) < 0 ) {
+        printf("failed to read response\n");
         return -1;
     }
 
-    /*
-     * This is a bit nasty, because we can get either a test level control
-     * message with a result in it, or we can get a measured level control
-     * message with an error in it. Try to unpack a measured level control
-     * message and if that fails assume it actually has results...
-     */
-    response = amplet2__measured__control__unpack(NULL, bytes, buffer);
-    if ( response && response->has_type ) {
-        /* measured error - the remote end won't let us run the test */
-        switch ( response->type ) {
-            case AMPLET2__MEASURED__CONTROL__TYPE__ERROR:
-                printf("error: %d\n", response->error->code);
-                break;
-            default:
-                printf("unexpected message type\n");
-                break;
-        };
-        amplet2__measured__control__free_unpacked(response, NULL);
-    } else {
-        /* not an error, assume it is a result and print it */
-        result.data = buffer;
-        result.len = bytes;
+    if ( response.code == MEASURED_CONTROL_OK ) {
+        Log(LOG_DEBUG, "Test started OK on remote host");
 
-        /* print result using the test print functions, as if run locally */
-        amp_tests[test_type]->print_callback(&result);
+        /* test started ok, wait for the result */
+        if ( (bytes = read_control_packet(ctrl, &buffer)) < 0 ) {
+            printf("failed to read\n");
+            return -1;
+        }
+
+        /* XXX can we pass this to the parse function rather than passing in
+         * the raw bytes and having it checked again? That way we unpack it
+         * and free it both outside the parse function, don't need to copy
+         * data.
+         */
+        in_msg = amplet2__measured__control__unpack(NULL, bytes, buffer);
+
+        switch ( in_msg->type ) {
+            case AMPLET2__MEASURED__CONTROL__TYPE__RESULT: {
+                if ( parse_XXX_result(buffer, bytes, &result) < 0 ) {
+                    break;
+                }
+
+                //XXX add test type to result packet and check it?
+                //if ( test_type != in_msg->result->test_type ) {
+                //}
+
+                /* print using the test print functions, as if run locally */
+                amp_tests[test_type]->print_callback(&result);
+                free(result.data);
+                break;
+            }
+
+            case AMPLET2__MEASURED__CONTROL__TYPE__RESPONSE: {
+                Amplet2__Measured__Response runresponse;
+                if ( parse_control_response(buffer, bytes, &runresponse) < 0 ) {
+                    break;
+                }
+                printf("error running test: %d %s\n", runresponse.code,
+                        runresponse.message);
+                free(runresponse.message);
+                break;
+            }
+
+            default: {
+                printf("unexpected message type %d\n", in_msg->type);
+                break;
+            }
+        };
+
+        free(buffer);
+        amplet2__measured__control__free_unpacked(in_msg, NULL);
+    } else {
+        printf("error starting test: %d %s\n", response.code, response.message);
     }
 
-    free(buffer);
+    free(response.message);
+
     close_control_connection(ctrl);
     ssl_cleanup();
 

@@ -204,39 +204,6 @@ static void do_schedule_test(BIO *ctrl, void *data, uint32_t len) {
 /*
  *
  */
-static int send_control_error(BIO *ctrl, uint32_t code, char *message) {
-    int len;
-    void *buffer;
-    int result;
-    Amplet2__Measured__Control msg = AMPLET2__MEASURED__CONTROL__INIT;
-    Amplet2__Measured__Error error = AMPLET2__MEASURED__ERROR__INIT;
-
-    Log(LOG_DEBUG, "Sending ERROR");
-
-    error.has_code = 1;
-    error.code = code;
-    error.message = message;
-
-    msg.error = &error;
-    msg.has_type = 1;
-    msg.type = AMPLET2__MEASURED__CONTROL__TYPE__ERROR;
-
-    len = amplet2__measured__control__get_packed_size(&msg);
-    buffer = malloc(len);
-    amplet2__measured__control__pack(&msg, buffer);
-
-    result = write_control_packet(ctrl, buffer, len);
-
-    free(buffer);
-
-    return result;
-}
-
-
-
-/*
- *
- */
 static void process_control_message(int fd, struct acl_root *acl) {
     BIO *ctrl;
     SSL *ssl;
@@ -293,12 +260,13 @@ static void process_control_message(int fd, struct acl_root *acl) {
         switch ( msg->type ) {
             case AMPLET2__MEASURED__CONTROL__TYPE__SERVER: {
                 if ( get_acl(acl, common_name, ACL_SERVER) ) {
+                    //TODO move this after we know server started ok?
+                    send_control_response(ctrl, MEASURED_CONTROL_OK, "OK");
                     do_start_server(ctrl, data, bytes);
                 } else {
-                    /* TODO report failure to remote end */
                     Log(LOG_WARNING, "Host %s lacks ACL_SERVER permissions",
                             common_name);
-                    send_control_error(ctrl, MEASURED_CONTROL_FORBIDDEN,
+                    send_control_response(ctrl, MEASURED_CONTROL_FORBIDDEN,
                         "Requires SERVER permissions");
                 }
                 break;
@@ -306,12 +274,13 @@ static void process_control_message(int fd, struct acl_root *acl) {
 
             case AMPLET2__MEASURED__CONTROL__TYPE__SCHEDULE: {
                 if ( get_acl(acl, common_name, ACL_TEST) ) {
+                    //TODO move this after we know test was parsed ok?
+                    send_control_response(ctrl, MEASURED_CONTROL_OK, "OK");
                     do_schedule_test(ctrl, data, bytes);
                 } else {
-                    /* TODO report failure to remote end */
                     Log(LOG_WARNING, "Host %s lacks ACL_TEST permissions",
                             common_name);
-                    send_control_error(ctrl, MEASURED_CONTROL_FORBIDDEN,
+                    send_control_response(ctrl, MEASURED_CONTROL_FORBIDDEN,
                         "Requires TEST permissions");
                 }
                 break;
@@ -319,6 +288,8 @@ static void process_control_message(int fd, struct acl_root *acl) {
 
             default: Log(LOG_WARNING, "Unhandled measured control message %d",
                              msg->type);
+                     send_control_response(ctrl, MEASURED_CONTROL_BADREQUEST,
+                             "Bad request");
                      break;
         };
 
