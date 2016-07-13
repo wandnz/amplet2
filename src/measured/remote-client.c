@@ -93,7 +93,7 @@ int main(int argc, char *argv[]) {
     amp_ssl_opt_t sslopts;
     struct addrinfo hints, *dest;
     Amplet2__Measured__Control out_msg = AMPLET2__MEASURED__CONTROL__INIT;
-    Amplet2__Measured__Schedule schedule = AMPLET2__MEASURED__SCHEDULE__INIT;
+    Amplet2__Measured__Test test_msg = AMPLET2__MEASURED__TEST__INIT;
     Amplet2__Measured__Response response;
     Amplet2__Measured__Control *in_msg;
 
@@ -162,24 +162,24 @@ int main(int argc, char *argv[]) {
     }
 
     /* build test schedule item */
-    schedule.has_test_type = 1;
-    schedule.test_type = test_type;
-    schedule.params = args;
-    schedule.n_targets = argc - optind;
-    schedule.targets = calloc(schedule.n_targets, sizeof(char*));
+    test_msg.has_test_type = 1;
+    test_msg.test_type = test_type;
+    test_msg.params = args;
+    test_msg.n_targets = argc - optind;
+    test_msg.targets = calloc(test_msg.n_targets, sizeof(char*));
     for ( i = optind; i < argc; i++ ) {
-        schedule.targets[i - optind] = argv[i];
+        test_msg.targets[i - optind] = argv[i];
     }
 
-    out_msg.schedule = &schedule;
+    out_msg.test = &test_msg;
     out_msg.has_type = 1;
-    out_msg.type = AMPLET2__MEASURED__CONTROL__TYPE__SCHEDULE;
+    out_msg.type = AMPLET2__MEASURED__CONTROL__TYPE__TEST;
 
     len = amplet2__measured__control__get_packed_size(&out_msg);
     buffer = malloc(len);
     amplet2__measured__control__pack(&out_msg, buffer);
 
-    free(schedule.targets);
+    free(test_msg.targets);
 
     memset(&hints, 0, sizeof(hints));
     hints.ai_family = AF_UNSPEC;

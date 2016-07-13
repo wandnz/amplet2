@@ -3,7 +3,8 @@ package amplet2.measured;
 message Control {
         enum Type {
             SERVER = 1002;
-            SCHEDULE = 1003;
+            TEST = 1003;
+            SCHEDULE = 1004;
             RESPONSE = 1005;
             RESULT = 1006;
         }
@@ -11,7 +12,8 @@ message Control {
         optional Type type = 1;
 
         optional Server server = 2;
-        optional Schedule schedule = 3;
+        optional Test test = 3;
+        //optional Schedule schedule = 4;
         optional Response response = 5;
         optional Result result = 6;
 }
@@ -24,7 +26,7 @@ message Server {
         optional string argv = 2;
 }
 
-message Schedule {
+message Test {
     /*
         enum Period {
             SCHEDULE_PERIOD_HOURLY = 1;

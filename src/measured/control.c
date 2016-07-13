@@ -67,7 +67,7 @@ static int parse_server_start(void *data, uint32_t len, test_type_t *type) {
 
 
 
-static int parse_schedule_test(void *data, uint32_t len,
+static int parse_single_test(void *data, uint32_t len,
         test_schedule_item_t *item) {
 
     Amplet2__Measured__Control *msg;
@@ -79,22 +79,22 @@ static int parse_schedule_test(void *data, uint32_t len,
     msg = amplet2__measured__control__unpack(NULL, len, data);
 
     if ( !msg || !msg->has_type ||
-            msg->type != AMPLET2__MEASURED__CONTROL__TYPE__SCHEDULE ) {
-        Log(LOG_WARNING, "Not a SCHEDULE packet, aborting");
+            msg->type != AMPLET2__MEASURED__CONTROL__TYPE__TEST ) {
+        Log(LOG_WARNING, "Not a TEST packet, aborting");
         amplet2__measured__control__free_unpacked(msg, NULL);
         return -1;
     }
 
-    if ( !msg->schedule || !msg->schedule->has_test_type ) {
-        Log(LOG_WARNING, "Malformed SCHEDULE packet, aborting");
+    if ( !msg->test || !msg->test->has_test_type ) {
+        Log(LOG_WARNING, "Malformed TEST packet, aborting");
         amplet2__measured__control__free_unpacked(msg, NULL);
         return -1;
     }
 
     /* parse schedule message into a schedule item we can run */
     memset(item, 0, sizeof(*item));
-    item->test_id = msg->schedule->test_type;
-    item->params = parse_param_string(msg->schedule->params);
+    item->test_id = msg->test->test_type;
+    item->params = parse_param_string(msg->test->params);
     item->meta = calloc(1, sizeof(amp_test_meta_t));
     item->meta->inter_packet_delay = MIN_INTER_PACKET_DELAY;
     /*
@@ -105,11 +105,11 @@ static int parse_schedule_test(void *data, uint32_t len,
      *   meta->inter_packet_delay
      */
 
-    if ( msg->schedule->n_targets > 0 ) {
-        char **targets = calloc(msg->schedule->n_targets + 1, sizeof(char*));
+    if ( msg->test->n_targets > 0 ) {
+        char **targets = calloc(msg->test->n_targets + 1, sizeof(char*));
         /* we expect the destinations list to be null terminated */
-        memcpy(targets, msg->schedule->targets,
-                msg->schedule->n_targets * sizeof(char*));
+        memcpy(targets, msg->test->targets,
+                msg->test->n_targets * sizeof(char*));
         targets = populate_target_lists(item, targets);
         if ( targets != NULL && *targets != NULL ) {
             Log(LOG_WARNING, "Too many targets for manual test, ignoring some");
@@ -184,12 +184,12 @@ static void do_start_server(BIO *ctrl, void *data, uint32_t len) {
 
 
 
-static void do_schedule_test(BIO *ctrl, void *data, uint32_t len) {
+static void do_single_test(BIO *ctrl, void *data, uint32_t len) {
     test_schedule_item_t item;
 
     Log(LOG_DEBUG, "Got SCHEDULE message");
 
-    if ( parse_schedule_test(data, len, &item) < 0 ) {
+    if ( parse_single_test(data, len, &item) < 0 ) {
         Log(LOG_WARNING, "Failed to parse SCHEDULE packet");
         return;
     }
@@ -272,11 +272,11 @@ static void process_control_message(int fd, struct acl_root *acl) {
                 break;
             }
 
-            case AMPLET2__MEASURED__CONTROL__TYPE__SCHEDULE: {
+            case AMPLET2__MEASURED__CONTROL__TYPE__TEST: {
                 if ( get_acl(acl, common_name, ACL_TEST) ) {
                     //TODO move this after we know test was parsed ok?
                     send_control_response(ctrl, MEASURED_CONTROL_OK, "OK");
-                    do_schedule_test(ctrl, data, bytes);
+                    do_single_test(ctrl, data, bytes);
                 } else {
                     Log(LOG_WARNING, "Host %s lacks ACL_TEST permissions",
                             common_name);
