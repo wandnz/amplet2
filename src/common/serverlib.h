@@ -40,8 +40,6 @@ void close_control_connection(BIO *ctrl);
 int read_control_response(BIO *ctrl, Amplet2__Measured__Response *response);
 int send_control_response(BIO *ctrl, uint32_t code, char *message);
 int send_XXX_result(BIO *ctrl, test_type_t test, amp_test_result_t *data);
-int read_XXX_result(BIO *ctrl, amp_test_result_t *result);
-int parse_XXX_result(void *data, uint32_t len, amp_test_result_t *result);
 int parse_control_response(void *data, uint32_t len,
         Amplet2__Measured__Response *response);
 #endif

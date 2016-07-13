@@ -822,46 +822,6 @@ int send_control_response(BIO *ctrl, uint32_t code, char *message) {
 
 
 /*
- * XXX does only the remote need this?
- */
-int parse_XXX_result(void *data, uint32_t len, amp_test_result_t *result) {
-
-    Amplet2__Measured__Control *msg;
-
-    assert(data);
-
-    /* unpack all the data */
-    msg = amplet2__measured__control__unpack(NULL, len, data);
-
-    if ( !msg || !msg->has_type ||
-            msg->type != AMPLET2__MEASURED__CONTROL__TYPE__RESULT ) {
-        Log(LOG_WARNING, "Not a RESULT packet, aborting");
-        if ( msg ) {
-            amplet2__measured__control__free_unpacked(msg, NULL);
-        }
-        return -1;
-    }
-
-    if ( !msg->result || !msg->result->has_test_type ||
-            !msg->result->has_result ) {
-        Log(LOG_WARNING, "Malformed RESULT packet, aborting");
-        amplet2__measured__control__free_unpacked(msg, NULL);
-        return -1;
-    }
-
-    //result->data = msg->result->result.data; //XXX copy this?
-    result->data = malloc(msg->result->result.len);
-    memcpy(result->data, msg->result->result.data, msg->result->result.len);
-    result->len = msg->result->result.len;
-
-    amplet2__measured__control__free_unpacked(msg, NULL);
-
-    return 0;
-}
-
-
-
-/*
  *
  */
 int send_XXX_result(BIO *ctrl, test_type_t test, amp_test_result_t *data) {
@@ -893,32 +853,3 @@ int send_XXX_result(BIO *ctrl, test_type_t test, amp_test_result_t *data) {
 
     return result;
 }
-
-
-#if 0
-/*
- * XXX unused?
- */
-int read_XXX_result(BIO *ctrl, amp_test_result_t *result) {
-
-    void *data;
-    int len;
-
-    Log(LOG_DEBUG, "Waiting for RESULT packet");
-
-    if ( (len = read_control_packet(ctrl, &data)) < 0 ) {
-        Log(LOG_ERR, "Failed to read RESULT packet");
-        return -1;
-    }
-
-    if ( parse_XXX_result(data, len, result) < 0 ) {
-        Log(LOG_WARNING, "Failed to parse RESULT packet");
-        free(data);
-        return -1;
-    }
-
-    free(data);
-
-    return 0;
-}
-#endif

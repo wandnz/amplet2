@@ -92,11 +92,10 @@ int main(int argc, char *argv[]) {
     BIO *ctrl;
     amp_ssl_opt_t sslopts;
     struct addrinfo hints, *dest;
-    amp_test_result_t result;
     Amplet2__Measured__Control out_msg = AMPLET2__MEASURED__CONTROL__INIT;
     Amplet2__Measured__Schedule schedule = AMPLET2__MEASURED__SCHEDULE__INIT;
     Amplet2__Measured__Response response;
-    Amplet2__Measured__Control *in_msg; //XXX
+    Amplet2__Measured__Control *in_msg;
 
     int i;
     int opt;
@@ -217,29 +216,39 @@ int main(int argc, char *argv[]) {
             return -1;
         }
 
-        /* XXX can we pass this to the parse function rather than passing in
-         * the raw bytes and having it checked again? That way we unpack it
-         * and free it both outside the parse function, don't need to copy
-         * data.
-         */
         in_msg = amplet2__measured__control__unpack(NULL, bytes, buffer);
 
         switch ( in_msg->type ) {
+            /*
+             * A result is what we are expecting - extract the actual result
+             * data and send it to the printing function.
+             */
             case AMPLET2__MEASURED__CONTROL__TYPE__RESULT: {
-                if ( parse_XXX_result(buffer, bytes, &result) < 0 ) {
+                amp_test_result_t result;
+
+                if ( !in_msg->result || !in_msg->result->has_result ||
+                        !in_msg->result->has_test_type ) {
                     break;
                 }
 
-                //XXX add test type to result packet and check it?
-                //if ( test_type != in_msg->result->test_type ) {
-                //}
+                if ( test_type != in_msg->result->test_type ) {
+                    printf("Unexpected test type, got %d expected %d\n",
+                            in_msg->result->test_type, test_type);
+                    break;
+                }
+
+                result.data = in_msg->result->result.data;
+                result.len = in_msg->result->result.len;
 
                 /* print using the test print functions, as if run locally */
                 amp_tests[test_type]->print_callback(&result);
-                free(result.data);
                 break;
             }
 
+            /*
+             * It's possible to receive an error if the test didn't run
+             * correctly, just print the received error.
+             */
             case AMPLET2__MEASURED__CONTROL__TYPE__RESPONSE: {
                 Amplet2__Measured__Response runresponse;
                 if ( parse_control_response(buffer, bytes, &runresponse) < 0 ) {
@@ -251,6 +260,7 @@ int main(int argc, char *argv[]) {
                 break;
             }
 
+            /* any other message type here is an error */
             default: {
                 printf("unexpected message type %d\n", in_msg->type);
                 break;
