@@ -187,10 +187,10 @@ static void do_start_server(BIO *ctrl, void *data, uint32_t len) {
 static void do_single_test(BIO *ctrl, void *data, uint32_t len) {
     test_schedule_item_t item;
 
-    Log(LOG_DEBUG, "Got SCHEDULE message");
+    Log(LOG_DEBUG, "Got TEST message");
 
     if ( parse_single_test(data, len, &item) < 0 ) {
-        Log(LOG_WARNING, "Failed to parse SCHEDULE packet");
+        Log(LOG_WARNING, "Failed to parse TEST packet");
         return;
     }
 
