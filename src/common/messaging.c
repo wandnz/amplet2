@@ -25,11 +25,13 @@
  */
 
 /*
- * Create a connection to the local broker that measured can use to report
- * data for all tests. Each test will use a different channel within this
- * connection (sharing channels leads to broken behaviour). This will persist
- * for the lifetime of measured.
- * TODO can we detect this going away and reconnect if it does so?
+ * Create a connection to the broker (local or remote) that measured can use
+ * to report data from tests. Each test *should* use a different channel within
+ * this connection but they currently all create their own individual
+ * connections as sharing connections/channels becomes tricky when multiple
+ * processes are involved.
+ * TODO create a connection that persists for the lifetime of the main process
+ * that allocates channels within it for each test process.
  */
 int connect_to_broker() {
     amqp_socket_t *sock;
@@ -37,7 +39,6 @@ int connect_to_broker() {
     int port = vars.vialocal ? AMQP_PORT : vars.port;
     char *vhost = vars.vialocal ? vars.ampname : vars.vhost;
 
-    /* this connection will be held open forever while measured runs */
     Log(LOG_DEBUG, "Opening new connection to broker %s:%d\n", collector, port);
 
     conn = amqp_new_connection();
@@ -165,13 +166,6 @@ int report_to_broker(test_type_t type, amp_test_result_t *result) {
 	return -1;
     }
 
-    /*
-     * Add all the headers to describe the data we are sending:
-     *	- source monitor
-     *	- test type
-     *	- timestamp? already a property, but i need to set
-     */
-
     /* The name of the test data is being reported for */
     table_entries.key = amqp_cstring_bytes("x-amp-test-type");
     table_entries.value.kind = AMQP_FIELD_KIND_UTF8;
@@ -200,7 +194,7 @@ int report_to_broker(test_type_t type, amp_test_result_t *result) {
      */
     props.user_id = amqp_cstring_bytes(vars.ampname);
 
-    /* jump dump a binary blob similar to old style? */
+    /* Add the binary blob, the other end will know how to unpack it */
     data.len = result->len;
     data.bytes = result->data;
 
@@ -218,13 +212,11 @@ int report_to_broker(test_type_t type, amp_test_result_t *result) {
 	    data) < 0 ) {			    /* body */
 
 	Log(LOG_ERR, "Failed to publish message");
-	//XXX should this use success value here?
 	amqp_channel_close(conn, getpid(), AMQP_REPLY_SUCCESS);
 	close_broker_connection();
 	return -1;
     }
 
-    /* TODO do something if publishing fails? */
     Log(LOG_DEBUG, "Closing channel %d\n", getpid());
     amqp_channel_close(conn, getpid(), AMQP_REPLY_SUCCESS);
 
