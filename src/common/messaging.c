@@ -91,7 +91,6 @@ int connect_to_broker() {
                 vhost, vars.ampname);
 
         /* login using PLAIN, must specify username and password */
-        /* TODO make credentials configurable, or remove this entirely? */
         if ( (amqp_login(conn, vhost, 0, AMQP_FRAME_MAX,0,
                         AMQP_SASL_METHOD_PLAIN, vars.ampname, vars.ampname)
              ).reply_type != AMQP_RESPONSE_NORMAL ) {
@@ -129,7 +128,7 @@ int report_to_broker(test_type_t type, amp_test_result_t *result) {
     amqp_basic_properties_t props;
     amqp_bytes_t data;
     amqp_table_t headers;
-    amqp_table_entry_t table_entries[2];
+    amqp_table_entry_t table_entries;
     char *exchange = vars.vialocal ? AMQP_LOCAL_EXCHANGE : vars.exchange;
     char *routingkey = vars.vialocal ? AMQP_LOCAL_ROUTING_KEY : vars.routingkey;
 
@@ -173,21 +172,14 @@ int report_to_broker(test_type_t type, amp_test_result_t *result) {
      *	- timestamp? already a property, but i need to set
      */
 
-    /* XXX deprecated, remove, the name is now done with validated user_id */
-    /* The name of the reporting monitor (our local ampname) */
-    table_entries[0].key = amqp_cstring_bytes("x-amp-source-monitor");
-    table_entries[0].value.kind = AMQP_FIELD_KIND_UTF8;
-    table_entries[0].value.value.bytes = amqp_cstring_bytes(vars.ampname);
-
     /* The name of the test data is being reported for */
-    table_entries[1].key = amqp_cstring_bytes("x-amp-test-type");
-    table_entries[1].value.kind = AMQP_FIELD_KIND_UTF8;
-    table_entries[1].value.value.bytes =
-	amqp_cstring_bytes(amp_tests[type]->name);
+    table_entries.key = amqp_cstring_bytes("x-amp-test-type");
+    table_entries.value.kind = AMQP_FIELD_KIND_UTF8;
+    table_entries.value.value.bytes = amqp_cstring_bytes(amp_tests[type]->name);
 
-    /* Add all the individual headers to the header table */
-    headers.num_entries = 2;
-    headers.entries = table_entries;
+    /* Add all the individual headers to the header table - only test type */
+    headers.num_entries = 1;
+    headers.entries = &table_entries;
 
     /* Mark the flags that will be present */
     props._flags =
