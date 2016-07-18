@@ -719,3 +719,137 @@ int start_remote_server(BIO *ctrl, test_type_t type) {
 
     return 0;
 }
+
+
+
+/*
+ *
+ */
+int parse_measured_response(void *data, uint32_t len,
+        Amplet2__Measured__Response *response) {
+
+    Amplet2__Measured__Control *msg;
+
+    assert(data);
+
+    /* unpack all the data */
+    msg = amplet2__measured__control__unpack(NULL, len, data);
+
+    if ( !msg || !msg->has_type ||
+            msg->type != AMPLET2__MEASURED__CONTROL__TYPE__RESPONSE ) {
+        Log(LOG_WARNING, "Not a RESPONSE packet, aborting");
+        if ( msg ) {
+            amplet2__measured__control__free_unpacked(msg, NULL);
+        }
+        return -1;
+    }
+
+    if ( !msg->response || !msg->response->has_code ) {
+        Log(LOG_WARNING, "Malformed RESPONSE packet, aborting");
+        amplet2__measured__control__free_unpacked(msg, NULL);
+        return -1;
+    }
+
+    response->code = msg->response->code;
+    response->message = strdup(msg->response->message);
+
+    amplet2__measured__control__free_unpacked(msg, NULL);
+
+    return 0;
+}
+
+
+
+/*
+ *
+ */
+int read_measured_response(BIO *ctrl, Amplet2__Measured__Response *response) {
+
+    void *data;
+    int len;
+
+    Log(LOG_DEBUG, "Waiting for RESPONSE packet");
+
+    if ( (len = read_control_packet(ctrl, &data)) < 0 ) {
+        Log(LOG_ERR, "Failed to read RESPONSE packet");
+        return -1;
+    }
+
+    if ( parse_measured_response(data, len, response) < 0 ) {
+        Log(LOG_WARNING, "Failed to parse RESPONSE packet");
+        free(data);
+        return -1;
+    }
+
+    free(data);
+
+    return 0;
+}
+
+
+
+/*
+ *
+ */
+int send_measured_response(BIO *ctrl, uint32_t code, char *message) {
+    int len;
+    void *buffer;
+    int result;
+    Amplet2__Measured__Control msg = AMPLET2__MEASURED__CONTROL__INIT;
+    Amplet2__Measured__Response response = AMPLET2__MEASURED__RESPONSE__INIT;
+
+    Log(LOG_DEBUG, "Sending RESPONSE");
+
+    response.has_code = 1;
+    response.code = code;
+    response.message = message;
+
+    msg.response = &response;
+    msg.has_type = 1;
+    msg.type = AMPLET2__MEASURED__CONTROL__TYPE__RESPONSE;
+
+    len = amplet2__measured__control__get_packed_size(&msg);
+    buffer = malloc(len);
+    amplet2__measured__control__pack(&msg, buffer);
+
+    result = write_control_packet(ctrl, buffer, len);
+
+    free(buffer);
+
+    return result;
+}
+
+
+
+/*
+ *
+ */
+int send_measured_result(BIO *ctrl, test_type_t test, amp_test_result_t *data) {
+
+    int len;
+    void *buffer;
+    int result;
+    Amplet2__Measured__Control msg = AMPLET2__MEASURED__CONTROL__INIT;
+    Amplet2__Measured__Result resmsg = AMPLET2__MEASURED__RESULT__INIT;
+
+    Log(LOG_DEBUG, "Sending RESULT");
+
+    resmsg.has_test_type = 1;
+    resmsg.test_type = test;
+    resmsg.result.data = data->data;
+    resmsg.result.len = data->len;
+    resmsg.has_result = 1;
+    msg.result = &resmsg;
+    msg.has_type = 1;
+    msg.type = AMPLET2__MEASURED__CONTROL__TYPE__RESULT;
+
+    len = amplet2__measured__control__get_packed_size(&msg);
+    buffer = malloc(len);
+    amplet2__measured__control__pack(&msg, buffer);
+
+    result = write_control_packet(ctrl, buffer, len);
+
+    free(buffer);
+
+    return result;
+}

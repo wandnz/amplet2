@@ -606,8 +606,6 @@ int main(int argc, char *argv[]) {
         Log(LOG_DEBUG, "Control socket is disabled, skipping");
     }
 
-    free_control_config(control);
-
     /* configuration is done, free the object */
     cfg_free(cfg);
 
@@ -646,6 +644,7 @@ int main(int argc, char *argv[]) {
     wand_destroy_event_handler(ev_hdl);
 
     //TODO shutdown control socket?
+    free_control_config(control);
 
     free_local_meta_vars(&meta);
     free_global_vars(&vars);

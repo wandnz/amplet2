@@ -3,11 +3,19 @@
 
 #include <libwandevent.h>
 
+#include "acl.h"
+
 /* control port is a string that gets given to getaddrinfo() */
 #define DEFAULT_AMPLET_CONTROL_PORT "8869"
 
 /* Allow the test server to run slightly longer than the client test */
 #define TEST_SERVER_EXTRA_TIME 60
+
+#define MEASURED_CONTROL_OK 200
+#define MEASURED_CONTROL_BADREQUEST 400
+#define MEASURED_CONTROL_FORBIDDEN 403
+#define MEASURED_CONTROL_FAILED 500
+#define MEASURED_CONTROL_NOTIMPLEMENTED 501
 
 typedef struct amp_control {
     int enabled;
@@ -15,6 +23,7 @@ typedef struct amp_control {
     char *interface;
     char *ipv4;
     char *ipv6;
+    struct acl_root *acl;
 } amp_control_t;
 
 int initialise_control_socket(wand_event_handler_t *ev_hdl,

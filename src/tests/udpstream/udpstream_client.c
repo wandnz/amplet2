@@ -484,8 +484,23 @@ amp_test_result_t* run_udpstream_client(int argc, char *argv[], int count,
 
     /* start the server if required (connected to an amplet) */
     if ( ssl_ctx && client == NULL ) {
+        Amplet2__Measured__Response response;
+
         if ( start_remote_server(ctrl, AMP_TEST_UDPSTREAM) < 0 ) {
             Log(LOG_WARNING, "Failed to start remote server");
+            return NULL;
+        }
+
+        /* make sure the server was started properly */
+        if ( read_measured_response(ctrl, &response) < 0 ) {
+            Log(LOG_WARNING, "Failed to read server control response");
+            return NULL;
+        }
+
+        /* TODO return something useful if this was remotely triggered? */
+        if ( response.code != MEASURED_CONTROL_OK ) {
+            Log(LOG_WARNING, "Failed to start server: %d %s", response.code,
+                    response.message);
             return NULL;
         }
     }

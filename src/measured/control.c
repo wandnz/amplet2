@@ -26,6 +26,7 @@
 #include "controlmsg.h"
 #include "schedule.h"
 #include "test.h"
+#include "acl.h"
 
 
 
@@ -66,7 +67,7 @@ static int parse_server_start(void *data, uint32_t len, test_type_t *type) {
 
 
 
-static int parse_schedule_test(void *data, uint32_t len,
+static int parse_single_test(void *data, uint32_t len,
         test_schedule_item_t *item) {
 
     Amplet2__Measured__Control *msg;
@@ -78,22 +79,22 @@ static int parse_schedule_test(void *data, uint32_t len,
     msg = amplet2__measured__control__unpack(NULL, len, data);
 
     if ( !msg || !msg->has_type ||
-            msg->type != AMPLET2__MEASURED__CONTROL__TYPE__SCHEDULE ) {
-        Log(LOG_WARNING, "Not a SCHEDULE packet, aborting");
+            msg->type != AMPLET2__MEASURED__CONTROL__TYPE__TEST ) {
+        Log(LOG_WARNING, "Not a TEST packet, aborting");
         amplet2__measured__control__free_unpacked(msg, NULL);
         return -1;
     }
 
-    if ( !msg->schedule || !msg->schedule->has_test_type ) {
-        Log(LOG_WARNING, "Malformed SCHEDULE packet, aborting");
+    if ( !msg->test || !msg->test->has_test_type ) {
+        Log(LOG_WARNING, "Malformed TEST packet, aborting");
         amplet2__measured__control__free_unpacked(msg, NULL);
         return -1;
     }
 
     /* parse schedule message into a schedule item we can run */
     memset(item, 0, sizeof(*item));
-    item->test_id = msg->schedule->test_type;
-    item->params = parse_param_string(msg->schedule->params);
+    item->test_id = msg->test->test_type;
+    item->params = parse_param_string(msg->test->params);
     item->meta = calloc(1, sizeof(amp_test_meta_t));
     item->meta->inter_packet_delay = MIN_INTER_PACKET_DELAY;
     /*
@@ -104,11 +105,11 @@ static int parse_schedule_test(void *data, uint32_t len,
      *   meta->inter_packet_delay
      */
 
-    if ( msg->schedule->n_targets > 0 ) {
-        char **targets = calloc(msg->schedule->n_targets + 1, sizeof(char*));
+    if ( msg->test->n_targets > 0 ) {
+        char **targets = calloc(msg->test->n_targets + 1, sizeof(char*));
         /* we expect the destinations list to be null terminated */
-        memcpy(targets, msg->schedule->targets,
-                msg->schedule->n_targets * sizeof(char*));
+        memcpy(targets, msg->test->targets,
+                msg->test->n_targets * sizeof(char*));
         targets = populate_target_lists(item, targets);
         if ( targets != NULL && *targets != NULL ) {
             Log(LOG_WARNING, "Too many targets for manual test, ignoring some");
@@ -183,13 +184,13 @@ static void do_start_server(BIO *ctrl, void *data, uint32_t len) {
 
 
 
-static void do_schedule_test(BIO *ctrl, void *data, uint32_t len) {
+static void do_single_test(BIO *ctrl, void *data, uint32_t len) {
     test_schedule_item_t item;
 
-    Log(LOG_DEBUG, "Got SCHEDULE message");
+    Log(LOG_DEBUG, "Got TEST message");
 
-    if ( parse_schedule_test(data, len, &item) < 0 ) {
-        Log(LOG_WARNING, "Failed to parse SCHEDULE packet");
+    if ( parse_single_test(data, len, &item) < 0 ) {
+        Log(LOG_WARNING, "Failed to parse TEST packet");
         return;
     }
 
@@ -203,13 +204,17 @@ static void do_schedule_test(BIO *ctrl, void *data, uint32_t len) {
 /*
  *
  */
-static void process_control_message(int fd) {
+static void process_control_message(int fd, struct acl_root *acl) {
     BIO *ctrl;
-    //X509 *client_cert;
+    SSL *ssl;
+    X509 *client_cert;
+    char *common_name;
     int bytes;
     void *data;
 
     Log(LOG_DEBUG, "Processing control message");
+
+    assert(ssl_ctx);
 
     /* Open up the ssl channel and validate the cert against our CA cert */
     /* TODO CRL or OCSP to deal with revocation of certificates */
@@ -218,20 +223,30 @@ static void process_control_message(int fd) {
         exit(0);
     }
 
-    /* Get the peer certificate so we can validate it */
-    //XXX this doesn't happen any more, do we need to get the cert still?
-#if 0
-    client_cert = SSL_get_peer_certificate(ssl);
-    if ( client_cert == NULL ) {
-        Log(LOG_WARNING, "Failed to get peer certificate");
-        ssl_shutdown(ssl);
+    /* We expect to be using SSL here, can't get the common name otherwise! */
+    BIO_get_ssl(ctrl, &ssl);
+    if ( ssl == NULL ) {
+        Log(LOG_WARNING, "Failed to get SSL pointer from BIO");
+        close_control_connection(ctrl);
         exit(0);
     }
 
-    X509_free(client_cert);
+    /* Get the peer certificate so we can check the common name */
+    client_cert = SSL_get_peer_certificate(ssl);
+    if ( client_cert == NULL ) {
+        Log(LOG_WARNING, "Failed to get peer certificate");
+        close_control_connection(ctrl);
+        exit(0);
+    }
 
-    Log(LOG_DEBUG, "Successfully validated peer cert");
-#endif
+    /* Get the common name, we'll use this with the ACL shortly */
+    if ( (common_name = get_common_name(client_cert)) == NULL ) {
+        Log(LOG_WARNING, "No common name, aborting");
+        close_control_connection(ctrl);
+        exit(0);
+    }
+
+    //Log(LOG_DEBUG, "Successfully validated peer cert");
 
     while ( (bytes = read_control_packet(ctrl, &data)) > 0 ) {
         Amplet2__Measured__Control *msg;
@@ -244,17 +259,37 @@ static void process_control_message(int fd) {
 
         switch ( msg->type ) {
             case AMPLET2__MEASURED__CONTROL__TYPE__SERVER: {
-                do_start_server(ctrl, data, bytes);
+                if ( get_acl(acl, common_name, ACL_SERVER) ) {
+                    //TODO move this after we know server started ok?
+                    send_measured_response(ctrl, MEASURED_CONTROL_OK, "OK");
+                    do_start_server(ctrl, data, bytes);
+                } else {
+                    Log(LOG_WARNING, "Host %s lacks ACL_SERVER permissions",
+                            common_name);
+                    send_measured_response(ctrl, MEASURED_CONTROL_FORBIDDEN,
+                        "Requires SERVER permissions");
+                }
                 break;
             }
 
-            case AMPLET2__MEASURED__CONTROL__TYPE__SCHEDULE: {
-                do_schedule_test(ctrl, data, bytes);
+            case AMPLET2__MEASURED__CONTROL__TYPE__TEST: {
+                if ( get_acl(acl, common_name, ACL_TEST) ) {
+                    //TODO move this after we know test was parsed ok?
+                    send_measured_response(ctrl, MEASURED_CONTROL_OK, "OK");
+                    do_single_test(ctrl, data, bytes);
+                } else {
+                    Log(LOG_WARNING, "Host %s lacks ACL_TEST permissions",
+                            common_name);
+                    send_measured_response(ctrl, MEASURED_CONTROL_FORBIDDEN,
+                        "Requires TEST permissions");
+                }
                 break;
             }
 
             default: Log(LOG_WARNING, "Unhandled measured control message %d",
                              msg->type);
+                     send_measured_response(ctrl, MEASURED_CONTROL_BADREQUEST,
+                             "Bad request");
                      break;
         };
 
@@ -264,6 +299,8 @@ static void process_control_message(int fd) {
     }
 
     close_control_connection(ctrl);
+    X509_free(client_cert);
+
     exit(0);
 }
 
@@ -274,8 +311,7 @@ static void process_control_message(int fd) {
  * TODO this is very very similar to test.c:fork_test()
  */
 static void control_read_callback(wand_event_handler_t *ev_hdl, int fd,
-        __attribute__((unused))void *data,
-        __attribute__((unused))enum wand_eventtype_t ev) {
+        void *data, __attribute__((unused))enum wand_eventtype_t ev) {
 
     pid_t pid;
 
@@ -306,7 +342,7 @@ static void control_read_callback(wand_event_handler_t *ev_hdl, int fd,
         }
 
         reseed_openssl_rng();
-        process_control_message(fd);
+        process_control_message(fd, (struct acl_root*)data);
         exit(0);
     }
 
@@ -321,7 +357,7 @@ static void control_read_callback(wand_event_handler_t *ev_hdl, int fd,
  * event for when data arrives on this connection.
  */
 static void control_establish_callback(wand_event_handler_t *ev_hdl,
-        int eventfd, __attribute__((unused))void *data,
+        int eventfd, void *data,
         __attribute__((unused))enum wand_eventtype_t ev) {
 
     int fd;
@@ -336,7 +372,7 @@ static void control_establish_callback(wand_event_handler_t *ev_hdl,
         return;
     }
 
-    wand_add_fd(ev_hdl, fd, EV_READ, NULL, control_read_callback);
+    wand_add_fd(ev_hdl, fd, EV_READ, data, control_read_callback);
 
     return;
 }
@@ -456,13 +492,13 @@ int initialise_control_socket(wand_event_handler_t *ev_hdl,
 
     /* if we have an ipv4 socket then set up the event listener */
     if ( sockets.socket > 0 ) {
-        wand_add_fd(ev_hdl, sockets.socket, EV_READ, NULL,
+        wand_add_fd(ev_hdl, sockets.socket, EV_READ, control->acl,
                 control_establish_callback);
     }
 
     /* if we have an ipv6 socket then set up the event listener */
     if ( sockets.socket6 > 0 ) {
-        wand_add_fd(ev_hdl, sockets.socket6, EV_READ, NULL,
+        wand_add_fd(ev_hdl, sockets.socket6, EV_READ, control->acl,
                 control_establish_callback);
     }
 
@@ -483,5 +519,6 @@ void free_control_config(amp_control_t *control) {
     if ( control->ipv4 ) free(control->ipv4);
     if ( control->ipv6 ) free(control->ipv6);
     if ( control->port ) free(control->port);
+    if ( control->acl ) free_acl(control->acl);
     free(control);
 }

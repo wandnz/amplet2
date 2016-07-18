@@ -25,6 +25,7 @@
 #include "testlib.h"
 #include "messaging.h" /* only for report_to_broker() */
 #include "controlmsg.h" /* only for write_control_packet() */
+#include "serverlib.h" /* only for send_measured_response() */
 
 
 
@@ -267,7 +268,7 @@ void run_test(const test_schedule_item_t * const item, BIO *ctrl) {
             /* report the results to the appropriate location */
             if ( ctrl ) {
                 /* SSL connection - single test run remotely, report remotely */
-                write_control_packet(ctrl, result->data, result->len);
+                send_measured_result(ctrl, test->id, result);
             } else {
                 /* scheduled test, report to the rabbitmq broker */
                 report_to_broker(test->id, result);
@@ -276,6 +277,13 @@ void run_test(const test_schedule_item_t * const item, BIO *ctrl) {
             /* free the result structure once it has been reported */
             free(result->data);
             free(result);
+
+        } else if ( ctrl ) {
+            /* TODO report the reason, might have lacked SERVER permissions.
+             * This might mean tests need to return a control message
+             * rather than a result structure?
+             */
+            send_measured_response(ctrl, MEASURED_CONTROL_FAILED, "No result");
         }
 
 	/* free any destinations that we looked up just for this test */

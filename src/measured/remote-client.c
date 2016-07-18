@@ -92,9 +92,10 @@ int main(int argc, char *argv[]) {
     BIO *ctrl;
     amp_ssl_opt_t sslopts;
     struct addrinfo hints, *dest;
-    amp_test_result_t result;
-    Amplet2__Measured__Control msg = AMPLET2__MEASURED__CONTROL__INIT;
-    Amplet2__Measured__Schedule schedule = AMPLET2__MEASURED__SCHEDULE__INIT;
+    Amplet2__Measured__Control out_msg = AMPLET2__MEASURED__CONTROL__INIT;
+    Amplet2__Measured__Test test_msg = AMPLET2__MEASURED__TEST__INIT;
+    Amplet2__Measured__Response response;
+    Amplet2__Measured__Control *in_msg;
 
     int i;
     int opt;
@@ -161,27 +162,27 @@ int main(int argc, char *argv[]) {
     }
 
     /* build test schedule item */
-    schedule.has_test_type = 1;
-    schedule.test_type = test_type;
-    schedule.params = args;
-    schedule.n_targets = argc - optind;
-    schedule.targets = calloc(schedule.n_targets, sizeof(char*));
+    test_msg.has_test_type = 1;
+    test_msg.test_type = test_type;
+    test_msg.params = args;
+    test_msg.n_targets = argc - optind;
+    test_msg.targets = calloc(test_msg.n_targets, sizeof(char*));
     for ( i = optind; i < argc; i++ ) {
-        schedule.targets[i - optind] = argv[i];
+        test_msg.targets[i - optind] = argv[i];
     }
 
-    msg.schedule = &schedule;
-    msg.has_type = 1;
-    msg.type = AMPLET2__MEASURED__CONTROL__TYPE__SCHEDULE;
+    out_msg.test = &test_msg;
+    out_msg.has_type = 1;
+    out_msg.type = AMPLET2__MEASURED__CONTROL__TYPE__TEST;
 
-    len = amplet2__measured__control__get_packed_size(&msg);
+    len = amplet2__measured__control__get_packed_size(&out_msg);
     buffer = malloc(len);
-    amplet2__measured__control__pack(&msg, buffer);
+    amplet2__measured__control__pack(&out_msg, buffer);
 
-    free(schedule.targets);
+    free(test_msg.targets);
 
     memset(&hints, 0, sizeof(hints));
-    hints.ai_family = AF_INET;
+    hints.ai_family = AF_UNSPEC;
     hints.ai_socktype = SOCK_STREAM;
     hints.ai_flags = AI_CANONNAME;
     getaddrinfo(host, port, &hints, &dest);
@@ -200,19 +201,80 @@ int main(int argc, char *argv[]) {
 
     free(buffer);
 
-    /* wait for the result */
-    if ( (bytes = read_control_packet(ctrl, &buffer)) < 0 ) {
-        printf("failed to read\n");
+    /* make sure the test was started properly */
+    if ( read_measured_response(ctrl, &response) < 0 ) {
+        printf("failed to read response\n");
         return -1;
     }
 
-    result.data = buffer;
-    result.len = bytes;
+    if ( response.code == MEASURED_CONTROL_OK ) {
+        Log(LOG_DEBUG, "Test started OK on remote host");
 
-    /* print result using the test print functions, as if it was run locally */
-    amp_tests[test_type]->print_callback(&result);
+        /* test started ok, wait for the result */
+        if ( (bytes = read_control_packet(ctrl, &buffer)) < 0 ) {
+            printf("failed to read\n");
+            return -1;
+        }
 
-    free(buffer);
+        in_msg = amplet2__measured__control__unpack(NULL, bytes, buffer);
+
+        switch ( in_msg->type ) {
+            /*
+             * A result is what we are expecting - extract the actual result
+             * data and send it to the printing function.
+             */
+            case AMPLET2__MEASURED__CONTROL__TYPE__RESULT: {
+                amp_test_result_t result;
+
+                if ( !in_msg->result || !in_msg->result->has_result ||
+                        !in_msg->result->has_test_type ) {
+                    break;
+                }
+
+                if ( test_type != in_msg->result->test_type ) {
+                    printf("Unexpected test type, got %d expected %d\n",
+                            in_msg->result->test_type, test_type);
+                    break;
+                }
+
+                result.data = in_msg->result->result.data;
+                result.len = in_msg->result->result.len;
+
+                /* print using the test print functions, as if run locally */
+                amp_tests[test_type]->print_callback(&result);
+                break;
+            }
+
+            /*
+             * It's possible to receive an error if the test didn't run
+             * correctly, just print the received error.
+             */
+            case AMPLET2__MEASURED__CONTROL__TYPE__RESPONSE: {
+                Amplet2__Measured__Response runresponse;
+                if ( parse_measured_response(buffer, bytes, &runresponse) < 0 ){
+                    break;
+                }
+                printf("error running test: %d %s\n", runresponse.code,
+                        runresponse.message);
+                free(runresponse.message);
+                break;
+            }
+
+            /* any other message type here is an error */
+            default: {
+                printf("unexpected message type %d\n", in_msg->type);
+                break;
+            }
+        };
+
+        free(buffer);
+        amplet2__measured__control__free_unpacked(in_msg, NULL);
+    } else {
+        printf("error starting test: %d %s\n", response.code, response.message);
+    }
+
+    free(response.message);
+
     close_control_connection(ctrl);
     ssl_cleanup();
 
