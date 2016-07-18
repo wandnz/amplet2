@@ -17,7 +17,6 @@
 #include "debug.h"
 #include "tests.h"
 #include "modules.h"
-#include "messaging.h"
 #include "ssl.h"
 #include "controlmsg.h"
 #include "controlmsg.pb-c.h"

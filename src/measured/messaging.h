@@ -1,5 +1,5 @@
-#ifndef _COMMON_MESSAGING_H
-#define _COMMON_MESSAGING_H
+#ifndef _MEASURED_MESSAGING_H
+#define _MEASURED_MESSAGING_H
 
 #include <amqp.h>
 #include <amqp_framing.h>
@@ -22,12 +22,12 @@
 #define AMQP_LOCAL_EXCHANGE ""
 #define AMQP_LOCAL_ROUTING_KEY "report"
 
-
+/*
+ * TODO: this should be maintained for the lifetime of the main process, but
+ * is currently just created and set by the individual test processes.
+ */
 amqp_connection_state_t conn;
 
-
-int connect_to_broker(void);
-void close_broker_connection(void);
 int report_to_broker(test_type_t type, amp_test_result_t *result);
 
 #endif

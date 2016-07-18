@@ -12,7 +12,6 @@
 #include "modules.h"
 #include "ssl.h"
 #include "global.h" /* just for temporary ssl testing stuff */
-#include "messaging.h" /* just for temporary ssl testing stuff */
 #include "ampresolv.h"
 #include "testlib.h"
 #include "../measured/control.h" /* just for CONTROL_PORT */

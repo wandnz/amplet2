@@ -33,7 +33,7 @@
  * TODO create a connection that persists for the lifetime of the main process
  * that allocates channels within it for each test process.
  */
-int connect_to_broker() {
+static int connect_to_broker(void) {
     amqp_socket_t *sock;
     char *collector = vars.vialocal ? vars.local : vars.collector;
     int port = vars.vialocal ? AMQP_PORT : vars.port;
@@ -109,7 +109,7 @@ int connect_to_broker() {
  * Close the connection to the local broker. Should only be called when
  * measured is terminating.
  */
-void close_broker_connection() {
+static void close_broker_connection(void) {
     amqp_connection_close(conn, AMQP_REPLY_SUCCESS);
     amqp_destroy_connection(conn);
 }
@@ -117,12 +117,11 @@ void close_broker_connection() {
 
 
 /*
- * XXX is this file the right place for this function? only used by measured
- * Report results for a single test to the local broker.
+ * Report results for a single test to the broker.
  *
  * example amqp_table_t stuff:
  * https://groups.google.com/forum/?fromgroups=#!topic/rabbitmq-discuss/M_8I12gWxbQ
- * root@machine4:~/rabbitmq/rabbitmq-c/tests/test_tables.c
+ * rabbitmq-c/tests/test_tables.c
  */
 int report_to_broker(test_type_t type, amp_test_result_t *result) {
 

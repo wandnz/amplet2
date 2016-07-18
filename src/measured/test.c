@@ -23,7 +23,7 @@
 #include "ampresolv.h"
 #include "ssl.h"
 #include "testlib.h"
-#include "messaging.h" /* only for report_to_broker() */
+#include "messaging.h"
 #include "controlmsg.h" /* only for write_control_packet() */
 #include "serverlib.h" /* only for send_measured_response() */
 

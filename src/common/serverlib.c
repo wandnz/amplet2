@@ -18,7 +18,6 @@
 #include "debug.h"
 #include "tests.h"
 #include "modules.h"
-#include "messaging.h"
 #include "ssl.h"
 #include "serverlib.h"
 #include "controlmsg.h"

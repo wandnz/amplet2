@@ -7,9 +7,9 @@ CLEANFILES=controlmsg.pb-c.c controlmsg.pb-c.h measured.pb-c.c measured.pb-c.h
 # object that gets installed into the system...
 libampdir=$(libdir)
 libamp_LTLIBRARIES=libamp.la
-libamp_la_SOURCES=debug.c messaging.c modules.c testlib.c ssl.c ampresolv.c asn.c iptrie.c serverlib.c controlmsg.c icmpcode.c dscp.c
+libamp_la_SOURCES=debug.c modules.c testlib.c ssl.c ampresolv.c asn.c iptrie.c serverlib.c controlmsg.c icmpcode.c dscp.c
 nodist_libamp_la_SOURCES=controlmsg.pb-c.c measured.pb-c.c
-libamp_la_LDFLAGS=-avoid-version -lrabbitmq -lunbound -lpthread -lssl -lcrypto -lprotobuf-c
+libamp_la_LDFLAGS=-avoid-version -lunbound -lpthread -lssl -lcrypto -lprotobuf-c
 
 controlmsg.pb-c.c: Makefile
 	protoc-c --c_out=. controlmsg.proto
