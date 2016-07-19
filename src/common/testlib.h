@@ -1,9 +1,9 @@
 #ifndef _COMMON_TESTLIB_H
 #define _COMMON_TESTLIB_H
 
-#include <google/protobuf-c/protobuf-c.h>
-#include <openssl/bio.h>
 #include <netdb.h>
+#include <openssl/bio.h>
+#include <google/protobuf-c/protobuf-c.h>
 
 
 /*

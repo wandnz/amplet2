@@ -8,7 +8,6 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <arpa/inet.h>
-#include <strings.h>
 
 #include "debug.h"
 #include "asn.h"

@@ -1,6 +1,8 @@
 #ifndef _MEASURED_ASNSOCK_H
 #define _MEASURED_ASNSOCK_H
 
+#include <time.h>
+#include <pthread.h>
 #include <libwandevent.h>
 
 #include "iptrie.h"

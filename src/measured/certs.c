@@ -1,17 +1,13 @@
-#include <config.h>
-
 #include <stdlib.h>
-#include <stdio.h>
 #include <assert.h>
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <string.h>
 #include <errno.h>
 #include <curl/curl.h>
 
+#include "config.h"
 #include "debug.h"
-#include "messaging.h"
 #include "ssl.h"
 #include "certs.h"
 #include "testlib.h" /* XXX just for check_exists(), is that the best place? */

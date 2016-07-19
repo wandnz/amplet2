@@ -1,10 +1,10 @@
-#include <config.h>
 #include <confuse.h>
 #include <assert.h>
 #include <limits.h>
 #include <unistd.h>
 #include <errno.h>
 
+#include "config.h"
 #include "debug.h"
 #include "schedule.h"
 #include "control.h"

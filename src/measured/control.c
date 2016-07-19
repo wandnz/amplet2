@@ -19,7 +19,6 @@
 #include "control.h"
 #include "watchdog.h"
 #include "modules.h"
-#include "testlib.h"
 #include "serverlib.h"
 #include "ssl.h"
 #include "measured.pb-c.h"

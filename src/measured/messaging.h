@@ -2,7 +2,6 @@
 #define _MEASURED_MESSAGING_H
 
 #include <amqp.h>
-#include <amqp_framing.h>
 #include "tests.h"
 
 

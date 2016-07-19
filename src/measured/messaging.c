@@ -1,10 +1,7 @@
 #include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
 #include <sys/types.h>
 #include <unistd.h>
 #include <stdint.h>
-
 #include <amqp_ssl_socket.h>
 #include <amqp_tcp_socket.h>
 

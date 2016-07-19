@@ -1,7 +1,9 @@
 #ifndef _MEASURED_WATCHDOG_H
 #define _MEASURED_WATCHDOG_H
 
-#include "libwandevent.h"
+#include <time.h>
+#include <libwandevent.h>
+
 #include "tests.h"
 
 /* number of seconds a test has between a warning SIGINT and the SIGKILL */

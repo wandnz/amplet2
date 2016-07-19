@@ -1,6 +1,10 @@
 #ifndef _COMMON_CONTROLMSG_H
 #define _COMMON_CONTROLMSG_H
 
+#include <stdint.h>
+#include <openssl/bio.h>
+#include <google/protobuf-c/protobuf-c.h>
+
 #include "tests.h"
 
 /* TODO this should be adjusted based on the expected test duration? Short when
@@ -16,7 +20,7 @@ int read_control_packet(BIO *ctrl, void **data);
 
 int send_control_hello(test_type_t test, BIO *ctrl,
         ProtobufCBinaryData *options);
-int send_control_ready(test_type_t test, BIO *ctrl,uint16_t port);
+int send_control_ready(test_type_t test, BIO *ctrl, uint16_t port);
 int send_control_receive(test_type_t test, BIO *ctrl,
         ProtobufCBinaryData *options);
 int send_control_send(test_type_t test, BIO *ctrl,

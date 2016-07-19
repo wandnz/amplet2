@@ -1,6 +1,9 @@
 #ifndef _COMMON_SERVERLIB_H
 #define _COMMON_SERVERLIB_H
 
+#include <stdint.h>
+#include <openssl/bio.h>
+
 #include "tests.h"
 #include "testlib.h"
 #include "measured.pb-c.h"

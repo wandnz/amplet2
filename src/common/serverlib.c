@@ -2,22 +2,10 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <sys/socket.h>
-#include <netdb.h>
-#include <sys/time.h>
 #include <errno.h>
 #include <assert.h>
-#include <string.h>
-#include <sys/ioctl.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <netinet/tcp.h>
 
-
-//XXX remove unused includes
-#include "testlib.h"
 #include "debug.h"
-#include "tests.h"
-#include "modules.h"
 #include "ssl.h"
 #include "serverlib.h"
 #include "controlmsg.h"

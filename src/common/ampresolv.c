@@ -1,15 +1,13 @@
 #include <string.h>
 #include <stdlib.h>
-#include <resolv.h>
-#include <arpa/inet.h>
 #include <errno.h>
 #include <assert.h>
-#include <fcntl.h>
 #include <unbound.h>
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <pthread.h>
 #include <unistd.h>
+#include <stdio.h>
 
 #include "ampresolv.h"
 #include "debug.h"

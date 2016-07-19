@@ -7,11 +7,6 @@
 #include <string.h>
 #include <getopt.h>
 
-#include <openssl/ssl.h>
-#include <openssl/err.h>
-#include <openssl/rand.h>
-#include <openssl/dh.h>
-
 #include "debug.h"
 #include "control.h"
 #include "serverlib.h"

@@ -10,7 +10,6 @@
 #include <sys/ioctl.h>
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <openssl/bio.h>
 #include <signal.h>
 
 #include <google/protobuf-c/protobuf-c.h>
@@ -18,8 +17,6 @@
 #include "config.h"
 #include "testlib.h"
 #include "debug.h"
-#include "tests.h"
-#include "modules.h"
 #include "global.h"
 
 

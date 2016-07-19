@@ -1,10 +1,6 @@
 #ifndef _COMMON_ASN_H
 #define _COMMON_ASN_H
 
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netdb.h>
-
 #include "iptrie.h"
 
 #define WHOIS_UNAVAILABLE -2

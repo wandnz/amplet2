@@ -3,12 +3,9 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <time.h>
-#include <sys/resource.h>
 #include <string.h>
 #include <sys/types.h>
 #include <ifaddrs.h>
-#include <sys/time.h>
-
 #include <libwandevent.h>
 
 #include "config.h"
@@ -19,12 +16,10 @@
 #include "debug.h"
 #include "nametable.h"
 #include "modules.h"
-#include "global.h" /* hopefully temporary, just to get source iface/address */
+#include "global.h" /* hopefully temporary */
 #include "ampresolv.h"
 #include "ssl.h"
-#include "testlib.h"
 #include "messaging.h"
-#include "controlmsg.h" /* only for write_control_packet() */
 #include "serverlib.h" /* only for send_measured_response() */
 
 

@@ -1,14 +1,12 @@
 #include <stdlib.h>
 #include <signal.h>
 #include <time.h>
-#include <stdio.h>
 #include <errno.h>
 #include <assert.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <string.h>
 
-#include "schedule.h"
 #include "watchdog.h"
 #include "debug.h"
 

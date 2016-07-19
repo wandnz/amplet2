@@ -1,12 +1,9 @@
-#include <config.h>
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
 #include <time.h>
-#include <sys/time.h>
 #include <string.h>
 #include <errno.h>
 #include <limits.h>
@@ -16,8 +13,9 @@
 #include <curl/curl.h>
 #include <yaml.h>
 #include <stdint.h>
-
 #include <libwandevent.h>
+
+#include "config.h"
 #include "schedule.h"
 #include "watchdog.h"
 #include "test.h"

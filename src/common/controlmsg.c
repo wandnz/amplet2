@@ -7,17 +7,10 @@
 #include <errno.h>
 #include <assert.h>
 #include <string.h>
-#include <sys/ioctl.h>
 #include <sys/types.h>
-#include <sys/stat.h>
-#include <netinet/tcp.h>
 #include <google/protobuf-c/protobuf-c.h>
 
-#include "testlib.h"
 #include "debug.h"
-#include "tests.h"
-#include "modules.h"
-#include "ssl.h"
 #include "controlmsg.h"
 #include "controlmsg.pb-c.h"
 
