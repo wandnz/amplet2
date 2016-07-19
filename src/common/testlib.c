@@ -592,6 +592,7 @@ int bind_sockets_to_device(struct socket_t *sockets, char *device) {
 int bind_sockets_to_address(struct socket_t *sockets,
         struct addrinfo *sourcev4, struct addrinfo *sourcev6) {
     char addrstr[INET6_ADDRSTRLEN];
+    int tmperrno;
 
     assert(sockets);
     assert( (sockets->socket >= 0 && sourcev4) ||
@@ -602,8 +603,10 @@ int bind_sockets_to_address(struct socket_t *sockets,
                 amp_inet_ntop(sourcev4, addrstr));
 
         if ( bind_socket_to_address(sockets->socket, sourcev4) < 0 ) {
+            tmperrno = errno;
             Log(LOG_DEBUG, "Failed to bind IPv4 socket to address: %s",
                 amp_inet_ntop(sourcev4, addrstr));
+            errno = tmperrno;
             return -1;
         }
     }
@@ -613,8 +616,10 @@ int bind_sockets_to_address(struct socket_t *sockets,
                 amp_inet_ntop(sourcev6, addrstr));
 
         if ( bind_socket_to_address(sockets->socket6, sourcev6) < 0 ) {
+            tmperrno = errno;
             Log(LOG_DEBUG, "Failed to bind IPv6 socket to address: %s",
                 amp_inet_ntop(sourcev6, addrstr));
+            errno = tmperrno;
             return -1;
         }
     }

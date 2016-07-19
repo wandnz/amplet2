@@ -271,7 +271,6 @@ int start_listening(struct socket_t *sockets, int port,
 
     if ( bind_sockets_to_address(sockets, sockopts->sourcev4,
                 sockopts->sourcev6) < 0 ) {
-        /* XXX can we trust errno to always be set correctly at this point? */
         int error = errno;
 
         /* close any sockets that might have been open and bound ok */
