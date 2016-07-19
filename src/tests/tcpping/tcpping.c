@@ -1097,7 +1097,7 @@ void print_tcpping(amp_test_result_t *result) {
 test_t *register_test() {
     test_t *new_test = (test_t *)malloc(sizeof(test_t));
 
-    /* Defined in test.h */
+    /* Defined in tests.h */
     new_test->id = AMP_TEST_TCPPING;
     new_test->name = strdup("tcpping");
     new_test->max_targets = 0;

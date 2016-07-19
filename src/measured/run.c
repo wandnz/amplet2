@@ -11,7 +11,7 @@
 #include "config.h"
 #include "schedule.h"
 #include "watchdog.h"
-#include "test.h"
+#include "run.h"
 #include "control.h"
 #include "debug.h"
 #include "nametable.h"

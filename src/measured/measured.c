@@ -25,7 +25,6 @@
 #include <libwandevent.h>
 #include "schedule.h"
 #include "watchdog.h"
-#include "test.h"
 #include "nametable.h"
 #include "debug.h"
 #include "modules.h"

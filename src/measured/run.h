@@ -1,5 +1,5 @@
-#ifndef _MEASURED_TEST_H
-#define _MEASURED_TEST_H
+#ifndef _MEASURED_RUN_H
+#define _MEASURED_RUN_H
 
 #include <openssl/bio.h>
 #include <libwandevent.h>

@@ -1160,7 +1160,7 @@ void print_dns(amp_test_result_t *result) {
 test_t *register_test() {
     test_t *new_test = (test_t *)malloc(sizeof(test_t));
 
-    /* the test id is defined by the enum in test.h */
+    /* the test id is defined by the enum in tests.h */
     new_test->id = AMP_TEST_DNS;
 
     /* name is used to schedule the test and report results */
