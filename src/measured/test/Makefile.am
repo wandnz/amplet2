@@ -1,4 +1,4 @@
-TESTS=nametable.test schedule_time.test acl.test # XXX required?
+TESTS=nametable.test schedule_time.test acl.test
 check_PROGRAMS=nametable.test schedule_time.test acl.test
 
 nametable_test_SOURCES=nametable_test.c ../nametable.c

@@ -378,7 +378,7 @@ static int fork_test(test_schedule_item_t *item) {
 
 	run_test(item, NULL);
 
-	Log(LOG_WARNING, "%s test failed to run", test->name);//XXX required?
+	Log(LOG_WARNING, "%s test failed to run", test->name);
 	exit(1);
     }
 

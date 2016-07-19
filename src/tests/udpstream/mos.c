@@ -6,8 +6,6 @@
 #include "mos.h"
 
 
-/* XXX double vs double */
-
 /*
  * XXX All values currently for PCM G.711 codecs
  */

@@ -19,7 +19,6 @@
 #include <signal.h>
 #include <inttypes.h>
 
-//TODO rename files and headers better?
 #include "config.h"
 #include "testlib.h"
 #include "traceroute.h"

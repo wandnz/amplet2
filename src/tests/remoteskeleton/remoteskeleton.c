@@ -95,7 +95,6 @@ int run_remoteskeleton(int argc, char *argv[], int count,
 
     Log(LOG_DEBUG, "Got port %d from remote server", remote);
 
-
     /* report some sort of dummy result */
     report(AMP_TEST_REMOTE_SKELETON, start_time.tv_sec, (void*)&result,
             sizeof(uint32_t));
@@ -109,7 +108,6 @@ int run_remoteskeleton(int argc, char *argv[], int count,
  * Print results of the skeleton test.
  */
 void print_remoteskeleton(void *data, uint32_t len) {
-    /* TODO check version number for any result structures */
     assert(data);
     assert(len == sizeof(uint32_t));
 
@@ -123,7 +121,6 @@ void server_remoteskeleton(__attribute__((unused))int argc,
         __attribute__((unused))BIO *bio) {
 
     printf("SKELETON SERVER\n");
-
 }
 
 

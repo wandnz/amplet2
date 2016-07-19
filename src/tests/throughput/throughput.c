@@ -167,7 +167,7 @@ test_t *register_test() {
     new_test->name = strdup("throughput");
 
     /* how many targets a single instance of this test can have  - Only 1 */
-    new_test->max_targets = 1; // XXX was 0
+    new_test->max_targets = 1;
 
     /* minimum number of targets required to run this test */
     new_test->min_targets = 1;

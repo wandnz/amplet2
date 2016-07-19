@@ -372,7 +372,7 @@ static int fill_request_trie(int fd, struct iptrie *requests) {
         }
     }
 
-    /* XXX never reached */
+    /* never reached */
     Log(LOG_WARNING, "Broke out of fill_request_trie() loop unexpectedly");
     return -1;
 }

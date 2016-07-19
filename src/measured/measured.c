@@ -82,7 +82,6 @@ static void usage(void) {
 
 
 static void print_version(char *prog) {
-    /* TODO more information? list available tests? */
     printf("%s (%s)\n", prog, PACKAGE_STRING);
     printf("Report bugs to <%s>\n", PACKAGE_BUGREPORT);
     printf(" config dir: %s\n", AMP_CONFIG_DIR);

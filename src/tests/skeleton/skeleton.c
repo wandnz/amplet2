@@ -89,7 +89,6 @@ int run_skeleton(int argc, char *argv[], int count, struct addrinfo **dests) {
  * Print results of the skeleton test.
  */
 void print_skeleton(void *data, uint32_t len) {
-    /* TODO check version number for any result structures */
     assert(data);
     assert(len == sizeof(uint32_t));
 

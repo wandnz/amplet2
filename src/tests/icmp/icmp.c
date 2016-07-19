@@ -16,7 +16,6 @@
 #include <malloc.h>
 #include <string.h>
 
-//TODO rename files and headers better?
 #include "config.h"
 #include "tests.h"
 #include "testlib.h"
