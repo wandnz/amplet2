@@ -17,15 +17,13 @@
 #include <malloc.h>
 #include <string.h>
 #include <signal.h>
-#include <inttypes.h>
+#include <libwandevent.h>
 
 #include "config.h"
 #include "testlib.h"
 #include "traceroute.h"
-#include "libwandevent.h"
 #include "as.h"
 #include "traceroute.pb-c.h"
-#include "ampresolv.h"
 #include "debug.h"
 #include "dscp.h"
 

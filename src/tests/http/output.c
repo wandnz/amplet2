@@ -1,5 +1,5 @@
-#include <inttypes.h>
 #include <assert.h>
+
 #include "http.h"
 #include "output.h"
 #include "http.pb-c.h"

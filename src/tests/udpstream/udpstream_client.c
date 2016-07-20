@@ -6,8 +6,8 @@
 
 #include "ssl.h"
 #include "udpstream.h"
-#include "testlib.h" //XXX separation between testlib and serverlib is poor
-#include "serverlib.h" //XXX this needs a better name
+#include "testlib.h"
+#include "serverlib.h"
 #include "controlmsg.h"
 #include "udpstream.pb-c.h"
 #include "debug.h"

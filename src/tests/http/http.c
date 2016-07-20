@@ -10,8 +10,8 @@
 #include <assert.h>
 #include <malloc.h>
 #include <string.h>
+#include <curl/curl.h>
 
-//TODO rename files and headers better?
 #include "config.h"
 #include "testlib.h"
 #include "http.h"
@@ -20,11 +20,6 @@
 #include "output.h"
 #include "http.pb-c.h"
 #include "debug.h"
-
-#include <inttypes.h>
-#include <fcntl.h>
-
-#include "curl/curl.h"
 
 
 CURLM *multi;

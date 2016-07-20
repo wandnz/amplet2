@@ -1,16 +1,10 @@
-#include <stdio.h>
-#include <pthread.h>
 #include <string.h>
-#include <assert.h>
-#include <errno.h>
 #include <unistd.h>
 
 #include "global.h"
-#include "testlib.h"
 #include "debug.h"
 #include "as.h"
 #include "ampresolv.h"
-#include "traceroute.h"
 #include "asn.h"
 #include "iptrie.h"
 
