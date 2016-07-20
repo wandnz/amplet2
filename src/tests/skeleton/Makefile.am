@@ -1,12 +1,21 @@
+EXTRA_DIST=skeleton.proto
+
+BUILT_SOURCES=skeleton.pb-c.c
+CLEANFILES=skeleton.pb-c.c skeleton.pb-c.h
+
 testdir=$(libdir)/$(PACKAGE)/tests
 
 bin_PROGRAMS=amp-skeleton
-amp_skeleton_SOURCES=skeleton.c ../testmain.c
-amp_skeleton_LDADD=-L../../common/ -lamp -lunbound
+amp_skeleton_SOURCES=../testmain.c
+amp_skeleton_LDADD=skeleton.la -L../../common/ -lamp -lprotobuf-c -lunbound
 
 test_LTLIBRARIES=skeleton.la
 skeleton_la_SOURCES=skeleton.c
-skeleton_la_CFLAGS=-rdynamic
-skeleton_la_LDFLAGS=-module -avoid-version -L../../common/ -lamp
+nodist_skeleton_la_SOURCES=skeleton.pb-c.c
+skeleton_la_LDFLAGS=-module -avoid-version -L../../common/ -lamp -lprotobuf-c
 
 INCLUDES=-I../ -I../../common/
+
+skeleton.pb-c.c: Makefile
+	protoc-c --c_out=. skeleton.proto
+	protoc --python_out=../python/ampsave/tests/ skeleton.proto

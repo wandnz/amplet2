@@ -1,0 +1,30 @@
+/**
+ * Data reporting messages for the AMP REMOTE SKELETON test.
+ *
+ * This test is a very basic example of how a test with a remote server can
+ * be written.
+ *
+ */
+package amplet2.remoteskeleton;
+
+
+/**
+ * An instance of the test will generate one Report message.
+ */
+message Report {
+    /** Describes the test settings used in this test instance */
+    optional Header header = 1;
+    /** Results for all test targets, not used by the skeleton test */
+    /*repeated Item reports = 2;*/
+}
+
+
+/**
+ * The test header describes all of the settings that the test was configured
+ * to run with. These settings are the same for every result contained within
+ * the Report message.
+ */
+message Header {
+    /* number of valid IPv4/IPv6 addresses given to the test */
+    optional uint32 valid = 1 [default = 0];
+}

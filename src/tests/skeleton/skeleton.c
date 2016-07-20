@@ -7,15 +7,17 @@
 #include <arpa/inet.h>
 #include <getopt.h>
 #include <stdlib.h>
-#include <sys/time.h>
 #include <assert.h>
+#include <sys/time.h>
 
 #include "tests.h"
 #include "debug.h"
 #include "testlib.h"
+#include "skeleton.pb-c.h"
 
-int run_skeleton(int argc, char *argv[], int count, struct addrinfo **dests);
-void print_skeleton(void *data, uint32_t len);
+amp_test_result_t* run_skeleton(int argc, char *argv[], int count,
+        struct addrinfo **dests);
+void print_skeleton(amp_test_result_t *result);
 test_t *register_test(void);
 
 
@@ -26,14 +28,45 @@ static void usage(char *prog) {
 }
 
 
+
+/*
+ * Build the protocol buffer message containing the result.
+ */
+static amp_test_result_t* report_result(struct timeval *start_time,
+        uint32_t valid) {
+
+    amp_test_result_t *result = calloc(1, sizeof(amp_test_result_t));
+
+    Log(LOG_DEBUG, "Building skeleton report, valid:%d\n", valid);
+
+    Amplet2__Skeleton__Report msg = AMPLET2__SKELETON__REPORT__INIT;
+    Amplet2__Skeleton__Header header = AMPLET2__SKELETON__HEADER__INIT;
+
+    header.has_valid = 1;
+    header.valid = valid;
+
+    msg.header = &header;
+
+    /* pack all the results into a buffer for transmitting */
+    result->timestamp = (uint64_t)start_time->tv_sec;
+    result->len = amplet2__skeleton__report__get_packed_size(&msg);
+    result->data = malloc(result->len);
+    amplet2__skeleton__report__pack(&msg, result->data);
+
+    return result;
+}
+
+
 /*
  * Very simple main function to show how tests can be run.
  */
-int run_skeleton(int argc, char *argv[], int count, struct addrinfo **dests) {
+amp_test_result_t* run_skeleton(int argc, char *argv[], int count,
+        struct addrinfo **dests) {
     int i;
     char address[INET6_ADDRSTRLEN];
     struct timeval start_time;
-    uint32_t result;
+    uint32_t valid;
+    amp_test_result_t *result;
     int opt;
 
     printf("skeleton test\n");
@@ -59,41 +92,50 @@ int run_skeleton(int argc, char *argv[], int count, struct addrinfo **dests) {
 
     /* print all the destinations that were passed in */
     printf("dests: %d\n", count);
-    result = count;
+    valid = count;
     for ( i=0; i<count; i++ ) {
 	if ( dests[i]->ai_family == AF_INET ) {
 	    inet_ntop(AF_INET,
 		    &((struct sockaddr_in*)dests[i]->ai_addr)->sin_addr,
 		    address, INET6_ADDRSTRLEN);
 	} else if ( dests[i]->ai_family == AF_INET6 ) {
-	    inet_ntop(AF_INET,
+	    inet_ntop(AF_INET6,
 		    &((struct sockaddr_in6*)dests[i]->ai_addr)->sin6_addr,
 		    address, INET6_ADDRSTRLEN);
 	} else {
-            result--;
+            valid--;
 	    continue;
 	}
 	printf("\t%s\n", address);
     }
 
     /* report some sort of dummy result */
-    report(AMP_TEST_SKELETON, start_time.tv_sec, (void*)&result,
-            sizeof(uint32_t));
+    result = report_result(&start_time, valid);
 
-    return 0;
+    return result;
 }
 
 
 
 /*
- * Print results of the skeleton test.
+ * Unpack the protocol buffer object and print the results of the skeleton test.
  */
-void print_skeleton(void *data, uint32_t len) {
-    assert(data);
-    assert(len == sizeof(uint32_t));
+void print_skeleton(amp_test_result_t *result) {
+    Amplet2__Skeleton__Report *msg;
+
+    assert(result);
+    assert(result->data);
+
+    /* unpack all the data */
+    msg = amplet2__skeleton__report__unpack(NULL, result->len, result->data);
+
+    assert(msg);
+    assert(msg->header);
 
     printf("Result: got %d address(es) of known family (IPv4/IPv6)\n",
-            *(uint32_t*)data);
+            msg->header->valid);
+
+    amplet2__skeleton__report__free_unpacked(msg, NULL);
 }
 
 
@@ -111,7 +153,7 @@ test_t *register_test() {
     new_test->name = strdup("skeleton");
 
     /* how many targets a single instance of this test can have */
-    new_test->max_targets = 1;
+    new_test->max_targets = 10;
 
     /* minimum number of targets required to run this test */
     new_test->min_targets = 1;
