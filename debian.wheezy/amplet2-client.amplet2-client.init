@@ -160,6 +160,11 @@ do_stop()
     FAILED=0
 
     for pidfile in ${PIDDIR}/*.pid; do
+
+        if [ ! -f $pidfile ]; then
+            continue
+        fi
+
         NAME=${pidfile#$PIDDIR/}
         NAME=${NAME%.pid}
         PID=`cat $pidfile`
@@ -178,17 +183,19 @@ do_stop()
                     [ "$VERBOSE" != no ] && log_failure_msg $NAME ;;
             esac
 
-            # if there are any children left, send them a SIGTERM
-            /usr/bin/pgrep -s $PID > /dev/null
-            if [ $? -eq 0 ]; then
-                /bin/kill -s TERM -- -$PID
-            fi
+            if [ -n "$PID" ]; then
+                # if there are any children left, send them a SIGTERM
+                /usr/bin/pgrep -s $PID > /dev/null
+                if [ $? -eq 0 ]; then
+                    /bin/kill -s TERM -- -$PID
+                fi
 
-            # make sure they are stopped, otherwise send a SIGKILL
-            /usr/bin/pgrep -s $PID > /dev/null
-            if [ $? -eq 0 ]; then
-                sleep 3
-                /bin/kill -s KILL -- -$PID 2> /dev/null
+                # make sure they are stopped, otherwise send a SIGKILL
+                /usr/bin/pgrep -s $PID > /dev/null
+                if [ $? -eq 0 ]; then
+                    sleep 3
+                    /bin/kill -s KILL -- -$PID 2> /dev/null
+                fi
             fi
         fi
     done
