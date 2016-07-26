@@ -46,6 +46,7 @@ int start_watchdog(time_t duration, int signal, timer_t *timerid) {
     assert(timerid);
 
     /* create the timer to send the signal when it expires */
+    memset(&sevp, 0, sizeof(sevp));
     sevp.sigev_notify = SIGEV_SIGNAL;
     sevp.sigev_signo = signal;
     sevp.sigev_value.sival_ptr = timerid;
