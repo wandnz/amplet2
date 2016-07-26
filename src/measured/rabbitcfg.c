@@ -163,6 +163,7 @@ int setup_rabbitmq_shovel(char *ampname, char *local, char *collector, int port,
 
     char *args[] = { RABBITMQCTL, "set_parameter", "shovel", ampname,
         NULL, NULL };
+    int result;
 
     Log(LOG_DEBUG, "Creating rabbitmq shovel for \"%s\" to %s",
             ampname, collector);
@@ -198,5 +199,8 @@ int setup_rabbitmq_shovel(char *ampname, char *local, char *collector, int port,
         exit(-1);
     }
 
-    return run_rabbitmqctl(args);
+    result = run_rabbitmqctl(args);
+    free(args[4]);
+
+    return result;
 }
