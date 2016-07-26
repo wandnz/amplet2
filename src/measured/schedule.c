@@ -1254,6 +1254,8 @@ static void fork_and_fetch(fetch_schedule_item_t *fetch, int clobber) {
         }
 
         stop_watchdog(watchdog);
+        free_duped_environ();
+
         exit(0);
     }
 }

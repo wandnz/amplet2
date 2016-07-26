@@ -121,6 +121,22 @@ void set_proc_name(char *testname) {
 
 
 /*
+ * Free the memory allocated by the backup of the environment in set_proc_name()
+ */
+void free_duped_environ(void) {
+    extern char **environ;
+    int i;
+
+    for ( i = 0; environ[i] != NULL; i++ ) {
+        free(environ[i]);
+    }
+
+    free(environ);
+}
+
+
+
+/*
  * TODO maintain the list of signals dynamically?
  */
 int unblock_signals(void) {

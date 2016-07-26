@@ -178,6 +178,7 @@ static void do_start_server(BIO *ctrl, void *data, uint32_t len) {
 
     stop_watchdog(watchdog);
 
+    free_duped_environ();
     free(proc_name);
 }
 

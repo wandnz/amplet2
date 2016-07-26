@@ -81,6 +81,7 @@ void run_test(const test_schedule_item_t * const item, BIO *ctrl) {
                     item->meta->inter_packet_delay) < 0 ) {
             Log(LOG_WARNING, "Failed to build packet delay string, aborting");
             stop_watchdog(watchdog);
+            free_duped_environ();
             return;
         }
 
@@ -95,6 +96,8 @@ void run_test(const test_schedule_item_t * const item, BIO *ctrl) {
         argv[argc++] = "-p";
         if ( asprintf(&port_str, "%u", vars.control_port) < 0 ) {
             Log(LOG_WARNING, "Failed to build control port string, aborting");
+            stop_watchdog(watchdog);
+            free_duped_environ();
             return;
         }
 
@@ -106,6 +109,8 @@ void run_test(const test_schedule_item_t * const item, BIO *ctrl) {
         argv[argc++] = "-Q";
         if ( asprintf(&dscp_str, "%u", item->meta->dscp) < 0 ) {
             Log(LOG_WARNING, "Failed to build DSCP string, aborting");
+            stop_watchdog(watchdog);
+            free_duped_environ();
             return;
         }
 
@@ -310,6 +315,9 @@ void run_test(const test_schedule_item_t * const item, BIO *ctrl) {
     if ( port_str ) {
         free(port_str);
     }
+
+    /* free the environment duped by set_proc_name() */
+    free_duped_environ();
 
     /* done running the test, exit */
     exit(0);
