@@ -20,6 +20,7 @@
 #include <sys/types.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <amqp_ssl_socket.h>
 
 #include <curl/curl.h>
 #include <libwandevent.h>
