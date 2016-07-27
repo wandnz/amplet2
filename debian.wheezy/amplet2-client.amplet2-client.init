@@ -25,6 +25,7 @@ SCRIPTNAME=/etc/init.d/$PKG_NAME
 START_DAEMON=1
 CONFDIR=/etc/amplet2/clients
 PIDDIR=/var/run/amplet2
+LOGDIR=/var/log/amplet2
 
 # Exit if the package is not installed
 if [ ! -x $DAEMON ]; then
@@ -106,6 +107,11 @@ do_start()
         mkdir -p $PIDDIR
         #chown
         #chgrp
+    fi
+
+    # Make sure that the log dir exists
+    if [ ! -d $LOGDIR ]; then
+        mkdir -p $LOGDIR
     fi
 
     # For every config file, try to run an amplet client
