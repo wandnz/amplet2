@@ -8,13 +8,20 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <arpa/inet.h>
+#include <pthread.h>
 
 #include "debug.h"
 #include "asn.h"
 #include "iptrie.h"
 
-//XXX duplicated in asnsock.c
-static void add_parsed_line(struct iptrie *result, char *line) {
+
+
+/*
+ * Convert a plain text ASN response into an address structure, adding it to
+ * the result trie.
+ */
+void add_parsed_line(struct iptrie *result, char *line,
+        struct amp_asn_info *info) {
 
     char *asptr = NULL, *addrptr = NULL, *addrstr = NULL;
     struct sockaddr_storage addr;
@@ -52,13 +59,11 @@ static void add_parsed_line(struct iptrie *result, char *line) {
     iptrie_add(result, (struct sockaddr*)&addr, prefix, as);
 
     /* add to the global cache */
-    /*
     if ( info != NULL ) {
         pthread_mutex_lock(info->mutex);
         iptrie_add(info->trie, (struct sockaddr*)&addr, prefix, as);
         pthread_mutex_unlock(info->mutex);
     }
-    */
 }
 
 
@@ -221,7 +226,52 @@ static int amp_asn_add_query_direct(int fd, struct sockaddr *address) {
 
 
 
-///XXX duplicate of the main loop in asnsock.c, can plug this in?
+/*
+ * Try to extract complete lines containing plain text ASN responses from
+ * the result buffer.
+ */
+void process_buffer(struct iptrie *result, char *buffer, int buflen,
+        int *offset, struct amp_asn_info *info, int *outstanding) {
+
+    char *line;
+    char *lineptr = NULL;
+    int linelen;
+
+    while ( index(buffer, '\n') != NULL ) {
+        /*
+         * Always call strtok_r with all the parameters because we
+         * modify buffer at the end of the loop.
+         */
+        line = strtok_r(buffer, "\n", &lineptr);
+        linelen = strlen(line) + 1;
+
+        /* ignore the header or any error messages */
+        if ( strncmp(line, "Bulk", 4) == 0 || strncmp(line, "Error", 5) == 0 ) {
+            memmove(buffer, buffer + linelen, buflen - linelen);
+            *offset = *offset - linelen;
+            buffer[*offset] = '\0';
+            continue;
+        }
+
+        /* parse the response line and add a new result item */
+        add_parsed_line(result, line, info);
+
+        /* move the remaining data to the front of the buffer */
+        memmove(buffer, buffer + linelen, buflen - linelen);
+        *offset = *offset - linelen;
+        buffer[*offset] = '\0';
+
+        if ( outstanding ) {
+            (*outstanding)--;
+        }
+    }
+}
+
+
+
+/*
+ *
+ */
 static struct iptrie *amp_asn_fetch_results_direct(int whois_fd,
         struct iptrie *result) {
 
@@ -229,9 +279,6 @@ static struct iptrie *amp_asn_fetch_results_direct(int whois_fd,
     char *buffer = NULL;
     int offset;
     int buflen = 1024;//XXX define? and bigger
-    char *line;
-    char *lineptr = NULL;
-    int linelen;
 
     Log(LOG_DEBUG, "Fetching ASN results (standalone)");
 
@@ -245,41 +292,7 @@ static struct iptrie *amp_asn_fetch_results_direct(int whois_fd,
         offset += bytes;
         buffer[offset] = '\0';
 
-        /*
-         * Only deal with whole lines of text. Also, always call strtok_r
-         * with all the parameters because we modify buffer at the end
-         * of the loop.
-         */
-        while ( index(buffer, '\n') != NULL ) {
-
-            line = strtok_r(buffer, "\n", &lineptr);
-            linelen = strlen(line) + 1;
-
-            /* ignore the header or any error messages */
-            if ( strncmp(line, "Bulk", 4) == 0 ||
-                    strncmp(line, "Error", 5) == 0 ) {
-                memmove(buffer, buffer + linelen, buflen - linelen);
-                offset = offset - linelen;
-                buffer[offset] = '\0';
-                continue;
-            }
-
-            /* parse the response line and add a new result item */
-            add_parsed_line(result, line);
-
-            /* move the remaining data to the front of the buffer */
-            memmove(buffer, buffer + linelen, buflen - linelen);
-            offset = offset - linelen;
-            buffer[offset] = '\0';
-
-            /* XXX do something with this, if plugging into asnsock.c */
-            /*
-               outstanding--;
-               if ( outstanding == 0 ) {
-               break;
-               }
-             */
-        }
+        process_buffer(result, buffer, buflen, &offset, NULL, NULL);
     }
 
     free(buffer);

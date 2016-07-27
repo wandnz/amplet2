@@ -16,99 +16,6 @@
 
 
 /*
- * Convert a plain text ASN response into an address structure, adding it to
- * the result trie.
- */
-static void add_parsed_line(struct amp_asn_info *info, struct iptrie *result,
-        char *line) {
-
-    char *asptr = NULL, *addrptr = NULL, *addrstr = NULL;
-    struct sockaddr_storage addr;
-    uint64_t as;
-    uint8_t prefix;
-
-    memset(&addr, 0, sizeof(struct sockaddr_storage));
-
-    /* the ASN is the first part of the line */
-    as = atoi(strtok_r(line, "|", &asptr));
-
-    /*
-     * the address portion is next, because we are forcing all cached values
-     * to be /24s or /64s, this is what we are going to use instead
-     * of the actual network prefix
-     */
-    addrstr = strtok_r(NULL, "|", &asptr);
-    /* trim the whitespace from front and back */
-    addrstr = strtok_r(addrstr, " ", &addrptr);
-
-    /* turn the address string into a useful sockaddr */
-    if ( inet_pton(AF_INET, addrstr,
-                &((struct sockaddr_in*)&addr)->sin_addr) ) {
-        addr.ss_family = AF_INET;
-        prefix = 24;
-    } else if ( inet_pton(AF_INET6, addrstr,
-                &((struct sockaddr_in6*)&addr)->sin6_addr)) {
-        addr.ss_family = AF_INET6;
-        prefix = 64;
-    } else {
-        assert(0);
-    }
-
-    /* add to the result set */
-    iptrie_add(result, (struct sockaddr*)&addr, prefix, as);
-
-    /* add to the global cache */
-    if ( info != NULL ) {
-        pthread_mutex_lock(info->mutex);
-        iptrie_add(info->trie, (struct sockaddr*)&addr, prefix, as);
-        pthread_mutex_unlock(info->mutex);
-    }
-}
-
-
-
-/*
- * Try to extract complete lines containing plain text ASN responses from
- * the result buffer.
- */
-static void process_buffer(struct amp_asn_info *info, struct iptrie *result,
-        char *buffer, int buflen, int *offset, int *outstanding) {
-
-    char *line;
-    char *lineptr = NULL;
-    int linelen;
-
-    while ( index(buffer, '\n') != NULL ) {
-        /*
-         * Always call strtok_r with all the parameters because we
-         * modify buffer at the end of the loop.
-         */
-        line = strtok_r(buffer, "\n", &lineptr);
-        linelen = strlen(line) + 1;
-
-        /* ignore the header or any error messages */
-        if ( strncmp(line, "Bulk", 4) == 0 || strncmp(line, "Error", 5) == 0 ) {
-            memmove(buffer, buffer + linelen, buflen - linelen);
-            *offset = *offset - linelen;
-            buffer[*offset] = '\0';
-            continue;
-        }
-
-        /* parse the response line and add a new result item */
-        add_parsed_line(info, result, line);
-
-        /* move the remaining data to the front of the buffer */
-        memmove(buffer, buffer + linelen, buflen - linelen);
-        *offset = *offset - linelen;
-        buffer[*offset] = '\0';
-
-        (*outstanding)--;
-    }
-}
-
-
-
-/*
  * Send back all the results of ASN resolution
  */
 static int return_asn_list(iptrie_node_t *root, void *data) {
@@ -483,7 +390,7 @@ static void *amp_asn_worker_thread(void *thread_data) {
             }
 
             /* try to read any completed ASN results from the buffer */
-            process_buffer(info, &result, buffer, buflen, &offset,&outstanding);
+            process_buffer(&result, buffer, buflen, &offset, info,&outstanding);
         }
     }
 
