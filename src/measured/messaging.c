@@ -13,15 +13,6 @@
 
 
 /*
- * TODO: do we need to call amqp_set_initialize_ssl_library(0) to prevent
- * rabbitmq-c from initialising SSL? We already do it, so probably not.
- * required. This doesn't deal with our properly configured SSL context though,
- * so we won't be using the proper ciphers etc? But does that matter if we
- * configure the server to only accept the ones we want? Or do we want to
- * apply all of our settings to the context stored in the amqp_ssl_socket_t?
- */
-
-/*
  * Create a connection to the broker (local or remote) that measured can use
  * to report data from tests. Each test *should* use a different channel within
  * this connection but they currently all create their own individual

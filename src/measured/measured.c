@@ -453,6 +453,14 @@ int main(int argc, char *argv[]) {
     }
 
     /*
+     * Prevent rabbitmq-c from initialising SSL on the first call to
+     * amqp_open_socket() - we set up the SSL context with limited ciphers and
+     * options to enforce peer verification etc and want to make sure that it
+     * gets used by everything.
+     */
+    amqp_set_initialize_ssl_library(0);
+
+    /*
      * Set up SSL certificates etc. This has to go before curl_global_init()
      * because if we fail then we clean up a whole lot of openssl stuff.
      * Also needs to go before the rabbit shovel configuration, as the certs
