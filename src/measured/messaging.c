@@ -49,6 +49,9 @@ static int connect_to_broker(void) {
             return -1;
         }
 
+        /* on by default, but set it in case later versions change defaults */
+        amqp_ssl_socket_set_verify(sock, 1);
+
         if ( amqp_socket_open(sock, collector, port) != 0 ) {
             Log(LOG_ERR, "Failed to open connection to %s:%d", collector, port);
             return -1;
