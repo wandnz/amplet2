@@ -377,8 +377,11 @@ int amp_resolver_connect(char *path) {
     }
 
     if ( connect(sock, (struct sockaddr*)&addr, sizeof(addr)) < 0 ) {
-        Log(LOG_WARNING, "Failed to open local socket for name resolution: %s",
-                strerror(errno));
+        if ( errno != ENOENT ) {
+            Log(LOG_WARNING,
+                    "Failed to open local socket for name resolution: %s",
+                    strerror(errno));
+        }
         return -1;
     }
 
