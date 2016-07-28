@@ -552,11 +552,10 @@ static void usage(char *prog) {
 
 
 /*
- *
+ * Print the package version string.
  */
 static void version(char *prog) {
-    fprintf(stderr, "%s, amplet version %s, protocol version %d\n", prog,
-            PACKAGE_STRING, AMP_ICMP_TEST_VERSION);
+    fprintf(stderr, "%s, version %s\n", prog, PACKAGE_STRING);
 }
 
 

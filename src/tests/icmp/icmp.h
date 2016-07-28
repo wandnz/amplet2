@@ -5,8 +5,7 @@
 #include <sys/socket.h>
 #include <netdb.h>
 
-/* use the current date with 2 digit count appended as version: YYYYMMDDXX */
-#define AMP_ICMP_TEST_VERSION 2014020300
+
 
 /* by default use an 84 byte packet, because that's what it has always been */
 #define DEFAULT_ICMP_ECHO_REQUEST_LEN 84
