@@ -32,16 +32,17 @@
  */
 
 static struct option long_options[] = {
-    {"help", no_argument, 0, 'h'},
-    {"interface", required_argument, 0, 'I'},
-    {"dscp", required_argument, 0, 'Q'},
-    {"interpacketgap", required_argument, 0, 'Z'},
     {"perturbate", required_argument, 0, 'p'},
     {"random", no_argument, 0, 'r'},
     {"size", required_argument, 0, 's'},
-    {"version", no_argument, 0, 'v'},
+    {"dscp", required_argument, 0, 'Q'},
+    {"interpacketgap", required_argument, 0, 'Z'},
+    {"interface", required_argument, 0, 'I'},
     {"ipv4", required_argument, 0, '4'},
     {"ipv6", required_argument, 0, '6'},
+    {"help", no_argument, 0, 'h'},
+    {"version", no_argument, 0, 'v'},
+    {"debug", no_argument, 0, 'x'},
     {NULL, 0, 0, 0}
 };
 
@@ -532,21 +533,43 @@ static amp_test_result_t* report_results(struct timeval *start_time, int count,
 
 
 /*
- *
+ * The usage statement when the test is run standalone. All of these options
+ * are still valid when run as part of the amplet2-client.
  */
-static void usage(char *prog) {
-    fprintf(stderr, "Usage: %s [-r] [-p perturbate] [-s packetsize]\n", prog);
-    fprintf(stderr, "\n");
+static void usage(void) {
+    fprintf(stderr,
+            "Usage: amp-icmp [-hrvx] [-p perturbate] [-s packetsize]\n"
+            "                [-Q codepoint] [-Z interpacketgap]\n"
+            "                [-I interface] [-4 sourcev4] [-6 sourcev6]\n"
+            "                -- destination1 [destination2 ... destinationN]"
+            "\n\n");
+
+    /* test specific options */
     fprintf(stderr, "Options:\n");
-    fprintf(stderr, "  -r, --random                   Use a random packet size for each test\n");
-    fprintf(stderr, "  -p, --perturbate     <msec>    Maximum number of milliseconds to delay test\n");
-    fprintf(stderr, "  -s, --size           <bytes>   Fixed packet size to use for each test\n");
+    fprintf(stderr, "  -p, --perturbate     <msec>    "
+            "Maximum number of milliseconds to delay test\n");
+    fprintf(stderr, "  -r, --random                   "
+            "Use a random packet size for each test\n");
+    fprintf(stderr, "  -s, --size           <bytes>   "
+            "Fixed packet size to use for each test\n");
+
+    /* generic test options */
+    fprintf(stderr, "  -Q, --dscp           <code>    "
+            "IP differentiated services codepoint to set\n");
+    fprintf(stderr, "  -Z, --interpacketgap <usec>    "
+            "Minimum number of microseconds between packets\n");
+
+    /* interface options */
     fprintf(stderr, "  -I, --interface      <iface>   Source interface name\n");
-    fprintf(stderr, "  -Z, --interpacketgap <usec>    Minimum number of microseconds between packets\n");
     fprintf(stderr, "  -4, --ipv4           <address> Source IPv4 address\n");
     fprintf(stderr, "  -6, --ipv6           <address> Source IPv6 address\n");
+
+    /* very generic options that don't control how the test runs */
+    fprintf(stderr, "  -h, --help                     "
+            "Print help information and exit\n");
+    fprintf(stderr, "  -v, --version                  "
+            "Print version information and exit\n");
     fprintf(stderr, "  -x, --debug                    Enable debug output\n");
-    fprintf(stderr, "  -v, --version                  Print version information and exit\n");
 }
 
 
@@ -594,7 +617,7 @@ amp_test_result_t* run_icmp(int argc, char *argv[], int count,
     sourcev6 = NULL;
     device = NULL;
 
-    while ( (opt = getopt_long(argc, argv, "hvI:Q:Z:p:rs:4:6:",
+    while ( (opt = getopt_long(argc, argv, "p:rs:I:Q:Z:4:6:hvx",
                     long_options, NULL)) != -1 ) {
 	switch ( opt ) {
             case '4': sourcev4 = get_numeric_address(optarg, NULL); break;
@@ -606,13 +629,21 @@ amp_test_result_t* run_icmp(int argc, char *argv[], int count,
                       }
                       break;
             case 'Z': options.inter_packet_delay = atoi(optarg); break;
-	    case 'p': options.perturbate = atoi(optarg); break;
-	    case 'r': options.random = 1; break;
-	    case 's': options.packet_size = atoi(optarg); break;
+            case 'p': options.perturbate = atoi(optarg); break;
+            case 'r': options.random = 1; break;
+            case 's': options.packet_size = atoi(optarg); break;
             case 'v': version(argv[0]); exit(0);
-	    case 'h':
-	    default: usage(argv[0]); exit(0);
+            case 'x': log_level = LOG_DEBUG;
+                      log_level_override = 1;
+                      break;
+            case 'h':
+            default: usage(); exit(0);
 	};
+    }
+
+    if ( count < 1 ) {
+        usage();
+        exit(0);
     }
 
     /* pick a random packet size within allowable boundaries */
