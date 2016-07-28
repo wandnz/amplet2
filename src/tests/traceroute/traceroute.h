@@ -9,8 +9,6 @@
 #include "tests.h"
 #include "testlib.h"
 
-/* use the current date with 2 digit count appended as version: YYYYMMDDXX */
-#define AMP_TRACEROUTE_TEST_VERSION 2014080700
 
 #define DEFAULT_TRACEROUTE_PROBE_LEN 60
 

@@ -26,22 +26,24 @@
 #include "traceroute.pb-c.h"
 #include "debug.h"
 #include "dscp.h"
+#include "usage.h"
 
 
 static struct option long_options[] = {
-    {"help", no_argument, 0, 'h'},
-    {"interface", required_argument, 0, 'I'},
-    {"dscp", required_argument, 0, 'Q'},
-    {"interpacketgap", required_argument, 0, 'Z'},
     {"asn", no_argument, 0, 'a'},
     {"noip", no_argument, 0, 'b'},
     {"probeall", no_argument, 0, 'f'},
     {"perturbate", required_argument, 0, 'p'},
     {"random", no_argument, 0, 'r'},
     {"size", required_argument, 0, 's'},
-    {"version", no_argument, 0, 'v'},
+    {"dscp", required_argument, 0, 'Q'},
+    {"interpacketgap", required_argument, 0, 'Z'},
+    {"interface", required_argument, 0, 'I'},
     {"ipv4", required_argument, 0, '4'},
     {"ipv6", required_argument, 0, '6'},
+    {"help", no_argument, 0, 'h'},
+    {"version", no_argument, 0, 'v'},
+    {"debug", no_argument, 0, 'x'},
     {NULL, 0, 0, 0}
 };
 
@@ -1207,35 +1209,36 @@ static amp_test_result_t*  report_results(struct timeval *start_time, int count,
 /*
  *
  */
-static void usage(char *prog) {
-    fprintf(stderr, "Usage: %s [-abfr] [-p perturbate] [-s packetsize]\n",prog);
-    fprintf(stderr, "\n");
+static void usage(void) {
+    fprintf(stderr,
+            "Usage: amp-trace [-abhfrvx] [-p perturbate] [-s packetsize]\n"
+            "                 [-Q codepoint] [-Z interpacketgap]\n"
+            "                 [-I interface] [-4 sourcev4] [-6 sourcev6]\n"
+            "                 -- destination1 [destination2 ... destinationN]"
+            "\n\n");
+
     fprintf(stderr, "Options:\n");
-    fprintf(stderr, "  -a\t\tLookup AS numbers for all addresses\n");
-    fprintf(stderr, "  -b\t\tSuppress IP addresses in output\n");
-    fprintf(stderr, "  -f\t\tProbe all paths fully, even if duplicate\n");
-    fprintf(stderr, "  -r\t\tUse a random packet size for each test\n");
-    fprintf(stderr, "  -p <ms>\tMaximum number of milliseconds to delay test\n");
-    fprintf(stderr, "  -s <bytes>\tFixed packet size to use for each test\n");
-    fprintf(stderr, "  -I <iface>\tSource interface name\n");
-    fprintf(stderr, "  -Z <usec>\tMinimum number of microseconds between packets\n");
-    fprintf(stderr, "  -4 <address>\tSource IPv4 address\n");
-    fprintf(stderr, "  -6 <address>\tSource IPv6 address\n");
-    fprintf(stderr, "  -x\t\tEnable debug output\n");
-    fprintf(stderr, "  -v\t\tPrint version information and exit\n");
+    fprintf(stderr, "  -a, --asn                      "
+            "Lookup AS numbers for all addresses\n");
+    fprintf(stderr, "  -b, --no-ip                    "
+            "Suppress IP addresses in output\n");
+    fprintf(stderr, "  -f, --probeall                 "
+            "Probe all paths fully, even if duplicate\n");
+    fprintf(stderr, "  -r, --random                   "
+            "Use a random packet size for each test\n");
+    fprintf(stderr, "  -p, --perturbate     <msec>    "
+            "Maximum number of milliseconds to delay test\n");
+    fprintf(stderr, "  -s, --size           <bytes>   "
+            "Fixed packet size to use for each test\n");
+
+    print_probe_usage();
+    print_interface_usage();
+    print_generic_usage();
 }
 
 
 //XXX can we avoid having declarations please?
 static void probe_timeout_callback(wand_event_handler_t *ev_hdl, void *data);
-
-/*
- *
- */
-static void version(char *prog) {
-    fprintf(stderr, "%s, amplet version %s, protocol version %d\n", prog,
-            PACKAGE_STRING, AMP_TRACEROUTE_TEST_VERSION);
-}
 
 
 
@@ -1543,9 +1546,9 @@ amp_test_result_t* run_traceroute(int argc, char *argv[], int count,
     sourcev6 = NULL;
     device = NULL;
 
-    while ( (opt = getopt_long(argc, argv, "hvI:Q:abfp:rs:4:6:Z:",
+    while ( (opt = getopt_long(argc, argv, "abfp:rs:I:Q:Z:4:6:hvx",
                     long_options, NULL)) != -1 ) {
-	switch ( opt ) {
+        switch ( opt ) {
             case '4': sourcev4 = get_numeric_address(optarg, NULL); break;
             case '6': sourcev6 = get_numeric_address(optarg, NULL); break;
             case 'I': device = optarg; break;
@@ -1555,16 +1558,24 @@ amp_test_result_t* run_traceroute(int argc, char *argv[], int count,
                       }
                       break;
             case 'Z': options.inter_packet_delay = atoi(optarg); break;
-	    case 'a': options.as = 1; break;
-	    case 'b': options.ip = 0; break;
-	    case 'f': options.probeall = 1; break;
-	    case 'p': options.perturbate = atoi(optarg); break;
-	    case 'r': options.random = 1; break;
-	    case 's': options.packet_size = atoi(optarg); break;
-            case 'v': version(argv[0]); exit(0);
-	    case 'h':
-	    default: usage(argv[0]); exit(0);
-	};
+            case 'a': options.as = 1; break;
+            case 'b': options.ip = 0; break;
+            case 'f': options.probeall = 1; break;
+            case 'p': options.perturbate = atoi(optarg); break;
+            case 'r': options.random = 1; break;
+            case 's': options.packet_size = atoi(optarg); break;
+            case 'v': print_package_version(argv[0]); exit(0);
+            case 'x': log_level = LOG_DEBUG;
+                      log_level_override = 1;
+                      break;
+            case 'h':
+            default: usage(); exit(0);
+        };
+    }
+
+    if ( count < 1 ) {
+        usage();
+        exit(-1);
     }
 
     /* pick a random packet size within allowable boundaries */
