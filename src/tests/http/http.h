@@ -7,8 +7,6 @@
 #include "tests.h"
 #include "curl/curl.h"
 
-/* use the current date with 2 digit count appended as version: YYYYMMDDXX */
-#define AMP_HTTP_TEST_VERSION 2015030400
 
 #define MAX_DNS_NAME_LEN 256
 #define MAX_PATH_LEN 2048

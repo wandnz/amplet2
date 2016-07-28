@@ -20,6 +20,7 @@
 #include "output.h"
 #include "http.pb-c.h"
 #include "debug.h"
+#include "usage.h"
 
 
 CURLM *multi;
@@ -32,23 +33,29 @@ struct opt_t options;
 
 
 static struct option long_options[] = {
-    {"url", required_argument, 0, 'u'},
-    {"dontparse", no_argument, 0, 'd'},
     {"cached", no_argument, 0, 'c'},
-    {"help", no_argument, 0, 'h'},
-    {"interface", required_argument, 0, 'I'},
-    {"interpacketgap", required_argument, 0, 'Z'},
+    {"dontparse", no_argument, 0, 'd'},
     {"no-keep-alive", no_argument, 0, 'k'},
     {"max-con", required_argument, 0, 'm'},
-    {"pipeline", no_argument, 0, 'p'},
     {"max-persistent-con-per-server", required_argument, 0, 'o'},
+    {"max-persistent-con", required_argument, 0, 'o'},
+    {"max-persistent", required_argument, 0, 'o'},
+    {"pipeline", no_argument, 0, 'p'},
     {"max-pipelined-requests", required_argument, 0, 'r'},
+    {"max-pipelined", required_argument, 0, 'r'},
     {"max-con-per-server", required_argument, 0, 's'},
-    {"version", no_argument, 0, 'v'},
+    {"max-per-server", required_argument, 0, 's'},
+    {"sslversion", required_argument, 0, 'S'},
+    {"url", required_argument, 0, 'u'},
     {"pipe-size", required_argument, 0, 'z'},
+    {"dscp", required_argument, 0, 'Q'},
+    {"interpacketgap", required_argument, 0, 'Z'},
+    {"interface", required_argument, 0, 'I'},
     {"ipv4", required_argument, 0, '4'},
     {"ipv6", required_argument, 0, '6'},
-    {"sslversion", required_argument, 0, 'S'},
+    {"help", no_argument, 0, 'h'},
+    {"version", no_argument, 0, 'v'},
+    {"debug", no_argument, 0, 'x'},
     {NULL, 0, 0, 0}
 };
 
@@ -1253,37 +1260,42 @@ static void set_ssl_version(long *sslv, char *optarg) {
 /*
  *
  */
-static void usage(char *prog) {
-    printf("Usage: %s -u <url> [OPTIONS]\n", prog);
-    printf("\n");
-    printf("Options:\n");
-    printf("  -u <url>\tURL of the page to fetch\n");
-    printf("  -k \t\tDisable keep-alives (def:enabled)\n");
-    printf("  -m <max>\tMaximum number of connections (def:24)\n");
-    printf("  -s <max>\tMaximum number of connections per server (def:8)\n");
-    printf("  -o <max>\tMaximum number of persistent connections per server (def:2)\n");
-    printf("  -p\t\tEnable pipelining (def:disabled)\n");
-    printf("  -r <max>\tMaximum number of pipelined requests (def:4)\n");
-    printf("  -z <max>\tOutstanding pipelined requests before using new pipe (def:2)\n");
-    printf("  -c\t\tAllow cached content (def:false)\n");
+static void usage(void) {
+    fprintf(stderr,
+            "Usage: amp-http [-cdhkpvx] -u <url> [-m max-con]\n"
+            "                [-o max-persistent] [-r max-pipelined-requests]\n"
+            "                [-s max-con-per-server] [-S sslversion]\n"
+            "                [-z pipe-size] [-Q codepoint]\n"
+            "                [-I interface] [-4 sourcev4] [-6 sourcev6]\n"
+            "\n");
+
+    fprintf(stderr, "Options:\n");
+    fprintf(stderr, "  -c, --cached                   "
+            "Allow cached content (def:false)\n");
+    fprintf(stderr, "  -d, --dontparse                "
+            "Don't parse fetched URL for more objects\n");
+    fprintf(stderr, "  -k, --no-keep-alive            "
+            "Disable keep-alives (def:enabled)\n");
+    fprintf(stderr, "  -m, --max-con        <max>     "
+            "Maximum number of connections (def:24)\n");
+    fprintf(stderr, "  -o, --max-persistent <max>     "
+            "Max persistent connections per server (def:2)\n");
+    fprintf(stderr, "  -p, --pipeline                 "
+            "Enable pipelining (def:disabled)\n");
+    fprintf(stderr, "  -r, --max-pipelined  <max>     "
+            "Maximum number of requests per pipeline (def:4)\n");
+    fprintf(stderr, "  -s, --max-per-server <max>     "
+            "Maximum connections per server (def:8)\n");
     /* TODO libcurl 7.34.0 or newer opens up other ssl version options */
-    printf("  -S <version>\tForce SSL version (valid options are sslv3, tlsv1)\n");
-    printf("  -d\t\tDon't parse the fetched URL for more objects (images, css, etc)\n");
-    printf("  -I <iface>\tSource interface name\n");
-    printf("  -4 <address>\tSource IPv4 address\n");
-    printf("  -6 <address>\tSource IPv6 address\n");
-    printf("  -x\t\tEnable debug output\n");
-    printf("  -v\t\tPrint version information and exit\n");
-}
+    fprintf(stderr, "  -S, --sslversion     <version> "
+            "Force SSL version (sslv3, tlsv1, etc)\n");
+    fprintf(stderr, "  -u, --url            <url>     "
+            "URL of the page to fetch\n");
+    fprintf(stderr, "  -z, --pipe-size      <max>     "
+            "Active requests before using new pipe (def:2)\n");
 
-
-
-/*
- *
- */
-static void version(char *prog) {
-    fprintf(stderr, "%s, amplet version %s, protocol version %d\n", prog,
-            PACKAGE_STRING, AMP_HTTP_TEST_VERSION);
+    print_interface_usage();
+    print_generic_usage();
 }
 
 
@@ -1324,24 +1336,22 @@ amp_test_result_t* run_http(int argc, char *argv[],
     options.sslversion = CURL_SSLVERSION_DEFAULT;
     options.dscp = DEFAULT_DSCP_VALUE;
 
-    while ( (opt = getopt_long(argc, argv, "u:km:s:o:pr:cz:hvI:Q:4:6:dS:Z:",
+    while ( (opt = getopt_long(argc, argv, "cdkm:o:pr:s:S:u:z:I:Q:Z:4:6:hvx",
                     long_options, NULL)) != -1 ) {
 	switch ( opt ) {
-            case 'Z': /* option does nothing for this test */ break;
+            case '4': options.sourcev4 = optarg; break;
+            case '6': options.sourcev6 = optarg; break;
             case 'I': options.device = optarg; break;
             case 'Q': if ( parse_dscp_value(optarg, &options.dscp) < 0 ) {
                           Log(LOG_WARNING, "Invalid DSCP value, aborting");
                           exit(-1);
                       }
                       break;
-            case '4': options.sourcev4 = optarg; break;
-            case '6': options.sourcev6 = optarg; break;
-	    //case 'u': strncpy(options.url, optarg, MAX_URL_LEN); break;
-	    case 'u': split_url(optarg, options.host, options.path, 1);
-                      strncpy(options.url, optarg, MAX_URL_LEN); break;
+            case 'Z': /* option does nothing for this test */ break;
+            case 'c': options.caching = 1; break;
+            case 'd': options.parse = 0; break;
 	    case 'k': options.keep_alive = 0; break;
 	    case 'm': options.max_connections = atoi(optarg); break;
-	    case 's': options.max_connections_per_server = atoi(optarg); break;
 	    case 'o': options.max_persistent_connections_per_server =
                       atoi(optarg); break;
             case 'p':
@@ -1355,14 +1365,24 @@ amp_test_result_t* run_http(int argc, char *argv[],
 #endif
                       break;
             case 'r': options.pipelining_maxrequests = atoi(optarg); break;
-            case 'c': options.caching = 1; break;
-            case 'd': options.parse = 0; break;
-            case 'z': options.pipe_size_before_skip = atoi(optarg); break;
-            case 'v': version(argv[0]); exit(0);
+	    case 's': options.max_connections_per_server = atoi(optarg); break;
             case 'S': set_ssl_version(&options.sslversion, optarg); break;
+	    case 'u': split_url(optarg, options.host, options.path, 1);
+                      strncpy(options.url, optarg, MAX_URL_LEN); break;
+            case 'z': options.pipe_size_before_skip = atoi(optarg); break;
+            case 'v': print_package_version(argv[0]); exit(0);
+            case 'x': log_level = LOG_DEBUG;
+                      log_level_override = 1;
+                      break;
 	    case 'h':
-	    default: usage(argv[0]); exit(0);
+	    default: usage(); exit(0);
 	};
+    }
+
+    if ( strlen(options.url) == 0 ||
+            options.host == NULL || options.path == NULL ) {
+        usage();
+        exit(-1);
     }
 
     configure_global_max_requests(&options);
@@ -1389,7 +1409,6 @@ amp_test_result_t* run_http(int argc, char *argv[],
      * bother with setting lock functions as this test is single threaded, we
      * won't be accessing share_handle in multiple locations at the same time.
      */
-    //XXX move one level up as well? all global...
     share_handle = curl_share_init();
     curl_share_setopt(share_handle, CURLSHOPT_SHARE, CURL_LOCK_DATA_DNS);
 
