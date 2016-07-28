@@ -1,12 +1,14 @@
 #include <stdio.h>
+
 #include "usage.h"
+#include "config.h"
 
 
 
 /*
  * Print the package version string.
  */
-static void print_package_version(char *prog) {
+void print_package_version(char *prog) {
     fprintf(stderr, "%s, version %s\n", prog, PACKAGE_STRING);
 }
 
