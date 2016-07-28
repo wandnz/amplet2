@@ -8,8 +8,6 @@
 #include "tests.h"
 #include "testlib.h"
 
-/* use the current date with 2 digit count appended as version: YYYYMMDDXX */
-#define AMP_TCPPING_TEST_VERSION 2014072100
 
 /* The '4' here is to allow us to at least include an MSS option in
  * the SYN that we send.

@@ -26,21 +26,25 @@
 #include "debug.h"
 #include "icmpcode.h"
 #include "dscp.h"
+#include "usage.h"
 
 static struct option long_options[] = {
-    {"help", no_argument, 0, 'h'},
-    {"interface", required_argument, 0, 'I'},
-    {"dscp", required_argument, 0, 'Q'},
-    {"interpacketgap", required_argument, 0, 'Z'},
-    {"perturbate", required_argument, 0, 'p'},
     {"port", required_argument, 0, 'P'},
+    {"perturbate", required_argument, 0, 'p'},
     {"random", no_argument, 0, 'r'},
     {"size", required_argument, 0, 's'},
-    {"version", no_argument, 0, 'v'},
+    {"dscp", required_argument, 0, 'Q'},
+    {"interpacketgap", required_argument, 0, 'Z'},
+    {"interface", required_argument, 0, 'I'},
     {"ipv4", required_argument, 0, '4'},
     {"ipv6", required_argument, 0, '6'},
+    {"help", no_argument, 0, 'h'},
+    {"version", no_argument, 0, 'v'},
+    {"debug", no_argument, 0, 'x'},
     {NULL, 0, 0, 0}
 };
+
+
 
 /* Open the raw TCP sockets needed for this test and bind them to
  * the requested device or addresses
@@ -874,28 +878,33 @@ static void halt_test(wand_event_handler_t *ev_hdl, void *evdata) {
 
 
 /*
- *
+ * The usage statement when the test is run standalone. All of these options
+ * are still valid when run as part of the amplet2-client.
  */
-static void usage(char *prog) {
-    fprintf(stderr, "Usage: %s [-r] [-P port] [-p perturbate] [-s packetsize]\n", prog);
-    fprintf(stderr, "\n");
+static void usage(void) {
+    fprintf(stderr,
+            "Usage: amp-tcpping [-hrvx] [-p perturbate] [-s packetsize]\n"
+            "                   [-P port] [-Q codepoint] [-Z interpacketgap]\n"
+            "                   [-I interface] [-4 sourcev4] [-6 sourcev6]\n"
+            "                   -- destination1 [destination2 ... destinationN]"
+            "\n\n");
+
+    /* test specific options */
     fprintf(stderr, "Options:\n");
-    fprintf(stderr, "  -P, --port                     The port number to probe on the target host\n");
-    fprintf(stderr, "  -r, --random                   Use a random packet size for each test\n");
-    fprintf(stderr, "  -p, --perturbate     <ms>      Maximum number of milliseconds to delay test\n");
-    fprintf(stderr, "  -s, --size           <bytes>   Fixed packet size to use for each probe\n");
-    fprintf(stderr, "  -I, --interface      <iface>   Source interface name\n");
-    fprintf(stderr, "  -Z, --interpacketgap <usec>    Minimum number of microseconds between packets\n");
-    fprintf(stderr, "  -4, --ipv4           <address> Source IPv4 address\n");
-    fprintf(stderr, "  -6, --ipv6           <address> Source IPv6 address\n");
-    fprintf(stderr, "  -x, --debug                    Enable debug output\n");
-    fprintf(stderr, "  -v, --version                  Print version information and exit\n");
+    fprintf(stderr, "  -P, --port                     "
+            "The port number to probe on the target host\n");
+    fprintf(stderr, "  -p, --perturbate     <ms>      "
+            "Maximum number of milliseconds to delay test\n");
+    fprintf(stderr, "  -r, --random                   "
+            "Use a random packet size for each test\n");
+    fprintf(stderr, "  -s, --size           <bytes>   "
+            "Fixed packet size to use for each test\n");
+
+    print_probe_usage();
+    print_interface_usage();
+    print_generic_usage();
 }
 
-static void version(char *prog) {
-    fprintf(stderr, "%s, amplet version %s, protocol version %d\n", prog,
-            PACKAGE_STRING, AMP_TCPPING_TEST_VERSION);
-}
 
 amp_test_result_t* run_tcpping(int argc, char *argv[], int count,
         struct addrinfo **dests) {
@@ -922,7 +931,7 @@ amp_test_result_t* run_tcpping(int argc, char *argv[], int count,
     globals->sourcev6 = NULL;
     globals->device = NULL;
 
-    while ( (opt = getopt_long(argc, argv, "hvI:Q:p:P:rs:4:6:Z:",
+    while ( (opt = getopt_long(argc, argv, "P:p:rs:I:Q:Z:4:6:hvx",
                 long_options, NULL)) != -1 ) {
         switch (opt) {
             case '4':
@@ -937,14 +946,22 @@ amp_test_result_t* run_tcpping(int argc, char *argv[], int count,
                       }
                       break;
             case 'Z': globals->options.inter_packet_delay = atoi(optarg); break;
-            case 'p': globals->options.perturbate = atoi(optarg); break;
             case 'P': globals->options.port = atoi(optarg); break;
+            case 'p': globals->options.perturbate = atoi(optarg); break;
             case 'r': globals->options.random = 1; break;
             case 's': globals->options.packet_size = atoi(optarg); break;
-            case 'v': version(argv[0]); exit(0);
+            case 'v': print_package_version(argv[0]); exit(0);
+            case 'x': log_level = LOG_DEBUG;
+                      log_level_override = 1;
+                      break;
             case 'h':
-            default: usage(argv[0]); exit(0);
+            default: usage(); exit(0);
         };
+    }
+
+    if ( count < 1 ) {
+        usage();
+        exit(0);
     }
 
     /* Process and act upon the packet size and perturbation options */
