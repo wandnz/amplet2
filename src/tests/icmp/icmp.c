@@ -24,6 +24,7 @@
 #include "debug.h"
 #include "icmpcode.h"
 #include "dscp.h"
+#include "usage.h"
 
 
 /*
@@ -553,32 +554,9 @@ static void usage(void) {
     fprintf(stderr, "  -s, --size           <bytes>   "
             "Fixed packet size to use for each test\n");
 
-    /* generic test options */
-    fprintf(stderr, "  -Q, --dscp           <code>    "
-            "IP differentiated services codepoint to set\n");
-    fprintf(stderr, "  -Z, --interpacketgap <usec>    "
-            "Minimum number of microseconds between packets\n");
-
-    /* interface options */
-    fprintf(stderr, "  -I, --interface      <iface>   Source interface name\n");
-    fprintf(stderr, "  -4, --ipv4           <address> Source IPv4 address\n");
-    fprintf(stderr, "  -6, --ipv6           <address> Source IPv6 address\n");
-
-    /* very generic options that don't control how the test runs */
-    fprintf(stderr, "  -h, --help                     "
-            "Print help information and exit\n");
-    fprintf(stderr, "  -v, --version                  "
-            "Print version information and exit\n");
-    fprintf(stderr, "  -x, --debug                    Enable debug output\n");
-}
-
-
-
-/*
- * Print the package version string.
- */
-static void version(char *prog) {
-    fprintf(stderr, "%s, version %s\n", prog, PACKAGE_STRING);
+    print_probe_usage();
+    print_interface_usage();
+    print_generic_usage();
 }
 
 
@@ -632,7 +610,7 @@ amp_test_result_t* run_icmp(int argc, char *argv[], int count,
             case 'p': options.perturbate = atoi(optarg); break;
             case 'r': options.random = 1; break;
             case 's': options.packet_size = atoi(optarg); break;
-            case 'v': version(argv[0]); exit(0);
+            case 'v': print_package_version(argv[0]); exit(0);
             case 'x': log_level = LOG_DEBUG;
                       log_level_override = 1;
                       break;
