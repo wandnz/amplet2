@@ -3,9 +3,6 @@
 
 #include "tests.h"
 
-/* use the current date with 2 digit count appended as version: YYYYMMDDXX */
-#define AMP_DNS_TEST_VERSION 2014020400
-
 /* Minimum requestors UDP payload size in bytes (RFC 6891) */
 #define MIN_UDP_PAYLOAD_SIZE 512
 

@@ -22,24 +22,26 @@
 #include "dns.h"
 #include "dns.pb-c.h"
 #include "dscp.h"
+#include "usage.h"
 
 
 static struct option long_options[] = {
     {"class", required_argument, 0, 'c'},
-    {"help", no_argument, 0, 'h'},
-    {"interface", required_argument, 0, 'I'},
-    {"dscp", required_argument, 0, 'Q'},
-    {"interpacketgap", required_argument, 0, 'Z'},
     {"nsid", no_argument, 0, 'n'},
     {"perturbate", required_argument, 0, 'p'},
     {"query", required_argument, 0, 'q'},
     {"recurse", no_argument, 0, 'r'},
     {"dnssec", no_argument, 0, 's'},
     {"type", required_argument, 0, 't'},
-    {"version", no_argument, 0, 'v'},
     {"payload", required_argument, 0, 'z'},
+    {"dscp", required_argument, 0, 'Q'},
+    {"interpacketgap", required_argument, 0, 'Z'},
+    {"interface", required_argument, 0, 'I'},
     {"ipv4", required_argument, 0, '4'},
     {"ipv6", required_argument, 0, '6'},
+    {"help", no_argument, 0, 'h'},
+    {"version", no_argument, 0, 'v'},
+    {"debug", no_argument, 0, 'x'},
     {NULL, 0, 0, 0}
 };
 
@@ -799,35 +801,36 @@ static char *get_status_string(uint8_t status) {
 /*
  *
  */
-static void usage(char *prog) {
-    fprintf(stderr, "Usage: %s [-rsn] [-q query] [-t type] [-c class]\n", prog);
-    fprintf(stderr, "\n");
+static void usage(void) {
+    fprintf(stderr,
+            "Usage: amp-dns [-hrnsvx] [-c class] [-p perturbate] [-q query]\n"
+            "               [-t type] [-z size]\n"
+            "               [-Q codepoint] [-Z interpacketgap]\n"
+            "               [-I interface] [-4 sourcev4] [-6 sourcev6]\n"
+            "               [-- destination1 [ destination2 ... destinationN]]"
+            "\n\n");
+
     fprintf(stderr, "Options:\n");
-    fprintf(stderr, "  -q <query>\tQuery string (eg the hostname to look up)\n");
-    fprintf(stderr, "  -t <type>\tRecord type to search for (default: A)\n");
-    fprintf(stderr, "  -c <class>\tClass type to search for (default: IN)\n");
-    fprintf(stderr, "  -z <size>\tUDP payload size (default: %d, 0 to disable)\n",
+    fprintf(stderr, "  -c, --class          <class>   "
+            "Class type to search for (default: IN)\n");
+    fprintf(stderr, "  -n, --nsid                     "
+            "Do NSID query (default: false)\n");
+    fprintf(stderr, "  -p, --perturbate     <msec>    "
+            "Maximum number of milliseconds to delay test\n");
+    fprintf(stderr, "  -q, --query          <query>   "
+            "Query string (eg the hostname to look up)\n");
+    fprintf(stderr, "  -r, --recurse                  "
+            "Allow recursive queries (default: false)\n");
+    fprintf(stderr, "  -s, --dnssec                   "
+            "Use DNSSEC (default: false)\n");
+    fprintf(stderr, "  -t, --type           <type>    "
+            "Record type to search for (default: A)\n");
+    fprintf(stderr, "  -z, --payload        <size>    "
+            "UDP payload size (default: %d, 0 to disable)\n",
             DEFAULT_UDP_PAYLOAD_SIZE);
-    fprintf(stderr, "  -p <ms>\tMaximum number of milliseconds to delay test\n");
-    fprintf(stderr, "  -r\t\tAllow recursive queries (default: false)\n");
-    fprintf(stderr, "  -s\t\tUse DNSSEC (default: false)\n");
-    fprintf(stderr, "  -n\t\tDo NSID query (default: false)\n");
-    fprintf(stderr, "  -I <iface>\tSource interface name\n");
-    fprintf(stderr, "  -Z <usec>\tMinimum number of microseconds between packets\n");
-    fprintf(stderr, "  -4 <address>\tSource IPv4 address\n");
-    fprintf(stderr, "  -6 <address>\tSource IPv6 address\n");
-    fprintf(stderr, "  -x\t\tEnable debug output\n");
-    fprintf(stderr, "  -v\t\tPrint version information and exit\n");
-}
 
-
-
-/*
- *
- */
-static void version(char *prog) {
-    fprintf(stderr, "%s, amplet version %s, protocol version %d\n", prog,
-            PACKAGE_STRING, AMP_DNS_TEST_VERSION);
+    print_interface_usage();
+    print_generic_usage();
 }
 
 
@@ -873,7 +876,7 @@ amp_test_result_t* run_dns(int argc, char *argv[], int count,
     device = NULL;
     local_resolv = 0;
 
-    while ( (opt = getopt_long(argc, argv, "hvI:Q:q:t:c:z:rsn4:6:Z:p:",
+    while ( (opt = getopt_long(argc, argv, "c:np:q:rst:z:I:Q:Z:4:6:hvx",
                     long_options, NULL)) != -1 ) {
 	switch ( opt ) {
             case '4': sourcev4 = get_numeric_address(optarg, NULL); break;
@@ -885,21 +888,28 @@ amp_test_result_t* run_dns(int argc, char *argv[], int count,
                       }
                       break;
             case 'Z': options.inter_packet_delay = atoi(optarg); break;
-	    case 'q': options.query_string = strdup(optarg); break;
-	    case 't': options.query_type = get_query_type(optarg); break;
 	    case 'c': options.query_class = get_query_class(optarg); break;
-	    case 'z': options.udp_payload_size = atoi(optarg); break;
+	    case 'n': options.nsid = 1; break;
 	    case 'p': options.perturbate = atoi(optarg); break;
+	    case 'q': options.query_string = strdup(optarg); break;
 	    case 'r': options.recurse = 1; break;
 	    case 's': options.dnssec = 1; break;
-	    case 'n': options.nsid = 1; break;
-            case 'v': version(argv[0]); exit(0);
+	    case 't': options.query_type = get_query_type(optarg); break;
+	    case 'z': options.udp_payload_size = atoi(optarg); break;
+            case 'v': print_package_version(argv[0]); exit(0);
+            case 'x': log_level = LOG_DEBUG;
+                      log_level_override = 1;
+                      break;
 	    case 'h':
-	    default: usage(argv[0]); exit(0);
+	    default: usage(); exit(0);
 	};
     }
 
-    assert(options.query_string);
+    if ( options.query_string == NULL ) {
+        usage();
+        exit(-1);
+    }
+
     assert(strlen(options.query_string) < MAX_DNS_NAME_LEN);
     assert(options.query_type > 0);
     assert(options.query_class > 0);
