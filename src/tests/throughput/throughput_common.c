@@ -176,16 +176,16 @@ Amplet2__Throughput__Item* report_schedule(struct test_request_t *info) {
  * @param p
  *          A pointer to the packet to convert
  */
-static void htobePacket(struct packet_t *p) {
+static void htonPacket(struct packet_t *p) {
     switch ( p->header.type ) {
         case TPUT_PKT_DATA:
-            p->types.data.more = htobe32(p->types.data.more);
+            p->types.data.more = htonl(p->types.data.more);
             break;
         default:
             Log(LOG_WARNING, "Bad packet type found cannot decode!!!");
     }
-    p->header.type = htobe32(p->header.type);
-    p->header.size = htobe32(p->header.size);
+    p->header.type = htonl(p->header.type);
+    p->header.size = htonl(p->header.size);
 }
 
 
@@ -196,12 +196,12 @@ static void htobePacket(struct packet_t *p) {
  * @param p
  *          A pointer to the packet to convert
  */
-static void betohPacket(struct packet_t *p) {
-    p->header.type = be32toh(p->header.type);
-    p->header.size = be32toh(p->header.size);
+static void ntohPacket(struct packet_t *p) {
+    p->header.type = ntohl(p->header.type);
+    p->header.size = ntohl(p->header.size);
     switch ( p->header.type ) {
         case TPUT_PKT_DATA:
-            p->types.data.more = be32toh(p->types.data.more);
+            p->types.data.more = ntohl(p->types.data.more);
             break;
         default:
             Log(LOG_WARNING, "Bad packet type found cannot decode!!!");
@@ -256,7 +256,7 @@ int writePacket(int sock_fd, struct packet_t *packet){
             packet->header.type, total_size);
 */
     /* Convert to big endian */
-    htobePacket(packet);
+    htonPacket(packet);
 
     do {
         res = write(sock_fd, (void*)packet+total_written,
@@ -278,7 +278,7 @@ int writePacket(int sock_fd, struct packet_t *packet){
                     ( res < 0 && errno == EINTR ) );
 
     /* Convert back to host, we don't actually want to change the packet */
-    betohPacket(packet);
+    ntohPacket(packet);
 
     if ( total_written != total_size ) {
         Log(LOG_WARNING, "write return %d, total %d (not %d): %s\n", res,
@@ -345,7 +345,7 @@ int readPacket(int test_socket, struct packet_t *packet, char **additional) {
     } while ( bytes_read < sizeof(struct packet_t));
 
     /* Fix endianness */
-    betohPacket(packet);
+    ntohPacket(packet);
 
     /* packet->header.size excludes it's own size */
     bytes_read = 0;
