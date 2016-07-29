@@ -340,11 +340,12 @@ void* parse_send(ProtobufCBinaryData *data);
  */
 void print_web10g(struct report_web10g_t * web10g);
 
-
+#if 0
 #ifdef HAVE_ESTATS
 struct report_web10g_t * getWeb10GSnap(int socket);
 #else
 #define getWeb10GSnap(sock) NULL
+#endif
 #endif
 
 #if UNIT_TEST

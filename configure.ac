@@ -95,9 +95,9 @@ if test "$protobuf_h_found" = 0; then
 fi
 
 # check if we have the web10g library, it's ok for it to be missing
-AC_CHECK_LIB([estats], [estats_nl_client_init],
-        [AM_CONDITIONAL(HAVE_ESTATS, true)],
-        [AM_CONDITIONAL(HAVE_ESTATS, false)])
+#AC_CHECK_LIB([estats], [estats_nl_client_init],
+#        [AM_CONDITIONAL(HAVE_ESTATS, true)],
+#        [AM_CONDITIONAL(HAVE_ESTATS, false)])
 
 AC_ARG_ENABLE(python,
     AC_HELP_STRING([--enable-python],

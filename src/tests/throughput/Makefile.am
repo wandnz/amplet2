@@ -1,4 +1,4 @@
-EXTRA_DIST=*.h throughput.proto
+EXTRA_DIST=*.h throughput.proto web10g.c
 SUBDIRS= . test
 BUILT_SOURCES=throughput.pb-c.c
 CLEANFILES=throughput.pb-c.c throughput.pb-c.h
@@ -10,17 +10,17 @@ amp_throughput_SOURCES=../testmain.c
 amp_throughput_LDADD=throughput.la -L../../common/ -lamp -lprotobuf-c -lunbound
 
 test_LTLIBRARIES=throughput.la
-throughput_la_SOURCES=throughput.c throughput_server.c throughput_common.c throughput_client.c web10g.c
+throughput_la_SOURCES=throughput.c throughput_server.c throughput_common.c throughput_client.c
 nodist_throughput_la_SOURCES=throughput.pb-c.c
 throughput_la_LDFLAGS=-module -avoid-version -L../../common/ -lamp -lprotobuf-c
 
 INCLUDES=-I../ -I../../common/
 
-if HAVE_ESTATS
-amp_throughput_LDADD += -lestats
-throughput_la_LDFLAGS += -lestats
-AM_CPPFLAGS = -DHAVE_ESTATS
-endif
+#if HAVE_ESTATS
+#amp_throughput_LDADD += -lestats
+#throughput_la_LDFLAGS += -lestats
+#AM_CPPFLAGS = -DHAVE_ESTATS
+#endif
 
 throughput.pb-c.c: Makefile
 	protoc-c --c_out=. throughput.proto
