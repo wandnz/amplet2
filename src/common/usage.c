@@ -19,8 +19,6 @@ void print_package_version(char *prog) {
  * (as opposed to TCP streams for example).
  */
 void print_probe_usage(void) {
-    fprintf(stderr, "  -Q, --dscp           <code>    "
-                "IP differentiated services codepoint to set\n");
     fprintf(stderr, "  -Z, --interpacketgap <usec>    "
             "Minimum number of microseconds between packets\n");
 }
@@ -32,6 +30,8 @@ void print_probe_usage(void) {
  * addresses.
  */
 void print_interface_usage(void) {
+    fprintf(stderr, "  -Q, --dscp           <code>    "
+                "IP differentiated services codepoint to set\n");
     fprintf(stderr, "  -I, --interface      <iface>   Source interface name\n");
     fprintf(stderr, "  -4, --ipv4           <address> Source IPv4 address\n");
     fprintf(stderr, "  -6, --ipv6           <address> Source IPv6 address\n");
