@@ -82,7 +82,7 @@ static void usage(void) {
 
 
 
-static void print_version(char *prog) {
+static void print_measured_version(char *prog) {
     printf("%s (%s)\n", prog, PACKAGE_STRING);
     printf("Report bugs to <%s>\n", PACKAGE_BUGREPORT);
     printf(" config dir: %s\n", AMP_CONFIG_DIR);
@@ -339,7 +339,7 @@ int main(int argc, char *argv[]) {
 		break;
 	    case 'v':
 		/* print version and build info */
-                print_version(argv[0]);
+                print_measured_version(argv[0]);
                 exit(0);
 	    case 'x':
 		/* enable extra debug output, overriding config settings */
