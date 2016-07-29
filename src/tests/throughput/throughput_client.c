@@ -536,11 +536,10 @@ amp_test_result_t* run_throughput_client(int argc, char *argv[], int count,
     memset(&meta, 0, sizeof(meta));
 
     while ( (opt = getopt_long(argc, argv,
-                    "?hp:P:rz:o:i:Nm:wS:c:d:4:6:I:t:Q:Z:",
+                    "c:d:i:M:No:p:P:rS:t:z:I:Q:Z:4:6:hx",
                     long_options, &option_index)) != -1 ) {
 
         switch ( opt ) {
-            case 'Z': /* option does nothing for this test */ break;
             case '4': socket_options.sourcev4 =
                             get_numeric_address(optarg, NULL);
                       meta.sourcev4 = optarg;
@@ -555,24 +554,28 @@ amp_test_result_t* run_throughput_client(int argc, char *argv[], int count,
                           exit(-1);
                       }
                       break;
-            /* case 'B': for iperf compatability? */
+            case 'Z': /* option does nothing for this test */ break;
             case 'c': client = optarg; break;
+            case 'd': direction = atoi(optarg); break;
+            case 'i': test_options.sock_rcvbuf = atoi(optarg); break;
+            case 'M': test_options.sock_mss = atoi(optarg); break;
+            case 'N': test_options.sock_disable_nagle = 1; break;
+            case 'o': test_options.sock_sndbuf = atoi(optarg); break;
             case 'p': test_options.cport = atoi(optarg); break;
             case 'P': test_options.tport = atoi(optarg); break;
             case 'r': test_options.randomise = 1; break;
-            case 'z': test_options.write_size = atoi(optarg); break;
             /* TODO if this isn't last, some options use default values! */
             case 'S': parseSchedule(&test_options, optarg); break;
-            case 'o': test_options.sock_sndbuf = atoi(optarg); break;
-            case 'i': test_options.sock_rcvbuf = atoi(optarg); break;
-            case 'N': test_options.sock_disable_nagle = 1; break;
-            case 'M': test_options.sock_mss = atoi(optarg); break;
-            case 'w': test_options.disable_web10g = 1; break;
             case 't': duration = atoi(optarg); break;
-            case 'd': direction = atoi(optarg); break;
+#if 0
+            case 'w': test_options.disable_web10g = 1; break;
+#endif
+            case 'z': test_options.write_size = atoi(optarg); break;
+            case 'x': log_level = LOG_DEBUG;
+                      log_level_override = 1;
+                      break;
             case 'h':
-            case '?':
-            default: usage(argv[0]); exit(0);
+            default: usage(); exit(0);
         };
     }
 

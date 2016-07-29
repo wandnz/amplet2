@@ -47,9 +47,6 @@
 #  define le64toh(x) letoh64(x)
 #endif
 
-/* use the current date with 2 digit count appended as version: YYYYMMDDXX */
-#define AMP_THROUGHPUT_TEST_VERSION 2014031300
-
 /* The default test time in seconds */
 #define DEFAULT_TESTTIME  20
 
@@ -92,7 +89,7 @@ void run_throughput_server(int argc, char *argv[], BIO *ctrl);
 amp_test_result_t* run_throughput_client(int argc, char *argv[], int count,
         struct addrinfo **dests);
 void print_throughput(amp_test_result_t *result);
-void usage(char *prog);
+void usage(void);
 
 
 

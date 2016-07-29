@@ -416,20 +416,20 @@ void run_throughput_server(int argc, char *argv[], BIO *ctrl) {
     portmax = MAX_CONTROL_PORT;
     standalone = 0;
 
-    /* TODO server should take long options too */
-    while ( (opt = getopt_long(argc, argv, "?hp:4:6:I:Z:",
+    while ( (opt = getopt_long(argc, argv, "p:I:Q:Z:4:6:hx",
                     long_options, NULL)) != -1 ) {
         switch ( opt ) {
-            case 'Z': /* option does nothing for this test */ break;
             case '4': sourcev4 = optarg; break;
             case '6': sourcev6 = optarg; break;
             case 'I': sockopts.device = optarg; break;
-            /* case 'B': for iperf compatability? */
+            case 'Q': /* option does nothing for this test */ break;
+            case 'Z': /* option does nothing for this test */ break;
             case 'p': port = atoi(optarg); portmax = port; break;
+            case 'x': log_level = LOG_DEBUG;
+                      log_level_override = 1;
+                      break;
             case 'h':
-            case '?':
-            /* XXX do we need this extra usage statement here? */
-            default: usage(argv[0]); return;
+            default: usage(); return;
         };
     }
 

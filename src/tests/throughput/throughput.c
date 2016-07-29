@@ -1,90 +1,94 @@
 #include "config.h"
 #include "throughput.h"
 #include "debug.h"
+#include "usage.h"
 
 
-/* TODO update long options for all */
 struct option long_options[] =
     {
-        {"randomise", no_argument, 0, 'r'},
+        {"client", required_argument, 0, 'c'},
+        {"direction", required_argument, 0, 'd'},
+        {"rcvbuf", required_argument, 0, 'i'},
+        {"mss", required_argument, 0, 'M'},
+        {"nodelay", no_argument, 0, 'N'},
+        {"sndbuf", required_argument, 0, 'o'},
         {"port", required_argument, 0, 'p'},
         {"test-port", required_argument, 0, 'P'},
-        {"write-size", required_argument, 0, 'z'},
-        {"rcvbuf", required_argument, 0, 'i'},
-        {"sndbuf", required_argument, 0, 'o'},
-        {"nodelay", no_argument, 0, 'N'},
-        {"mss", required_argument, 0, 'M'},
-        {"sequence", required_argument, 0, 'S'},
-        {"disable-web10g", no_argument, 0, 'w'},
-        {"help", no_argument, 0, 'h'},
+        {"randomise", no_argument, 0, 'r'},
         {"server", no_argument, 0, 's'},
-        {"client", required_argument, 0, 'c'},
+        {"sequence", required_argument, 0, 'S'},
         {"time", required_argument, 0, 't'},
-        {"version", no_argument, 0, 'v'},
-        {"interface", required_argument, 0, 'I'},
+#if 0
+        {"disable-web10g", no_argument, 0, 'w'},
+#endif
+        {"write-size", required_argument, 0, 'z'},
         {"dscp", required_argument, 0, 'Q'},
         {"interpacketgap", required_argument, 0, 'Z'},
+        {"interface", required_argument, 0, 'I'},
         {"ipv4", required_argument, 0, '4'},
         {"ipv6", required_argument, 0, '6'},
-/*      {"c2s-time", required_argument, 0, 'T'},
-        {"c2s-packet", required_argument, 0, 'Y'},
-        {"s2c-time", required_argument, 0, 't'},
-        {"s2c-packet", required_argument, 0, 'y'},
-        {"pause", required_argument, 0, 'p'},
-        {"new", required_argument, 0, 'N'},*/
+        {"help", no_argument, 0, 'h'},
+        {"version", no_argument, 0, 'v'},
+        {"debug", no_argument, 0, 'x'},
         {NULL,0,0,0}
     };
-
-
 
 /*
  * This usage statement is based on iperf, we do pretty similar things.
  */
-void usage(char *prog) {
-    fprintf(stderr, "Usage: %s [-s] [options]\n", prog);
+void usage(void) {
+    fprintf(stderr, "Usage: amp-throughput -s [OPTIONS]\n");
+    fprintf(stderr, "       amp-throughput -c host [OPTIONS]\n");
     fprintf(stderr, "\n");
 
     fprintf(stderr, "Server/Client options:\n");
-    fprintf(stderr, "  -p, --port       <port>  port number to listen on/connect to (default %d)\n", DEFAULT_CONTROL_PORT);
-    fprintf(stderr, "  -I, --interface  <iface> source interface name\n");
-    fprintf(stderr, "  -4, --ipv4       <addr>  source IPv4 address\n");
-    fprintf(stderr, "  -6, --ipv6       <addr>  source IPv6 address\n");
+    fprintf(stderr, "  -p, --port           <port>    "
+            "Port number to use (default %d)\n", DEFAULT_CONTROL_PORT);
+    print_interface_usage();
     fprintf(stderr, "\n");
-
 
     fprintf(stderr, "Server specific options:\n");
-    fprintf(stderr, "  -s, --server             run in server mode\n");
+    fprintf(stderr, "  -s, --server                   Run in server mode\n");
     fprintf(stderr, "\n");
-
 
     fprintf(stderr, "Client specific options:\n");
-    fprintf(stderr, "  -c, --client     <host>  run in client mode, connecting to <host>\n");
-    fprintf(stderr, "  -r, --randomise          randomise data in every packet sent\n");
-    fprintf(stderr, "  -P, --test-port  <port>  port number to test on (default %d)\n", DEFAULT_TEST_PORT);
-    fprintf(stderr, "  -z, --write-size <bytes> length of buffer to write (default %d)\n",(int) DEFAULT_WRITE_SIZE );
-    fprintf(stderr, "  -o, --sndbuf     <bytes> maximum size of the send (output) buffer\n");
-    fprintf(stderr, "  -i, --rcvbuf     <bytes> maximum size of the receive (input) buffer\n");
-    fprintf(stderr, "  -N, --nodelay            disable Nagle's Algorithm (set TCP_NODELAY)\n");
-    fprintf(stderr, "  -M, --mss        <bytes> set TCP maximum segment size\n");
-    fprintf(stderr, "  -S, --schedule   <seq>   test schedule (see below)\n");
-    fprintf(stderr, "  -t, --time       <sec>   time in seconds to transmit (default 10s)\n");
-    fprintf(stderr, "  -w, --disable-web10g     don't record Web10G results\n");
+    fprintf(stderr, "  -c, --client         <host>    "
+            "Run in client mode, connecting to <host>\n");
+    fprintf(stderr, "  -i, --rcvbuf         <bytes>   "
+            "Maximum size of the receive (input) buffer\n");
+    fprintf(stderr, "  -M, --mss            <bytes>   "
+            "Set TCP maximum segment size\n");
+    fprintf(stderr, "  -N, --nodelay                  "
+            "Disable Nagle's Algorithm (set TCP_NODELAY)\n");
+    fprintf(stderr, "  -o, --sndbuf         <bytes>   "
+            "Maximum size of the send (output) buffer\n");
+    fprintf(stderr, "  -P, --test-port      <port>    "
+            "Port number to test on (default %d)\n", DEFAULT_TEST_PORT);
+    fprintf(stderr, "  -r, --randomise                "
+            "Randomise data in every packet sent\n");
+    fprintf(stderr, "  -S, --schedule       <seq>     "
+            "Test schedule (see below)\n");
+    fprintf(stderr, "  -t, --time           <sec>     "
+            "Time in seconds to transmit (default 10s)\n");
+    fprintf(stderr, "  -z, --write-size     <bytes>   "
+            "Length of buffer to write (default %d)\n",
+            (int)DEFAULT_WRITE_SIZE );
+#if 0
+    fprintf(stderr, "  -w, --disable-web10g           "
+            "Don't record Web10G results\n");
+#endif
     fprintf(stderr, "\n");
-
 
     fprintf(stderr, "Miscellaneous:\n");
-    fprintf(stderr, "  -h, --help               print this help\n");
-    fprintf(stderr, "  -x, --debug              enable debug output\n");
-    fprintf(stderr, "  -v, --version            print version information and exit\n");
+    print_generic_usage();
     fprintf(stderr, "\n");
-
 
     fprintf(stderr, "Socket options such as rcvbuf, sndbuf, mss and nodelay "
-            "will be set on both\n");
-    fprintf(stderr, "the client and server. Web10G can be used to check these "
-            "are set correctly.\n");
-    fprintf(stderr, "\n");
-
+            "will be set on both\nthe client and the server.");
+#if 0
+    fprintf(stderr, " Web10G can be used to check these are set correctly.");
+#endif
+    fprintf(stderr, "\n\n");
 
     /* TODO make schedules like iperf? just do one way for a period */
     fprintf(stderr, "A schedule is a sequence of tests. Each test starts with single character\n");
@@ -104,16 +108,6 @@ void usage(char *prog) {
 
 
 /*
- * Print current AMP version and the throughput test protocol version.
- */
-static void version(char *prog) {
-    fprintf(stderr, "%s, amplet version %s, protocol version %d\n", prog,
-            PACKAGE_STRING, AMP_THROUGHPUT_TEST_VERSION);
-}
-
-
-
-/*
  * Combined entry point for throughput tests that will run the appropriate
  * part of the test - server or client.
  */
@@ -125,16 +119,18 @@ amp_test_result_t* run_throughput(int argc, char *argv[], int count,
 
     Log(LOG_DEBUG, "Starting throughput test");
 
-    /* XXX this option string needs to be up to date with server and client? */
+    /* this option string needs to be kept up to date with server and client */
     while ( (opt = getopt_long(argc, argv,
-                    "?hvp:P:rsz:o:i:Nm:wS:c:d:4:6:I:t:Q:Z:",
+                    "c:d:i:Nm:o:p:P:rsS:t:z:I:Q:Z:4:6:hvx",
                     long_options, &option_index)) != -1 ) {
         switch ( opt ) {
             case 's': server_flag_index = optind - 1; break;
-            case 'v': version(argv[0]); exit(0);
-            case '?':
-            case 'h': usage(argv[0]); exit(0);
-            default: break;
+            case 'v': print_package_version(argv[0]); exit(0);
+            case 'x': log_level = LOG_DEBUG;
+                      log_level_override = 1;
+                      break;
+            case 'h': usage(); exit(0);
+            default: /* pass all other options through */ break;
         };
     }
 
