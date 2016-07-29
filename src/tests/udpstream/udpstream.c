@@ -7,24 +7,27 @@
 #include "testlib.h"
 #include "udpstream.h"
 #include "debug.h"
+#include "usage.h"
 
 
 struct option long_options[] = {
-    {"help", no_argument, 0, 'h'},
-    {"port", required_argument, 0, 'p'},
-    {"test-port", required_argument, 0, 'P'},
-    {"size", required_argument, 0, 'z'},
-    {"server", no_argument, 0, 's'},
     {"client", required_argument, 0, 'c'},
     {"direction", required_argument, 0, 'd'},
     {"delay", required_argument, 0, 'D'},
-    {"version", no_argument, 0, 'v'},
-    {"interface", required_argument, 0, 'I'},
+    {"packet-count", required_argument, 0, 'n'},
+    {"port", required_argument, 0, 'p'},
+    {"test-port", required_argument, 0, 'P'},
     {"rtt-samples", required_argument, 0, 'r'},
+    {"server", no_argument, 0, 's'},
+    {"size", required_argument, 0, 'z'},
     {"dscp", required_argument, 0, 'Q'},
     {"interpacketgap", required_argument, 0, 'Z'},
+    {"interface", required_argument, 0, 'I'},
     {"ipv4", required_argument, 0, '4'},
     {"ipv6", required_argument, 0, '6'},
+    {"help", no_argument, 0, 'h'},
+    {"version", no_argument, 0, 'v'},
+    {"debug", no_argument, 0, 'x'},
     {NULL, 0, 0, 0}
 };
 //XXX perturbate vs port
@@ -33,49 +36,45 @@ struct option long_options[] = {
 /*
  *
  */
-void usage(char *prog) {
-    fprintf(stderr, "Usage: %s [-s] [options]\n", prog);
+void usage(void) {
+    fprintf(stderr, "Usage: amp-udpstream -s [OPTIONS]\n");
+    fprintf(stderr, "       amp-udpstream -c host [OPTIONS]\n");
     fprintf(stderr, "\n");
 
     fprintf(stderr, "Server/Client options:\n");
-    fprintf(stderr, "  -p, --port       <port>  port number to listen on/connect to (default %d)\n", DEFAULT_CONTROL_PORT);
-    fprintf(stderr, "  -I, --interface  <iface> source interface name\n");
-    fprintf(stderr, "  -4, --ipv4       <addr>  source IPv4 address\n");
-    fprintf(stderr, "  -6, --ipv6       <addr>  source IPv6 address\n");
+    fprintf(stderr, "  -p, --port           <port>    "
+            "Port number to use (default %d)\n", DEFAULT_CONTROL_PORT);
+    print_interface_usage();
     fprintf(stderr, "\n");
 
     fprintf(stderr, "Server specific options:\n");
-    fprintf(stderr, "  -s, --server             run in server mode\n");
+    fprintf(stderr, "  -s, --server                   Run in server mode\n");
     fprintf(stderr, "\n");
 
     fprintf(stderr, "Client specific options:\n");
-    fprintf(stderr, "  -c, --client         <host>  run in client mode, connecting to <host>\n");
-    //fprintf(stderr, "  -r, --randomise          randomise data in every packet sent\n");
-    //fprintf(stderr, "  -p, --perturbate     <ms>    maximum number of milliseconds to delay test\n");
-    fprintf(stderr, "  -d, --direction      <dir>   TODO magic value describing direction\n");
-    fprintf(stderr, "  -D, --delay          <usec>  delay interval between packets (default %dus)\n", DEFAULT_UDPSTREAM_INTER_PACKET_DELAY);
-    fprintf(stderr, "  -n, --packet-count   <count> number of packets to send (default %d)\n", DEFAULT_UDPSTREAM_PACKET_COUNT);
-    fprintf(stderr, "  -P, --test-port      <port>  port number to test on (default %d)\n", DEFAULT_TEST_PORT);
-    fprintf(stderr, "  -r, --rtt-samples    <N>     echo every Nth packet to sample RTT (default %d)\n", DEFAULT_UDPSTREAM_RTT_SAMPLES);
-    fprintf(stderr, "  -z, --packet-size    <bytes> size of datagrams to send (default %d)\n", DEFAULT_UDPSTREAM_PACKET_LENGTH);
+    fprintf(stderr, "  -c, --client         <host>    "
+            "Run in client mode, connecting to <host>\n");
+    fprintf(stderr, "  -d, --direction      <dir>     "
+            "TODO magic value describing direction\n");
+    fprintf(stderr, "  -D, --delay          <usec>    "
+            "Interval between packets (default %dus)\n",
+            DEFAULT_UDPSTREAM_INTER_PACKET_DELAY);
+    fprintf(stderr, "  -n, --packet-count   <count>   "
+            "Number of packets to send (default %d)\n",
+            DEFAULT_UDPSTREAM_PACKET_COUNT);
+    fprintf(stderr, "  -P, --test-port      <port>    "
+            "Port number to test on (default %d)\n", DEFAULT_TEST_PORT);
+    fprintf(stderr, "  -r, --rtt-samples    <N>       "
+            "Sample every Nth probe for RTT (default %d)\n",
+            DEFAULT_UDPSTREAM_RTT_SAMPLES);
+    fprintf(stderr, "  -z, --packet-size    <bytes>   "
+            "Size of datagrams to send (default %d)\n",
+            DEFAULT_UDPSTREAM_PACKET_LENGTH);
     fprintf(stderr, "\n");
 
     fprintf(stderr, "Miscellaneous:\n");
-    fprintf(stderr, "  -h, --help               print this help\n");
-    fprintf(stderr, "  -x, --debug              enable debug output\n");
-    fprintf(stderr, "  -v, --version            print version information and exit\n");
+    print_generic_usage();
     fprintf(stderr, "\n");
-}
-
-
-
-/*
- *
- */
-void version(char *prog) {
-    fprintf(stderr, "%s\n", prog);
-    fprintf(stderr, "%s, amplet version %s, protocol version %d\n", prog,
-            PACKAGE_STRING, AMP_UDPSTREAM_TEST_VERSION);
 }
 
 
@@ -93,14 +92,16 @@ amp_test_result_t* run_udpstream(int argc, char *argv[], int count,
 
     Log(LOG_DEBUG, "Starting udpstream test");
 
-    while ( (opt = getopt_long(argc, argv, "?4:6:cd:hI:p:n:D:P:Q:r:svz:Z:",
+    while ( (opt = getopt_long(argc, argv, "cd:D:n:p:P:r:sz:I:Q:Z:4:6:hvx",
                     long_options, &option_index)) != -1 ) {
         switch ( opt ) {
             case 's': server_flag_index = optind - 1; break;
-            case 'v': version(argv[0]); exit(0);
-            case '?':
-            case 'h': usage(argv[0]); exit(0);
-            default: break;
+            case 'v': print_package_version(argv[0]); exit(0);
+            case 'x': log_level = LOG_DEBUG;
+                      log_level_override = 1;
+                      break;
+            case 'h': usage(); exit(0);
+            default: /* pass all other options through */ break;
         };
     }
 

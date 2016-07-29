@@ -13,8 +13,6 @@
 #include "udpstream.pb-c.h"
 
 
-#define AMP_UDPSTREAM_TEST_VERSION 2016011800
-
 // TODO use different ports to the throughput test
 /* The default test port */
 #define DEFAULT_CONTROL_PORT  8815 /* Could use etc/services like old code */
@@ -119,8 +117,7 @@ void run_udpstream_server(int argc, char *argv[], BIO *ctrl);
 amp_test_result_t* run_udpstream_client(int argc, char *argv[], int count,
         struct addrinfo **dests);
 void print_udpstream(amp_test_result_t *result);
-void usage(char *prog);
-void version(char *prog);
+void usage(void);
 struct summary_t* send_udp_stream(int sock, struct addrinfo *remote,
         struct opt_t *options);
 int receive_udp_stream(int sock, struct opt_t *options, struct timeval *times);

@@ -335,9 +335,9 @@ amp_test_result_t* run_udpstream_client(int argc, char *argv[], int count,
     memset(&meta, 0, sizeof(meta));
 
     /* TODO udp port */
-    while ( (opt = getopt_long(argc, argv, "hvI:D:Q:Z:p:P:r:z:c:d:n:4:6:",
+    while ( (opt = getopt_long(argc, argv, "c:d:D:p:P:r:n:z:I:Q:Z:4:6:hx",
                     long_options, NULL)) != -1 ) {
-	switch ( opt ) {
+        switch ( opt ) {
             case '4':
                 socket_options.sourcev4 = get_numeric_address(optarg, NULL);
                 meta.sourcev4 = optarg;
@@ -347,8 +347,6 @@ amp_test_result_t* run_udpstream_client(int argc, char *argv[], int count,
                 meta.sourcev6 = optarg;
                 break;
             case 'I': socket_options.device = meta.interface = optarg; break;
-            case 'c': client = optarg; break;
-            case 'D': test_options.packet_spacing = atoi(optarg); break;
             case 'Q': if ( parse_dscp_value(optarg, &test_options.dscp) < 0 ) {
                           Log(LOG_WARNING, "Invalid DSCP value, aborting");
                           exit(-1);
@@ -359,15 +357,19 @@ amp_test_result_t* run_udpstream_client(int argc, char *argv[], int count,
              * lower bound on the interval that we use
              */
             case 'Z': minimum_delay = atoi(optarg); break;
+            case 'c': client = optarg; break;
+            case 'd': test_options.direction = atoi(optarg); break;
+            case 'D': test_options.packet_spacing = atoi(optarg); break;
             case 'p': test_options.cport = atoi(optarg); break;
             case 'P': test_options.tport = atoi(optarg); break;
-	    case 'r': test_options.rtt_samples = atoi(optarg); break;
-	    case 'z': test_options.packet_size = atoi(optarg); break;
-	    case 'n': test_options.packet_count = atoi(optarg); break;
-            case 'd': test_options.direction = atoi(optarg); break;
-            case 'v': version(argv[0]); exit(0);
-	    case 'h':
-	    default: usage(argv[0]); exit(0);
+            case 'r': test_options.rtt_samples = atoi(optarg); break;
+            case 'n': test_options.packet_count = atoi(optarg); break;
+            case 'z': test_options.packet_size = atoi(optarg); break;
+            case 'x': log_level = LOG_DEBUG;
+                      log_level_override = 1;
+                      break;
+            case 'h':
+            default: usage(); exit(0);
 	};
     }
 
