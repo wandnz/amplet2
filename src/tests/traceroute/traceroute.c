@@ -301,7 +301,9 @@ static int inc_probe_ttl(struct dest_info_t *item) {
 
 
 /*
- *
+ * Check if we have made too many probes without seeing a response. If an
+ * individual hop isn't replying then increment the TTL and try the next one,
+ * if lots of consecutive hops aren't responding then give up.
  */
 static int inc_attempt_counter(struct dest_info_t *info) {
     /* Try again if we haven't done too many yet */
@@ -471,7 +473,7 @@ static int enqueue_next_pending(struct probe_list_t *probelist) {
 
 
 /*
- *
+ * Check if an address and TTL pair has already been seen.
  */
 static struct stopset_t *find_in_stopset(struct sockaddr *addr, int ttl,
         struct stopset_t **stopset) {
@@ -583,7 +585,7 @@ static char *get_embedded_packet(int family, char *packet) {
 
 
 /*
- *
+ * Get the value of the code field in the ICMP or ICMPv6 header.
  */
 static int get_icmp_code(int family, char *packet) {
     switch ( family ) {
@@ -607,7 +609,7 @@ static int get_icmp_code(int family, char *packet) {
 
 
 /*
- *
+ * Get the value of the type field in the ICMP or ICMPv6 header.
  */
 static int get_icmp_type(int family, char *packet) {
     switch ( family ) {
@@ -631,7 +633,7 @@ static int get_icmp_type(int family, char *packet) {
 
 
 /*
- *
+ * Get the value of the TTL field in the IPv4 or IPv6 header.
  */
 static int get_ttl(int family, char *packet) {
     if ( packet == NULL ) {
@@ -672,7 +674,7 @@ static int get_embedded_ttl(int family, char *packet) {
 
 
 /*
- *
+ * Deal with an incoming packet that may be a response to one of our probes.
  */
 static int process_packet(int family, struct sockaddr *addr, char *packet,
         struct timeval now, struct probe_list_t *probelist ) {
@@ -752,7 +754,7 @@ static int process_packet(int family, struct sockaddr *addr, char *packet,
 
         /* XXX if we get an error while probing backwards, what should we do? */
         if ( item->done_forward ) {
-            printf("XXX error on reverse\n");
+            Log(LOG_WARNING, "XXX error on reverse path probing\n");
         }
 
         /* don't record any hops that timed out while waiting for this error */
@@ -1066,7 +1068,8 @@ static int open_sockets(struct socket_t *icmp_sockets,
 
 
 /*
- *
+ * Construct a protocol buffer message containing the results for a single
+ * destination address.
  */
 static Amplet2__Traceroute__Item* report_destination(struct dest_info_t *info,
         struct opt_t *opt) {
@@ -1140,9 +1143,10 @@ static Amplet2__Traceroute__Item* report_destination(struct dest_info_t *info,
 
 
 /*
- *
+ * Construct a protocol buffer message containing all the test options and the
+ * results for each destination address.
  */
-static amp_test_result_t*  report_results(struct timeval *start_time, int count,
+static amp_test_result_t* report_results(struct timeval *start_time, int count,
 	struct dest_info_t *info, struct opt_t *opt) {
 
     int i;
@@ -1207,7 +1211,8 @@ static amp_test_result_t*  report_results(struct timeval *start_time, int count,
 
 
 /*
- *
+ * The usage statement when the test is run standalone. All of these options
+ * are still valid when run as part of the amplet2-client.
  */
 static void usage(void) {
     fprintf(stderr,
@@ -1245,8 +1250,6 @@ static void probe_timeout_callback(wand_event_handler_t *ev_hdl, void *data);
 static void send_probe_callback(wand_event_handler_t *ev_hdl, void *data) {
     struct probe_list_t *probelist = (struct probe_list_t*)data;
     struct dest_info_t *item;
-
-    //printf("send_probe_callback\n");
 
     /* do nothing if there are no packets to send */
     if ( probelist->ready == NULL ) {
@@ -1302,7 +1305,7 @@ static void send_probe_callback(wand_event_handler_t *ev_hdl, void *data) {
 
 
 /*
- *
+ * Callback function used when receiving an IPv4 packet.
  */
 static void recv_probe4_callback(wand_event_handler_t *ev_hdl,
         int fd, void *data, __attribute__((unused))enum wand_eventtype_t ev) {
@@ -1338,7 +1341,7 @@ static void recv_probe4_callback(wand_event_handler_t *ev_hdl,
 
 
 /*
- *
+ * Callback function used when receiving an IPv6 packet.
  */
 static void recv_probe6_callback(wand_event_handler_t *ev_hdl,
         int fd, void *data, __attribute__((unused))enum wand_eventtype_t ev) {
@@ -1510,9 +1513,6 @@ static void interrupt_test(wand_event_handler_t *ev_hdl,
 /*
  * Reimplementation of the traceroute test from AMP
  *
- * TODO get useful errors into the log strings
- * TODO get test name into log strings
- * TODO logging will need more work - the log level won't be set.
  * TODO const up the dest arguments so cant be changed?
  */
 amp_test_result_t* run_traceroute(int argc, char *argv[], int count,
@@ -1740,52 +1740,13 @@ amp_test_result_t* run_traceroute(int argc, char *argv[], int count,
         }
     }
 
-    /* Send report, only reporting about completed paths. For now, we'll
+    /*
+     * Send report, only reporting about completed paths. For now, we'll
      * quietly ignore any that didn't finish as it doesn't really make
      * sense to report an incomplete path.
      */
     result = report_results(&start_time, probelist.done_count, probelist.done,
             &options);
-
-    /* XXX temporary debug */
-#if 0
-    {
-        char addrstr[INET6_ADDRSTRLEN];
-        for ( item = probelist.done; item != NULL; item = item->next ) {
-            if ( item->addr->ai_family == AF_INET ) {
-                inet_ntop(item->addr->ai_family,
-                        &((struct sockaddr_in*)item->addr->ai_addr)->sin_addr,
-                        addrstr, INET6_ADDRSTRLEN);
-            } else {
-                inet_ntop(item->addr->ai_family,
-                        &((struct sockaddr_in6*)item->addr->ai_addr)->sin6_addr,
-                        addrstr, INET6_ADDRSTRLEN);
-            }
-            printf("%d %s: %d\n", item->id, addrstr, item->probes);
-        }
-        printf("SENT %d PACKETS\n", probelist.total_probes);
-    }
-
-/*
-    for ( stop = probelist.stopset; stop != NULL; stop = stop->next ) {
-        {
-            char addrstr[INET6_ADDRSTRLEN];
-            if ( !stop->addr ) {
-                printf("STOPSET 0.0.0.0\n");
-                continue;
-            }
-            if ( stop->addr->sa_family == AF_INET ) {
-                inet_ntop(AF_INET, &((struct sockaddr_in*)stop->addr)->sin_addr,
-                        addrstr, INET6_ADDRSTRLEN);
-            } else {
-                inet_ntop(AF_INET6, &((struct sockaddr_in6*)stop->addr)->sin6_addr,
-                        addrstr, INET6_ADDRSTRLEN);
-            }
-            printf("STOPSET %s\n", addrstr);
-        }
-    }
-*/
-#endif
 
     /*
      * If we were interrupted, the pending and outstanding lists might still
@@ -1802,8 +1763,6 @@ amp_test_result_t* run_traceroute(int argc, char *argv[], int count,
         stop = stop->next;
         free(tmp);
     }
-
-    //printf("STOPSET SIZE: %d\n", i);
 
     return result;
 }

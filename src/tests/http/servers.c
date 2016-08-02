@@ -7,8 +7,10 @@
 
 extern int total_pipelines;
 
+
+
 /*
- *
+ * Create a new server statistics object.
  */
 static struct server_stats_t *create_server(char *name, int pipelines) {
     struct server_stats_t *server =

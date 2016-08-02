@@ -314,7 +314,8 @@ static void process_packet(char *packet, uint16_t ident, struct timeval *now,
 
 
 /*
- *
+ * Try to read any outstanding probe responses until we reach the timeout or
+ * have received all the expected responses.
  */
 static void harvest(struct socket_t *sockets, uint16_t ident, int wait,
 	int count, struct info_t info[], struct opt_t *opt) {
@@ -500,7 +501,7 @@ static void send_packet(struct socket_t *sockets, uint16_t seq, uint16_t ident,
 
 
 /*
- *
+ * Open the UDP sockets used for this test.
  */
 static int open_sockets(struct socket_t *sockets) {
     if ( (sockets->socket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) < 0 ) {
@@ -522,7 +523,8 @@ static int open_sockets(struct socket_t *sockets) {
 
 
 /*
- *
+ * Construct a protocol buffer message containing the DNS header flags for one
+ * query response.
  */
 static Amplet2__Dns__DnsFlags* report_flags(union flags_t *flags) {
 
@@ -557,7 +559,8 @@ static Amplet2__Dns__DnsFlags* report_flags(union flags_t *flags) {
 
 
 /*
- *
+ * Construct a protocol buffer message containing the results for a single
+ * destination address.
  */
 static Amplet2__Dns__Item* report_destination(struct info_t *info) {
 
@@ -615,7 +618,8 @@ static Amplet2__Dns__Item* report_destination(struct info_t *info) {
 
 
 /*
- *
+ * Construct a protocol buffer message containing all the test options and the
+ * results for each destination address.
  */
 static amp_test_result_t* report_results(struct timeval *start_time, int count,
 	struct info_t info[], struct opt_t *opt) {
@@ -680,7 +684,8 @@ static amp_test_result_t* report_results(struct timeval *start_time, int count,
 
 
 /*
- *
+ * Convert query type string from the command line into the value used in
+ * the DNS header.
  */
 static uint16_t get_query_type(char *query_type) {
     uint16_t value;
@@ -712,7 +717,8 @@ static uint16_t get_query_type(char *query_type) {
 
 
 /*
- *
+ * Convert the query type value used in the DNS header into a string suitable
+ * for printing.
  */
 static char *get_query_type_string(uint16_t query_type) {
     switch ( query_type ) {
@@ -731,7 +737,8 @@ static char *get_query_type_string(uint16_t query_type) {
 
 
 /*
- *
+ * Convert query class string from the command line into the value used in
+ * the DNS header.
  */
 static uint16_t get_query_class(char *query_class) {
     uint16_t value;
@@ -749,7 +756,8 @@ static uint16_t get_query_class(char *query_class) {
 
 
 /*
- *
+ * Convert the query class value used in the DNS header into a string suitable
+ * for printing.
  */
 static char *get_query_class_string(uint16_t query_class) {
     switch ( query_class ) {
@@ -761,7 +769,8 @@ static char *get_query_class_string(uint16_t query_class) {
 
 
 /*
- *
+ * Convert the opcode value used in the DNS header into a string suitable
+ * for printing.
  */
 static char *get_opcode_string(uint8_t opcode) {
     switch ( opcode ) {
@@ -777,7 +786,8 @@ static char *get_opcode_string(uint8_t opcode) {
 
 
 /*
- *
+ * Convert the status value used in the DNS header into a string suitable
+ * for printing.
  */
 static char *get_status_string(uint8_t status) {
     switch ( status ) {
@@ -799,7 +809,8 @@ static char *get_status_string(uint8_t status) {
 
 
 /*
- *
+ * The usage statement when the test is run standalone. All of these options
+ * are still valid when run as part of the amplet2-client.
  */
 static void usage(void) {
     fprintf(stderr,
@@ -839,9 +850,6 @@ static void usage(void) {
  * Reimplementation of the DNS2 test from AMP
  *
  * TODO check that all the random macros used for values are actually needed
- * TODO get useful errors into the log strings
- * TODO get test name into log strings
- * TODO logging will need more work - the log level won't be set.
  * TODO const up the dest arguments so cant be changed?
  */
 amp_test_result_t* run_dns(int argc, char *argv[], int count,
@@ -963,6 +971,7 @@ amp_test_result_t* run_dns(int argc, char *argv[], int count,
                 count++;
             }
         }
+
         /* mark it so we know that we have to free dests ourselves later */
         local_resolv = 1;
         fclose(resolv);

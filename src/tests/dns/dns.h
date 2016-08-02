@@ -92,7 +92,7 @@ struct dns_opt_rr_t {
 
 
 /*
- * DNS query record minus the initial arbitrary length name field. This is 
+ * DNS query record minus the initial arbitrary length name field. This is
  * used in the query to describe the type and class desired as well as for
  * processing the question section of the response packets.
  */
@@ -162,9 +162,9 @@ struct opt_t {
 
 amp_test_result_t* run_dns(int argc, char *argv[], int count,
         struct addrinfo **dests);
-int save_dns(char *monitor, uint64_t timestamp, void *data, uint32_t len);
 void print_dns(amp_test_result_t *result);
 test_t *register_test(void);
+
 #if UNIT_TEST
 char *amp_test_dns_encode(char *query);
 char *amp_test_dns_decode(char *result, char *data, char *start);

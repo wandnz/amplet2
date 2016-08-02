@@ -149,6 +149,7 @@ size_t parse_headers(void *ptr, size_t size, size_t nmemb, void *data) {
 }
 
 
+
 /*
  * Walk through the buffer looking for any external resources that we should
  * also download to complete the page. Anything pointed to by "src=" inside
@@ -190,14 +191,11 @@ size_t parse_response(void *ptr, size_t size, size_t nmemb, void *data) {
         written += fwrite(ptr, size, nmemb, (FILE*)writer);
 
         if ( written < total ) {
-            //fprintf(stderr, "incomplete write\n");
             if ( ferror(writer) && errno != EAGAIN ) {
                 /* breaking here will return < total, which will error */
                 fclose(writer);
                 writer = NULL;
                 break;
-            } else {
-                //fprintf(stderr, "EAGAIN\n");
             }
         }
 

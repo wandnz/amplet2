@@ -102,7 +102,8 @@ static void report_header_results(Amplet2__Http__Header *header,
 
 
 /*
- *
+ * Construct a protocol buffer message containing the cache headers present
+ * in the HTTP response.
  */
 static Amplet2__Http__CacheHeaders* report_cache_headers(
         struct cache_headers_t *cache) {
@@ -250,7 +251,8 @@ static Amplet2__Http__Server* report_server_results(
 
 
 /*
- *
+ * Construct a protocol buffer message containing all the test options and the
+ * results for each server/object.
  */
 static amp_test_result_t* report_results(struct timeval *start_time,
         struct server_stats_t *server_stats, struct opt_t *opt) {
@@ -351,7 +353,6 @@ static void split_url(char *orig_url, char *server, char *path, int set) {
         assert(base_server);
         strncpy(server, base_server, MAX_DNS_NAME_LEN);
         strncpy(path, url, MAX_PATH_LEN);
-        //printf("absolute url, making it: %s %s\n", server, path);
         return;
     } else if ( base_server != NULL && base_path != NULL ) {
         /* no initial slashes but not the first url, treat as a relative path */
@@ -434,7 +435,6 @@ static void split_url(char *orig_url, char *server, char *path, int set) {
         if ( base_scheme != scheme ) {
             base_scheme = strdup(scheme);
         }
-        //printf("setting base server/path: %s %s\n", base_server, base_path);
     }
 
     /* TODO might be nice to update the url so it gets printed better later */
@@ -521,7 +521,8 @@ static curl_socket_t open_socket(__attribute__((unused))void *clientp,
 
 
 /*
- *
+ * Build the curl slist containing all the headers that we want to set on
+ * the outgoing request.
  */
 static struct curl_slist *config_request_headers(char *url, int caching) {
 
@@ -574,10 +575,8 @@ static struct curl_slist *config_request_headers(char *url, int caching) {
 
 
 
-
-
 /*
- *
+ * Check if a given object is in the given queue.
  */
 static int is_object_in_queue(char *object, struct object_stats_t *queue) {
 
@@ -595,7 +594,7 @@ static int is_object_in_queue(char *object, struct object_stats_t *queue) {
 
 
 /*
- *
+ * Add an object to the given queue, returning the modified queue.
  */
 static struct object_stats_t *add_object_to_queue(struct object_stats_t *object,
         struct object_stats_t *queue) {
@@ -644,7 +643,8 @@ static struct object_stats_t *pop_object_from_queue(char *object,
 
 
 /*
- *
+ * Create a new object on a given queue and return the modified queue. If
+ * the object already exists then return the queue unmodified.
  */
 static struct object_stats_t *create_object(char *host, char *path,
         struct object_stats_t *queue, int parse) {
@@ -677,8 +677,11 @@ static struct object_stats_t *create_object(char *host, char *path,
     return queue;
 }
 
+
+
 /*
- *
+ * Add a new URL for an object to be fetched (if it hasn't already been
+ * fetched and isn't already in progress).
  */
 struct server_stats_t *add_object(char *url, int parse) {
 
@@ -719,6 +722,10 @@ struct server_stats_t *add_object(char *url, int parse) {
 
 
 
+/*
+ * Select which pipeline should be used to download the next object from a
+ * server.
+ */
 static int select_pipeline(struct server_stats_t *server, uint32_t threshold) {
     int index = 0;
     uint32_t smallest_size;
@@ -791,6 +798,7 @@ static int select_pipeline(struct server_stats_t *server, uint32_t threshold) {
 
     return -1;
 }
+
 
 
 /*
@@ -911,6 +919,9 @@ CURL *pipeline_next_object(CURLM *multi, struct server_stats_t *server) {
 
 
 
+/*
+ * Save the statistics about an object that has been fetched.
+ */
 static struct object_stats_t *save_stats(CURL *handle) {
     char *url;
     struct timeval end;
@@ -1007,8 +1018,10 @@ static struct object_stats_t *save_stats(CURL *handle) {
 }
 
 
+
 /*
- *
+ * Deal with any messages from the curl multi handle - this could be objects
+ * that have been successfully fetched, failed to fetch, redirected, etc.
  */
 static void check_messages(CURLM *multi, int *running_handles) {
     CURLMsg *msg;
@@ -1098,7 +1111,8 @@ static void check_messages(CURLM *multi, int *running_handles) {
 
 
 /*
- * Ask curl how long we should wait
+ * Ask curl how long we should wait before trying again, or use a fixed wait
+ * time if curl is unable to tell us.
  */
 static long get_wait_timeout(CURLM *multi) {
     long wait;
@@ -1123,7 +1137,7 @@ static long get_wait_timeout(CURLM *multi) {
 
 
 /*
- *
+ * Fetch the given URL.
  */
 static int fetch(char *url) {
     struct server_stats_t *server;
@@ -1203,7 +1217,8 @@ static int fetch(char *url) {
 
 
 /*
- *
+ * Determine which configuration option to use to control the maximum number
+ * of connections to a server and how many outstanding requests are allowed.
  */
 static void configure_global_max_requests(struct opt_t *opt) {
     /* how many connections are we allowed to have per server */
@@ -1226,7 +1241,7 @@ static void configure_global_max_requests(struct opt_t *opt) {
 
 
 /*
- *
+ * Force curl to use a specific SSL version.
  */
 static void set_ssl_version(long *sslv, char *optarg) {
     if ( strncmp(optarg, "sslv3", 5) == 0 ) {
@@ -1258,7 +1273,8 @@ static void set_ssl_version(long *sslv, char *optarg) {
 
 
 /*
- *
+ * The usage statement when the test is run standalone. All of these options
+ * are still valid when run as part of the amplet2-client.
  */
 static void usage(void) {
     fprintf(stderr,
@@ -1303,9 +1319,6 @@ static void usage(void) {
 /*
  * Reimplementation of the HTTP2 test from AMP
  *
- * TODO get useful errors into the log strings
- * TODO get test name into log strings
- * TODO logging will need more work - the log level won't be set.
  * TODO const up the dest arguments so cant be changed?
  */
 //XXX dests should not have anything in it?

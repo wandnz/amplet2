@@ -8,7 +8,7 @@
 
 
 /*
- *
+ * Print global http test settings and statistics to stdout.
  */
 static void print_global_info(Amplet2__Http__Report *report) {
     assert(report);
@@ -36,7 +36,7 @@ static void print_global_info(Amplet2__Http__Report *report) {
 
 
 /*
- *
+ * Print statistics for a single object to stdout.
  */
 static void print_object(Amplet2__Http__Object *object) {
     assert(object);
@@ -91,7 +91,7 @@ static void print_object(Amplet2__Http__Object *object) {
 
 
 /*
- *
+ * Print statistics for a single server and all the objects fetched from it.
  */
 static void print_server(Amplet2__Http__Server *server) {
     unsigned int i;
@@ -113,7 +113,7 @@ static void print_server(Amplet2__Http__Server *server) {
 
 
 /*
- *
+ * Print all the http test results.
  */
 void print_http(amp_test_result_t *result) {
     Amplet2__Http__Report *msg;

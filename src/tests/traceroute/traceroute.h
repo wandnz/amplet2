@@ -45,11 +45,8 @@
 
 amp_test_result_t* run_traceroute(int argc, char *argv[], int count,
         struct addrinfo **dests);
-int save_traceroute(char *monitor, uint64_t timestamp, void *data, uint32_t len);
 void print_traceroute(amp_test_result_t *result);
 test_t *register_test(void);
-int compare_addresses(const struct sockaddr *a,
-        const struct sockaddr *b, int len);
 
 #if UNIT_TEST
 int amp_traceroute_build_ipv4_probe(void *packet, uint16_t packet_size,
