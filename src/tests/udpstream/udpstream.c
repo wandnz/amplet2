@@ -34,7 +34,8 @@ struct option long_options[] = {
 
 
 /*
- *
+ * The usage statement when the test is run standalone. All of these options
+ * are still valid when run as part of the amplet2-client.
  */
 void usage(void) {
     fprintf(stderr, "Usage: amp-udpstream -s [OPTIONS]\n");

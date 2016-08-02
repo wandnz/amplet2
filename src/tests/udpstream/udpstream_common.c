@@ -12,6 +12,9 @@
 
 
 
+/*
+ * Build a HELLO protocol buffer message containing test options.
+ */
 ProtobufCBinaryData* build_hello(struct opt_t *options) {
     ProtobufCBinaryData *data = malloc(sizeof(ProtobufCBinaryData));
     Amplet2__Udpstream__Hello hello = AMPLET2__UDPSTREAM__HELLO__INIT;
@@ -40,6 +43,10 @@ ProtobufCBinaryData* build_hello(struct opt_t *options) {
 
 
 
+/*
+ * Parse a HELLO protocol buffer message containing test options and return
+ * them.
+ */
 void* parse_hello(ProtobufCBinaryData *data) {
     struct opt_t *options;
     Amplet2__Udpstream__Hello *hello;
@@ -63,7 +70,8 @@ void* parse_hello(ProtobufCBinaryData *data) {
 
 
 /*
- * XXX take options structure or integer?
+ * Build a SEND protocol buffer message containing information on how long
+ * to send test data.
  */
 ProtobufCBinaryData* build_send(struct opt_t *options) {
     ProtobufCBinaryData *data = malloc(sizeof(ProtobufCBinaryData));
@@ -82,7 +90,8 @@ ProtobufCBinaryData* build_send(struct opt_t *options) {
 
 
 /*
- * XXX return options structure or integer? integer might be easier
+ * Parse a SEND protocol buffer message containing information on how long
+ * to send test data and return it.
  */
 void* parse_send(ProtobufCBinaryData *data) {
     struct opt_t *options;
@@ -306,7 +315,8 @@ static int cmp(const void *a, const void *b) {
 
 
 /*
- *
+ * Create a new loss period to count the number of consecutive packets received
+ * or dropped.
  */
 static Amplet2__Udpstream__Period *new_loss_period(
         Amplet2__Udpstream__Period__Status status) {
@@ -326,7 +336,8 @@ static Amplet2__Udpstream__Period *new_loss_period(
 
 
 /*
- *
+ * Construct a protocol buffer message containing the voip statistics for
+ * a single test flow.
  */
 Amplet2__Udpstream__Voip* report_voip(Amplet2__Udpstream__Item *item) {
     Amplet2__Udpstream__Voip *voip;
@@ -377,7 +388,8 @@ Amplet2__Udpstream__Voip* report_voip(Amplet2__Udpstream__Item *item) {
 
 
 /*
- *
+ * Construct a protocol buffer message containing the summary statistics for
+ * the RTT measurements in a single test flow.
  */
 Amplet2__Udpstream__SummaryStats* report_summary(struct summary_t *summary) {
     Amplet2__Udpstream__SummaryStats *stats;
@@ -406,7 +418,9 @@ Amplet2__Udpstream__SummaryStats* report_summary(struct summary_t *summary) {
 
 
 /*
- *
+ * Construct a protocol buffer message containing all the statistics for
+ * a single test flow, including packet interarrivals, RTT measurements,
+ * VoIP statistics, loss periods etc.
  */
 Amplet2__Udpstream__Item* report_stream(enum udpstream_direction direction,
         struct summary_t *rtt, struct timeval *times, struct opt_t *options) {

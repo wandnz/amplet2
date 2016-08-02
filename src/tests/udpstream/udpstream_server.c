@@ -15,6 +15,8 @@
 
 
 /*
+ * Notify the remote end that we are ready to receive test data, receive the
+ * stream of test data, then send back results from our side of the connection.
  * TODO return failure from here if things go poorly
  */
 static void do_receive(BIO *ctrl, int test_sock, struct opt_t *options) {
@@ -53,6 +55,8 @@ static void do_receive(BIO *ctrl, int test_sock, struct opt_t *options) {
 
 
 /*
+ * Send a stream of test data, then send back results from our side of the
+ * test connection.
  * TODO return failure from here if things go poorly
  */
 static void do_send(BIO *ctrl, int test_sock, struct sockaddr_storage *remote,
@@ -109,8 +113,9 @@ static void do_send(BIO *ctrl, int test_sock, struct sockaddr_storage *remote,
 
 
 
-//TODO make error messages make sense and not duplicated at all levels
-// XXX can any of this move into a library function?
+/*
+ * Perform the test.
+ */
 static int serve_test(BIO *ctrl, struct sockopt_t *sockopts) {
     struct sockaddr_storage remote;
     socklen_t remote_addrlen;
@@ -231,7 +236,7 @@ static int serve_test(BIO *ctrl, struct sockopt_t *sockopts) {
 
 
 /*
- *
+ * The main function of the udpstream server.
  */
 void run_udpstream_server(int argc, char *argv[], BIO *ctrl) {
     int port; /* Port to start server on */

@@ -190,11 +190,9 @@ static void freeSchedule(struct opt_t *options){
 
 
 
-
-
-
 /*
- *
+ * Construct a protocol buffer message containing all the test options and the
+ * results.
  */
 static amp_test_result_t* report_results(uint64_t start_time,
         struct addrinfo *dest, struct opt_t *options) {
@@ -757,7 +755,7 @@ amp_test_result_t* run_throughput_client(int argc, char *argv[], int count,
 
 
 /*
- *
+ * Print out a size value using sensible units.
  */
 static void printSize(uint64_t bytes) {
     double scaled = (double)bytes;
@@ -778,7 +776,7 @@ static void printSize(uint64_t bytes) {
 
 
 /*
- *
+ * Print out a duration value using seconds.
  */
 static void printDuration(uint64_t time_ns) {
     printf(" in %.02lf seconds", ((double)time_ns) / 1000000000);
@@ -810,8 +808,8 @@ static void printSpeed(uint64_t bytes, uint64_t time_ns) {
 
 
 /**
- * Print back our data blob that we made report_results.
- * Remember this is all in big endian byte order
+ * Print throughput test results to stdout, nicely formatted for the
+ * standalone test.
  *
  * TODO make this output a lot nicer
  */

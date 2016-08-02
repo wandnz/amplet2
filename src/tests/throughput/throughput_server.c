@@ -41,7 +41,8 @@ static uint16_t getSocketPort(int sock_fd) {
 
 
 /*
- *
+ * Notify the remote end that we are ready to receive test data, receive the
+ * stream of test data, then send back results from our side of the connection.
  */
 static int do_receive(BIO *ctrl, int test_sock) {
     Amplet2__Throughput__Item *item;
@@ -95,6 +96,11 @@ static int do_receive(BIO *ctrl, int test_sock) {
 }
 
 
+
+/*
+ * Send a stream of test data, then send back results from our side of the
+ * test connection.
+ */
 static int do_send(BIO *ctrl, int test_sock, struct opt_t *options,
         struct test_request_t *request) {
 
@@ -118,20 +124,8 @@ static int do_send(BIO *ctrl, int test_sock, struct opt_t *options,
         case -1:
             /* Failed to write to socket */
             return -1;
-#if 0
-        case 1:
-            /* Bad test request, lets send a packet to keep the
-             * client happy it's still expecting something.
-             * XXX Why do it like this?
-             */
-            //XXX THIS WON"T WORK, ITS A NORMAL SOCKET
-            if ( send_control_receive(test_sock, 0) < 0 ) {
-                return -1;
-            }
-            /* Fall through on purpose! */
-#endif
+
         case 0:
-            /* Success or our fake success from case 1: */
 #if 0
             if ( !options->disable_web10g ) {
                 web10g = getWeb10GSnap(test_sock);
@@ -172,6 +166,11 @@ static int do_send(BIO *ctrl, int test_sock, struct opt_t *options,
 
 
 
+/*
+ * Close and reopen the test connection. In some cases this will have the
+ * effect of resetting various TCP congestion variables, though this is
+ * perhaps becoming less common.
+ */
 static int do_renew(BIO *ctrl, int test_sock, uint16_t port, uint16_t portmax,
         struct sockopt_t *sockopts) {
 

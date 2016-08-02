@@ -94,7 +94,9 @@ static amp_test_result_t* report_results(struct timeval *start_time,
 
 
 /*
- *
+ * Combine RTT and VoIP results with the rest of the results. RTT results
+ * are returned by the remote end so must be combined with the local results
+ * before we can calculate the VoIP statistics.
  */
 static Amplet2__Udpstream__Item* merge_results(ProtobufCBinaryData *data,
         struct summary_t *rtt) {
@@ -113,7 +115,7 @@ static Amplet2__Udpstream__Item* merge_results(ProtobufCBinaryData *data,
 
 
 /*
- *
+ * Unpack a protocol buffer message containing summary statistics for a test.
  */
 static struct summary_t *extract_summary(ProtobufCBinaryData *data) {
     struct summary_t *stats = NULL;
@@ -138,7 +140,9 @@ static struct summary_t *extract_summary(ProtobufCBinaryData *data) {
 
 
 /*
- *
+ * Build a simple schedule describing which way to test in which order. Based
+ * loosely on the throughput test schedule building, which perhaps makes it
+ * more complicated than it needs to be.
  */
 static struct test_request_t* build_schedule(struct opt_t *options) {
     struct test_request_t *schedule = NULL;
@@ -299,7 +303,7 @@ static amp_test_result_t* run_test(struct addrinfo *server,
 
 
 /*
- *
+ * The main function of the udpstream client test.
  */
 amp_test_result_t* run_udpstream_client(int argc, char *argv[], int count,
         struct addrinfo **dests) {
@@ -334,7 +338,6 @@ amp_test_result_t* run_udpstream_client(int argc, char *argv[], int count,
 
     memset(&meta, 0, sizeof(meta));
 
-    /* TODO udp port */
     while ( (opt = getopt_long(argc, argv, "c:d:D:p:P:r:n:z:I:Q:Z:4:6:hx",
                     long_options, NULL)) != -1 ) {
         switch ( opt ) {

@@ -18,7 +18,7 @@
 
 
 /*
- *
+ * Build a HELLO protocol buffer message containing test options.
  */
 ProtobufCBinaryData* build_hello(struct opt_t *options) {
     ProtobufCBinaryData *data = malloc(sizeof(ProtobufCBinaryData));
@@ -55,7 +55,8 @@ ProtobufCBinaryData* build_hello(struct opt_t *options) {
 
 
 /*
- *
+ * Parse a HELLO protocol buffer message containing test options and return
+ * them.
  */
 void* parse_hello(ProtobufCBinaryData *data) {
     struct opt_t *options;
@@ -83,7 +84,8 @@ void* parse_hello(ProtobufCBinaryData *data) {
 
 
 /*
- *
+ * Build a SEND protocol buffer message containing information on how long
+ * to send test data.
  */
 ProtobufCBinaryData* build_send(struct test_request_t *options) {
     ProtobufCBinaryData *data = malloc(sizeof(ProtobufCBinaryData));
@@ -106,7 +108,8 @@ ProtobufCBinaryData* build_send(struct test_request_t *options) {
 
 
 /*
- *
+ * Parse a SEND protocol buffer message containing information on how long
+ * to send test data and return it.
  */
 void* parse_send(ProtobufCBinaryData *data) {
     struct test_request_t *options;
@@ -127,7 +130,8 @@ void* parse_send(ProtobufCBinaryData *data) {
 
 
 /*
- *
+ * Construct a protocol buffer message containing the results for a single
+ * element in the test schedule.
  */
 Amplet2__Throughput__Item* report_schedule(struct test_request_t *info) {
 
