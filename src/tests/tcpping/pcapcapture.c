@@ -49,31 +49,6 @@ static int get_interface_addresses(void) {
         }
     }
 
-    /*
-    for (ifa = ifaddrlist; ifa != NULL; ifa = ifa->ifa_next) {
-        char host[4000];
-        int s;
-        int family = ifa->ifa_addr->sa_family;
-        printf("%s %d%s\n", ifa->ifa_name, family,
-                (family == AF_INET) ?   " (AF_INET)" :
-                (family == AF_PACKET) ? " (AF_PACKET)" :
-                (family == AF_INET6) ?  " (AF_INET6)" : "");
-
-        if (family == AF_INET || family == AF_INET6) {
-            s = getnameinfo(ifa->ifa_addr,
-                    (family == AF_INET) ? sizeof(struct sockaddr_in) :
-                    sizeof(struct sockaddr_in6),
-                    host, NI_MAXHOST, NULL, 0, NI_NUMERICHOST);
-            if (s != 0) {
-                printf("getnameinfo() failed: %s\n", gai_strerror(s));
-                return -1;
-            }
-            printf("\taddress: <%s>\n", host);
-        }
-
-    }
-    */
-
     return 0;
 }
 
