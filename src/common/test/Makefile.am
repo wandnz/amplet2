@@ -1,5 +1,5 @@
-TESTS=send.test bind_address.test wait_for_data.test get_packet.test
-check_PROGRAMS=send.test bind_address.test wait_for_data.test get_packet.test
+TESTS=send.test bind_address.test wait_for_data.test get_packet.test checksum.test
+check_PROGRAMS=send.test bind_address.test wait_for_data.test get_packet.test checksum.test
 
 send_test_SOURCES=send_test.c ../testlib.c
 send_test_CFLAGS=-rdynamic -DUNIT_TEST
@@ -17,6 +17,9 @@ get_packet_test_SOURCES=get_packet_test.c ../testlib.c
 get_packet_test_CFLAGS=-rdynamic -DUNIT_TEST
 get_packet_test_LDFLAGS=-L../ -lamp -lssl -lcrypto
 
+checksum_test_SOURCES=checksum_test.c ../testlib.c
+checksum_test_CFLAGS=-rdynamic -DUNIT_TEST
+checksum_test_LDFLAGS=-L../ -lamp -lssl -lcrypto
 
 AM_CFLAGS=-g -Wall -W -rdynamic
 INCLUDES=-I../

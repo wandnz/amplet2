@@ -800,11 +800,8 @@ test_t *register_test() {
 }
 
 
-#if UNIT_TEST
-uint16_t amp_test_icmp_checksum(uint16_t *packet, int size) {
-    return checksum(packet, size);
-}
 
+#if UNIT_TEST
 int amp_test_process_ipv4_packet(char *packet, uint32_t bytes, uint16_t ident,
 	struct timeval now, int count, struct info_t info[]) {
     return process_ipv4_packet(packet, bytes, ident, now, count, info);
