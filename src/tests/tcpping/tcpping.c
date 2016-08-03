@@ -48,8 +48,9 @@ static struct option long_options[] = {
 
 
 
-/* Open the raw TCP sockets needed for this test and bind them to
- * the requested device or addresses
+/*
+ * Open the raw TCP sockets needed for this test and bind them to
+ * the requested device or addresses.
  */
 static int open_sockets(struct tcppingglobals *tcpping) {
     if ( (tcpping->raw_sockets.socket =
@@ -103,14 +104,14 @@ static int open_sockets(struct tcppingglobals *tcpping) {
             Log(LOG_ERR, "Unable to bind TCP sockets to device, aborting test");
             return 0;
         }
-    } else if (tcpping->sourcev4 || tcpping->sourcev6) {
-        if (bind_sockets_to_address(&tcpping->raw_sockets, tcpping->sourcev4,
+    } else if ( tcpping->sourcev4 || tcpping->sourcev6 ) {
+        if ( bind_sockets_to_address(&tcpping->raw_sockets, tcpping->sourcev4,
                     tcpping->sourcev6) < 0 ) {
             Log(LOG_ERR,"Unable to bind raw sockets to address, aborting test");
             return 0;
         }
 
-        if (bind_sockets_to_address(&tcpping->tcp_sockets, tcpping->sourcev4,
+        if ( bind_sockets_to_address(&tcpping->tcp_sockets, tcpping->sourcev4,
                     tcpping->sourcev6) < 0 ) {
             Log(LOG_ERR,"Unable to bind TCP sockets to address, aborting test");
             return 0;
@@ -120,6 +121,11 @@ static int open_sockets(struct tcppingglobals *tcpping) {
     return 1;
 }
 
+
+
+/*
+ * Close all the sockets used for the test and free source address structures.
+ */
 static void close_sockets(struct tcppingglobals *tcpping) {
 
     if ( tcpping->tcp_sockets.socket > 0 ) {
@@ -147,7 +153,10 @@ static void close_sockets(struct tcppingglobals *tcpping) {
     }
 }
 
-/* Listen on our TCP sockets, which will implicitly cause them to be bound
+
+
+/*
+ * Listen on our TCP sockets, which will implicitly cause them to be bound
  * and assigned random available port numbers.
  *
  * Use getsockname to find which port number each socket is bound to, so
@@ -161,18 +170,18 @@ static int listen_source_ports(struct tcppingglobals *tcpping) {
     tcpping->sourceportv4 = 0;
     tcpping->sourceportv6 = 0;
 
-    if (sockets->socket >= 0) {
+    if ( sockets->socket >= 0 ) {
         struct sockaddr_in addr;
         socklen_t addrsize = sizeof(struct sockaddr_in);
 
-        if (listen(sockets->socket, 10) < 0) {
+        if ( listen(sockets->socket, 10) < 0 ) {
             Log(LOG_ERR, "Failed to listen on TCP IPv4 socket: %s",
                     strerror(errno));
             return 0;
         }
 
-        if (getsockname(sockets->socket, (struct sockaddr *)&addr,
-                    &addrsize) < 0) {
+        if ( getsockname(sockets->socket, (struct sockaddr *)&addr,
+                    &addrsize) < 0 ) {
             Log(LOG_ERR, "Failed to get port number for TCP IPv4 socket: %s",
                     strerror(errno));
             return 0;
@@ -181,18 +190,18 @@ static int listen_source_ports(struct tcppingglobals *tcpping) {
         tcpping->sourceportv4 = ntohs(addr.sin_port);
     }
 
-    if (sockets->socket6 >= 0) {
+    if ( sockets->socket6 >= 0 ) {
         struct sockaddr_in6 addr;
         socklen_t addrsize = sizeof(struct sockaddr_in6);
 
-        if (listen(sockets->socket6, 10) < 0) {
+        if ( listen(sockets->socket6, 10) < 0 ) {
             Log(LOG_ERR, "Failed to listen on TCP IPv6 socket: %s",
                     strerror(errno));
             return 0;
         }
 
-        if (getsockname(sockets->socket6, (struct sockaddr *)&addr,
-                    &addrsize) < 0) {
+        if ( getsockname(sockets->socket6, (struct sockaddr *)&addr,
+                    &addrsize) < 0 ) {
             Log(LOG_ERR, "Failed to get port number for TCP IPv6 socket: %s",
                     strerror(errno));
             return 0;
@@ -204,6 +213,12 @@ static int listen_source_ports(struct tcppingglobals *tcpping) {
     return 1;
 }
 
+
+
+/*
+ * Process command line options and make sure that the values are within
+ * sensible ranges. Fix them if they aren't.
+ */
 static void process_options(struct tcppingglobals *tcpping) {
 
     /* pick a random packet size within allowable boundaries */
@@ -275,7 +290,7 @@ static int set_tcp_checksum(struct tcphdr *tcp, int packet_size,
     char *pseudo;
     int pseudolen;
 
-    if (srcaddr->sa_family == AF_INET) {
+    if ( srcaddr->sa_family == AF_INET ) {
         pseudov4.saddr = ((struct sockaddr_in *)srcaddr)->sin_addr.s_addr;
         pseudov4.daddr = ((struct sockaddr_in *)destaddr->ai_addr)->sin_addr.s_addr;
 
@@ -285,7 +300,7 @@ static int set_tcp_checksum(struct tcphdr *tcp, int packet_size,
 
         pseudo = (char *)&pseudov4;
         pseudolen = sizeof(pseudov4);
-    } else if (srcaddr->sa_family == AF_INET6) {
+    } else if ( srcaddr->sa_family == AF_INET6 ) {
         memcpy(pseudov6.saddr,
                 ((struct sockaddr_in6 *)srcaddr)->sin6_addr.s6_addr,
                 sizeof(struct in6_addr));
@@ -311,6 +326,11 @@ static int set_tcp_checksum(struct tcphdr *tcp, int packet_size,
     return 1;
 }
 
+
+
+/*
+ * Create a TCP SYN packet for a given destination.
+ */
 static int craft_tcp_syn(struct tcppingglobals *tp, char *packet,
         uint16_t srcport, int packet_size, struct sockaddr *srcaddr,
         struct addrinfo *destaddr) {
@@ -329,7 +349,7 @@ static int craft_tcp_syn(struct tcppingglobals *tp, char *packet,
     /* Pad IPv4 packets out to match the length of a IPv6 packet with
      * the same amount of payload.
      */
-    if (srcaddr->sa_family == AF_INET) {
+    if ( srcaddr->sa_family == AF_INET ) {
         tcp->doff = 11;
         headerremaining = 5;
     } else {
@@ -380,18 +400,21 @@ static int unpack_destid(int destid, int max) {
 
 
 
-/* Given a TCP header from a response packet, find the index of the
+/*
+ * Given a TCP header from a response packet, find the index of the
  * test target that generated the response.
  */
 static inline int match_response(struct tcppingglobals *tp,
         struct tcphdr *tcp, uint8_t istcp) {
-    /* TODO: should we be checking if the response came from our intended
+    /*
+     * TODO: should we be checking if the response came from our intended
      * target vs, say, an intermediate host in the path? It will be a bit
      * annoying to have to get the IP address of the sender to check...
      */
     int destid;
 
-    /* If this is a SYN ACK or RST, we want to compare the acknowledgement
+    /*
+     * If this is a SYN ACK or RST, we want to compare the acknowledgement
      * with the expected seqno from our SYN. If this is an ICMP response,
      * we want to look at the sequence number because we will be looking
      * at a copy of the packet we originally sent.
@@ -419,7 +442,7 @@ static inline int match_response(struct tcppingglobals *tp,
         return -1;
     }
 
-    if (tp->info[destid].reply != NO_REPLY) {
+    if ( tp->info[destid].reply != NO_REPLY ) {
         /* Already got a reply for this SYN */
         return -1;
     }
@@ -427,12 +450,18 @@ static inline int match_response(struct tcppingglobals *tp,
     return destid;
 }
 
+
+
+/*
+ * Process the TCP header from a response to one of our probes. Check that it
+ * is actually one of ours, and then extract timing information etc.
+ */
 static void process_tcp_response(struct tcppingglobals *tp, struct tcphdr *tcp,
         int remaining, struct timeval ts) {
 
     int destid;
 
-    if (tcp == NULL || remaining < (int)sizeof(struct tcphdr)) {
+    if ( tcp == NULL || remaining < (int)sizeof(struct tcphdr) ) {
         Log(LOG_WARNING, "Incomplete TCP header received");
         return;
     }
@@ -442,60 +471,65 @@ static void process_tcp_response(struct tcppingglobals *tp, struct tcphdr *tcp,
         tp->info[destid].delay = DIFF_TV_US(ts, tp->info[destid].time_sent);
         tp->info[destid].replyflags = 0;
 
-        if (tcp->urg)
+        if ( tcp->urg )
             tp->info[destid].replyflags += 0x20;
-        if (tcp->ack)
+        if ( tcp->ack )
             tp->info[destid].replyflags += 0x10;
-        if (tcp->psh)
+        if ( tcp->psh )
             tp->info[destid].replyflags += 0x08;
-        if (tcp->rst)
+        if ( tcp->rst )
             tp->info[destid].replyflags += 0x04;
-        if (tcp->syn)
+        if ( tcp->syn )
             tp->info[destid].replyflags += 0x02;
-        if (tcp->fin)
+        if ( tcp->fin )
             tp->info[destid].replyflags += 0x01;
 
         tp->outstanding --;
-
     }
 }
 
 
+
+/*
+ * Process the ICMPv4 header from a response to one of our probes. Check that
+ * it is actually one of ours, and then extract timing information etc.
+ *
+ * Note that I'm avoiding logging "warnings" as we will end up processing
+ * every ICMP packet that matches our filter so we don't need to be
+ * filling up our logs with warnings about all the other ICMP traffic
+ * that our amp monitor is doing.
+ */
 static void process_icmp4_response(struct tcppingglobals *tp,
         struct icmphdr *icmp, int remaining, struct timeval ts) {
 
-    /* Have to find the original TCP header to try and match this response
-     * back to an outgoing SYN */
-
-    /* Note that I'm avoiding logging "warnings" as we will end up processing
-     * every ICMP packet that matches our filter so we don't need to be
-     * filling up our logs with warnings about all the other ICMP traffic
-     * that our amp monitor is doing.
-     */
     char *packet = (char *)icmp;
     int destid;
     struct iphdr *ip;
 
-    if (remaining < (int)sizeof(struct icmphdr)) {
+    /*
+     * Have to find the original TCP header to try and match this response
+     * back to an outgoing SYN
+     */
+    if ( remaining < (int)sizeof(struct icmphdr) ) {
          return;
     }
 
     packet += sizeof(struct icmphdr);
     remaining -= sizeof(struct icmphdr);
 
-    if (remaining < (int)sizeof(struct iphdr)) {
+    if ( remaining < (int)sizeof(struct iphdr) ) {
         return;
     }
 
     ip = (struct iphdr *)packet;
-    if (remaining < (ip->ihl << 2)) {
+    if ( remaining < (ip->ihl << 2) ) {
         return;
     }
 
     remaining -= (ip->ihl << 2);
     packet += (ip->ihl << 2);
 
-    if (remaining < (int)sizeof(struct tcphdr)) {
+    if ( remaining < (int)sizeof(struct tcphdr) ) {
         return;
     }
 
@@ -508,35 +542,42 @@ static void process_icmp4_response(struct tcppingglobals *tp,
     }
 }
 
+
+
+/*
+ * Process the ICMPv6 header from a response to one of our probes. Check that
+ * it is actually one of ours, and then extract timing information etc.
+ *
+ * Note that I'm avoiding logging "warnings" as we will end up processing
+ * every ICMP packet that matches our filter so we don't need to be
+ * filling up our logs with warnings about all the other ICMP traffic
+ * that our amp monitor is doing.
+ */
 static void process_icmp6_response(struct tcppingglobals *tp,
         struct icmp6_hdr *icmp, int remaining, struct timeval ts) {
 
-    /* Have to find the original TCP header to try and match this response
-     * back to an outgoing SYN */
-
-    /* Note that I'm avoiding logging "warnings" as we will end up processing
-     * every ICMP packet that matches our filter so we don't need to be
-     * filling up our logs with warnings about all the other ICMP traffic
-     * that our amp monitor is doing.
-     */
     char *packet = (char *)icmp;
     int destid;
 
-    if (remaining < (int)sizeof(struct icmp6_hdr)) {
+    /*
+     * Have to find the original TCP header to try and match this response
+     * back to an outgoing SYN
+     */
+    if ( remaining < (int)sizeof(struct icmp6_hdr) ) {
          return;
     }
 
     packet += sizeof(struct icmp6_hdr);
     remaining -= sizeof(struct icmp6_hdr);
 
-    if (remaining < (int)sizeof(struct ip6_hdr)) {
+    if ( remaining < (int)sizeof(struct ip6_hdr) ) {
         return;
     }
 
     remaining -= sizeof(struct ip6_hdr);
     packet += sizeof(struct ip6_hdr);
 
-    if (remaining < (int)sizeof(struct tcphdr)) {
+    if ( remaining < (int)sizeof(struct tcphdr) ) {
         return;
     }
 
@@ -549,6 +590,13 @@ static void process_icmp6_response(struct tcppingglobals *tp,
     }
 }
 
+
+
+/*
+ * Callback used when a packet is received by the pcap filter. This will
+ * determine the protocol of the packet and pass it to the appropriate function
+ * for processing.
+ */
 static void receive_packet(wand_event_handler_t *ev_hdl,
         int fd, void *evdata, enum wand_eventtype_t ev) {
 
@@ -560,36 +608,42 @@ static void receive_packet(wand_event_handler_t *ev_hdl,
     assert(ev == EV_READ);
 
     transport = pcap_transport_header(p);
-    if (transport.header == NULL || transport.remaining <= 0)
+    if ( transport.header == NULL || transport.remaining <= 0 ) {
         return;
+    }
 
-
-    if (transport.protocol == 6) {
+    if ( transport.protocol == 6 ) {
         Log(LOG_DEBUG, "Received TCP packet on pcap device");
         process_tcp_response(tp, (struct tcphdr *)transport.header,
                 transport.remaining, transport.ts);
     }
 
-    if (transport.protocol == 1) {
+    if ( transport.protocol == 1 ) {
         process_icmp4_response(tp, (struct icmphdr *)transport.header,
                 transport.remaining, transport.ts);
     }
 
-    if (transport.protocol == 58) {
+    if ( transport.protocol == 58 ) {
         process_icmp6_response(tp, (struct icmp6_hdr *)transport.header,
                 transport.remaining, transport.ts);
     }
 
-    if (tp->outstanding == 0 && tp->destindex == tp->destcount) {
+    if ( tp->outstanding == 0 && tp->destindex == tp->destcount ) {
         /* All packets have been sent and we are not waiting on any more
          * responses -- exit the event loop so we can report.
          */
         ev_hdl->running = false;
         Log(LOG_DEBUG, "All expected TCPPing responses received");
     }
-
 }
 
+
+
+/*
+ * Callback used when the timer fires indicating that a packet should be sent.
+ * It will determine the next destination to be tested, create an appropriate
+ * SYN packet and send it to the destination.
+ */
 static void send_packet(wand_event_handler_t *ev_hdl,
         void *evdata) {
 
@@ -616,12 +670,11 @@ static void send_packet(wand_event_handler_t *ev_hdl,
     tp->info[tp->destindex].icmptype = 0;
     tp->info[tp->destindex].icmpcode = 0;
 
-    if (dest->ai_family == AF_INET) {
+    if ( dest->ai_family == AF_INET ) {
         srcport = tp->sourceportv4;
         sock = tp->raw_sockets.socket;
         packet_size = tp->options.packet_size - sizeof(struct iphdr);
-    }
-    else if (dest->ai_family == AF_INET6) {
+    } else if ( dest->ai_family == AF_INET6 ) {
         srcport = tp->sourceportv6;
         sock = tp->raw_sockets.socket6;
         packet_size = tp->options.packet_size - sizeof(struct ip6_hdr);
@@ -635,15 +688,15 @@ static void send_packet(wand_event_handler_t *ev_hdl,
         memcpy(srcaddr, tp->sourcev4->ai_addr, sizeof(struct sockaddr_in));
     } else if ( dest->ai_family == AF_INET6 && tp->sourcev6 ) {
         memcpy(srcaddr, tp->sourcev6->ai_addr, sizeof(struct sockaddr_in6));
-    } else if (find_source_address(tp->device, dest, srcaddr) == 0) {
+    } else if ( find_source_address(tp->device, dest, srcaddr) == 0 ) {
         Log(LOG_DEBUG, "Failed to find source address for TCPPing test");
         goto nextdest;
     }
 
     /* Create a listening pcap fd for the interface */
-    if (pcap_listen(srcaddr, tp->sourceportv4, tp->sourceportv6,
+    if ( pcap_listen(srcaddr, tp->sourceportv4, tp->sourceportv6,
             tp->options.port, tp->device,
-            ev_hdl, tp, receive_packet) == -1) {
+            ev_hdl, tp, receive_packet) == -1 ) {
         Log(LOG_WARNING, "Failed to create pcap device for dest %s:%d",
                 dest->ai_canonname, tp->options.port);
 
@@ -653,12 +706,12 @@ static void send_packet(wand_event_handler_t *ev_hdl,
     packet = calloc(1, packet_size);
 
     /* Form a TCP SYN packet */
-    if (craft_tcp_syn(tp, packet, srcport, packet_size, srcaddr, dest) < 0) {
+    if ( craft_tcp_syn(tp, packet, srcport, packet_size, srcaddr, dest) < 0 ) {
         Log(LOG_WARNING, "Error while crafting TCP packet for TCPPing test");
         goto nextdest;
     }
 
-    if (gettimeofday(&tv, NULL) == -1) {
+    if ( gettimeofday(&tv, NULL) == -1 ) {
         Log(LOG_WARNING, "Error calling gettimeofday during TCPPing test");
         goto nextdest;
     }
@@ -682,7 +735,7 @@ nextdest:
     /* Create a timer for sending the next packet */
     tp->destindex ++;
 
-    if (tp->destindex == tp->destcount) {
+    if ( tp->destindex == tp->destcount ) {
         Log(LOG_DEBUG, "Reached final target: %d", tp->destindex);
         tp->nextpackettimer = NULL;
     } else {
@@ -692,7 +745,7 @@ nextdest:
                 tp, send_packet);
     }
 
-    if (packet) {
+    if ( packet ) {
         free(packet);
     }
 }
@@ -700,7 +753,8 @@ nextdest:
 
 
 /*
- *
+ * Construct a protocol buffer message containing the results for a single
+ * destination address.
  */
 static Amplet2__Tcpping__Item* report_destination(struct info_t *info) {
 
@@ -783,7 +837,8 @@ static Amplet2__Tcpping__Item* report_destination(struct info_t *info) {
 
 
 /*
- *
+ * Construct a protocol buffer message containing all the test options and the
+ * results for each destination address.
  */
 static amp_test_result_t* report_results(struct timeval *start_time, int count,
         struct info_t info[], struct opt_t *opt) {
@@ -894,6 +949,10 @@ static void usage(void) {
 }
 
 
+
+/*
+ *
+ */
 amp_test_result_t* run_tcpping(int argc, char *argv[], int count,
         struct addrinfo **dests) {
     int opt;
@@ -949,7 +1008,7 @@ amp_test_result_t* run_tcpping(int argc, char *argv[], int count,
 
     if ( count < 1 ) {
         usage();
-        exit(0);
+        exit(-1);
     }
 
     /* Process and act upon the packet size and perturbation options */
@@ -986,7 +1045,7 @@ amp_test_result_t* run_tcpping(int argc, char *argv[], int count,
     /* Send a SYN to our first destination. This will setup a timer callback
      * for sending the next packet and a fd callback for any response.
      */
-    if (count > 0) {
+    if ( count > 0 ) {
         /* add first probe at time 0, it will happen immediately on run */
         globals->nextpackettimer = wand_add_timer(ev_hdl, 0, 0, globals,
                 send_packet);
@@ -1023,7 +1082,8 @@ amp_test_result_t* run_tcpping(int argc, char *argv[], int count,
 
 
 /*
- *
+ * Print tcpping test results to stdout, nicely formatted for the standalone
+ * test
  */
 void print_tcpping(amp_test_result_t *result) {
     Amplet2__Tcpping__Report *msg;
@@ -1097,7 +1157,7 @@ void print_tcpping(amp_test_result_t *result) {
 
 
 /*
- *
+ * Register a test to be part of AMP.
  */
 test_t *register_test() {
     test_t *new_test = (test_t *)malloc(sizeof(test_t));

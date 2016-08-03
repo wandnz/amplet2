@@ -25,16 +25,23 @@ struct ifaddrs *ifaddrorig = NULL;
 
 struct pcapdevice *pcaps = NULL;
 
+
+
+/*
+ * Find the start of the real addresses in the list of addresses belonging
+ * to an interface. This assumes that all the AF_PACKET addresses are at the
+ * beginning, followed by the AF_INET and AF_INET6 addresses.
+ */
 static int get_interface_addresses(void) {
     struct ifaddrs *ifa;
 
-    if (getifaddrs(&ifaddrorig) == -1) {
+    if ( getifaddrs(&ifaddrorig) == -1 ) {
         Log(LOG_ERR, "Unable to fetch interface addresses, aborting test");
         return -1;
     }
 
     /* Loop over address list and skip past all the AF_PACKET addresses */
-    for (ifa = ifaddrorig; ifa != NULL; ifa = ifa->ifa_next) {
+    for ( ifa = ifaddrorig; ifa != NULL; ifa = ifa->ifa_next ) {
         int family;
 
         if ( ifa->ifa_addr == NULL ) {
@@ -43,7 +50,7 @@ static int get_interface_addresses(void) {
 
         family = ifa->ifa_addr->sa_family;
 
-        if (family == AF_INET || family == AF_INET6) {
+        if ( family == AF_INET || family == AF_INET6 ) {
             ifaddrlist = ifa;
             break;
         }
@@ -52,32 +59,38 @@ static int get_interface_addresses(void) {
     return 0;
 }
 
+
+
+/*
+ * Determine which interface a given address belongs to.
+ */
 static char *find_address_interface(struct sockaddr *sin) {
     struct ifaddrs *ifa;
 
-    for (ifa = ifaddrlist; ifa != NULL; ifa = ifa->ifa_next) {
+    for ( ifa = ifaddrlist; ifa != NULL; ifa = ifa->ifa_next ) {
         if ( ifa->ifa_addr == NULL ) {
             continue;
         }
 
-        if (ifa->ifa_addr->sa_family != sin->sa_family) {
+        if ( ifa->ifa_addr->sa_family != sin->sa_family ) {
             continue;
         }
 
-        if (ifa->ifa_addr->sa_family == AF_INET) {
+        if ( ifa->ifa_addr->sa_family == AF_INET ) {
             struct sockaddr_in *sin4 = (struct sockaddr_in *)sin;
             struct sockaddr_in *ifa4 = (struct sockaddr_in *)(ifa->ifa_addr);
 
-            if (sin4->sin_addr.s_addr == ifa4->sin_addr.s_addr)
+            if ( sin4->sin_addr.s_addr == ifa4->sin_addr.s_addr ) {
                 return ifa->ifa_name;
+            }
         }
 
-        if (ifa->ifa_addr->sa_family == AF_INET6) {
+        if ( ifa->ifa_addr->sa_family == AF_INET6 ) {
             struct sockaddr_in6 *sin6 = (struct sockaddr_in6 *)sin;
             struct sockaddr_in6 *ifa6 = (struct sockaddr_in6 *)(ifa->ifa_addr);
 
-            if (memcmp(&sin6->sin6_addr.s6_addr, &ifa6->sin6_addr.s6_addr,
-                        sizeof(struct in6_addr)) == 0) {
+            if ( memcmp(&sin6->sin6_addr.s6_addr, &ifa6->sin6_addr.s6_addr,
+                        sizeof(struct in6_addr)) == 0 ) {
                 return ifa->ifa_name;
             }
         }
@@ -86,6 +99,12 @@ static char *find_address_interface(struct sockaddr *sin) {
     return NULL;
 }
 
+
+
+/*
+ * Create a pcap filter that will match only traffic between the ports we
+ * are using for this test.
+ */
 static int create_pcap_filter(struct pcapdevice *p, uint16_t srcportv4,
         uint16_t srcportv6, uint16_t destport, char *device) {
 
@@ -100,7 +119,7 @@ static int create_pcap_filter(struct pcapdevice *p, uint16_t srcportv4,
     p->pcap = pcap_open_live(device, 200, 0, 10, pcaperr);
 #endif
 
-    if (p->pcap == NULL) {
+    if ( p->pcap == NULL ) {
         Log(LOG_ERR, "Failed to open live pcap: %s", pcaperr);
         return 0;
     }
@@ -140,13 +159,13 @@ static int create_pcap_filter(struct pcapdevice *p, uint16_t srcportv4,
     Log(LOG_DEBUG, "Compiling filter string %s for device %s", filterstring,
         device);
 
-    if (pcap_compile(p->pcap, &fcode, filterstring, 1,
-                PCAP_NETMASK_UNKNOWN) < 0) {
+    if ( pcap_compile(p->pcap, &fcode, filterstring, 1,
+                PCAP_NETMASK_UNKNOWN) < 0 ) {
         Log(LOG_ERR, "Failed to compile BPF filter for device %s", device);
         return 0;
     }
 
-    if (pcap_setfilter(p->pcap, &fcode) < 0) {
+    if ( pcap_setfilter(p->pcap, &fcode) < 0 ) {
         Log(LOG_ERR, "Failed to set BPF filter for device %s", device);
         return 0;
     }
@@ -158,6 +177,12 @@ static int create_pcap_filter(struct pcapdevice *p, uint16_t srcportv4,
     return p->pcap_fd;
 }
 
+
+
+/*
+ * Find the source address that would be used to connect to the given
+ * desination.
+ */
 int find_source_address(char *device, struct addrinfo *dest,
         struct sockaddr *saddr) {
 
@@ -168,7 +193,7 @@ int find_source_address(char *device, struct addrinfo *dest,
     struct sockaddr_in sin4dest;
 
     /* Find the source address that we should use to test to our dest */
-    if ((s = socket(dest->ai_family, SOCK_DGRAM, IPPROTO_UDP)) < 0) {
+    if ( (s = socket(dest->ai_family, SOCK_DGRAM, IPPROTO_UDP)) < 0 ) {
         Log(LOG_ERR, "Failed to create socket in find_source_address");
         return 0;
     }
@@ -181,7 +206,7 @@ int find_source_address(char *device, struct addrinfo *dest,
         }
     }
 
-    if (dest->ai_family == AF_INET) {
+    if ( dest->ai_family == AF_INET ) {
         struct sockaddr_in *destptr;
         size = sizeof(struct sockaddr_in);
 
@@ -192,7 +217,7 @@ int find_source_address(char *device, struct addrinfo *dest,
         sin4dest.sin_addr.s_addr = destptr->sin_addr.s_addr;
         sin4dest.sin_port = htons(53);
         gendest = (struct sockaddr *)&sin4dest;
-    } else if (dest->ai_family == AF_INET6) {
+    } else if ( dest->ai_family == AF_INET6 ) {
         struct sockaddr_in6 *destptr;
         size = sizeof(struct sockaddr_in6);
 
@@ -207,7 +232,7 @@ int find_source_address(char *device, struct addrinfo *dest,
 
     }
 
-    if (gendest == NULL) {
+    if ( gendest == NULL ) {
         Log(LOG_ERR, "Failed to create target address in find_source_address");
         return 0;
     }
@@ -217,14 +242,14 @@ int find_source_address(char *device, struct addrinfo *dest,
      * address will be used, testing shows we don't need to actually send any
      * data.
      */
-    if (connect(s, gendest, size) < 0) {
+    if ( connect(s, gendest, size) < 0 ) {
         Log(LOG_DEBUG,
                 "Failed to connect to destination in find_source_address: %s",
                 strerror(errno));
         return 0;
     }
 
-    if (getsockname(s, (struct sockaddr *)saddr, &size) < 0) {
+    if ( getsockname(s, (struct sockaddr *)saddr, &size) < 0 ) {
         Log(LOG_ERR, "Failed to get socket information in find_source_address");
         return 0;
     }
@@ -234,6 +259,12 @@ int find_source_address(char *device, struct addrinfo *dest,
     return 1;
 }
 
+
+
+/*
+ * Start the pcap filter running and install the callback for when it receives
+ * a packet.
+ */
 int pcap_listen(struct sockaddr *address, uint16_t srcportv4,
         uint16_t srcportv6, uint16_t destport, char *device,
         wand_event_handler_t *ev_hdl,
@@ -244,14 +275,14 @@ int pcap_listen(struct sockaddr *address, uint16_t srcportv4,
     struct pcapdevice *p;
 
     /* If we don't have a list of all addresses on this machine, get them. */
-    if (ifaddrorig == NULL && get_interface_addresses() == -1) {
+    if ( ifaddrorig == NULL && get_interface_addresses() == -1 ) {
         return 0;
     }
 
-    if (device == NULL) {
+    if ( device == NULL ) {
         device = find_address_interface(address);
 
-        if (device == NULL) {
+        if ( device == NULL ) {
             Log(LOG_ERR, "Failed to find interface to add BPF filter");
             return 0;
         }
@@ -259,17 +290,20 @@ int pcap_listen(struct sockaddr *address, uint16_t srcportv4,
 
     /* Find the device in our list of existing pcap devices */
     for ( p = pcaps; p != NULL; p = p->next ) {
-        if (strcmp(p->if_name, device) == 0)
+        if ( strcmp(p->if_name, device) == 0 ) {
             break;
+        }
     }
+
     /* If it exists already, no need to do anything */
-    if (p != NULL)
+    if ( p != NULL ) {
         return 1;
+    }
 
     /* If not, create a new pcap device with the appropriate filter */
     p = (struct pcapdevice *)malloc(sizeof(struct pcapdevice));
 
-    if (create_pcap_filter(p, srcportv4, srcportv6, destport, device) == 0) {
+    if ( create_pcap_filter(p, srcportv4, srcportv6, destport, device) == 0 ) {
         Log(LOG_ERR, "Failed to create bpf filter for device %s", device);
         return 0;
     }
@@ -289,7 +323,10 @@ int pcap_listen(struct sockaddr *address, uint16_t srcportv4,
     return 1;
 }
 
-/* Naive code to read the next pcap packet and find a TCP header.
+
+
+/*
+ * Naive code to read the next pcap packet and find a TCP header.
  * Assumes the packet is the standard Ethernet:IP:TCP header layout.
  * Doesn't deal with anything like extra link layer headers, IPv6 extension
  * headers, fragmentation etc.
@@ -301,25 +338,25 @@ struct pcaptransport pcap_transport_header(struct pcapdevice *p) {
     struct pcap_pkthdr header;
     struct iphdr *ip;
     struct ip6_hdr *ip6;
-    struct pcaptransport tranny;
+    struct pcaptransport transport;
     int remaining;
     int datalink;
     int ethertype;
 
-    tranny.header = NULL;
-    tranny.protocol = 0;
-    tranny.remaining = 0;
-    tranny.ts.tv_sec = 0;
-    tranny.ts.tv_usec = 0;
+    transport.header = NULL;
+    transport.protocol = 0;
+    transport.remaining = 0;
+    transport.ts.tv_sec = 0;
+    transport.ts.tv_usec = 0;
 
     packet = (char *)pcap_next(p->pcap, &header);
     if ( packet == NULL ) {
         Log(LOG_DEBUG,
                 "Null result from pcap_next() -- packet was probably filtered");
-        return tranny;
+        return transport;
     }
 
-    tranny.ts = header.ts;
+    transport.ts = header.ts;
     remaining = header.len;
 
     datalink = pcap_datalink(p->pcap);
@@ -330,7 +367,7 @@ struct pcaptransport pcap_transport_header(struct pcapdevice *p) {
         /* this is an ethernet interface, expect an ethernet header */
         if ( remaining < (int)sizeof(struct ether_header) ) {
             Log(LOG_WARNING, "Too few bytes captured for Ethernet header");
-            return tranny;
+            return transport;
         }
 
         eth = (struct ether_header *)packet;
@@ -343,7 +380,7 @@ struct pcaptransport pcap_transport_header(struct pcapdevice *p) {
         /* this is a linux sll interface (probably ppp), expect sll header */
         if ( remaining < (int)sizeof(struct sll_header) ) {
             Log(LOG_WARNING, "Too few bytes captured for SLL header");
-            return tranny;
+            return transport;
         }
 
         sll = (struct sll_header *)packet;
@@ -353,7 +390,7 @@ struct pcaptransport pcap_transport_header(struct pcapdevice *p) {
 
     } else {
         Log(LOG_DEBUG, "Unknown PCAP link layer %u", datalink);
-        return tranny;
+        return transport;
     }
 
     /* process any ipv4 or ipv6 packets, ignore everything else */
@@ -361,35 +398,35 @@ struct pcaptransport pcap_transport_header(struct pcapdevice *p) {
         ip = (struct iphdr *)packet;
         if ( remaining < (int)sizeof(struct iphdr) ) {
             Log(LOG_WARNING, "Too few bytes captured for IPv4 header");
-            return tranny;
+            return transport;
         }
 
         if ( remaining < ip->ihl * 4 ) {
             Log(LOG_WARNING, "Too few bytes captured for IPv4 header");
-            return tranny;
+            return transport;
         }
 
         packet += (ip->ihl * 4);
         remaining -= (ip->ihl * 4);
 
-        tranny.header = packet;
-        tranny.remaining = remaining;
-        tranny.protocol = ip->protocol;
+        transport.header = packet;
+        transport.remaining = remaining;
+        transport.protocol = ip->protocol;
 
     } else if ( ethertype == ETHERTYPE_IPV6 ) {
 
         ip6 = (struct ip6_hdr *)packet;
         if ( remaining < (int)sizeof(struct ip6_hdr) ) {
             Log(LOG_WARNING, "Too few bytes captured for IPv6 header");
-            return tranny;
+            return transport;
         }
 
         packet += sizeof(struct ip6_hdr);
         remaining -= sizeof(struct ip6_hdr);
 
-        tranny.header = packet;
-        tranny.remaining = remaining;
-        tranny.protocol = ip6->ip6_nxt;
+        transport.header = packet;
+        transport.remaining = remaining;
+        transport.protocol = ip6->ip6_nxt;
 
     } else {
         /*
@@ -400,14 +437,19 @@ struct pcaptransport pcap_transport_header(struct pcapdevice *p) {
         Log(LOG_DEBUG, "Captured a non IP packet: %u", ethertype);
     }
 
-    return tranny;
+    return transport;
 }
 
+
+
+/*
+ * Close up any pcap devices used during the test.
+ */
 void pcap_cleanup(wand_event_handler_t *ev_hdl) {
     struct pcapdevice *p = pcaps;
     struct pcapdevice *tmp;
 
-    while (p != NULL) {
+    while ( p != NULL ) {
         /* Remove each pcap device fd from the event handler */
         wand_del_fd(ev_hdl, p->pcap_fd);
 

@@ -9,7 +9,7 @@
 #include "testlib.h"
 
 
-/* The '4' here is to allow us to at least include an MSS option in
+/* The 4 bytes here is to allow us to at least include an MSS option in
  * the SYN that we send.
  */
 #define MIN_TCPPING_PROBE_LEN ( \
@@ -67,7 +67,8 @@ struct tcppingglobals {
 
 /* Pseudoheader for TCP checksum, IPv4 */
 struct pseudotcp_ipv4 {
-    uint32_t saddr, daddr;
+    uint32_t saddr;
+    uint32_t daddr;
     uint8_t zero;
     uint8_t protocol;
     uint16_t length;
@@ -107,7 +108,6 @@ struct info_t {
 
 amp_test_result_t* run_tcpping(int argc, char *argv[], int count,
         struct addrinfo **dests);
-int save_tcpping(char *monitor, uint64_t timestamp, void *data, uint32_t len);
 void print_tcpping(amp_test_result_t *result);
 test_t *register_test(void);
 
