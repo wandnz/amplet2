@@ -27,6 +27,8 @@
 #include "icmpcode.h"
 #include "dscp.h"
 #include "usage.h"
+#include "checksum.h"
+
 
 static struct option long_options[] = {
     {"port", required_argument, 0, 'P'},
@@ -237,47 +239,33 @@ static void process_options(struct tcppingglobals *tcpping) {
     }
 }
 
-/* Note that I could have combined the pseudo header and the packet
- * payload into a single blob of memory and calculate the checksum across
- * the whole lot, but this seemed easier than having to dynamically allocate
- * memory for the packet each time.
+
+
+/*
+ * Append the tcp packet to the ip pseudoheader and checksum the whole buffer.
  */
 static uint16_t tcp_checksum(uint16_t *packet, uint16_t *pseudo,
-        int pseudolen, int size) {
+        int packetlen, int pseudolen) {
 
-    register uint16_t answer;
-    register uint64_t sum;
-    uint16_t odd;
+    char *buffer;
+    uint16_t sum;
 
-    sum = 0;
-    odd = 0;
+    buffer = calloc(1, pseudolen + packetlen);
+    memcpy(buffer, pseudo, pseudolen);
+    memcpy(buffer + pseudolen, packet, packetlen);
 
-    /* Do the pseudo header first */
-    assert((pseudolen % 2) == 0);
+    sum = checksum((uint16_t*)buffer, pseudolen + packetlen);
 
-    while (pseudolen > 1) {
-        sum += *pseudo++;
-        pseudolen -= 2;
-    }
-    /* Should be no odd byte with the pseudo header */
+    free(buffer);
 
-    while (size > 1) {
-        sum += *packet++;
-        size -= 2;
-    }
-
-    /* Deal with possible odd byte */
-    if (size == 1) {
-        *(unsigned char *)(&odd) = *(unsigned char *)packet;
-        sum += odd;
-    }
-
-    sum = (sum >> 16) + (sum & 0xffff);     /* add high 16 to low 16 */
-    sum += (sum >> 16);                     /* add carry */
-    answer = ~sum;                          /* ones complement, truncate */
-    return answer;
+    return sum;
 }
 
+
+
+/*
+ * Calculate and set the checksum in a given TCP header.
+ */
 static int set_tcp_checksum(struct tcphdr *tcp, int packet_size,
         struct sockaddr *srcaddr, struct addrinfo *destaddr) {
 
@@ -317,8 +305,8 @@ static int set_tcp_checksum(struct tcphdr *tcp, int packet_size,
         return 0;
     }
 
-    tcp->check = tcp_checksum((uint16_t *)tcp, (uint16_t *)pseudo,
-            pseudolen, packet_size);
+    tcp->check = tcp_checksum((uint16_t *)tcp, (uint16_t *)pseudo, packet_size,
+            pseudolen);
 
     return 1;
 }
@@ -372,7 +360,7 @@ static int craft_tcp_syn(struct tcppingglobals *tp, char *packet,
         headerremaining --;
     }
 
-    return set_tcp_checksum(tcp, packet_size, srcaddr,  destaddr);
+    return set_tcp_checksum(tcp, packet_size, srcaddr, destaddr);
 }
 
 

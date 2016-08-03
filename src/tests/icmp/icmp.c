@@ -25,6 +25,7 @@
 #include "icmpcode.h"
 #include "dscp.h"
 #include "usage.h"
+#include "checksum.h"
 
 
 /*
@@ -46,37 +47,6 @@ static struct option long_options[] = {
     {"debug", no_argument, 0, 'x'},
     {NULL, 0, 0, 0}
 };
-
-
-/*
- * Calculate the icmp header checksum. Based on the checkSum() function found
- * in AMP at src/lib/checksum.c
- */
-static uint16_t checksum(uint16_t *packet, int size) {
-    register uint16_t answer;
-    register uint64_t sum;
-    uint16_t odd;
-
-    sum = 0;
-    odd = 0;
-
-    while ( size > 1 ) {
-	sum += *packet++;
-	size -= 2;
-    }
-
-    /* mop up an odd byte if needed */
-    if ( size == 1 ) {
-	*(unsigned char *)(&odd) = *(unsigned char *)packet;
-	sum += odd;
-    }
-
-    sum = (sum >> 16) + (sum & 0xffff);	    /* add high 16 to low 16 */
-    sum += (sum >> 16);			    /* add carry */
-    answer = ~sum;			    /* ones complement, truncate */
-
-    return answer;
-}
 
 
 
