@@ -263,7 +263,8 @@ static amp_test_result_t* report_results(uint64_t start_time,
  * @return 0 if successful, otherwise -1 on failure
  */
 static amp_test_result_t* runSchedule(struct addrinfo *serv_addr,
-        struct opt_t *options, struct sockopt_t *socket_options, BIO *ctrl) {
+        amp_test_meta_t *meta, struct opt_t *options,
+        struct sockopt_t *socket_options, BIO *ctrl) {
     int test_socket = -1;
     struct packet_t packet;
     uint64_t start_time_ns;
@@ -284,9 +285,6 @@ static amp_test_result_t* runSchedule(struct addrinfo *serv_addr,
     socket_options->sock_sndbuf = options->sock_sndbuf;//XXX
     socket_options->dscp = options->dscp;//XXX
 
-    socket_options->socktype = SOCK_STREAM;
-    socket_options->protocol = IPPROTO_TCP;
-
     start_time_ns = timeNanoseconds();
 
     if ( send_control_hello(AMP_TEST_THROUGHPUT, ctrl,
@@ -302,7 +300,8 @@ static amp_test_result_t* runSchedule(struct addrinfo *serv_addr,
     }
 
     /* Connect the test socket */
-    test_socket = connect_to_server(serv_addr, socket_options, options->tport);
+    test_socket = connect_to_server(serv_addr, options->tport, meta,
+            socket_options);
     if ( test_socket == -1 ) {
         Log(LOG_ERR, "Cannot connect to the server testsocket");
         goto errorCleanup;
@@ -341,8 +340,8 @@ static amp_test_result_t* runSchedule(struct addrinfo *serv_addr,
                     return NULL;
                 }
                 /* Open up a new one */
-                test_socket = connect_to_server(serv_addr, socket_options,
-                        options->tport);
+                test_socket = connect_to_server(serv_addr, options->tport, meta,
+                        socket_options);
                 if ( test_socket == -1 ) {
                     Log(LOG_ERR, "Failed to open a new connection");
                     goto errorCleanup;
@@ -734,7 +733,7 @@ amp_test_result_t* run_throughput_client(int argc, char *argv[], int count,
         }
     }
 
-    result = runSchedule(dests[0], &test_options, &socket_options, ctrl);
+    result = runSchedule(dests[0], &meta, &test_options, &socket_options, ctrl);
 
     close_control_connection(ctrl);
 

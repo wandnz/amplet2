@@ -92,7 +92,7 @@ static int set_and_verify_sockopt(int sock, int value, int proto,
  * Set all the relevant socket options that the test is requesting be set
  * (e.g. set buffer sizes, set MSS, disable Nagle).
  */
-static void do_socket_setup(struct sockopt_t *options, int sock, int family) {
+static void do_socket_setup(int sock, int family, struct sockopt_t *options) {
 
     if ( options == NULL ) {
         return;
@@ -232,14 +232,14 @@ int start_listening(struct socket_t *sockets, int port,
 
     /* set all the socket options that have been asked for */
     if ( sockets->socket >= 0 ) {
-        do_socket_setup(sockopts, sockets->socket, AF_INET);
+        do_socket_setup(sockets->socket, AF_INET, sockopts);
         ((struct sockaddr_in*)
          (sockopts->sourcev4->ai_addr))->sin_port = ntohs(port);
     }
 
     if ( sockets->socket6 >= 0 ) {
         int one = 1;
-        do_socket_setup(sockopts, sockets->socket6, AF_INET6);
+        do_socket_setup(sockets->socket6, AF_INET6, sockopts);
         /*
          * If we dont set IPV6_V6ONLY this socket will try to do IPv4 as well
          * and it will fail.
@@ -340,83 +340,9 @@ int start_listening(struct socket_t *sockets, int port,
 
 
 /*
- * XXX should port be included in options?
- * XXX this function is a mess, so much duplication with others and it's only
- * used by the throughput test. Can we fix it?
- */
-int connect_to_server(struct addrinfo *server, struct sockopt_t *options,
-        int port) {
-
-    int sock;
-
-    sock = socket(server->ai_family, options->socktype, options->protocol);
-
-    if ( sock < 0 ) {
-        Log(LOG_WARNING, "Failed to create control socket:%s", strerror(errno));
-        return -1;
-    }
-
-    do_socket_setup(options, sock, server->ai_family);
-
-    /*
-     * Set options that are at the AMP test level rather than specific
-     * to this test. We need to know what address family we
-     * are connecting to, which doSocketSetup doesn't know.XXX
-     */
-    if ( options->device ) {
-        if ( bind_socket_to_device(sock, options->device) < 0 ) {
-            return -1;
-        }
-    }
-
-    if ( options->sourcev4 || options->sourcev6 ) {
-        struct addrinfo *addr;
-
-        switch ( server->ai_family ) {
-            case AF_INET: addr = options->sourcev4; break;
-            case AF_INET6: addr = options->sourcev6; break;
-            default: printf("get address to bind with\n"); return -1;
-        };
-
-        /*
-         * Only bind if we have a specific source with the same address
-         * family as the destination, otherwise leave it default.
-         */
-        if ( addr && bind_socket_to_address(sock, addr) < 0 ) {
-            return -1;
-        }
-    }
-
-    /*
-     * It should be safe to use the IPv4 structure here since the port is in
-     * the same place in both headers.
-     */
-     //XXX why not make this the only code path? are we setting port in the
-     // structure earlier? throughput test did this, but not sure why
-     //if ( ((struct sockaddr_in *)serv_addr->ai_addr)->sin_port == 0 ) {
-    if ( port > 0 ) {
-        ((struct sockaddr_in *)server->ai_addr)->sin_port = htons(port);
-    }
-
-    Log(LOG_DEBUG, "Connecting using port %d", (int)ntohs(
-                ((struct sockaddr_in *)server->ai_addr)->sin_port));
-
-    if ( connect(sock, server->ai_addr, server->ai_addrlen) < 0 ) {
-        Log(LOG_WARNING, "Failed to connect to server: %s", strerror(errno));
-        close(sock);
-        return -1;
-    }
-
-    //XXX why is this done? the throughput test did it, but not sure why
-    ((struct sockaddr_in *)server->ai_addr)->sin_port = 0;
-
-    return sock;
-}
-
-
-
-/*
- *
+ * Send a message to an amplet2-client control port asking for a server to
+ * be started. The connection to the remote client should already be
+ * established by this point.
  */
 static int send_server_start(BIO *ctrl, test_type_t type) {
     int len;
@@ -541,13 +467,13 @@ BIO* listen_control_server(uint16_t port, uint16_t portmax,
 
 
 /*
- * TODO apart from SSL stuff, this is very similar to the function used for
- * connecting test sockets.
+ * Connect to a TCP server. Used to establish test channels to transmit test
+ * data to remote clients, or to connect to the control socket on a remote
+ * client.
  */
-BIO* connect_control_server(struct addrinfo *dest, uint16_t port,
-        amp_test_meta_t *meta) {
+int connect_to_server(struct addrinfo *dest, uint16_t port,
+        amp_test_meta_t *meta, struct sockopt_t *options) {
 
-    BIO *ctrl;
     int res;
     int attempts;
     int sock;
@@ -565,19 +491,24 @@ BIO* connect_control_server(struct addrinfo *dest, uint16_t port,
         case AF_INET6: ((struct sockaddr_in6 *)dest->ai_addr)->sin6_port =
                            htons(port);
                        break;
-        default: return NULL;
+        default: return -1;
     };
 
     /* Create the socket */
     if ( (sock = socket(dest->ai_family, SOCK_STREAM, IPPROTO_TCP)) < 0 ) {
         Log(LOG_DEBUG, "Failed to create socket");
-        return NULL;
+        return -1;
+    }
+
+    /* do any socket configuration required */
+    if ( options ) {
+        do_socket_setup(sock, dest->ai_family, options);
     }
 
     /* bind to a local interface if specified */
     if ( meta && meta->interface ) {
         if ( bind_socket_to_device(sock, meta->interface) < 0 ) {
-            return NULL;
+            return -1;
         }
     }
 
@@ -590,7 +521,7 @@ BIO* connect_control_server(struct addrinfo *dest, uint16_t port,
                           break;
             case AF_INET6: addr = get_numeric_address(meta->sourcev6, NULL);
                            break;
-            default: return NULL;
+            default: return -1;
         };
 
         /*
@@ -602,7 +533,7 @@ BIO* connect_control_server(struct addrinfo *dest, uint16_t port,
             res = bind_socket_to_address(sock, addr);
             freeaddrinfo(addr);
             if ( res < 0 ) {
-                return NULL;
+                return -1;
             }
         }
     }
@@ -629,7 +560,7 @@ BIO* connect_control_server(struct addrinfo *dest, uint16_t port,
                         "Failed too many times connecting to %s:%d (%s:%d)",
                         dest->ai_canonname, port, amp_inet_ntop(dest, addrstr),
                         port);
-                return NULL;
+                return -1;
             }
 
             /*
@@ -647,10 +578,21 @@ BIO* connect_control_server(struct addrinfo *dest, uint16_t port,
         }
     } while ( res < 0 );
 
-    ctrl = establish_control_socket(ssl_ctx, sock, 1);
+    return sock;
+}
+
+
+
+/*
+ * Try to establish an SSL connection over an existing socket. If there is no
+ * SSL context (we haven't configured any certificates or keys) this will do
+ * nothing and succeed. If there is a configured SSL context then everything
+ * needs to pass verification.
+ */
+static BIO* upgrade_control_server_ssl(int sock, struct addrinfo *dest) {
+    BIO *ctrl = establish_control_socket(ssl_ctx, sock, 1);
 
     /* if there is an SSL context then we are expected to use SSL */
-    //XXX should this happen in connect? except we don't know destination
     if ( ssl_ctx ) {
         X509 *server_cert;
         SSL *ssl;
@@ -683,6 +625,24 @@ BIO* connect_control_server(struct addrinfo *dest, uint16_t port,
     }
 
     return ctrl;
+}
+
+
+
+/*
+ * Used by both amplet2-client run tests and standalone tests to establish a
+ * connection to the control socket or standalone test on the remote machine.
+ */
+BIO* connect_control_server(struct addrinfo *dest, uint16_t port,
+        amp_test_meta_t *meta) {
+
+    int sock = connect_to_server(dest, port, meta, NULL);
+
+    if ( sock > 0 ) {
+        return upgrade_control_server_ssl(sock, dest);
+    }
+
+    return NULL;
 }
 
 
