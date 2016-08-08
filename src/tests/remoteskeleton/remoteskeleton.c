@@ -73,22 +73,24 @@ amp_test_result_t* run_remoteskeleton(int argc, char *argv[], int count,
     struct timeval start_time;
     uint32_t valid;
     int opt;
-    amp_test_meta_t meta;
+    struct sockopt_t sockopts;
     amp_test_result_t *result;
     BIO *ctrl;
     Amplet2__Measured__Response response;
 
     printf("remote skeleton test\n");
 
-    memset(&meta, 0, sizeof(meta));
+    memset(&sockopts, 0, sizeof(sockopts));
 
     /* use getopt to check for -h first, then fall through to dump all args */
     while ( (opt = getopt(argc, argv, "hI:4:6:")) != -1 ) {
 	switch ( opt ) {
 	    case 'h': usage(argv[0]); exit(0);
-            case 'I': meta.interface = optarg; break;
-            case '4': meta.sourcev4 = optarg; break;
-            case '6': meta.sourcev6 = optarg; break;
+            case 'I': sockopts.device = optarg; break;
+            case '4': sockopts.sourcev4 = get_numeric_address(optarg, NULL);
+                      break;
+            case '6': sockopts.sourcev6 = get_numeric_address(optarg, NULL);
+                      break;
             default: /* pass through */ break;
 	};
     }
@@ -133,7 +135,7 @@ amp_test_result_t* run_remoteskeleton(int argc, char *argv[], int count,
      * connect to a single target.
      */
     if ( (ctrl=connect_control_server(dests[0],
-                    atoi(DEFAULT_AMPLET_CONTROL_PORT), &meta)) == NULL ) {
+                    atoi(DEFAULT_AMPLET_CONTROL_PORT), &sockopts)) == NULL ) {
 	Log(LOG_WARNING, "Failed to connect control server");
 	return NULL;
     }

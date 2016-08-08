@@ -24,17 +24,6 @@ typedef enum {
     AMP_TEST_LAST,
 } test_type_t;
 
-typedef struct amp_test_meta {
-    char *interface;
-    char *sourcev4;
-    char *sourcev6;
-    char *ampname;
-    char *nssock;
-    int control_port;
-    uint32_t inter_packet_delay;
-    uint8_t dscp;
-} amp_test_meta_t;
-
 typedef struct amp_test_result {
     uint64_t timestamp;
     size_t len;

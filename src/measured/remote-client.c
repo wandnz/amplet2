@@ -100,10 +100,10 @@ int main(int argc, char *argv[]) {
     char *host = "localhost";
     char *port = DEFAULT_AMPLET_CONTROL_PORT;
     char *args = NULL;
-    amp_test_meta_t meta;
+    struct sockopt_t sockopts;
     int list = 0;
 
-    memset(&meta, 0, sizeof(amp_test_meta_t));
+    memset(&sockopts, 0, sizeof(sockopts));
 
     /* quieten down log messages while starting, we don't need to see them */
     log_level = LOG_WARNING;
@@ -120,9 +120,11 @@ int main(int argc, char *argv[]) {
             case 'p': port = optarg; break;
             case 't': test_name = optarg; break;
             case 'x': log_level = LOG_DEBUG; break;
-            case '4': meta.sourcev4 = optarg; break;
-            case '6': meta.sourcev6 = optarg; break;
-            case 'I': meta.interface = optarg; break;
+            case '4': sockopts.sourcev4 = get_numeric_address(optarg, NULL);
+                      break;
+            case '6': sockopts.sourcev6 = get_numeric_address(optarg, NULL);
+                      break;
+            case 'I': sockopts.device = optarg; break;
             case 'h':
             case '?':
             default: usage(argv[0]); exit(1);
@@ -183,7 +185,8 @@ int main(int argc, char *argv[]) {
     getaddrinfo(host, port, &hints, &dest);
 
     /* connect to the control server, doing all the SSL establishment etc */
-    if ( (ctrl = connect_control_server(dest, atoi(port), &meta)) == NULL ) {
+    if ( (ctrl = connect_control_server(dest, atoi(port),
+                    &sockopts)) == NULL ) {
         printf("failed to connect control server\n");
         return -1;
     }

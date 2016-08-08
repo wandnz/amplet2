@@ -185,7 +185,7 @@ static struct test_request_t* build_schedule(struct opt_t *options) {
  * TODO could this be a library function too, with a function pointer?
  */
 static amp_test_result_t* run_test(struct addrinfo *server,
-        struct opt_t *options, struct sockopt_t *socket_options, BIO *ctrl) {
+        struct opt_t *options, BIO *ctrl) {
 
     int test_socket;
     struct sockaddr_storage ss;
@@ -197,9 +197,6 @@ static amp_test_result_t* run_test(struct addrinfo *server,
     struct timeval start_time;
     amp_test_result_t *result;
     struct summary_t *rtt = NULL, *remote_rtt = NULL;
-
-    socket_options->socktype = SOCK_STREAM;
-    socket_options->protocol = IPPROTO_TCP;
 
     /* create our test socket so it is ready early on */
     if ( (test_socket=socket(server->ai_family, SOCK_DGRAM, IPPROTO_UDP)) < 0 ){
@@ -310,15 +307,15 @@ amp_test_result_t* run_udpstream_client(int argc, char *argv[], int count,
 
     int opt;
     struct opt_t test_options;
-    struct sockopt_t socket_options;
+    struct sockopt_t sockopts;
     char *client;
-    amp_test_meta_t meta;
     extern struct option long_options[];
     amp_test_result_t *result;
     BIO *ctrl;
     uint32_t minimum_delay = MIN_INTER_PACKET_DELAY;
 
     /* set some sensible defaults */
+    memset(&sockopts, 0, sizeof(sockopts));
     test_options.dscp = DEFAULT_DSCP_VALUE;
     test_options.packet_spacing = DEFAULT_UDPSTREAM_INTER_PACKET_DELAY;
     test_options.packet_size = DEFAULT_UDPSTREAM_PACKET_LENGTH;
@@ -330,26 +327,16 @@ amp_test_result_t* run_udpstream_client(int argc, char *argv[], int count,
     test_options.direction = CLIENT_THEN_SERVER;
     test_options.rtt_samples = DEFAULT_UDPSTREAM_RTT_SAMPLES;
 
-    memset(&socket_options, 0, sizeof(socket_options));
-    socket_options.sourcev4 = NULL;
-    socket_options.sourcev6 = NULL;
-    socket_options.device = NULL;
     client = NULL;
-
-    memset(&meta, 0, sizeof(meta));
 
     while ( (opt = getopt_long(argc, argv, "c:d:D:p:P:r:n:z:I:Q:Z:4:6:hx",
                     long_options, NULL)) != -1 ) {
         switch ( opt ) {
-            case '4':
-                socket_options.sourcev4 = get_numeric_address(optarg, NULL);
-                meta.sourcev4 = optarg;
-                break;
-            case '6':
-                socket_options.sourcev6 = get_numeric_address(optarg, NULL);
-                meta.sourcev6 = optarg;
-                break;
-            case 'I': socket_options.device = meta.interface = optarg; break;
+            case '4': sockopts.sourcev4 = get_numeric_address(optarg, NULL);
+                      break;
+            case '6': sockopts.sourcev6 = get_numeric_address(optarg, NULL);
+                      break;
+            case 'I': sockopts.device = optarg; break;
             case 'Q': if ( parse_dscp_value(optarg, &test_options.dscp) < 0 ) {
                           Log(LOG_WARNING, "Invalid DSCP value, aborting");
                           exit(-1);
@@ -481,8 +468,8 @@ amp_test_result_t* run_udpstream_client(int argc, char *argv[], int count,
 #endif
 
     /* connect to the control server to start/configure the test */
-    if ( (ctrl=connect_control_server(dests[0], test_options.cport,
-                    &meta)) == NULL ) {
+    if ( (ctrl=connect_control_server(
+                    dests[0], test_options.cport, &sockopts)) == NULL ) {
         Log(LOG_WARNING, "Failed to connect control server");
         return NULL;
     }
@@ -510,13 +497,21 @@ amp_test_result_t* run_udpstream_client(int argc, char *argv[], int count,
         }
     }
 
-    result = run_test(dests[0], &test_options, &socket_options, ctrl);
+    result = run_test(dests[0], &test_options, ctrl);
 
     close_control_connection(ctrl);
 
     if ( client != NULL ) {
         freeaddrinfo(dests[0]);
         free(dests);
+    }
+
+    if ( sockopts.sourcev4 ) {
+        freeaddrinfo(sockopts.sourcev4);
+    }
+
+    if ( sockopts.sourcev6 ) {
+        freeaddrinfo(sockopts.sourcev6);
     }
 
     return result;

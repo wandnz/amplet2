@@ -54,6 +54,19 @@ typedef enum schedule_period {
 
 
 /*
+ * Test meta information - interfaces, timing, addresses etc to use.
+ */
+typedef struct amp_test_meta {
+    char *interface;
+    char *sourcev4;
+    char *sourcev6;
+    char *ampname;
+    uint32_t inter_packet_delay;
+    uint8_t dscp;
+} amp_test_meta_t;
+
+
+/*
  * Data block for scheduled test events.
  */
 typedef struct test_schedule_item {

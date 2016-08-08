@@ -472,7 +472,7 @@ BIO* listen_control_server(uint16_t port, uint16_t portmax,
  * client.
  */
 int connect_to_server(struct addrinfo *dest, uint16_t port,
-        amp_test_meta_t *meta, struct sockopt_t *options) {
+        struct sockopt_t *sockopts) {
 
     int res;
     int attempts;
@@ -501,26 +501,24 @@ int connect_to_server(struct addrinfo *dest, uint16_t port,
     }
 
     /* do any socket configuration required */
-    if ( options ) {
-        do_socket_setup(sock, dest->ai_family, options);
+    if ( sockopts ) {
+        do_socket_setup(sock, dest->ai_family, sockopts);
     }
 
     /* bind to a local interface if specified */
-    if ( meta && meta->interface ) {
-        if ( bind_socket_to_device(sock, meta->interface) < 0 ) {
+    if ( sockopts && sockopts->device ) {
+        if ( bind_socket_to_device(sock, sockopts->device) < 0 ) {
             return -1;
         }
     }
 
     /* bind to a local address if specified */
-    if ( meta && (meta->sourcev4 || meta->sourcev6) ) {
+    if ( sockopts && (sockopts->sourcev4 || sockopts->sourcev6) ) {
         struct addrinfo *addr;
 
         switch ( dest->ai_family ) {
-            case AF_INET: addr = get_numeric_address(meta->sourcev4, NULL);
-                          break;
-            case AF_INET6: addr = get_numeric_address(meta->sourcev6, NULL);
-                           break;
+            case AF_INET: addr = sockopts->sourcev4; break;
+            case AF_INET6: addr = sockopts->sourcev6; break;
             default: return -1;
         };
 
@@ -528,13 +526,8 @@ int connect_to_server(struct addrinfo *dest, uint16_t port,
          * Only bind if we have a specific source with the same address
          * family as the destination, otherwise leave it default.
          */
-        if ( addr ) {
-            int res;
-            res = bind_socket_to_address(sock, addr);
-            freeaddrinfo(addr);
-            if ( res < 0 ) {
-                return -1;
-            }
+        if ( addr && bind_socket_to_address(sock, addr) < 0 ) {
+            return -1;
         }
     }
 
@@ -634,9 +627,9 @@ static BIO* upgrade_control_server_ssl(int sock, struct addrinfo *dest) {
  * connection to the control socket or standalone test on the remote machine.
  */
 BIO* connect_control_server(struct addrinfo *dest, uint16_t port,
-        amp_test_meta_t *meta) {
+        struct sockopt_t *sockopts) {
 
-    int sock = connect_to_server(dest, port, meta, NULL);
+    int sock = connect_to_server(dest, port, sockopts);
 
     if ( sock > 0 ) {
         return upgrade_control_server_ssl(sock, dest);

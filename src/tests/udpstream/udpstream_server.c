@@ -2,6 +2,7 @@
 #include <assert.h>
 #include <unistd.h>
 #include <stdlib.h>
+#include <netdb.h>
 
 #include "ssl.h"
 #include "tests.h"
@@ -242,7 +243,6 @@ void run_udpstream_server(int argc, char *argv[], BIO *ctrl) {
     int port; /* Port to start server on */
     int opt;
     struct sockopt_t sockopts;
-    char *sourcev4, *sourcev6;
     extern struct option long_options[];
     uint16_t portmax;
     int standalone;
@@ -253,8 +253,6 @@ void run_udpstream_server(int argc, char *argv[], BIO *ctrl) {
 
     /* set some sensible defaults */
     memset(&sockopts, 0, sizeof(sockopts));
-    sourcev4 = "0.0.0.0";
-    sourcev6 = "::";
     port = DEFAULT_CONTROL_PORT;
     portmax = MAX_CONTROL_PORT;
     standalone = 0;
@@ -262,8 +260,10 @@ void run_udpstream_server(int argc, char *argv[], BIO *ctrl) {
     while ( (opt = getopt_long(argc, argv, "p:I:Q:Z:4:6:hx",
                     long_options, NULL)) != -1 ) {
         switch ( opt ) {
-            case '4': sourcev4 = optarg; break;
-            case '6': sourcev6 = optarg; break;
+            case '4': sockopts.sourcev4 = get_numeric_address(optarg, NULL);
+                      break;
+            case '6': sockopts.sourcev6 = get_numeric_address(optarg, NULL);
+                      break;
             case 'I': sockopts.device = optarg; break;
             case 'Q': /* option does nothing for this test */ break;
             case 'Z': /* option does nothing for this test */ break;
@@ -278,9 +278,17 @@ void run_udpstream_server(int argc, char *argv[], BIO *ctrl) {
 
     Log(LOG_DEBUG, "udpstream server port=%d, maxport=%d", port, portmax);
 
-    /* TODO use the port number here rather than in start_listening() */
-    sockopts.sourcev4 = get_numeric_address(sourcev4, NULL);
-    sockopts.sourcev6 = get_numeric_address(sourcev6, NULL);
+    /*
+     * We currently need the addrinfo structs to exist so we can set the port
+     * number for the server to listen on, so create them if they don't exist.
+     */
+    if ( sockopts.sourcev4 == NULL ) {
+        sockopts.sourcev4 = get_numeric_address("0.0.0.0", NULL);
+    }
+    if ( sockopts.sourcev6 == NULL ) {
+        sockopts.sourcev6 = get_numeric_address("::", NULL);
+    }
+    /* use TCP for the control connection, even though it's a udp test */
     sockopts.socktype = SOCK_STREAM;
     sockopts.protocol = IPPROTO_TCP;
     sockopts.reuse_addr = 1;

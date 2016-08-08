@@ -263,8 +263,7 @@ static amp_test_result_t* report_results(uint64_t start_time,
  * @return 0 if successful, otherwise -1 on failure
  */
 static amp_test_result_t* runSchedule(struct addrinfo *serv_addr,
-        amp_test_meta_t *meta, struct opt_t *options,
-        struct sockopt_t *socket_options, BIO *ctrl) {
+        struct opt_t *options, struct sockopt_t *sockopts, BIO *ctrl) {
     int test_socket = -1;
     struct packet_t packet;
     uint64_t start_time_ns;
@@ -277,13 +276,12 @@ static amp_test_result_t* runSchedule(struct addrinfo *serv_addr,
 
     memset(&packet, 0, sizeof(packet));
 
-    //XXX i think sourcev4 and source6 and device already exist in this?
     /* XXX TODO options should have these removed from it */
-    socket_options->sock_mss = options->sock_mss;//XXX
-    socket_options->sock_disable_nagle = options->sock_disable_nagle;//XXX
-    socket_options->sock_rcvbuf = options->sock_rcvbuf;//XXX
-    socket_options->sock_sndbuf = options->sock_sndbuf;//XXX
-    socket_options->dscp = options->dscp;//XXX
+    sockopts->sock_mss = options->sock_mss;//XXX
+    sockopts->sock_disable_nagle = options->sock_disable_nagle;//XXX
+    sockopts->sock_rcvbuf = options->sock_rcvbuf;//XXX
+    sockopts->sock_sndbuf = options->sock_sndbuf;//XXX
+    sockopts->dscp = options->dscp;//XXX
 
     start_time_ns = timeNanoseconds();
 
@@ -300,8 +298,7 @@ static amp_test_result_t* runSchedule(struct addrinfo *serv_addr,
     }
 
     /* Connect the test socket */
-    test_socket = connect_to_server(serv_addr, options->tport, meta,
-            socket_options);
+    test_socket = connect_to_server(serv_addr, options->tport, sockopts);
     if ( test_socket == -1 ) {
         Log(LOG_ERR, "Cannot connect to the server testsocket");
         goto errorCleanup;
@@ -340,8 +337,8 @@ static amp_test_result_t* runSchedule(struct addrinfo *serv_addr,
                     return NULL;
                 }
                 /* Open up a new one */
-                test_socket = connect_to_server(serv_addr, options->tport, meta,
-                        socket_options);
+                test_socket = connect_to_server(serv_addr, options->tport,
+                        sockopts);
                 if ( test_socket == -1 ) {
                     Log(LOG_ERR, "Failed to open a new connection");
                     goto errorCleanup;
@@ -494,8 +491,7 @@ errorCleanup :
 amp_test_result_t* run_throughput_client(int argc, char *argv[], int count,
         struct addrinfo **dests) {
     struct opt_t test_options;
-    struct sockopt_t socket_options;
-    amp_test_meta_t meta;
+    struct sockopt_t sockopts;
     int opt;
     int option_index = 0;
     extern struct option long_options[];
@@ -524,28 +520,19 @@ amp_test_result_t* run_throughput_client(int argc, char *argv[], int count,
     test_options.reuse_addr = 0;
 
     /* TODO free these when done? */
-    memset(&socket_options, 0, sizeof(socket_options));
-    socket_options.sourcev4 = NULL;
-    socket_options.sourcev6 = NULL;
-    socket_options.device = NULL;
+    memset(&sockopts, 0, sizeof(sockopts));
     client = NULL;
-
-    memset(&meta, 0, sizeof(meta));
 
     while ( (opt = getopt_long(argc, argv,
                     "c:d:i:M:No:p:P:rS:t:z:I:Q:Z:4:6:hx",
                     long_options, &option_index)) != -1 ) {
 
         switch ( opt ) {
-            case '4': socket_options.sourcev4 =
-                            get_numeric_address(optarg, NULL);
-                      meta.sourcev4 = optarg;
+            case '4': sockopts.sourcev4 = get_numeric_address(optarg, NULL);
                       break;
-            case '6': socket_options.sourcev6 =
-                            get_numeric_address(optarg, NULL);
-                      meta.sourcev4 = optarg;
+            case '6': sockopts.sourcev6 = get_numeric_address(optarg, NULL);
                       break;
-            case 'I': socket_options.device = meta.interface = optarg; break;
+            case 'I': sockopts.device = optarg; break;
             case 'Q': if ( parse_dscp_value(optarg, &test_options.dscp) < 0 ) {
                           Log(LOG_WARNING, "Invalid DSCP value, aborting");
                           exit(-1);
@@ -705,7 +692,7 @@ amp_test_result_t* run_throughput_client(int argc, char *argv[], int count,
 
     /* connect to the control server to start/configure the test */
     if ( (ctrl=connect_control_server(dests[0], test_options.cport,
-                    &meta)) == NULL ) {
+                    &sockopts)) == NULL ) {
         Log(LOG_WARNING, "Failed to connect control server");
         return NULL;
     }
@@ -733,13 +720,21 @@ amp_test_result_t* run_throughput_client(int argc, char *argv[], int count,
         }
     }
 
-    result = runSchedule(dests[0], &meta, &test_options, &socket_options, ctrl);
+    result = runSchedule(dests[0], &test_options, &sockopts, ctrl);
 
     close_control_connection(ctrl);
 
     if ( client != NULL ) {
         freeaddrinfo(dests[0]);
         free(dests);
+    }
+
+    if ( sockopts.sourcev4 ) {
+        freeaddrinfo(sockopts.sourcev4);
+    }
+
+    if ( sockopts.sourcev6 ) {
+        freeaddrinfo(sockopts.sourcev6);
     }
 
     freeSchedule(&test_options);
