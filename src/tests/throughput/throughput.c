@@ -114,7 +114,6 @@ void usage(void) {
 amp_test_result_t* run_throughput(int argc, char *argv[], int count,
         struct addrinfo **dests) {
     int opt;
-    int option_index = 0;
     int server_flag_index = 0;
 
     Log(LOG_DEBUG, "Starting throughput test");
@@ -122,7 +121,7 @@ amp_test_result_t* run_throughput(int argc, char *argv[], int count,
     /* this option string needs to be kept up to date with server and client */
     while ( (opt = getopt_long(argc, argv,
                     "c:d:i:Nm:o:p:P:rsS:t:z:I:Q:Z:4:6:hvx",
-                    long_options, &option_index)) != -1 ) {
+                    long_options, NULL)) != -1 ) {
         switch ( opt ) {
             case 's': server_flag_index = optind - 1; break;
             case 'v': print_package_version(argv[0]); exit(0);

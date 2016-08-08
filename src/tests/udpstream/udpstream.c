@@ -81,20 +81,17 @@ void usage(void) {
 
 
 /*
- * Reimplementation of the udpstream test from AMP
- *
  * TODO const up the dest arguments so cant be changed?
  */
 amp_test_result_t* run_udpstream(int argc, char *argv[], int count,
         struct addrinfo **dests) {
     int opt;
-    int option_index = 0;
     int server_flag_index = 0;
 
     Log(LOG_DEBUG, "Starting udpstream test");
 
     while ( (opt = getopt_long(argc, argv, "cd:D:n:p:P:r:sz:I:Q:Z:4:6:hvx",
-                    long_options, &option_index)) != -1 ) {
+                    long_options, NULL)) != -1 ) {
         switch ( opt ) {
             case 's': server_flag_index = optind - 1; break;
             case 'v': print_package_version(argv[0]); exit(0);

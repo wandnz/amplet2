@@ -316,19 +316,15 @@ int main(int argc, char *argv[]) {
     amp_control_t *control;
     fetch_schedule_item_t *fetch;
     cfg_t *cfg;
+    int opt;
 
     memset(&meta, 0, sizeof(meta));
     meta.inter_packet_delay = MIN_INTER_PACKET_DELAY;
 
-    while ( 1 ) {
+    while ( (opt = getopt_long(argc, argv, "dhp:vxc:rZ:I:4:6:",
+                    long_options, NULL)) != -1 ) {
 
-	int opt_ind = 0;
-	int c = getopt_long(argc, argv, "dhp:vxc:rZ:I:4:6:",
-                long_options, &opt_ind);
-	if ( c == -1 )
-	    break;
-
-	switch ( c ) {
+	switch ( opt ) {
 	    case 'd':
 		/* daemonise, detach, close stdin/out/err, etc */
 		if ( daemon(0, 0) < 0 ) {

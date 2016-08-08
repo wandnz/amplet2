@@ -94,7 +94,6 @@ int main(int argc, char *argv[]) {
 
     int i;
     int opt;
-    int option_index = 0;
     char *test_name = NULL;
     test_type_t test_type;
     char *host = "localhost";
@@ -109,7 +108,7 @@ int main(int argc, char *argv[]) {
     log_level = LOG_WARNING;
 
     while ( (opt = getopt_long(argc, argv, "?h0:9:8:a:c:lp:t:x4:6:I:",
-                    long_options, &option_index)) != -1 ) {
+                    long_options, NULL)) != -1 ) {
         switch ( opt ) {
             case '0': sslopts.cacert = optarg; break;
             case '9': sslopts.cert = optarg; break;

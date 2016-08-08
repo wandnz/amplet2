@@ -493,7 +493,6 @@ amp_test_result_t* run_throughput_client(int argc, char *argv[], int count,
     struct opt_t test_options;
     struct sockopt_t sockopts;
     int opt;
-    int option_index = 0;
     extern struct option long_options[];
     char *client;
     int duration = -1;
@@ -525,7 +524,7 @@ amp_test_result_t* run_throughput_client(int argc, char *argv[], int count,
 
     while ( (opt = getopt_long(argc, argv,
                     "c:d:i:M:No:p:P:rS:t:z:I:Q:Z:4:6:hx",
-                    long_options, &option_index)) != -1 ) {
+                    long_options, NULL)) != -1 ) {
 
         switch ( opt ) {
             case '4': sockopts.sourcev4 = get_numeric_address(optarg, NULL);
