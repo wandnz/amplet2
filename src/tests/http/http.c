@@ -511,8 +511,11 @@ static curl_socket_t open_socket(__attribute__((unused))void *clientp,
         };
 
         if ( bind_socket_to_address(sock, addr) < 0 ) {
+            freeaddrinfo(addr);
             return CURL_SOCKET_BAD;
         }
+
+        freeaddrinfo(addr);
     }
 
     return sock;
