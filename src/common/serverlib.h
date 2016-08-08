@@ -28,7 +28,6 @@ struct sockopt_t {
 };
 
 
-struct addrinfo *get_socket_address(int sock);
 int start_listening(struct socket_t *sockets, int port,
         struct sockopt_t *sockopts);
 BIO* listen_control_server(uint16_t port, uint16_t portmax,

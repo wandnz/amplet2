@@ -15,8 +15,8 @@
 
 /*
  * Return the local address that the socket is using.
-  */
-struct addrinfo *get_socket_address(int sock) {
+ */
+static struct addrinfo *get_socket_address(int sock) {
     struct addrinfo *addr;
 
     assert(sock > 0);
