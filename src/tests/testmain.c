@@ -130,13 +130,15 @@ int main(int argc, char *argv[]) {
             case 'D': nameserver = optarg;
                       break;
             /* use these for nameserver config, but also pass onto the test */
-            case '4': test_argv[test_argc++] = sourcev4 = optarg;
-                      test_argv = realloc(test_argv,
-                              (test_argc+1) * sizeof(char*));
+            case '4': test_argv = realloc(test_argv,
+                              (test_argc+3) * sizeof(char*));
+                      test_argv[test_argc++] = "-4";
+                      test_argv[test_argc++] = sourcev4 = optarg;
                       break;
-            case '6': test_argv[test_argc++] = sourcev6 = optarg;
-                      test_argv = realloc(test_argv,
-                              (test_argc+1) * sizeof(char*));
+            case '6': test_argv = realloc(test_argv,
+                              (test_argc+3) * sizeof(char*));
+                      test_argv[test_argc++] = "-6";
+                      test_argv[test_argc++] = sourcev6 = optarg;
                       break;
             /* configure ssl certs if we want to talk to a real server */
             case '0': vars.amqp_ssl.cacert = optarg;
