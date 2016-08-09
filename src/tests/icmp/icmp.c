@@ -238,7 +238,8 @@ static int process_ipv6_packet(char *packet, uint32_t bytes, uint16_t ident,
 
 
 /*
- *
+ * Try to read any outstanding probe responses until we reach the timeout or
+ * have received all the expected responses.
  */
 static void harvest(struct socket_t *raw_sockets, uint16_t ident, int wait,
 	int outstanding, int count, struct info_t info[]) {
@@ -402,7 +403,8 @@ static int open_sockets(struct socket_t *raw_sockets) {
 
 
 /*
- *
+ * Construct a protocol buffer message containing the results for a single
+ * destination address.
  */
 static Amplet2__Icmp__Item* report_destination(struct info_t *info) {
 
@@ -452,7 +454,8 @@ static Amplet2__Icmp__Item* report_destination(struct info_t *info) {
 
 
 /*
- *
+ * Construct a protocol buffer message containing all the test options and the
+ * results for each destination address.
  */
 static amp_test_result_t* report_results(struct timeval *start_time, int count,
         struct info_t info[], struct opt_t *opt) {
@@ -534,9 +537,6 @@ static void usage(void) {
 /*
  * Reimplementation of the ICMP test from AMP
  *
- * TODO get useful errors into the log strings
- * TODO get test name into log strings
- * TODO logging will need more work - the log level won't be set.
  * TODO const up the dest arguments so cant be changed?
  */
 amp_test_result_t* run_icmp(int argc, char *argv[], int count,

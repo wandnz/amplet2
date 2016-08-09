@@ -847,9 +847,6 @@ static void usage(void) {
 
 
 /*
- * Reimplementation of the DNS2 test from AMP
- *
- * TODO check that all the random macros used for values are actually needed
  * TODO const up the dest arguments so cant be changed?
  */
 amp_test_result_t* run_dns(int argc, char *argv[], int count,

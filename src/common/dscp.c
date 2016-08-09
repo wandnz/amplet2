@@ -8,7 +8,7 @@
 
 
 /*
- *
+ * Convert differentiated services code point value to short printable string.
  */
 char *dscp_to_str(const uint8_t value) {
     switch ( value ) {
@@ -42,7 +42,9 @@ char *dscp_to_str(const uint8_t value) {
 
 
 /*
- *
+ * Parse a string from the command line to extract a differentiated services
+ * code point value. If a known value isn't found it will try to interpret the
+ * string as a binary, octal, hex or decimal number and use that.
  */
 int parse_dscp_value(const char *value, uint8_t *result) {
     /* check if the name of a code point was given, if so set the right value */

@@ -435,6 +435,12 @@ int connect_to_whois_server(void) {
 
 
 
+/*
+ * Add another ASN query to the list of queries. They will be served by a local
+ * cache/proxy if the main client is running, or sent directly to the server.
+ * We can continue to add queries until the flag marking the end of queries is
+ * sent.
+ */
 int amp_asn_add_query(iptrie_node_t *root, void *data) {
     int fd = *(int*)data;
     struct sockaddr_storage addr;
@@ -463,6 +469,9 @@ int amp_asn_add_query(iptrie_node_t *root, void *data) {
 
 
 
+/*
+ * Send the flag that marks the end of ASN queries we are making.
+ */
 int amp_asn_flag_done(int fd) {
     struct sockaddr_storage addr;
     socklen_t socklen;
@@ -489,6 +498,11 @@ int amp_asn_flag_done(int fd) {
 
 
 
+/*
+ * Fetch the results of the ASN queries. This might come from a local
+ * cache/proxy if the main client is running, or could be fetched and parsed
+ * directly from the server.
+ */
 struct iptrie *amp_asn_fetch_results(int fd, struct iptrie *results) {
     struct sockaddr_storage addr;
     socklen_t socklen;
@@ -507,4 +521,3 @@ struct iptrie *amp_asn_fetch_results(int fd, struct iptrie *results) {
     /* TCP whois connection, read all the string responses and parse them */
     return amp_asn_fetch_results_direct(fd, results);
 }
-

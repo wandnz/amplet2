@@ -169,7 +169,7 @@ static char *icmp6_code_str(uint8_t type, uint8_t code) {
 
 
 /*
- *
+ * Convert an ICMP error type and code into a human readable error string.
  */
 char *icmp_code_str(uint8_t family, uint8_t type, uint8_t code) {
 

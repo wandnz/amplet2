@@ -1320,8 +1320,6 @@ static void usage(void) {
 
 
 /*
- * Reimplementation of the HTTP2 test from AMP
- *
  * TODO const up the dest arguments so cant be changed?
  */
 //XXX dests should not have anything in it?

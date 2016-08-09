@@ -192,13 +192,10 @@ static void do_socket_setup(int sock, int family, struct sockopt_t *options) {
 
 
 
-/**
- * Start listening on the given port for incoming tests
- *
- * @param port
- *              The port to listen for incoming connections
- *
- * @return the bound socket or return -1 if this fails
+/*
+ * Start listening on the given port. Used when listening for control
+ * connections as a standalone test, or for the actual test channel itself
+ * over which test data will be transmitted.
  */
 int start_listening(struct socket_t *sockets, int port,
         struct sockopt_t *sockopts) {
@@ -372,7 +369,7 @@ static int send_server_start(BIO *ctrl, test_type_t type) {
 
 
 /*
- *
+ * Close a connection to an amplet2-client control port.
  */
 void close_control_connection(BIO *ctrl) {
     Log(LOG_DEBUG, "Closing control connection");
@@ -388,7 +385,11 @@ void close_control_connection(BIO *ctrl) {
 
 
 /*
- *
+ * Listen for a control connection as a standalone test server. Normally the
+ * amplet2-client control socket will be used to start the server and then
+ * communicate test options/results but the standalone tests don't have this
+ * option. The server portion is already started, so they instead use this
+ * function to accept a control connection from the remote machine.
  */
 BIO* listen_control_server(uint16_t port, uint16_t portmax,
         struct sockopt_t *sockopts) {
@@ -662,7 +663,8 @@ int start_remote_server(BIO *ctrl, test_type_t type) {
 
 
 /*
- *
+ * Parse a RESPONSE packet to check that a remote command (start server,
+ * run a test) was executed successfully.
  */
 int parse_measured_response(void *data, uint32_t len,
         Amplet2__Measured__Response *response) {
@@ -700,7 +702,8 @@ int parse_measured_response(void *data, uint32_t len,
 
 
 /*
- *
+ * Read a RESPONSE message from the network and parse it to check that a remote
+ * command (start server, run a test) was executed successfully.
  */
 int read_measured_response(BIO *ctrl, Amplet2__Measured__Response *response) {
 
@@ -728,7 +731,8 @@ int read_measured_response(BIO *ctrl, Amplet2__Measured__Response *response) {
 
 
 /*
- *
+ * Send a RESPONSE message describing success or failure to run a remote
+ * command.
  */
 int send_measured_response(BIO *ctrl, uint32_t code, char *message) {
     int len;
@@ -761,7 +765,8 @@ int send_measured_response(BIO *ctrl, uint32_t code, char *message) {
 
 
 /*
- *
+ * Send a RESULT message to a remote control client. Used for one-off tests
+ * that were started remotely rather than scheduled by the local client.
  */
 int send_measured_result(BIO *ctrl, test_type_t test, amp_test_result_t *data) {
 
