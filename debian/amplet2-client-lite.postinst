@@ -17,13 +17,23 @@ set -e
 # for details, see http://www.debian.org/doc/debian-policy/ or
 # the debian-policy package
 
-# TODO is there a way we can get this information from dpkg?
-PACKAGE="amplet2"
+CONFDIR="/etc/amplet2"
+CLIENTDIR="$CONFDIR/clients"
 
 case "$1" in
     configure)
         # Debian packaging will create the directory with standard permissions
-        chmod 700 /etc/${PACKAGE}/keys
+        chmod 700 ${CONFDIR}/keys
+
+        # Copy the example client configuration file into place if there isn't
+        # already one there. Trying to make it so everything is ready to go for
+        # new users without breaking anything we have already done.
+        # TODO If there are existing config files but they are all disabled for
+        # some reason then we will be creating a new one
+        if [ `ls -lah ${CLIENTDIR} | grep -c "\.conf$"` -eq 0 ]; then
+            cp ${CLIENTDIR}/client.example ${CLIENTDIR}/default.conf
+            sed -i "s/vialocal = true/vialocal = false/" ${CLIENTDIR}/default.conf
+        fi
 
         # restart rsyslog, we've installed a new config file for it
         if [ -x "`which invoke-rc.d 2>/dev/null`" ]; then
