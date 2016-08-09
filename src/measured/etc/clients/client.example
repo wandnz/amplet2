@@ -1,3 +1,12 @@
+# amplet2-client default client configuration file
+#
+# You MUST configure collector:address to the server where you want to report,
+# otherwise your data will not be reported.
+#
+# You SHOULD configure ampname to the name of this monitor so that it can be
+# easily identified from other monitors reporting to the same collector.
+
+
 # The ampname is reported as the source of the tests. It should generally be
 # unique (unless you have a really good reason not to). If it is not set then
 # it defaults to the hostname of the machine.
@@ -13,10 +22,10 @@
 #interface = eth0
 
 # Source IPv4 address that all tests should bind to when sending test data
-#ipv4 = 1.2.3.4
+#ipv4 = 192.0.2.1
 
 # Source IPv6 address that all tests should bind to when sending test data
-#ipv6 = 2001:dead:beef::1
+#ipv6 = 2001:DB8::1
 
 # Minimum gap (in microseconds) between sending probe packets for most tests.
 # By default this is set to 100us which may be too short for some connections
@@ -26,7 +35,7 @@
 # Override the default nameservers in /etc/resolv.conf and use these ones
 # instead. If you specify more than 3, only the first 3 valid addresses
 # will be used.
-#nameservers = { 1.2.3.4, 5.6.7.8, 9.10.11.12 }
+#nameservers = { 192.0.2.100, 192.0.2.101, 192.0.2.102 }
 
 # Collecter to which data should be reported. If there is a rabbitmq broker
 # running on the local machine then "vialocal" should be set to true and the
@@ -55,7 +64,7 @@ collector {
 control {
     enabled = true
 #    ipv4 = 1.2.3.4
-#    ipv6 = 2001:dead:beef::1
+#    ipv6 = 2001:DB8::1
 #    interface = eth0
 #    port = 8869
     acl server {
