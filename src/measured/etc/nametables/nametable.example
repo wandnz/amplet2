@@ -18,9 +18,9 @@
 #
 # EXAMPLES:
 #
-# amp-foo 10.1.2.3
-# amp-foo 10.1.2.4
-# amp-foo 2001:dead:beef::4
-# local.test.site 192.168.0.1
-# amp-bar 192.168.0.1
-# ipv6-target 2001:dead:beef::1
+# amp-foo 192.0.2.1
+# amp-foo 192.0.2.2
+# amp-foo 2001:DB8::4
+# amp-bar 192.0.2.100
+# target.example.com 192.0.2.250
+# ipv6-target.example.com 2001:DB8::1
