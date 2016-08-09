@@ -591,7 +591,7 @@ amp_test_result_t* run_icmp(int argc, char *argv[], int count,
 
     if ( count < 1 ) {
         usage();
-        exit(0);
+        exit(-1);
     }
 
     /* pick a random packet size within allowable boundaries */
