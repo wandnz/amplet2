@@ -61,9 +61,9 @@ struct info_t {
 
 amp_test_result_t* run_icmp(int argc, char *argv[], int count,
         struct addrinfo **dests);
-int save_icmp(char *monitor, uint64_t timestamp, void *data, uint32_t len);
 void print_icmp(amp_test_result_t *result);
 test_t *register_test(void);
+
 #if UNIT_TEST
 int amp_test_process_ipv4_packet(char *packet, uint32_t bytes, uint16_t ident,
         struct timeval now, int count, struct info_t info[]);
