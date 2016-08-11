@@ -5,7 +5,7 @@ check_LTLIBRARIES=testicmp.la
 testicmp_la_SOURCES=../icmp.c
 nodist_testicmp_la_SOURCES=../icmp.pb-c.c
 testicmp_la_CFLAGS=-rdynamic -DUNIT_TEST
-testicmp_la_LDFLAGS=-module -avoid-version -L../../../common/ -lamp -lprotobuf-c
+testicmp_la_LDFLAGS=-module -avoid-version -L../../../common/ -lamp -lprotobuf-c -lwandevent
 
 icmp_register_test_SOURCES=icmp_register_test.c
 icmp_register_test_LDADD=testicmp.la

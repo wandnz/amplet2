@@ -15,6 +15,8 @@
 #include <arpa/inet.h>
 #include <malloc.h>
 #include <string.h>
+#include <signal.h>
+#include <libwandevent.h>
 
 #include "config.h"
 #include "tests.h"
@@ -47,6 +49,35 @@ static struct option long_options[] = {
     {"debug", no_argument, 0, 'x'},
     {NULL, 0, 0, 0}
 };
+
+
+
+/*
+ * Halt the event loop in the event of a SIGINT (either sent from the terminal
+ * if running standalone, or sent by the watchdog if running as part of
+ * measured) and report the results that have been collected so far.
+ */
+static void interrupt_test(wand_event_handler_t *ev_hdl,
+        __attribute__((unused))int signum,
+        __attribute__((unused))void *data) {
+
+    Log(LOG_INFO, "Received SIGINT, halting ICMP test");
+    ev_hdl->running = false;
+}
+
+
+
+/*
+ * Force the event loop to halt, so we can end the test and report the
+ * results that we do have.
+ */
+static void halt_test(wand_event_handler_t *ev_hdl, void *data) {
+    struct icmpglobals_t *globals = (struct icmpglobals_t *)data;
+
+    Log(LOG_DEBUG, "Halting ICMP test due to timeout");
+    globals->losstimer = NULL;
+    ev_hdl->running = false;
+}
 
 
 
@@ -130,8 +161,8 @@ static int icmp_error(char *packet, int bytes, uint16_t ident,
  * Process an ICMPv4 packet to check if it is an ICMP ECHO REPLY in response to
  * a request we have sent. If so then record the time it took to get the reply.
  */
-static int process_ipv4_packet(char *packet, uint32_t bytes, uint16_t ident,
-	struct timeval now, int count, struct info_t info[]) {
+static int process_ipv4_packet(struct icmpglobals_t *globals, char *packet,
+        uint32_t bytes, struct timeval *now) {
 
     struct iphdr *ip;
     struct icmphdr *icmp;
@@ -160,34 +191,34 @@ static int process_ipv4_packet(char *packet, uint32_t bytes, uint16_t ident,
 
     /* if it isn't an echo reply it could still be an error for us */
     if ( icmp->type != ICMP_ECHOREPLY ) {
-	return icmp_error(packet, bytes, ident, info);
+	return icmp_error(packet, bytes, globals->ident, globals->info);
     }
 
     /* if it is an echo reply but the id doesn't match then it's not ours */
-    if ( ntohs(icmp->un.echo.id ) != ident ) {
+    if ( ntohs(icmp->un.echo.id ) != globals->ident ) {
         Log(LOG_DEBUG, "Bad ident (got %d, expected %d)",
-                ntohs(icmp->un.echo.id), ident);
+                ntohs(icmp->un.echo.id), globals->ident);
 	return -1;
     }
 
     /* check the sequence number is less than the maximum number of requests */
     seq = ntohs(icmp->un.echo.sequence);
-    if ( seq > count ) {
+    if ( seq > globals->count ) {
         Log(LOG_DEBUG, "Bad sequence number\n");
 	return -1;
     }
 
     /* check that the magic value in the reply matches what we expected */
-    //if ( *(uint16_t*)&packet[sizeof(struct iphdr)+sizeof(struct icmphdr)] !=
     if ( *(uint16_t*)(((char *)packet)+(ip->ihl<< 2)+sizeof(struct icmphdr)) !=
-	    info[seq].magic ) {
+	    globals->info[seq].magic ) {
         Log(LOG_DEBUG, "Bad magic value");
 	return -1;
     }
 
     /* reply is good, record the round trip time */
-    info[seq].reply = 1;
-    info[seq].delay = DIFF_TV_US(now, info[seq].time_sent);
+    globals->info[seq].reply = 1;
+    globals->info[seq].delay = DIFF_TV_US(*now, globals->info[seq].time_sent);
+    globals->outstanding--;
 
     Log(LOG_DEBUG, "Good ICMP ECHOREPLY");
     return 0;
@@ -200,8 +231,8 @@ static int process_ipv4_packet(char *packet, uint32_t bytes, uint16_t ident,
  * is the same behaviour as the original icmp test, but is it really what we
  * want? Should record errors for both protocols, or neither?
  */
-static int process_ipv6_packet(char *packet, uint32_t bytes, uint16_t ident,
-	struct timeval now, int count, struct info_t info[]) {
+static int process_ipv6_packet(struct icmpglobals_t *globals, char *packet,
+        uint32_t bytes, struct timeval *now) {
 
     struct icmp6_hdr *icmp;
     uint16_t seq;
@@ -216,20 +247,21 @@ static int process_ipv6_packet(char *packet, uint32_t bytes, uint16_t ident,
 
     /* sanity check the various fields of the icmp header */
     if ( icmp->icmp6_type != ICMP6_ECHO_REPLY ||
-	    ntohs(icmp->icmp6_id) != ident ||
-	    seq > count ) {
+	    ntohs(icmp->icmp6_id) != globals->ident ||
+	    seq > globals->count ) {
 	return -1;
     }
 
     /* check that the magic value in the reply matches what we expected */
     if ( *(uint16_t*)(((char*)packet) + sizeof(struct icmp6_hdr)) !=
-	    info[seq].magic ) {
+	    globals->info[seq].magic ) {
 	return -1;
     }
 
     /* reply is good, record the round trip time */
-    info[seq].reply = 1;
-    info[seq].delay = DIFF_TV_US(now, info[seq].time_sent);
+    globals->info[seq].reply = 1;
+    globals->info[seq].delay = DIFF_TV_US(*now, globals->info[seq].time_sent);
+    globals->outstanding--;
 
     Log(LOG_DEBUG, "Good ICMP6 ECHOREPLY");
     return 0;
@@ -238,26 +270,30 @@ static int process_ipv6_packet(char *packet, uint32_t bytes, uint16_t ident,
 
 
 /*
- * Try to read any outstanding probe responses until we reach the timeout or
- * have received all the expected responses.
+ * Callback used when a packet is received that might be a response to one
+ * of our probes.
  */
-static void harvest(struct socket_t *raw_sockets, uint16_t ident, int wait,
-	int outstanding, int count, struct info_t info[]) {
+static void receive_probe_callback(wand_event_handler_t *ev_hdl,
+        int fd, void *data, enum wand_eventtype_t ev) {
 
     char packet[RESPONSE_BUFFER_LEN];
     struct timeval now;
     struct iphdr *ip;
-    int result;
     ssize_t bytes;
+    int wait;
+    struct socket_t sockets;
+    struct icmpglobals_t *globals = (struct icmpglobals_t*)data;
 
-    /*
-     * Read packets until we hit the timeout, or we have all we expect.
-     * Note that wait is reduced by get_packet(), and that the buffer is
-     * only big enough for the data from the packet that we require - the
-     * excess bytes will be discarded.
-     */
-    while ( (bytes = get_packet(raw_sockets, packet, RESPONSE_BUFFER_LEN,
-                    NULL, &wait, &now)) > 0 ) {
+    assert(fd > 0);
+    assert(ev == EV_READ);
+
+    wait = 0;
+    /* XXX this doesn't matter as the family isn't used anywhere */
+    sockets.socket = fd;
+    sockets.socket6 = -1;
+
+    if ( (bytes=get_packet(&sockets, packet, RESPONSE_BUFFER_LEN, NULL, &wait,
+                    &now)) > 0 ) {
 	/*
 	 * this check isn't as nice as it could be - should we explicitly ask
 	 * for the icmp6 header to be returned so we can be sure we are
@@ -265,28 +301,55 @@ static void harvest(struct socket_t *raw_sockets, uint16_t ident, int wait,
 	 */
         ip = (struct iphdr*)packet;
         switch ( ip->version ) {
-	    case 4: result =
-                        process_ipv4_packet(packet, bytes, ident, now, count,
-                                info);
+	    case 4: process_ipv4_packet(globals, packet, bytes, &now);
 		    break;
 	    default: /* unless we ask we don't have an ipv6 header here */
-		    result =
-                        process_ipv6_packet(packet, bytes, ident, now, count,
-                                info);
+		    process_ipv6_packet(globals, packet, bytes, &now);
 		    break;
 	};
-
-        /*
-         * Decrement the number of outstanding results only if we know how
-         * many results we are still waiting on.
-         */
-        if ( outstanding > 0 && result == 0 ) {
-            outstanding--;
-            if ( outstanding == 0 ) {
-                return;
-            }
-        }
     }
+
+    if ( globals->outstanding == 0 && globals->index == globals->count ) {
+        /* not waiting on any more packets, exit the event loop */
+        ev_hdl->running = false;
+        Log(LOG_DEBUG, "All expected ICMP responses received");
+    }
+}
+
+
+
+/*
+ * Build the ICMP packet and data that we send as a probe.
+ */
+static int build_probe(uint8_t family, void *packet, uint16_t packet_size,
+        int seq, uint16_t ident, uint16_t magic) {
+
+    struct icmphdr *icmp;
+    int hlen;
+
+    assert(packet);
+    assert(packet_size >= MIN_PACKET_LEN);
+
+    memset(packet, 0, packet_size);
+
+    icmp = (struct icmphdr*)packet;
+    icmp->type = (family == AF_INET) ? ICMP_ECHO : ICMP6_ECHO_REQUEST;
+    icmp->code = 0;
+    icmp->checksum = 0;
+    icmp->un.echo.id = htons(ident);
+    icmp->un.echo.sequence = htons(seq);
+    memcpy((uint8_t *)packet + sizeof(struct icmphdr), &magic, sizeof(magic));
+
+    if ( family == AF_INET ) {
+        hlen = sizeof(struct iphdr);
+        icmp->checksum = checksum((uint16_t*)packet, packet_size - hlen);
+    } else {
+        hlen = sizeof(struct ip6_hdr);
+        /* icmp6 checksum will be calculated for us */
+    }
+
+
+    return packet_size - hlen;
 }
 
 
@@ -294,75 +357,83 @@ static void harvest(struct socket_t *raw_sockets, uint16_t ident, int wait,
 /*
  * Construct and send an icmp echo request packet.
  */
-static void send_packet(struct socket_t *raw_sockets, int seq, uint16_t ident,
-	struct addrinfo *dest, int count, struct info_t info[],
-	struct opt_t *opt) {
+static void send_packet(wand_event_handler_t *ev_hdl, void *data) {
 
-    struct icmphdr *icmp;
-    char packet[opt->packet_size];
+    char *packet;
     int sock;
-    int h_len;
-    uint16_t magic;
+    int length;
     int delay;
+    int seq;
+    uint16_t ident;
+    struct addrinfo *dest;
+    struct opt_t *opt;
+    struct icmpglobals_t *globals;
+    struct info_t *info;
 
-    /* both icmp and icmpv6 echo request have the same structure */
-    memset(packet, 0, sizeof(packet));
-    icmp = (struct icmphdr *)packet;
-    icmp->code = 0;
-    icmp->checksum = 0;
-    icmp->un.echo.id = htons(ident);
-    icmp->un.echo.sequence = htons(seq);
-    /* set data portion with random number */
-    magic = rand();
-    memcpy(&packet[sizeof(struct icmphdr)], &magic, sizeof(magic));
+    globals = (struct icmpglobals_t *)data;
+    info = globals->info;
+    seq = globals->index;
+    ident = globals->ident;
+    dest = globals->dests[seq];
+    opt = &globals->options;
+    packet = NULL;
 
     /* save information about this packet so we can track the response */
+    memset(&info[seq], 0, sizeof(info[seq]));
     info[seq].addr = dest;
-    info[seq].reply = 0;
-    info[seq].err_type = 0;
-    info[seq].err_code = 0;
-    info[seq].ttl = 0;
-    info[seq].magic = magic;
+    info[seq].magic = rand();
 
+    /* determine which socket we should use, ipv4 or ipv6 */
     switch ( dest->ai_family ) {
-	case AF_INET:
-	    icmp->type = ICMP_ECHO;
-	    sock = raw_sockets->socket;
-	    h_len = sizeof(struct iphdr);
-	    icmp->checksum = checksum((uint16_t*)packet,
-		    opt->packet_size - h_len);
-	    break;
-	case AF_INET6:
-	    icmp->type = ICMP6_ECHO_REQUEST;
-	    sock = raw_sockets->socket6;
-	    h_len = sizeof(struct ip6_hdr);
-	    break;
-	default:
-	    Log(LOG_WARNING, "Unknown address family: %d", dest->ai_family);
-	    return;
+	case AF_INET: sock = globals->sockets.socket; break;
+	case AF_INET6: sock = globals->sockets.socket6; break;
+	default: Log(LOG_WARNING, "Unknown address family: %d",dest->ai_family);
+                 goto next;
     };
 
     if ( sock < 0 ) {
 	Log(LOG_WARNING, "Unable to test to %s, socket wasn't opened",
                 dest->ai_canonname);
-	return;
+        goto next;
     }
 
+    /* build the probe packet */
+    packet = calloc(1, opt->packet_size);
+    length = build_probe(dest->ai_family, packet, opt->packet_size, seq, ident,
+            info[seq].magic);
+
     /* send packet with appropriate inter packet delay */
-    while ( (delay = delay_send_packet(sock, packet, opt->packet_size-h_len,
-		    dest, opt->inter_packet_delay,
-                    &(info[seq].time_sent))) > 0 ) {
-	/* check for responses while we wait out the interpacket delay */
-	harvest(raw_sockets, ident, delay, -1, count, info);
+    while ( (delay = delay_send_packet(sock, packet, length, dest,
+                    opt->inter_packet_delay, &(info[seq].time_sent))) > 0 ) {
+        usleep(delay);
     }
 
     if ( delay < 0 ) {
-        /*
-         * mark this as done if the packet failed to send properly, we don't
-         * want to wait for a response that will never arrive.
-         */
+        /* mark this as done if the packet failed to send properly */
         info[seq].reply = 1;
         memset(&(info[seq].time_sent), 0, sizeof(struct timeval));
+    } else {
+        globals->outstanding++;
+    }
+
+next:
+    globals->index++;
+
+    /* create timer for sending the next packet if there are still more to go */
+    if ( globals->index == globals->count ) {
+        Log(LOG_DEBUG, "Reached final target: %d", globals->index);
+        globals->nextpackettimer = NULL;
+        globals->losstimer = wand_add_timer(ev_hdl, LOSS_TIMEOUT, 0, globals,
+                halt_test);
+    } else {
+        globals->nextpackettimer = wand_add_timer(ev_hdl,
+                (int) (globals->options.inter_packet_delay / 1000000),
+                (globals->options.inter_packet_delay % 1000000),
+                globals, send_packet);
+    }
+
+    if ( packet ) {
+        free(packet);
     }
 }
 
@@ -372,28 +443,26 @@ static void send_packet(struct socket_t *raw_sockets, int seq, uint16_t ident,
  * Open the raw ICMP and ICMPv6 sockets used for this test and configure
  * appropriate filters for the ICMPv6 socket to only receive echo replies.
  */
-static int open_sockets(struct socket_t *raw_sockets) {
-    if ( (raw_sockets->socket =
-		socket(AF_INET, SOCK_RAW, IPPROTO_ICMP)) < 0 ) {
+static int open_sockets(struct socket_t *sockets) {
+    if ( (sockets->socket = socket(AF_INET, SOCK_RAW, IPPROTO_ICMP)) < 0 ) {
 	Log(LOG_WARNING, "Failed to open raw socket for ICMP");
     }
 
-    if ( (raw_sockets->socket6 =
-		socket(AF_INET6, SOCK_RAW, IPPROTO_ICMPV6))<0 ) {
+    if ( (sockets->socket6 = socket(AF_INET6, SOCK_RAW, IPPROTO_ICMPV6)) < 0 ) {
 	Log(LOG_WARNING, "Failed to open raw socket for ICMPv6");
     } else {
 	/* configure ICMPv6 filters to only pass through ICMPv6 echo reply */
 	struct icmp6_filter filter;
 	ICMP6_FILTER_SETBLOCKALL(&filter);
 	ICMP6_FILTER_SETPASS(ICMP6_ECHO_REPLY, &filter);
-	if ( setsockopt(raw_sockets->socket6, SOL_ICMPV6, ICMP6_FILTER,
+	if ( setsockopt(sockets->socket6, SOL_ICMPV6, ICMP6_FILTER,
 		    &filter, sizeof(struct icmp6_filter)) < 0 ) {
 	    Log(LOG_WARNING, "Could not set ICMPv6 filter");
 	}
     }
 
     /* make sure at least one type of socket was opened */
-    if ( raw_sockets->socket < 0 && raw_sockets->socket6 < 0 ) {
+    if ( sockets->socket < 0 && sockets->socket6 < 0 ) {
 	return 0;
     }
 
@@ -422,7 +491,6 @@ static Amplet2__Icmp__Item* report_destination(struct info_t *info) {
     if ( info->reply && info->time_sent.tv_sec > 0 &&
             (info->err_type == ICMP_REDIRECT ||
              (info->err_type == 0 && info->err_code == 0)) ) {
-        //printf("%dms ", (int)((info[i].delay/1000.0) + 0.5));
         item->has_rtt = 1;
         item->rtt = info->delay;
         item->has_ttl = 1;
@@ -535,32 +603,31 @@ static void usage(void) {
 
 
 /*
- * Reimplementation of the ICMP test from AMP
- *
  * TODO const up the dest arguments so cant be changed?
  */
 amp_test_result_t* run_icmp(int argc, char *argv[], int count,
         struct addrinfo **dests) {
     int opt;
-    struct opt_t options;
     struct timeval start_time;
-    struct socket_t raw_sockets;
-    struct info_t *info;
-    int dest;
-    uint16_t ident;
     struct addrinfo *sourcev4, *sourcev6;
     char *device;
-    int outstanding;
+    struct icmpglobals_t *globals;
+    wand_event_handler_t *ev_hdl = NULL;
     amp_test_result_t *result;
 
     Log(LOG_DEBUG, "Starting ICMP test");
 
+    wand_event_init();
+    ev_hdl = wand_create_event_handler();
+
+    globals = (struct icmpglobals_t *)malloc(sizeof(struct icmpglobals_t));
+
     /* set some sensible defaults */
-    options.dscp = DEFAULT_DSCP_VALUE;
-    options.inter_packet_delay = MIN_INTER_PACKET_DELAY;
-    options.packet_size = DEFAULT_ICMP_ECHO_REQUEST_LEN;
-    options.random = 0;
-    options.perturbate = 0;
+    globals->options.dscp = DEFAULT_DSCP_VALUE;
+    globals->options.inter_packet_delay = MIN_INTER_PACKET_DELAY;
+    globals->options.packet_size = DEFAULT_ICMP_ECHO_REQUEST_LEN;
+    globals->options.random = 0;
+    globals->options.perturbate = 0;
     sourcev4 = NULL;
     sourcev6 = NULL;
     device = NULL;
@@ -571,15 +638,16 @@ amp_test_result_t* run_icmp(int argc, char *argv[], int count,
             case '4': sourcev4 = get_numeric_address(optarg, NULL); break;
             case '6': sourcev6 = get_numeric_address(optarg, NULL); break;
             case 'I': device = optarg; break;
-            case 'Q': if ( parse_dscp_value(optarg, &options.dscp) < 0 ) {
+            case 'Q': if ( parse_dscp_value(optarg,
+                                  &globals->options.dscp) < 0 ) {
                           Log(LOG_WARNING, "Invalid DSCP value, aborting");
                           exit(-1);
                       }
                       break;
-            case 'Z': options.inter_packet_delay = atoi(optarg); break;
-            case 'p': options.perturbate = atoi(optarg); break;
-            case 'r': options.random = 1; break;
-            case 's': options.packet_size = atoi(optarg); break;
+            case 'Z': globals->options.inter_packet_delay = atoi(optarg); break;
+            case 'p': globals->options.perturbate = atoi(optarg); break;
+            case 'r': globals->options.random = 1; break;
+            case 's': globals->options.packet_size = atoi(optarg); break;
             case 'v': print_package_version(argv[0]); exit(0);
             case 'x': log_level = LOG_DEBUG;
                       log_level_override = 1;
@@ -595,51 +663,52 @@ amp_test_result_t* run_icmp(int argc, char *argv[], int count,
     }
 
     /* pick a random packet size within allowable boundaries */
-    if ( options.random ) {
-	options.packet_size = MIN_PACKET_LEN +
+    if ( globals->options.random ) {
+	globals->options.packet_size = MIN_PACKET_LEN +
 	    (int)((1500 - MIN_PACKET_LEN) * (random()/(RAND_MAX+1.0)));
 	Log(LOG_DEBUG, "Setting packetsize to random value: %d\n",
-		options.packet_size);
+		globals->options.packet_size);
     }
 
     /* make sure that the packet size is big enough for our data */
-    if ( options.packet_size < MIN_PACKET_LEN ) {
+    if ( globals->options.packet_size < MIN_PACKET_LEN ) {
 	Log(LOG_WARNING, "Packet size %d below minimum size, raising to %d",
-		options.packet_size, MIN_PACKET_LEN);
-	options.packet_size = MIN_PACKET_LEN;
+		globals->options.packet_size, MIN_PACKET_LEN);
+	globals->options.packet_size = MIN_PACKET_LEN;
     }
 
-    /* delay the start by a random amount of perturbate is set */
-    if ( options.perturbate ) {
+    /* delay the start by a random amount if perturbate is set */
+    if ( globals->options.perturbate ) {
 	int delay;
-	delay = options.perturbate * 1000 * (random()/(RAND_MAX+1.0));
+	delay = globals->options.perturbate * 1000 * (random()/(RAND_MAX+1.0));
 	Log(LOG_DEBUG, "Perturbate set to %dms, waiting %dus",
-		options.perturbate, delay);
+		globals->options.perturbate, delay);
 	usleep(delay);
     }
 
-    if ( !open_sockets(&raw_sockets) ) {
+    if ( !open_sockets(&globals->sockets) ) {
 	Log(LOG_ERR, "Unable to open raw ICMP sockets, aborting test");
 	exit(-1);
     }
 
-    if ( set_default_socket_options(&raw_sockets) < 0 ) {
+    if ( set_default_socket_options(&globals->sockets) < 0 ) {
         Log(LOG_ERR, "Failed to set default socket options, aborting test");
         exit(-1);
     }
 
-    if ( set_dscp_socket_options(&raw_sockets, options.dscp) < 0 ) {
+    if ( set_dscp_socket_options(&globals->sockets,globals->options.dscp) < 0 ){
         Log(LOG_ERR, "Failed to set DSCP socket options, aborting test");
         exit(-1);
     }
 
-    if ( device && bind_sockets_to_device(&raw_sockets, device) < 0 ) {
+    if ( device && bind_sockets_to_device(&globals->sockets, device) < 0 ) {
         Log(LOG_ERR, "Unable to bind raw ICMP socket to device, aborting test");
         exit(-1);
     }
 
     if ( (sourcev4 || sourcev6) &&
-            bind_sockets_to_address(&raw_sockets, sourcev4, sourcev6) < 0 ) {
+            bind_sockets_to_address(
+                &globals->sockets, sourcev4, sourcev6) < 0 ) {
         Log(LOG_ERR,"Unable to bind raw ICMP socket to address, aborting test");
         exit(-1);
     }
@@ -650,39 +719,50 @@ amp_test_result_t* run_icmp(int argc, char *argv[], int count,
     }
 
     /* use part of the current time as an identifier value */
-    ident = (uint16_t)start_time.tv_usec;
+    globals->ident = (uint16_t)start_time.tv_usec;
 
     /* allocate space to store information about each request sent */
-    info = (struct info_t *)malloc(sizeof(struct info_t) * count);
+    globals->info = (struct info_t *)malloc(sizeof(struct info_t) * count);
 
-    /* send a test packet to each destination */
-    for ( dest = 0; dest < count; dest++ ) {
-	send_packet(&raw_sockets, dest, ident, dests[dest], count, info,
-		&options);
+    globals->index = 0;
+    globals->outstanding = 0;
+    globals->count = count;
+    globals->dests = dests;
+    globals->losstimer = NULL;
+
+    /* catch a SIGINT and end the test early */
+    wand_add_signal(SIGINT, NULL, interrupt_test);
+
+    /* set up callbacks for receiving packets */
+    wand_add_fd(ev_hdl, globals->sockets.socket, EV_READ, globals,
+            receive_probe_callback);
+
+    wand_add_fd(ev_hdl, globals->sockets.socket6, EV_READ, globals,
+            receive_probe_callback);
+
+    /* schedule the first probe packet to be sent immediately */
+    wand_add_timer(ev_hdl, 0, 0, globals, send_packet);
+
+    /* run the event loop till told to stop or all tests performed */
+    wand_event_run(ev_hdl);
+
+    /* tidy up after ourselves */
+    if ( globals->losstimer ) {
+        wand_del_timer(ev_hdl, globals->losstimer);
     }
 
-    /*
-     * Check if all expected responses have been received, we might have got
-     * them all during the interpacket wait or they may have failed to send.
-     */
-    outstanding = 0;
-    for ( dest = 0; dest < count; dest++ ) {
-        if ( !info[dest].reply ) {
-            outstanding++;
-        }
+    if ( globals->nextpackettimer ) {
+        wand_del_timer(ev_hdl, globals->nextpackettimer);
     }
 
-    /* If there are any outstanding reponses then we need to wait for them. */
-    if ( outstanding > 0 ) {
-        harvest(&raw_sockets, ident, LOSS_TIMEOUT, outstanding, count, info);
+    wand_destroy_event_handler(ev_hdl);
+
+    if ( globals->sockets.socket > 0 ) {
+	close(globals->sockets.socket);
     }
 
-    if ( raw_sockets.socket > 0 ) {
-	close(raw_sockets.socket);
-    }
-
-    if ( raw_sockets.socket6 > 0 ) {
-	close(raw_sockets.socket6);
+    if ( globals->sockets.socket6 > 0 ) {
+	close(globals->sockets.socket6);
     }
 
     if ( sourcev4 ) {
@@ -694,9 +774,11 @@ amp_test_result_t* run_icmp(int argc, char *argv[], int count,
     }
 
     /* send report */
-    result = report_results(&start_time, count, info, &options);
+    result = report_results(&start_time, count, globals->info,
+            &globals->options);
 
-    free(info);
+    free(globals->info);
+    free(globals);
 
     return result;
 }
@@ -802,9 +884,9 @@ test_t *register_test() {
 
 
 #if UNIT_TEST
-int amp_test_process_ipv4_packet(char *packet, uint32_t bytes, uint16_t ident,
-	struct timeval now, int count, struct info_t info[]) {
-    return process_ipv4_packet(packet, bytes, ident, now, count, info);
+int amp_test_process_ipv4_packet(struct icmpglobals_t *globals, char *packet,
+        uint32_t bytes, struct timeval *now) {
+    return process_ipv4_packet(globals, packet, bytes, now);
 }
 
 amp_test_result_t* amp_test_report_results(struct timeval *start_time,

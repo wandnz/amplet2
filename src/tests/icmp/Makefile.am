@@ -7,12 +7,12 @@ testdir=$(libdir)/$(PACKAGE)/tests
 
 bin_PROGRAMS=amp-icmp
 amp_icmp_SOURCES=../testmain.c
-amp_icmp_LDADD=icmp.la -L../../common/ -lamp -lprotobuf-c -lunbound
+amp_icmp_LDADD=icmp.la -L../../common/ -lamp -lprotobuf-c -lunbound -lwandevent
 
 test_LTLIBRARIES=icmp.la
 icmp_la_SOURCES=icmp.c
 nodist_icmp_la_SOURCES=icmp.pb-c.c
-icmp_la_LDFLAGS=-module -avoid-version -L../../common/ -lamp -lprotobuf-c
+icmp_la_LDFLAGS=-module -avoid-version -L../../common/ -lamp -lprotobuf-c -lwandevent
 
 INCLUDES=-I../ -I../../common/
 

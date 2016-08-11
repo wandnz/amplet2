@@ -19,11 +19,9 @@
  */
 int main(void) {
     char packet[MAX_PACKET_LEN];
-    int count;
-    struct info_t *info;
+    struct icmpglobals_t globals;
     struct timeval now = {0, 0};
     struct iphdr *ip;
-    int i;
     struct icmphdr icmps[] = {
         /* good response */
         { ICMP_ECHOREPLY, 0, 0, { .echo = {htons(1), 0}} },
@@ -66,10 +64,10 @@ int main(void) {
     assert(sizeof(icmps) / sizeof(struct icmphdr) ==
             (sizeof(length) / sizeof(int)));
 
-    count = sizeof(icmps) / sizeof(struct icmphdr);
+    globals.count = sizeof(icmps) / sizeof(struct icmphdr);
 
-    info = (struct info_t *)malloc(sizeof(struct info_t) * count);
-    memset(info, 0, sizeof(struct info_t) * count);
+    globals.info = (struct info_t *)malloc(sizeof(struct info_t)*globals.count);
+    memset(globals.info, 0, sizeof(struct info_t) * globals.count);
     memset(packet, 0, sizeof(packet));
 
     /* TODO change the IP header length in some tests? */
@@ -79,32 +77,38 @@ int main(void) {
 
     srand(time(NULL));
 
-    for ( i = 0; i < count; i++ ) {
-        info[i].magic = rand();
-        ip->tot_len = length[i];
+    for ( globals.index = 0; globals.index < globals.count; globals.index++ ) {
+        globals.info[globals.index].magic = rand();
+        ip->tot_len = length[globals.index];
+        globals.ident = ntohs(icmps[globals.index].un.echo.id);
 
         /* fill the packet with each icmp header and magic in turn */
-        memcpy(packet + sizeof(struct iphdr),&icmps[i],sizeof(struct icmphdr));
+        memcpy(packet + sizeof(struct iphdr),
+                &icmps[globals.index], sizeof(struct icmphdr));
         memcpy(packet + sizeof(struct iphdr) + sizeof(struct icmphdr),
-                &info[i].magic, sizeof(info[i].magic));
+                &globals.info[globals.index].magic,
+                sizeof(globals.info[globals.index].magic));
 
         /* check that it passed or failed appropriately */
-        assert(amp_test_process_ipv4_packet(packet, length[i],
-                    ntohs(icmps[i].un.echo.id), now, i, info) == results[i]);
+        assert(amp_test_process_ipv4_packet(&globals, packet,
+                    length[globals.index], &now) == results[globals.index]);
 
         /*
          * The error type/code will only be set if it can be determined to be a
          * response to a probe packet that we sent. If it's too short or too
          * wrong, then this won't be set.
          */
-        if ( icmps[i].type < NR_ICMP_TYPES && icmps[i].type != ICMP_ECHO &&
-                length[i] >= MIN_VALID_LEN ) {
-            assert(info[i].err_type == icmps[i].type);
-            assert(info[i].err_code == icmps[i].code);
+        if ( icmps[globals.index].type < NR_ICMP_TYPES &&
+                icmps[globals.index].type != ICMP_ECHO &&
+                length[globals.index] >= MIN_VALID_LEN ) {
+            assert(globals.info[globals.index].err_type ==
+                    icmps[globals.index].type);
+            assert(globals.info[globals.index].err_code ==
+                    icmps[globals.index].code);
         }
     }
 
-    free(info);
+    free(globals.info);
 
     return 0;
 }

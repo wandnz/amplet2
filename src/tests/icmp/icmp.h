@@ -5,6 +5,8 @@
 #include <sys/socket.h>
 #include <netdb.h>
 
+#include "testlib.h"
+
 
 
 /* by default use an 84 byte packet, because that's what it has always been */
@@ -25,8 +27,8 @@
 #define RESPONSE_BUFFER_LEN ( \
         sizeof(struct iphdr) + 60 + sizeof(struct icmphdr) + 8)
 
-/* timeout in usec to wait before declaring the response lost, currently 20s */
-#define LOSS_TIMEOUT 20000000
+/* timeout in usec to wait before declaring the response lost, currently 10s */
+#define LOSS_TIMEOUT 10
 
 
 
@@ -59,14 +61,30 @@ struct info_t {
 };
 
 
+
+struct icmpglobals_t {
+    struct opt_t options;
+    struct socket_t sockets;
+    struct addrinfo **dests;
+    struct info_t *info;
+    uint16_t ident;
+    int index;
+    int count;
+    int outstanding;
+
+    struct wand_timer_t *nextpackettimer;
+    struct wand_timer_t *losstimer;
+};
+
+
 amp_test_result_t* run_icmp(int argc, char *argv[], int count,
         struct addrinfo **dests);
 void print_icmp(amp_test_result_t *result);
 test_t *register_test(void);
 
 #if UNIT_TEST
-int amp_test_process_ipv4_packet(char *packet, uint32_t bytes, uint16_t ident,
-        struct timeval now, int count, struct info_t info[]);
+int amp_test_process_ipv4_packet(struct icmpglobals_t *globals, char *packet,
+        uint32_t bytes, struct timeval *now);
 amp_test_result_t* amp_test_report_results(struct timeval *start_time,
         int count, struct info_t info[], struct opt_t *opt);
 #endif
