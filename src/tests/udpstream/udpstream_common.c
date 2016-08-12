@@ -246,21 +246,8 @@ int receive_udp_stream(int sock, struct opt_t *options, struct timeval *times) {
     socklen = sizeof(ss);
     getsockname(sock, (struct sockaddr *)&ss, &socklen);
 
-    switch ( ss.ss_family ) {
-        case AF_INET:
-            sockets.socket = sock;
-            sockets.socket6 = -1;
-            socklen = sizeof(struct sockaddr_in);
-            break;
-        case AF_INET6:
-            sockets.socket = -1;
-            sockets.socket6 = sock;
-            socklen = sizeof(struct sockaddr_in6);
-            break;
-        default:
-            Log(LOG_ERR,"Unknown address family %d", ss.ss_family);
-            return -1;
-    };
+    sockets.socket = sock;
+    sockets.socket6 = -1;
 
     Log(LOG_DEBUG, "Receiving UDP stream, packets:%d", options->packet_count);
 
