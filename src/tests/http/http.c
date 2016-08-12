@@ -21,6 +21,7 @@
 #include "http.pb-c.h"
 #include "debug.h"
 #include "usage.h"
+#include "dscp.h"
 
 
 CURLM *multi;

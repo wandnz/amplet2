@@ -59,5 +59,4 @@ int set_dscp_socket_options(struct socket_t *sockets, uint8_t dscp);
 int check_exists(char *path, int strict);
 int copy_address_to_protobuf(ProtobufCBinaryData *dst,
         const struct addrinfo *src);
-int parse_dscp_value(const char *value, uint8_t *result);
 #endif

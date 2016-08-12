@@ -13,6 +13,7 @@
 #include "global.h"
 #include "testlib.h"
 #include "acl.h"
+#include "dscp.h"
 
 
 
