@@ -675,7 +675,7 @@ amp_test_result_t* run_throughput_client(int argc, char *argv[], int count,
                 snprintf(sched, sizeof(sched), "t%d,n,T%d", duration, duration);
                 break;
             default:
-                Log(LOG_WARNING, "Using default direction client -> server");
+                Log(LOG_DEBUG, "Using default direction client -> server");
                 snprintf(sched, sizeof(sched), "T%d", duration);
                 break;
         };
