@@ -1,7 +1,8 @@
 #ifndef _TESTS_DNS_H
 #define _TESTS_DNS_H
 
-#include "tests.h"
+#include <stdint.h>
+#include "testlib.h"
 
 /* Minimum requestors UDP payload size in bytes (RFC 6891) */
 #define MIN_UDP_PAYLOAD_SIZE 512
@@ -156,6 +157,22 @@ struct opt_t {
     int perturbate;
     uint32_t inter_packet_delay;
     uint8_t dscp;
+};
+
+
+
+struct dnsglobals_t {
+    struct opt_t options;
+    struct socket_t sockets;
+    struct addrinfo **dests;
+    struct info_t *info;
+    uint16_t ident;
+    int index;
+    int count;
+    int outstanding;
+
+    struct wand_timer_t *nextpackettimer;
+    struct wand_timer_t *losstimer;
 };
 
 

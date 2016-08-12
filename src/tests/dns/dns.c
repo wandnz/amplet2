@@ -14,6 +14,8 @@
 #include <malloc.h>
 #include <string.h>
 #include <arpa/inet.h>
+#include <signal.h>
+#include <libwandevent.h>
 
 #include "config.h"
 #include "tests.h"
@@ -44,6 +46,35 @@ static struct option long_options[] = {
     {"debug", no_argument, 0, 'x'},
     {NULL, 0, 0, 0}
 };
+
+
+
+/*
+ * Halt the event loop in the event of a SIGINT (either sent from the terminal
+ * if running standalone, or sent by the watchdog if running as part of
+ * measured) and report the results that have been collected so far.
+ */
+static void interrupt_test(wand_event_handler_t *ev_hdl,
+        __attribute__((unused))int signum,
+        __attribute__((unused))void *data) {
+
+    Log(LOG_INFO, "Received SIGINT, halting ICMP test");
+    ev_hdl->running = false;
+}
+
+
+
+/*
+ * Force the event loop to halt, so we can end the test and report the
+ * results that we do have.
+ */
+static void halt_test(wand_event_handler_t *ev_hdl, void *data) {
+    struct dnsglobals_t *globals = (struct dnsglobals_t *)data;
+
+    Log(LOG_DEBUG, "Halting ICMP test due to timeout");
+    globals->losstimer = NULL;
+    ev_hdl->running = false;
+}
 
 
 
@@ -193,8 +224,8 @@ static void process_opt_rr(char *rr, struct info_t *info) {
  * TODO what if the packet isn't long enough for the amount of data that it
  * claims to have?
  */
-static void process_packet(char *packet, uint16_t ident, struct timeval *now,
-	int count, struct info_t info[]) {
+static void process_packet(struct dnsglobals_t *globals, char *packet,
+        uint32_t bytes, struct timeval *now) {
 
     struct dns_t *header;
     uint16_t recv_ident;
@@ -204,17 +235,21 @@ static void process_packet(char *packet, uint16_t ident, struct timeval *now,
     char *name;
     int i;
     int response_count;
+    struct info_t *info;
+
+    info = globals->info;
 
     header = (struct dns_t *)packet;
     recv_ident = ntohs(header->id);
 
     /* make sure the id field in this packet matches our request */
-    if ( recv_ident < ident || recv_ident - ident > count ) {
+    if ( recv_ident < globals->ident ||
+            (recv_ident - globals->ident) > globals->count ) {
 	Log(LOG_DEBUG, "Incoming DNS packet with invalid ID number");
 	return;
     }
 
-    index = recv_ident - ident;
+    index = recv_ident - globals->ident;
     info[index].reply = 1;
     info[index].flags.bytes = header->flags.bytes;
     info[index].total_answer = ntohs(header->an_count);
@@ -308,34 +343,51 @@ static void process_packet(char *packet, uint16_t ident, struct timeval *now,
     } else {
         info[index].bytes = rr_start - packet;
     }
+
     info[index].delay = DIFF_TV_US(*now, info[index].time_sent);
+    globals->outstanding--;
 }
 
 
 
 /*
- * Try to read any outstanding probe responses until we reach the timeout or
- * have received all the expected responses.
+ * Callback used when a packet is received that might be a response to one
+ * of our probes.
  */
-static void harvest(struct socket_t *sockets, uint16_t ident, int wait,
-	int count, struct info_t info[], struct opt_t *opt) {
+static void receive_probe_callback(wand_event_handler_t *ev_hdl,
+        int fd, void *data, enum wand_eventtype_t ev) {
 
     char *packet;
     int buflen;
-    struct sockaddr_in6 addr;
+    ssize_t bytes;
+    int wait;
     struct timeval now;
+    struct socket_t sockets;
+    struct dnsglobals_t *globals = (struct dnsglobals_t*)data;
 
-    if ( opt->udp_payload_size > 0 ) {
-        buflen = opt->udp_payload_size;
+    assert(fd > 0);
+    assert(ev == EV_READ);
+
+    if ( globals->options.udp_payload_size > 0 ) {
+        buflen = globals->options.udp_payload_size;
     } else {
         buflen = DEFAULT_UDP_PAYLOAD_SIZE;
     }
 
+    wait = 0;
+    sockets.socket = fd;
+    sockets.socket6 = -1;
+
     packet = calloc(1, buflen);
 
-    while ( get_packet(sockets, packet, buflen, (struct sockaddr *)&addr,
-                &wait, &now) ) {
-	process_packet(packet, ident, &now, count, info);
+    if ( (bytes=get_packet(&sockets, packet, buflen, NULL, &wait, &now)) > 0 ) {
+        process_packet(globals, packet, bytes, &now);
+    }
+
+    if ( globals->outstanding == 0 && globals->index == globals->count ) {
+        /* not waiting on any more packets, exit the event loop */
+        ev_hdl->running = false;
+        Log(LOG_DEBUG, "All expected DNS responses received");
     }
 
     free(packet);
@@ -437,15 +489,28 @@ static char *create_dns_query(uint16_t ident, uint32_t *len, struct opt_t *opt){
 /*
  * Send a DNS packet and record information about when it was sent.
  */
-static void send_packet(struct socket_t *sockets, uint16_t seq, uint16_t ident,
-	struct addrinfo *dest, int count, struct info_t info[],
-	struct opt_t *opt) {
+static void send_packet(wand_event_handler_t *ev_hdl, void *data) {
 
     int sock;
     struct addrinfo tmpdst;
     int delay;
     char *qbuf;
+    int seq;
+    uint16_t ident;
+    struct addrinfo *dest;
+    struct opt_t *opt;
+    struct dnsglobals_t *globals;
+    struct info_t *info;
 
+    globals = (struct dnsglobals_t *)data;
+    info = globals->info;
+    seq = globals->index;
+    ident = globals->ident;
+    dest = globals->dests[seq];
+    opt = &globals->options;
+    qbuf = NULL;
+
+    //XXX we have our own memory, who cares? check if we can remove this!
     /* make a copy of the destination so we can modify the port */
     memcpy(&tmpdst, dest, sizeof(struct addrinfo));
 
@@ -460,42 +525,60 @@ static void send_packet(struct socket_t *sockets, uint16_t seq, uint16_t ident,
     /* determine the appropriate socket to use and port field to set */
     switch ( dest->ai_family ) {
 	case AF_INET:
-	    sock = sockets->socket;
+	    sock = globals->sockets.socket;
 	    ((struct sockaddr_in*)tmpdst.ai_addr)->sin_port = htons(53);
 	    break;
 	case AF_INET6:
-	    sock = sockets->socket6;
+	    sock = globals->sockets.socket6;
 	    ((struct sockaddr_in6*)tmpdst.ai_addr)->sin6_port = htons(53);
 	    break;
 	default:
 	    Log(LOG_WARNING, "Unknown address family: %d", dest->ai_family);
-	    return;
+	    goto next;
     };
 
     if ( sock < 0 ) {
 	Log(LOG_WARNING, "Unable to test to %s, socket wasn't opened",
                 dest->ai_canonname);
-	return;
+	goto next;
     }
 
+    //XXX pass in buffer, return useful length like icmp test?
     qbuf = create_dns_query(seq + ident, &(info[seq].query_length), opt);
 
     while ( (delay = delay_send_packet(sock, qbuf, info[seq].query_length,
                     &tmpdst, opt->inter_packet_delay,
                     &(info[seq].time_sent))) > 0 ) {
-	harvest(sockets, ident, delay, count, info, opt);
+        usleep(delay);
     }
 
     if ( delay < 0 ) {
-        /*
-         * mark this as done if the packet failed to send properly, we don't
-         * want to wait for a response that will never arrive.
-         */
-        memset(&(info[seq].time_sent), 0, sizeof(struct timeval));
+        /* mark this as done if the packet failed to send properly */
         info[seq].reply = 1;
+        memset(&(info[seq].time_sent), 0, sizeof(struct timeval));
+    } else {
+        globals->outstanding++;
     }
 
-    free(qbuf);
+next:
+    globals->index++;
+
+    /* create timer for sending the next packet if there are still more to go */
+    if ( globals->index == globals->count ) {
+        Log(LOG_DEBUG, "Reached final target: %d", globals->index);
+        globals->nextpackettimer = NULL;
+        globals->losstimer = wand_add_timer(ev_hdl, LOSS_TIMEOUT, 0, globals,
+                halt_test);
+    } else {
+        globals->nextpackettimer = wand_add_timer(ev_hdl,
+                (int) (globals->options.inter_packet_delay / 1000000),
+                (globals->options.inter_packet_delay % 1000000),
+                globals, send_packet);
+    }
+
+    if ( qbuf ) {
+        free(qbuf);
+    }
 }
 
 
@@ -852,30 +935,34 @@ static void usage(void) {
 amp_test_result_t* run_dns(int argc, char *argv[], int count,
         struct addrinfo **dests) {
     int opt;
-    struct opt_t options;
+    struct opt_t *options;
     struct timeval start_time;
-    struct info_t *info;
-    struct socket_t sockets;
-    int dest;
-    uint16_t ident;
     struct addrinfo *sourcev4, *sourcev6;
     char *device;
     int local_resolv;
+    struct dnsglobals_t *globals;
+    wand_event_handler_t *ev_hdl = NULL;
     amp_test_result_t *result;
 
     Log(LOG_DEBUG, "Starting DNS test");
 
+    wand_event_init();
+    ev_hdl = wand_create_event_handler();
+
+    globals = (struct dnsglobals_t *)malloc(sizeof(struct dnsglobals_t));
+
     /* set some sensible defaults */
-    options.query_string = NULL;
-    options.query_type = 0x01;
-    options.query_class = 0x01;
-    options.udp_payload_size = DEFAULT_UDP_PAYLOAD_SIZE;
-    options.recurse = 0;
-    options.dnssec = 0;
-    options.nsid = 0;
-    options.perturbate = 0;
-    options.inter_packet_delay = MIN_INTER_PACKET_DELAY;
-    options.dscp = DEFAULT_DSCP_VALUE;
+    options = &globals->options;
+    options->query_string = NULL;
+    options->query_type = 0x01;
+    options->query_class = 0x01;
+    options->udp_payload_size = DEFAULT_UDP_PAYLOAD_SIZE;
+    options->recurse = 0;
+    options->dnssec = 0;
+    options->nsid = 0;
+    options->perturbate = 0;
+    options->inter_packet_delay = MIN_INTER_PACKET_DELAY;
+    options->dscp = DEFAULT_DSCP_VALUE;
     sourcev4 = NULL;
     sourcev6 = NULL;
     device = NULL;
@@ -883,52 +970,52 @@ amp_test_result_t* run_dns(int argc, char *argv[], int count,
 
     while ( (opt = getopt_long(argc, argv, "c:np:q:rst:z:I:Q:Z:4:6:hvx",
                     long_options, NULL)) != -1 ) {
-	switch ( opt ) {
+        switch ( opt ) {
             case '4': sourcev4 = get_numeric_address(optarg, NULL); break;
             case '6': sourcev6 = get_numeric_address(optarg, NULL); break;
             case 'I': device = optarg; break;
-            case 'Q': if ( parse_dscp_value(optarg, &options.dscp) < 0 ) {
+            case 'Q': if ( parse_dscp_value(optarg, &options->dscp) < 0 ) {
                           Log(LOG_WARNING, "Invalid DSCP value, aborting");
                           exit(-1);
                       }
                       break;
-            case 'Z': options.inter_packet_delay = atoi(optarg); break;
-	    case 'c': options.query_class = get_query_class(optarg); break;
-	    case 'n': options.nsid = 1; break;
-	    case 'p': options.perturbate = atoi(optarg); break;
-	    case 'q': options.query_string = strdup(optarg); break;
-	    case 'r': options.recurse = 1; break;
-	    case 's': options.dnssec = 1; break;
-	    case 't': options.query_type = get_query_type(optarg); break;
-	    case 'z': options.udp_payload_size = atoi(optarg); break;
+            case 'Z': options->inter_packet_delay = atoi(optarg); break;
+            case 'c': options->query_class = get_query_class(optarg); break;
+            case 'n': options->nsid = 1; break;
+            case 'p': options->perturbate = atoi(optarg); break;
+            case 'q': options->query_string = strdup(optarg); break;
+            case 'r': options->recurse = 1; break;
+            case 's': options->dnssec = 1; break;
+            case 't': options->query_type = get_query_type(optarg); break;
+            case 'z': options->udp_payload_size = atoi(optarg); break;
             case 'v': print_package_version(argv[0]); exit(0);
             case 'x': log_level = LOG_DEBUG;
                       log_level_override = 1;
                       break;
-	    case 'h':
-	    default: usage(); exit(0);
-	};
+            case 'h':
+            default: usage(); exit(0);
+        };
     }
 
-    if ( options.query_string == NULL ) {
+    if ( options->query_string == NULL ) {
         usage();
         exit(-1);
     }
 
-    assert(strlen(options.query_string) < MAX_DNS_NAME_LEN);
-    assert(options.query_type > 0);
-    assert(options.query_class > 0);
+    assert(strlen(options->query_string) < MAX_DNS_NAME_LEN);
+    assert(options->query_type > 0);
+    assert(options->query_class > 0);
 
     /*
      * If we set this to zero (and aren't doing dnssec or nsid) then don't send
      * an EDNS header. Otherwise values lower than 512 MUST be treated as equal
      * to 512 (RFC 6891).
      */
-    if ( (options.udp_payload_size != 0 || options.dnssec || options.nsid ) &&
-            options.udp_payload_size < MIN_UDP_PAYLOAD_SIZE ) {
+    if ( (options->udp_payload_size != 0 || options->dnssec || options->nsid )
+            && options->udp_payload_size < MIN_UDP_PAYLOAD_SIZE ) {
         Log(LOG_WARNING, "UDP payload size %d too low, increasing to %d",
-                options.udp_payload_size, MIN_UDP_PAYLOAD_SIZE);
-        options.udp_payload_size = MIN_UDP_PAYLOAD_SIZE;
+                options->udp_payload_size, MIN_UDP_PAYLOAD_SIZE);
+        options->udp_payload_size = MIN_UDP_PAYLOAD_SIZE;
     }
 
     /* if no destinations have been set then try to use /etc/resolv.conf */
@@ -975,81 +1062,94 @@ amp_test_result_t* run_dns(int argc, char *argv[], int count,
     }
 
     /* delay the start by a random amount of perturbate is set */
-    if ( options.perturbate ) {
+    if ( options->perturbate ) {
 	int delay;
-	delay = options.perturbate * 1000 * (random()/(RAND_MAX+1.0));
+	delay = options->perturbate * 1000 * (random()/(RAND_MAX+1.0));
 	Log(LOG_DEBUG, "Perturbate set to %dms, waiting %dus",
-		options.perturbate, delay);
+		options->perturbate, delay);
 	usleep(delay);
     }
 
-    if ( !open_sockets(&sockets) ) {
+    if ( !open_sockets(&globals->sockets) ) {
 	Log(LOG_ERR, "Unable to open sockets, aborting test");
-	free(options.query_string);
+	free(options->query_string);
 	exit(-1);
     }
 
-    if ( set_default_socket_options(&sockets) < 0 ) {
+    if ( set_default_socket_options(&globals->sockets) < 0 ) {
         Log(LOG_ERR, "Failed to set default socket options, aborting test");
         exit(-1);
     }
 
-    if ( set_dscp_socket_options(&sockets, options.dscp) < 0 ) {
+    if ( set_dscp_socket_options(&globals->sockets, options->dscp) < 0 ) {
         Log(LOG_ERR, "Failed to set DSCP socket options, aborting test");
         exit(-1);
     }
 
-    if ( device && bind_sockets_to_device(&sockets, device) < 0 ) {
+    if ( device && bind_sockets_to_device(&globals->sockets, device) < 0 ) {
         Log(LOG_ERR, "Unable to bind raw ICMP socket to device, aborting test");
         exit(-1);
     }
 
     if ( (sourcev4 || sourcev6) &&
-            bind_sockets_to_address(&sockets, sourcev4, sourcev6) < 0 ) {
+            bind_sockets_to_address(
+                &globals->sockets, sourcev4, sourcev6) < 0 ) {
         Log(LOG_ERR,"Unable to bind raw ICMP socket to address, aborting test");
         exit(-1);
     }
 
     if ( gettimeofday(&start_time, NULL) != 0 ) {
 	Log(LOG_ERR, "Could not gettimeofday(), aborting test");
-	free(options.query_string);
+	free(options->query_string);
 	exit(-1);
     }
 
     /* use part of the current time as an identifier value */
-    ident = (uint16_t)start_time.tv_usec;
+    globals->ident = (uint16_t)start_time.tv_usec;
 
     /* allocate space to store information about each request sent */
-    info = (struct info_t *)malloc(sizeof(struct info_t) * count);
-    memset(info, 0, sizeof(struct info_t) * count);
+    globals->info = (struct info_t *)malloc(sizeof(struct info_t) * count);
+    memset(globals->info, 0, sizeof(struct info_t) * count);
 
-    /* send a test packet to each destination */
-    for ( dest = 0; dest < count; dest++ ) {
-	send_packet(&sockets, dest, ident, dests[dest], count, info, &options);
+    globals->index = 0;
+    globals->outstanding = 0;
+    globals->count = count;
+    globals->dests = dests;
+    globals->losstimer = NULL;
+
+    /* catch a SIGINT and end the test early */
+    wand_add_signal(SIGINT, NULL, interrupt_test);
+
+    /* set up callbacks for receiving packets */
+    wand_add_fd(ev_hdl, globals->sockets.socket, EV_READ, globals,
+            receive_probe_callback);
+
+    wand_add_fd(ev_hdl, globals->sockets.socket6, EV_READ, globals,
+            receive_probe_callback);
+
+    /* schedule the first probe packet to be sent immediately */
+    wand_add_timer(ev_hdl, 0, 0, globals, send_packet);
+
+    /* run the event loop till told to stop or all tests performed */
+    wand_event_run(ev_hdl);
+
+    /* tidy up after ourselves */
+    if ( globals->losstimer ) {
+        wand_del_timer(ev_hdl, globals->losstimer);
     }
 
-    /*
-     * harvest results - try with a short timeout to start with, so maybe we
-     * can avoid doing the long wait later
-     */
-    harvest(&sockets, ident, LOSS_TIMEOUT / 100, count, info, &options);
-
-    /* check if all expected responses have been received */
-    for ( dest = 0; dest < count && info[dest].reply; dest++ ) {
-	/* nothing */
+    if ( globals->nextpackettimer ) {
+        wand_del_timer(ev_hdl, globals->nextpackettimer);
     }
 
-    /* if not, then call harvest again with the full timeout */
-    if ( dest < count ) {
-	harvest(&sockets, ident, LOSS_TIMEOUT, count, info, &options);
+    wand_destroy_event_handler(ev_hdl);
+
+    if ( globals->sockets.socket > 0 ) {
+	close(globals->sockets.socket);
     }
 
-    if ( sockets.socket > 0 ) {
-	close(sockets.socket);
-    }
-
-    if ( sockets.socket6 > 0 ) {
-	close(sockets.socket6);
+    if ( globals->sockets.socket6 > 0 ) {
+	close(globals->sockets.socket6);
     }
 
     if ( sourcev4 ) {
@@ -1061,10 +1161,11 @@ amp_test_result_t* run_dns(int argc, char *argv[], int count,
     }
 
     /* send report */
-    result = report_results(&start_time, count, info, &options);
+    result = report_results(&start_time, count, globals->info, options);
 
-    free(options.query_string);
-    free(info);
+    free(options->query_string);
+    free(globals->info);
+    free(globals);
 
     /* free any addresses we've had to make ourselves */
     if ( local_resolv && dests ) {
