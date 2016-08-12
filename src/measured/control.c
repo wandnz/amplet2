@@ -66,6 +66,11 @@ static int parse_server_start(void *data, uint32_t len, test_type_t *type) {
 
 
 
+/*
+ * Extract the parameters for a single-run test from a control message and
+ * create a schedule struct for it so it can be run as if it was a normally
+ * triggered test.
+ */
 static int parse_single_test(void *data, uint32_t len,
         test_schedule_item_t *item) {
 
@@ -123,7 +128,8 @@ static int parse_single_test(void *data, uint32_t len,
 
 
 /*
- *
+ * Validate a server start message and start the appropriate test server if
+ * it is successful.
  */
 static void do_start_server(BIO *ctrl, void *data, uint32_t len) {
     timer_t watchdog;
@@ -184,6 +190,10 @@ static void do_start_server(BIO *ctrl, void *data, uint32_t len) {
 
 
 
+/*
+ * Validate a single-run test message and run the appropriate test if it is
+ * successful.
+ */
 static void do_single_test(BIO *ctrl, void *data, uint32_t len) {
     test_schedule_item_t item;
 
@@ -202,7 +212,8 @@ static void do_single_test(BIO *ctrl, void *data, uint32_t len) {
 
 
 /*
- *
+ * Establish an SSL connection and read control messages from it, acting on
+ * each message.
  */
 static void process_control_message(int fd, struct acl_root *acl) {
     BIO *ctrl;
@@ -508,7 +519,7 @@ int initialise_control_socket(wand_event_handler_t *ev_hdl,
 
 
 /*
- *
+ * Free all the memory associated with control port interfaces/devices/acl.
  */
 void free_control_config(amp_control_t *control) {
     if ( control == NULL ) {

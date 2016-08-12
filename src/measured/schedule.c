@@ -86,7 +86,6 @@ void dump_schedule(wand_event_handler_t *ev_hdl, FILE *out) {
 	    continue;
 	}
 
-	/* TODO add file refresh timers to this list */
 	item = (schedule_item_t *)timer->data;
 	switch ( item->type ) {
 	    case EVENT_RUN_TEST:
@@ -346,8 +345,6 @@ char **parse_param_string(char *param_string) {
  * with an offset appropriate for use with libwandevent scheduling. We have to
  * use an offset because libwandevent schedules relative to a monotonic clock,
  * not the system clock.
- *
- * TODO what sizes do we want to use for time values?
  */
 struct timeval get_next_schedule_time(wand_event_handler_t *ev_hdl,
 	schedule_period_t period, uint64_t start, uint64_t end,
@@ -569,8 +566,6 @@ static int merge_scheduled_tests(struct wand_event_handler_t *ev_hdl,
 	    if ( amp_tests[item->test_id]->max_targets == 0 ||
 		    (sched_test->dest_count + sched_test->resolve_count) <
 		    amp_tests[item->test_id]->max_targets ) {
-
-		/*fprintf(stderr, "merging tests\n");*/
 
 		/*
 	 	 * resize the dests pointers to make room for the new dest

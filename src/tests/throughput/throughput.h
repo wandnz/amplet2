@@ -289,12 +289,7 @@ struct packet_t {
 }; //packet_t struct
 
 
-/* Shared common functions from throughput_common.c
- *
- * We have send*****Packet()
- * and read*****Packet()
- * to contruct/deconstruct packets from there corrosponding sturct's
- * */
+/* Shared common functions from throughput_common.c */
 Amplet2__Throughput__Item* report_schedule(struct test_request_t *info);
 int readDataPacket(const struct packet_t *packet, const int write_size,
         struct test_result_t *res);

@@ -598,7 +598,6 @@ int main(int argc, char *argv[]) {
 
     /* TODO what is the best way to get this port to the tests that need it? */
     vars.control_port = atol(control->port); /* XXX */
-    //meta.control_port = atol(control->port); /* XXX */
 
     /* if SSL is properly enabled then try to create the control sockets */
     if ( ssl_ctx != NULL && control->enabled ) {

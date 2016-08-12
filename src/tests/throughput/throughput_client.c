@@ -276,12 +276,12 @@ static amp_test_result_t* runSchedule(struct addrinfo *serv_addr,
 
     memset(&packet, 0, sizeof(packet));
 
-    /* XXX TODO options should have these removed from it */
-    sockopts->sock_mss = options->sock_mss;//XXX
-    sockopts->sock_disable_nagle = options->sock_disable_nagle;//XXX
-    sockopts->sock_rcvbuf = options->sock_rcvbuf;//XXX
-    sockopts->sock_sndbuf = options->sock_sndbuf;//XXX
-    sockopts->dscp = options->dscp;//XXX
+    /* TODO can we do this with less duplication? or do it earlier? */
+    sockopts->sock_mss = options->sock_mss;
+    sockopts->sock_disable_nagle = options->sock_disable_nagle;
+    sockopts->sock_rcvbuf = options->sock_rcvbuf;
+    sockopts->sock_sndbuf = options->sock_sndbuf;
+    sockopts->dscp = options->dscp;
 
     start_time_ns = timeNanoseconds();
 
@@ -380,9 +380,6 @@ static amp_test_result_t* runSchedule(struct addrinfo *serv_addr,
                 remote_results = amplet2__throughput__item__unpack(NULL,
                         data.len, data.data);
                 /* XXX extracting this now cause it's easier :( */
-                /* XXX are ->done or ->packets every actually used? internally
-                 * but no reason to transmit I believe
-                 */
                 cur->s_result->start_ns = 0;
                 cur->s_result->end_ns = remote_results->duration;
                 cur->s_result->bytes = remote_results->bytes;
