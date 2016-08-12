@@ -225,7 +225,7 @@ static void process_opt_rr(char *rr, struct info_t *info) {
  * claims to have?
  */
 static void process_packet(struct dnsglobals_t *globals, char *packet,
-        uint32_t bytes, struct timeval *now) {
+        __attribute__((unused))uint32_t bytes, struct timeval *now) {
 
     struct dns_t *header;
     uint16_t recv_ident;
