@@ -105,53 +105,6 @@ void reseed_openssl_rng(void) {
 
 
 /*
- *
- */
-char* get_common_name(const X509 *cert) {
-    int common_name_loc;
-    X509_NAME_ENTRY *common_name_entry = NULL;
-    ASN1_STRING *common_name_asn1 = NULL;
-    char *common_name_str = NULL;
-
-    /* Find position of the CN field in the Subject field of the certificate */
-    common_name_loc = X509_NAME_get_index_by_NID(X509_get_subject_name(
-                (X509*)cert), NID_commonName, -1);
-    if (common_name_loc < 0) {
-        Log(LOG_WARNING, "Error finding position of Common Name field in cert");
-        return NULL;
-    }
-
-    /* Extract the CN field */
-    common_name_entry = X509_NAME_get_entry(X509_get_subject_name(
-                (X509 *)cert), common_name_loc);
-    if (common_name_entry == NULL) {
-        Log(LOG_WARNING, "Error extracting Common Name from cert");
-        return NULL;
-    }
-
-    /* Convert the CN field to a C string */
-    common_name_asn1 = X509_NAME_ENTRY_get_data(common_name_entry);
-    if (common_name_asn1 == NULL) {
-        Log(LOG_WARNING, "Error converting Common Name");
-        return NULL;
-    }
-    common_name_str = (char *) ASN1_STRING_data(common_name_asn1);
-
-    /* Make sure there isn't an embedded NUL character in the CN */
-    if ((size_t)ASN1_STRING_length(common_name_asn1) !=
-            strlen(common_name_str)) {
-        Log(LOG_WARNING, "Malformed Common Name in cert");
-        return NULL;
-    }
-
-    return common_name_str;
-}
-
-
-
-/*
- * See: https://github.com/iSECPartners/ssl-conservatory/
- *
  * Make sure that the hostname of the machine we are connecting to/from matches
  * the common name in the certificate. We don't want to talk to someone who
  * has a valid cert, but is not issued to them!
@@ -179,9 +132,8 @@ int matches_common_name(const char *hostname, const X509 *cert) {
 
 
 /*
- * See: https://github.com/iSECPartners/ssl-conservatory/
- *
- * Initialise the SSL context and load all the keys that we will be using.
+ * Do really basic SSL initialisation and make sure that the files we expect
+ * to use (keys, certs, etc) are all available.
  */
 int initialise_ssl(amp_ssl_opt_t *sslopts, char *collector) {
     Log(LOG_DEBUG, "Initialising global SSL options");
@@ -241,7 +193,7 @@ int initialise_ssl(amp_ssl_opt_t *sslopts, char *collector) {
 
 
 /*
- *
+ * Initialise the SSL context and load all the keys that we will be using.
  */
 SSL_CTX* initialise_ssl_context(amp_ssl_opt_t *sslopts) {
     SSL_CTX *ssl_ctx = NULL;
