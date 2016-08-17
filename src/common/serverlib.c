@@ -584,7 +584,12 @@ int connect_to_server(struct addrinfo *dest, uint16_t port,
  * needs to pass verification.
  */
 static BIO* upgrade_control_server_ssl(int sock, struct addrinfo *dest) {
-    BIO *ctrl = establish_control_socket(ssl_ctx, sock, 1);
+    BIO *ctrl;
+
+    if ( (ctrl  = establish_control_socket(ssl_ctx, sock, 1)) == NULL ) {
+        Log(LOG_WARNING, "Failed to upgrade to SSL control connection");
+        return NULL;
+    }
 
     /* if there is an SSL context then we are expected to use SSL */
     if ( ssl_ctx ) {
