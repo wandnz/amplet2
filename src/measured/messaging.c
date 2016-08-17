@@ -59,9 +59,9 @@ static int connect_to_broker(void) {
 
         Log(LOG_DEBUG, "Logging in to vhost '%s' with EXTERNAL auth", vhost);
 
-        /* login using EXTERNAL, no need to specify user name */
+        /* login using EXTERNAL, still need to specify user name though */
         if ( (amqp_login(conn, vhost, 0, AMQP_FRAME_MAX, 0,
-                        AMQP_SASL_METHOD_EXTERNAL)
+                        AMQP_SASL_METHOD_EXTERNAL, vars.ampname)
              ).reply_type != AMQP_RESPONSE_NORMAL ) {
             Log(LOG_ERR, "Failed to login to broker");
             return -1;
