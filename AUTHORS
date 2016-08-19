@@ -1,0 +1,11 @@
+The primary author and maintainer of the amplet2-client software is Brendon
+Jones <brendonj@waikato.ac.nz>.
+
+The original AMP code that inspired this version was written by Tony McGregor
+<tonym@waikato.ac.nz>.
+
+
+Tests and other code have been contributed by:
+
+ * Shane Alcock <salcock@waikato.ac.nz> (tcpping test)
+ * Richard Sanger <rsangerarj@gmail.com> (throughput test)
