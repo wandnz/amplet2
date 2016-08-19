@@ -1,7 +1,7 @@
 [Unit]
 Description=AMP measurement daemon
-After=network.target
-#Wants=rabbitmq-server.service
+After=network.target rabbitmq-server.service
+Wants=rabbitmq-server.service
 
 [Service]
 Type=forking
