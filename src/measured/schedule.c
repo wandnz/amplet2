@@ -646,7 +646,7 @@ char **populate_target_lists(test_schedule_item_t *test, char **targets) {
     char *addr_str, *count_str;
     int family;
     nametable_t *addresses;
-    int count;
+    uint16_t count;
     uint16_t max_targets;
 
     max_targets = amp_tests[test->test_id]->max_targets;
@@ -671,7 +671,7 @@ char **populate_target_lists(test_schedule_item_t *test, char **targets) {
                 } else if ( strncmp(count_str, "v6", 2) == 0 ) {
                     family = AF_INET6;
                 } else {
-                    count = atoi(count_str);
+                    count = (uint16_t)atoi(count_str);
                 }
             } while ( (count_str=strtok(NULL, ":")) != NULL );
         }
