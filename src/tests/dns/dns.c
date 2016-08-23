@@ -492,7 +492,6 @@ static char *create_dns_query(uint16_t ident, uint32_t *len, struct opt_t *opt){
 static void send_packet(wand_event_handler_t *ev_hdl, void *data) {
 
     int sock;
-    struct addrinfo tmpdst;
     int delay;
     char *qbuf;
     int seq;
@@ -510,10 +509,6 @@ static void send_packet(wand_event_handler_t *ev_hdl, void *data) {
     opt = &globals->options;
     qbuf = NULL;
 
-    //XXX we have our own memory, who cares? check if we can remove this!
-    /* make a copy of the destination so we can modify the port */
-    memcpy(&tmpdst, dest, sizeof(struct addrinfo));
-
     /*
      * Set initial values for the info block for this test - it has already
      * been memset to zero, so only need to set those that have values. Do
@@ -526,11 +521,11 @@ static void send_packet(wand_event_handler_t *ev_hdl, void *data) {
     switch ( dest->ai_family ) {
 	case AF_INET:
 	    sock = globals->sockets.socket;
-	    ((struct sockaddr_in*)tmpdst.ai_addr)->sin_port = htons(53);
+	    ((struct sockaddr_in*)dest->ai_addr)->sin_port = htons(53);
 	    break;
 	case AF_INET6:
 	    sock = globals->sockets.socket6;
-	    ((struct sockaddr_in6*)tmpdst.ai_addr)->sin6_port = htons(53);
+	    ((struct sockaddr_in6*)dest->ai_addr)->sin6_port = htons(53);
 	    break;
 	default:
 	    Log(LOG_WARNING, "Unknown address family: %d", dest->ai_family);
@@ -547,7 +542,7 @@ static void send_packet(wand_event_handler_t *ev_hdl, void *data) {
     qbuf = create_dns_query(seq + ident, &(info[seq].query_length), opt);
 
     while ( (delay = delay_send_packet(sock, qbuf, info[seq].query_length,
-                    &tmpdst, opt->inter_packet_delay,
+                    dest, opt->inter_packet_delay,
                     &(info[seq].time_sent))) > 0 ) {
         usleep(delay);
     }
