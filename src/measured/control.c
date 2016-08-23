@@ -13,6 +13,7 @@
 #include <stdlib.h>
 #include <arpa/inet.h>
 #include <libwandevent.h>
+#include <net/if.h>
 
 #include "global.h"
 #include "debug.h"
@@ -136,6 +137,14 @@ static void do_start_server(BIO *ctrl, void *data, uint32_t len) {
     test_type_t test_type;
     test_t *test;
     char *proc_name;
+    struct sockaddr_storage addr;
+    socklen_t addrlen;
+    char opt[IFNAMSIZ];
+    socklen_t optlen;
+    char *argv[MAX_TEST_ARGS];
+    char addrstr[INET6_ADDRSTRLEN];
+    int argc;
+    int fd;
 
     /* TODO read test arguments if required */
     if ( parse_server_start(data, len, &test_type) < 0 ) {
@@ -179,8 +188,51 @@ static void do_start_server(BIO *ctrl, void *data, uint32_t len) {
 
     set_proc_name(proc_name);
 
+    argc = 0;
+    argv[argc++] = test->name;
+
+    /* get the underlying fd so we can query how it is bound */
+    if ( (fd = BIO_get_fd(ctrl, NULL)) < 0 ) {
+        Log(LOG_WARNING, "Failed to get underlying file descriptor");
+        return;
+    }
+
+    /* bind to the same device as the connected control socket */
+    optlen = sizeof(opt);
+    /* linux >= 3.8 required to get SO_BINDTODEVICE */
+    if ( getsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE, &opt, &optlen) == 0 ) {
+        /* optlen will be zero if the socket isn't bound to a device */
+        if ( optlen > 0 ) {
+            argv[argc++] = "-I";
+            argv[argc++] = opt;
+        }
+    }
+
+    /* bind to the same address as the connected control socket */
+    addrlen = sizeof(struct sockaddr_storage);
+    if ( getsockname(fd, (struct sockaddr*)&addr, &addrlen) == 0 ) {
+        void *addrptr;
+
+        switch ( addr.ss_family ) {
+            case AF_INET: argv[argc++] = "-4";
+                          addrptr = &((struct sockaddr_in*)&addr)->sin_addr;
+                          break;
+            case AF_INET6: argv[argc++] = "-6";
+                           addrptr = &((struct sockaddr_in6*)&addr)->sin6_addr;
+                           break;
+            default: addrptr = NULL; break;
+        };
+
+        if ( addrptr ) {
+            inet_ntop(addr.ss_family, addrptr, addrstr, INET6_ADDRSTRLEN);
+            argv[argc++] = addrstr;
+        }
+    }
+
+    argv[argc] = NULL;
+
     /* Run server function using callback in test */
-    test->server_callback(0, NULL, ctrl);
+    test->server_callback(argc, argv, ctrl);
 
     stop_watchdog(watchdog);
 
