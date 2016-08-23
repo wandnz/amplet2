@@ -14,6 +14,9 @@
  */
 #define CONTROL_CONNECTION_TIMEOUT 60
 
+/* arbitrary cap to make sure massive amounts of memory aren't allocated */
+#define MAX_CONTROL_MESSAGE_SIZE (1024 * 1024 * 10)
+
 
 int write_control_packet(BIO *ctrl, void *data, uint32_t len);
 int read_control_packet(BIO *ctrl, void **data);

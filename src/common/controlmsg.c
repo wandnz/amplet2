@@ -193,8 +193,15 @@ int read_control_packet(BIO *ctrl, void **data) {
         return -1;
     }
 
-    /* allocate storage for the following message */
     datalen = ntohl(datalen);
+
+    /* make sure the message size is slightly sane before we allocate it */
+    if ( datalen > MAX_CONTROL_MESSAGE_SIZE ) {
+        Log(LOG_WARNING, "Ignoring too-large control message");
+        return -1;
+    }
+
+    /* allocate storage for the following message */
     *data = calloc(1, datalen);
 
     /* read the message */
