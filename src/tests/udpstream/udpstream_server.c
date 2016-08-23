@@ -306,7 +306,6 @@ void run_udpstream_server(int argc, char *argv[], BIO *ctrl) {
     /* this will serve the test only on the address we got connected to on */
     serve_test(ctrl, &sockopts);
 
-    /* we made the control connection ourselves */
     if ( standalone ) {
         /* addrinfo structs were manually allocated, so free them manually */
         if ( sockopts.sourcev4 ) {
@@ -319,7 +318,17 @@ void run_udpstream_server(int argc, char *argv[], BIO *ctrl) {
             free(sockopts.sourcev6);
         }
 
+        /* we made the control connection ourselves, so close it up again */
         close_control_connection(ctrl);
+    } else {
+        /* addrinfo structs were done properly using getaddrinfo */
+        if ( sockopts.sourcev4 ) {
+            freeaddrinfo(sockopts.sourcev4);
+        }
+
+        if ( sockopts.sourcev6 ) {
+            freeaddrinfo(sockopts.sourcev6);
+        }
     }
 
     return;
