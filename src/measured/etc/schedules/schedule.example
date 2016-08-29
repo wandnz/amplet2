@@ -66,11 +66,11 @@
 #   addresses will be tested to (though some tests will only accept one
 #   address), unless there are qualifiers added, e.g.:
 #       www.example.org - test to all resolved addresses for the site
-#       www.example.org:1 - test to a single resolved address for the site
-#       www.example.org:v4 - test to all resolved IPv4 addresses for the site
-#       www.example.org:1:v4 - test to one resolved IPv4 addresses for the site
-#       www.example.org:v6 - test to all resolved IPv6 addresses for the site
-#       www.example.org:1:v6 - test to one resolved IPv6 addresses for the site
+#       www.example.org?1 - test to a single resolved address for the site
+#       www.example.org?v4 - test to all resolved IPv4 addresses for the site
+#       www.example.org?1?v4 - test to one resolved IPv4 addresses for the site
+#       www.example.org?v6 - test to all resolved IPv6 addresses for the site
+#       www.example.org?1?v6 - test to one resolved IPv6 addresses for the site
 #
 # repeat-period:
 #   The frequency at which the schedule should be repeated. Should be one of
