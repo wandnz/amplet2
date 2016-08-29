@@ -351,7 +351,6 @@ amp_test_result_t* run_udpstream_client(int argc, char *argv[], int count,
     extern struct option long_options[];
     amp_test_result_t *result;
     BIO *ctrl;
-    uint32_t minimum_delay = MIN_INTER_PACKET_DELAY;
 
     /* set some sensible defaults */
     memset(&sockopts, 0, sizeof(sockopts));
@@ -381,11 +380,7 @@ amp_test_result_t* run_udpstream_client(int argc, char *argv[], int count,
                           exit(-1);
                       }
                       break;
-            /*
-             * accept -Z because it might be set globally, but that is only a
-             * lower bound on the interval that we use
-             */
-            case 'Z': minimum_delay = atoi(optarg); break;
+            case 'Z': /* not used, but might be set globally */ break;
             case 'c': client = optarg; break;
             case 'd': test_options.direction = atoi(optarg); break;
             case 'D': test_options.packet_spacing = atoi(optarg); break;
@@ -479,13 +474,6 @@ amp_test_result_t* run_udpstream_client(int argc, char *argv[], int count,
 	Log(LOG_WARNING, "Packet size %d above maximum, lowering to %d",
 		test_options.packet_size, MAXIMUM_UDPSTREAM_PACKET_LENGTH);
 	test_options.packet_size = MAXIMUM_UDPSTREAM_PACKET_LENGTH;
-    }
-
-    /* make sure we aren't sending packets too quickly */
-    if ( test_options.packet_spacing < minimum_delay ) {
-	Log(LOG_WARNING, "Packet spacing %d below minimum, raising to %d",
-		test_options.packet_spacing, minimum_delay);
-	test_options.packet_spacing = minimum_delay;
     }
 
     /* make sure we are sampling a vaguely sensible number of rtt packets */
