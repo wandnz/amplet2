@@ -629,7 +629,7 @@ static int check_key_directories(char *keydir) {
 static int get_next_timeout(int timeout) {
     if ( timeout < AMP_MIN_PKI_QUERY_INTERVAL ) {
         timeout = AMP_MIN_PKI_QUERY_INTERVAL;
-    } else if ( timeout > AMP_MAX_PKI_QUERY_INTERVAL ) {
+    } else if ( timeout >= AMP_MAX_PKI_QUERY_INTERVAL ) {
         timeout = AMP_MAX_PKI_QUERY_INTERVAL;
     } else {
         timeout = timeout << 1;
