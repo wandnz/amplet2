@@ -477,7 +477,6 @@ static void split_url(char *orig_url, char *server, char *path, int set) {
         }
     }
 
-    /* TODO might be nice to update the url so it gets printed better later */
     if ( url != orig_url ) {
         free(url);
     }
@@ -1422,7 +1421,9 @@ amp_test_result_t* run_http(int argc, char *argv[],
 	    case 's': options.max_connections_per_server = atoi(optarg); break;
             case 'S': set_ssl_version(&options.sslversion, optarg); break;
 	    case 'u': split_url(optarg, options.host, options.path, 1);
-                      strncpy(options.url, optarg, MAX_URL_LEN); break;
+                      strncpy(options.url, options.host, MAX_DNS_NAME_LEN);
+                      strncat(options.url, options.path, MAX_PATH_LEN);
+                      break;
             case 'z': options.pipe_size_before_skip = atoi(optarg); break;
             case 'v': print_package_version(argv[0]); exit(0);
             case 'x': log_level = LOG_DEBUG;

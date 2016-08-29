@@ -51,7 +51,7 @@
 #define MAX_PATH_LEN 2048
 #define MAX_ADDR_LEN 46
 
-#define MAX_URL_LEN (MAX_PATH_LEN + MAX_DNS_NAME_LEN)
+#define MAX_URL_LEN (MAX_PATH_LEN + MAX_DNS_NAME_LEN + 1)
 
 
 /*
