@@ -378,7 +378,7 @@ int get_packet(struct socket_t *sockets, char *buf, int buflen,
     iov.iov_len = buflen;
     memset(&msg, 0, sizeof(msg));
     msg.msg_name = saddr;
-    msg.msg_namelen = addrlen;
+    msg.msg_namelen = saddr ? addrlen : 0;
     msg.msg_iov = &iov;
     msg.msg_iovlen = 1;
     msg.msg_control = ans_data;
