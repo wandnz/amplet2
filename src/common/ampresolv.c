@@ -92,7 +92,7 @@ struct ub_ctx *amp_resolver_context_init(char *servers[], int nscount,
         for ( i = 0; i < nscount; i++ ) {
             Log(LOG_DEBUG, "Adding %s as nameserver", servers[i]);
             if ( ub_ctx_set_fwd(ctx, servers[i]) < 0 ) {
-                Log(LOG_WARNING, "error setting forward address to %s\n",
+                Log(LOG_WARNING, "error setting resolver address to %s\n",
                         servers[i]);
             }
         }
