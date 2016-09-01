@@ -136,7 +136,7 @@ int write_control_packet(BIO *ctrl, void *data, uint32_t datalen) {
     }
 
     /* Send the actual protocol buffer message onto the stream now */
-    if ( do_control_write(ctrl, data, datalen) != datalen ) {
+    if ( do_control_write(ctrl, data, datalen) != (int)datalen ) {
         Log(LOG_WARNING, "Failed to write server control packet data");
         return -1;
     }
@@ -246,7 +246,7 @@ int read_control_packet(BIO *ctrl, void **data) {
     /* read the message */
     result = do_control_read(ctrl, *data, datalen);
 
-    if ( result != datalen ) {
+    if ( result != (int)datalen ) {
         if ( result < 0 ) {
             Log(LOG_WARNING, "Failed to read server control packet data");
         }
