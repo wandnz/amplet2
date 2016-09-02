@@ -673,12 +673,12 @@ static char **parse_test_targets(yaml_document_t *document, yaml_node_t *node,
  * The schedule can determine how many addresses of what address families
  * are resolved:
  * www.foo.com	    -- resolve all addresses
- * www.foo.com?1    -- resolve a single address
- * www.foo.com?n    -- resolve up to n addresses
- * www.foo.com?v4   -- resolve all ipv4 addresses
- * www.foo.com?v6   -- resolve all ipv6 addresses
- * www.foo.com?n?v4 -- resolve up to n ipv4 addresses
- * www.foo.com?n?v6 -- resolve up to n ipv6 addresses
+ * www.foo.com!1    -- resolve a single address
+ * www.foo.com!n    -- resolve up to n addresses
+ * www.foo.com!v4   -- resolve all ipv4 addresses
+ * www.foo.com!v6   -- resolve all ipv6 addresses
+ * www.foo.com!n!v4 -- resolve up to n ipv4 addresses
+ * www.foo.com!n!v6 -- resolve up to n ipv6 addresses
  */
 char **populate_target_lists(test_schedule_item_t *test, char **targets) {
 
@@ -698,10 +698,10 @@ char **populate_target_lists(test_schedule_item_t *test, char **targets) {
     for ( ; targets != NULL && *targets != NULL && (max_targets == 0 ||
             (test->dest_count + test->resolve_count) < max_targets);
             targets++ ) {
-        addr_str = strtok(*targets, "?");
+        addr_str = strtok(*targets, "!");
         family = AF_UNSPEC;
         count = 0;
-        if ( (count_str=strtok(NULL, "?")) != NULL ) {
+        if ( (count_str=strtok(NULL, "!")) != NULL ) {
             do {
                 if (strncmp(count_str, "*", 1) == 0 ) {
                     /* do nothing - backwards compatability with old format */
@@ -712,7 +712,7 @@ char **populate_target_lists(test_schedule_item_t *test, char **targets) {
                 } else {
                     count = (uint16_t)atoi(count_str);
                 }
-            } while ( (count_str=strtok(NULL, "?")) != NULL );
+            } while ( (count_str=strtok(NULL, "!")) != NULL );
         }
 
 	/* check if the destination is in the nametable */
