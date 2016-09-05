@@ -89,6 +89,35 @@ static struct option long_options[] = {
 
 
 /*
+ * Halt the event loop in the event of a SIGINT (either sent from the terminal
+ * if running standalone, or sent by the watchdog if running as part of
+ * measured) and report the results that have been collected so far.
+ */
+static void interrupt_test(wand_event_handler_t *ev_hdl,
+        __attribute__((unused))int signum,
+        __attribute__((unused))void *data) {
+
+    Log(LOG_INFO, "Received SIGINT, halting TCPPing test");
+    ev_hdl->running = false;
+}
+
+
+
+/*
+ * Force the event loop to halt, so we can end the test and report the
+ * results that we do have.
+ */
+static void halt_test(wand_event_handler_t *ev_hdl, void *evdata) {
+    struct tcppingglobals *tp = (struct tcppingglobals *)evdata;
+
+    Log(LOG_DEBUG, "Halting TCPPing test due to timeout");
+    tp->losstimer = NULL;
+    ev_hdl->running = false;
+}
+
+
+
+/*
  * Open the raw TCP sockets needed for this test and bind them to
  * the requested device or addresses.
  */
@@ -684,8 +713,7 @@ static void receive_packet(wand_event_handler_t *ev_hdl,
  * It will determine the next destination to be tested, create an appropriate
  * SYN packet and send it to the destination.
  */
-static void send_packet(wand_event_handler_t *ev_hdl,
-        void *evdata) {
+static void send_packet(wand_event_handler_t *ev_hdl, void *evdata) {
 
     struct tcppingglobals *tp = (struct tcppingglobals *)evdata;
     struct addrinfo *dest = NULL;
@@ -778,6 +806,7 @@ nextdest:
     if ( tp->destindex == tp->destcount ) {
         Log(LOG_DEBUG, "Reached final target: %d", tp->destindex);
         tp->nextpackettimer = NULL;
+        tp->losstimer = wand_add_timer(ev_hdl, LOSS_TIMEOUT, 0, tp, halt_test);
     } else {
         tp->nextpackettimer = wand_add_timer(ev_hdl,
                 (int) (tp->options.inter_packet_delay / 1000000),
@@ -932,35 +961,6 @@ static amp_test_result_t* report_results(struct timeval *start_time, int count,
 
 
 /*
- * Halt the event loop in the event of a SIGINT (either sent from the terminal
- * if running standalone, or sent by the watchdog if running as part of
- * measured) and report the results that have been collected so far.
- */
-static void interrupt_test(wand_event_handler_t *ev_hdl,
-        __attribute__((unused))int signum,
-        __attribute__((unused))void *data) {
-
-    Log(LOG_INFO, "Received SIGINT, halting TCPPing test");
-    ev_hdl->running = false;
-}
-
-
-
-/*
- * Force the event loop to halt, so we can end the test and report the
- * results that we do have.
- */
-static void halt_test(wand_event_handler_t *ev_hdl, void *evdata) {
-    struct tcppingglobals *tp = (struct tcppingglobals *)evdata;
-
-    Log(LOG_DEBUG, "Halting TCPPing test due to timeout");
-    tp->losstimer = NULL;
-    ev_hdl->running = false;
-}
-
-
-
-/*
  * The usage statement when the test is run standalone. All of these options
  * are still valid when run as part of the amplet2-client.
  */
@@ -1082,18 +1082,15 @@ amp_test_result_t* run_tcpping(int argc, char *argv[], int count,
     /* catch a SIGINT and end the test early */
     wand_add_signal(SIGINT, NULL, interrupt_test);
 
-    /* Send a SYN to our first destination. This will setup a timer callback
-     * for sending the next packet and a fd callback for any response.
+    /*
+     * Send a SYN to our first destination at time zero (immediately). This
+     * will setup a timer callback for sending the next packet and a fd
+     * callback for any response.
      */
-    if ( count > 0 ) {
-        /* add first probe at time 0, it will happen immediately on run */
-        globals->nextpackettimer = wand_add_timer(ev_hdl, 0, 0, globals,
-                send_packet);
-        globals->losstimer = wand_add_timer(ev_hdl, LOSS_TIMEOUT, 0, globals,
-                halt_test);
+    globals->nextpackettimer = wand_add_timer(ev_hdl, 0, 0, globals,
+            send_packet);
 
-        wand_event_run(ev_hdl);
-    }
+    wand_event_run(ev_hdl);
 
     if ( globals->losstimer ) {
         wand_del_timer(ev_hdl, globals->losstimer);
