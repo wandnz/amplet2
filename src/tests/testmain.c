@@ -270,11 +270,6 @@ int main(int argc, char *argv[]) {
          * user wants to test to a real server, they will need to specify the
          * locations of all the certs/keys/etc.
          */
-        /* TODO allow port to be set on command line, watch it doesn't clobber
-         * other test options, they are a bit inconsistent!
-         */
-        vars.control_port = atol(DEFAULT_AMPLET_CONTROL_PORT);
-
         if ( initialise_ssl(&vars.amqp_ssl, NULL) < 0 ) {
             Log(LOG_ALERT, "Failed to initialise SSL, aborting");
             return -1;
