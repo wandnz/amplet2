@@ -18,13 +18,19 @@
 #   debug, info, notice, warn, error, crit, alert, emerg
 #loglevel = info
 
-# Source interface that all tests should bind to when sending test data
+# Source interface that all tests should bind to when sending test data. If
+# not set then any interface on the machine may be used (depending on the
+# routing table).
 #interface = eth0
 
-# Source IPv4 address that all tests should bind to when sending test data
+# Source IPv4 address that all tests should bind to when sending test data. If
+# not set then any address on the machine may be used (depending on interface
+# selection).
 #ipv4 = 192.0.2.1
 
-# Source IPv6 address that all tests should bind to when sending test data
+# Source IPv6 address that all tests should bind to when sending test data. If
+# not set then any address on the machine may be used (depending on interface
+# selection).
 #ipv6 = 2001:DB8::1
 
 # Minimum gap (in microseconds) between sending probe packets for most tests.
@@ -42,6 +48,12 @@
 # broker should be configured appropriately (the amplet client will try to do
 # this on startup). A diskless/lightweight client may want to forgoe some
 # reliability and report directly to a remote collector.
+#
+# cacert, cert and key don't need to be set (they will be automagically set)
+# but the files are always required even if not doing SSL to the rabbitmq
+# server. Run an amppki server on the collector to have it act as a certificate
+# authority and sign client certificates when the client first runs, unless you
+# want to use your own CA and distribute certificates yourself.
 collector {
     vialocal = true
     address = amp.example.com
@@ -60,7 +72,11 @@ collector {
 # started (i.e. throughput, udpstream), or to remotely run tests from a client.
 # Anyone connecting to this port has to provide a valid SSL certificate and
 # have an appropriate "allow" rule for the command they send. All rules default
-# to deny all, with more specific rules overriding less specific rules.
+# to deny all, with more specific rules overriding less specific rules. You can
+# specify names in an "allow" or "deny" rule that will be matched to the common
+# name in the certificate of any connecting client (e.g. foo.amp.example.com),
+# or specify partial names by prepending the name with a dot
+# (e.g. .amp.example.com will match any name ending in .amp.example.com).
 control {
     enabled = true
 #    ipv4 = 1.2.3.4
