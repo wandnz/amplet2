@@ -74,7 +74,8 @@
 #
 # repeat-period:
 #   The frequency at which the schedule should be repeated. Should be one of
-#   "hour", "day" or "week". Will default to "day" if not specified.
+#   "hour", "day" or "week". Will default to "day" if not specified. A day
+#   starts at 00:00:00 UTC, a week starts at 00:00:00 Sunday UTC.
 #
 # start-seconds:
 #   The time in seconds after the start of the repeat period that the first
@@ -106,26 +107,26 @@
 #   dns: &dnsservers [ ns1.example.org, ns2.example.org, ns3.example.org ]
 #   baz: &baz [ foo.example.org, bar.example.org, 192.0.2.1, 2001:DB8::1 ]
 #
-# Run an icmp test to amp-foo every 10 seconds, starting at midnight:
+# Run an icmp test to amp-foo every 10 seconds, starting at midnight UTC:
 # - test: icmp
 #   target: amp-foo
 #   frequency: 10
 #
 # Run an icmp test to amp-foo and amp-bar every 10 minutes, starting at
-# midnight and using random packet sizes:
+# midnight UTC and using random packet sizes:
 # - test: icmp
 #   target: [amp-foo, amp-bar]
 #   frequency: 10
 #   args: -r
 #
 # Run a dns test to a target group called "dnsservers" every 10 minutes,
-# starting at midnight, querying for www.example.org IN AAAA:
+# starting at midnight UTC, querying for www.example.org IN AAAA:
 # - test: dns
 #   target: *dnsservers
 #   frequency: 600
 #   args: -q www.example.org -c IN -t AAAA
 #
-# Run a traceroute test to amp-foo every 15 minutes, starting at noon and
+# Run a traceroute test to amp-foo every 15 minutes, starting at noon UTC and
 # stopping 3 hours later:
 # - test: traceroute
 #   target: amp-foo
@@ -134,7 +135,7 @@
 #   end: 54000
 #
 # Run a traceroute test to amp-foo and a target group called "baz" once a week
-# on Sunday morning:
+# at 00:00:00 Sunday UTC:
 # - test: traceroute
 #   target: [amp-foo, *baz]
 #   frequency: 0
