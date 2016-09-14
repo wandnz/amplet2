@@ -12,10 +12,10 @@ interest. These measurements are used to provide both a view of long-term
 network performance as well as to detect notable network events when they
 happen.
 
-The amplet2-client package is the client portion of the system and is
-responsible for performing the measurements - it should be run on each of the
-measurement probes. There is also a server portion that is responsible for
-storing the measurements and making them available to view via a website.
+The amplet2 package is the client portion of the system and is responsible for
+performing the measurements - it should be run on each of the measurement
+probes. There is also a server portion that is responsible for storing the
+measurements and making them available to view via a website.
 
 
 AMP has a number of tests built in to it that cover a variety of areas. Some
@@ -47,10 +47,10 @@ by Tony McGregor.
 
 
 Bugs should be reported by either emailing contact@wand.net.nz or filing an
-issue at https://github.com.wanduow/amplet2-client
+issue at https://github.com.wanduow/amplet2
 
 It is licensed under the GNU General Public License (GPL) version 2. Please
-see the included file GPL for details of this license.
+see the included file COPYING for details of this license.
 
 For further information please contact the WAND group. See
 http://www.wand.net.nz/ for details.
