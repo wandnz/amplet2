@@ -857,7 +857,7 @@ static test_schedule_item_t *create_and_schedule_test(
 
     /* now that the period is determined, we can validate the other values */
     if ( check_time_range(start, period) < 0 ) {
-        Log(LOG_WARNING, "Invalid start value %d for period %s\n",
+        Log(LOG_WARNING, "Invalid start value %" PRId64 " for period %s\n",
                 start, period_str);
         goto end;
     }
@@ -866,7 +866,7 @@ static test_schedule_item_t *create_and_schedule_test(
     if ( end < 0 ) {
         end = ((int64_t)get_period_max_value(period)) * 1000000;
     } else if ( check_time_range(end, period) < 0 ) {
-        Log(LOG_WARNING, "Invalid end value %d for period %s\n",
+        Log(LOG_WARNING, "Invalid end value %" PRId64 " for period %s\n",
                 end, period_str);
         goto end;
     }
@@ -880,8 +880,8 @@ static test_schedule_item_t *create_and_schedule_test(
         goto end;
     }
 
-    Log(LOG_DEBUG, "start:%d end:%d freq:%d period:%d", start, end, frequency,
-            period);
+    Log(LOG_DEBUG, "start:%" PRId64 " end:%" PRId64 " freq:%" PRId64
+            " period:%" PRId64, start, end, frequency, period);
 
     remaining = targets;
 
