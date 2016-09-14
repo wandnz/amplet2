@@ -5,4 +5,4 @@ ADDING A NEW TEST
  3. Add a conditional entry to src/tests/Makefile.am
  4. Add an entry for the test Makefile in AC_CONFIG_FILES list in configure.ac
  5. Add conditional compilation for the test to configure.ac
- 6. Create python parser to read the datablob in src/tests/python/ampsave.tests/
+ 6. Create python parser to read the datablob in src/tests/python/ampsave/tests/
