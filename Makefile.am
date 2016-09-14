@@ -1,4 +1,4 @@
-EXTRA_DIST=etc doc
+EXTRA_DIST=doc
 SUBDIRS=src
 
 ACLOCAL_AMFLAGS=-I m4
