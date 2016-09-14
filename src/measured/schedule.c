@@ -440,6 +440,9 @@ struct timeval get_next_schedule_time(wand_event_handler_t *ev_hdl,
             timeradd(&now, &next, abstime);
         }
 
+        Log(LOG_DEBUG, "test triggered early, rescheduling for: %d.%d\n",
+                (int)next.tv_sec, (int)next.tv_usec);
+
         return next;
     }
 
@@ -1075,7 +1078,6 @@ void read_schedule_dir(wand_event_handler_t *ev_hdl, char *directory,
  * Returns -1 on error, 0 if no update was needed, 1 if the file was
  * successfully fetched and updated.
  *
- * TODO put error strings in based on errno for useful messages
  * TODO keep history of downloaded schedules? Previous 1 or 2?
  * TODO connection timeout should be short, to not delay startup?
  */
@@ -1186,7 +1188,8 @@ static int update_remote_schedule(fetch_schedule_item_t *fetch, int clobber) {
 
         if ( stat_result < 0 && errno != ENOENT) {
             /* don't fetch the file, something is wrong with the path */
-            Log(LOG_WARNING, "Failed to stat schedule file %s", sched_file);
+            Log(LOG_WARNING, "Failed to stat schedule file %s: %s",
+                    sched_file, strerror(errno));
             fclose(tmpfile);
             curl_easy_cleanup(curl);
             return -1;
@@ -1236,8 +1239,9 @@ static int update_remote_schedule(fetch_schedule_item_t *fetch, int clobber) {
             Log(LOG_INFO, "New schedule file fetched from %s",
                     fetch->schedule_url);
             if ( rename(tmp_sched_file, sched_file) < 0 ) {
-                Log(LOG_WARNING, "Error moving fetched schedule file %s to %s",
-                        tmp_sched_file, sched_file);
+                Log(LOG_WARNING,
+                        "Error moving fetched schedule file %s to %s: %s",
+                        tmp_sched_file, sched_file, strerror(errno));
                 return -1;
             }
             return 1;
