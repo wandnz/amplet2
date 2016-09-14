@@ -420,20 +420,20 @@ struct timeval get_next_schedule_time(wand_event_handler_t *ev_hdl,
          * Try to jump ahead to the next scheduled repeat, or the start of the
          * next period if there are no repeats.
          */
-        if ( run && abs(diff) < SCHEDULE_CLOCK_FUDGE ) {
+        if ( run && llabs(diff) < SCHEDULE_CLOCK_FUDGE ) {
             if ( frequency > 0 ) {
                 /* skip over the time we are early and find the next repeat */
-                diff = abs(diff) + frequency;
+                diff = llabs(diff) + frequency;
             } else {
                 /* there is no repeat, find the start of next period */
-                diff = abs(diff) + (
+                diff = llabs(diff) + (
                         (int64_t)get_period_max_value(period) * 1000000);
             }
         }
 
         /* convert usec to a timeval */
-        next.tv_sec = abs(diff) / 1000000;
-        next.tv_usec = abs(diff) % 1000000;
+        next.tv_sec = llabs(diff) / 1000000;
+        next.tv_usec = llabs(diff) % 1000000;
 
         /* save the absolute time this test was meant to be run */
         if ( abstime ) {
