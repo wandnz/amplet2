@@ -426,7 +426,8 @@ struct timeval get_next_schedule_time(wand_event_handler_t *ev_hdl,
                 diff = abs(diff) + frequency;
             } else {
                 /* there is no repeat, find the start of next period */
-                diff = abs(diff) + get_period_max_value(period);
+                diff = abs(diff) + (
+                        (int64_t)get_period_max_value(period) * 1000000);
             }
         }
 
@@ -491,7 +492,7 @@ struct timeval get_next_schedule_time(wand_event_handler_t *ev_hdl,
         Log(LOG_WARNING,
                 "Failed to calculate sensible next time, using naive offset");
         if ( frequency == 0 ) {
-            next.tv_sec = get_period_max_value(period) / 1000000;
+            next.tv_sec = get_period_max_value(period);
             next.tv_usec = 0;
         } else {
             next.tv_sec = frequency / 1000000;
@@ -872,7 +873,7 @@ static test_schedule_item_t *create_and_schedule_test(
 
     /* default to a vaguely sensible frequency if not set */
     if ( frequency < 0 ) {
-        frequency = get_period_default_frequency(period);
+        frequency = get_period_default_frequency(period) * 1000000;
     } else if ( check_time_range(frequency, period) < 0 ) {
         Log(LOG_WARNING, "Invalid frequency value %d for period %s\n",
                 frequency, period_str);
