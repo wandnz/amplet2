@@ -70,7 +70,7 @@
 /* Maximum number of destinations that can have probe packets outstanding */
 #define INITIAL_WINDOW 50
 
-/* number of times to try at a particular TTL to elicit a response */
+/* number of times to retry at a particular TTL to elicit a response */
 #define TRACEROUTE_RETRY_LIMIT 2
 
 /* number of consecutive timeouts required before giving up on a path */
@@ -95,15 +95,11 @@ int amp_traceroute_build_ipv6_probe(void *packet, uint16_t packet_size, int id,
 #endif
 
 
-/*
- * Used to describe responses - if the stopset is used then some addresses
- * listed in a path may not have been actually observed.
- */
+/* Used to describe responses */
 typedef enum {
     REPLY_UNKNOWN = 0,
     REPLY_TIMED_OUT,
     REPLY_OK,
-    REPLY_ASSUMED_STOPSET,
 } reply_t;
 
 /*
@@ -121,7 +117,6 @@ struct ipv6_body_t {
 struct opt_t {
     int random;			/* use random packet sizes (bytes) */
     int perturbate;		/* delay sending by up to this time (usec) */
-    int probeall;               /* probe every path in full */
     int ip;                     /* report the IP address of each hop */
     int as;                     /* lookup the AS number of each address */
     uint16_t packet_size;	/* use this packet size (bytes) */
@@ -153,7 +148,6 @@ struct dest_info_t {
     int8_t ttl;                 /* current TTL being probed */
     uint8_t path_length;        /* total length of path, once confirmed */
     uint8_t done_forward;       /* true if forward probing has finished */
-    uint8_t done_backward;      /* true if backwards probing has finished */
     uint8_t attempts;           /* number of probe attempts at this TTL */
     uint8_t no_reply_count;     /* number of probes sent without response */
     uint8_t err_type;           /* ICMP response error type (0 if success) */
@@ -162,38 +156,28 @@ struct dest_info_t {
     struct dest_info_t *next;
 };
 
-
 /*
- * Stopset item to record addresses close to the monitor that have already
- * been probed, and what the rest of the path should be.
+ * Lists of targets that are yet to be probed, being probed, or completed
+ * probing, along with all the associated timers and metadata used to keep
+ * track of where we are up to.
  */
-typedef struct stopset_t stopset_t;
-struct stopset_t {
-    uint8_t ttl;
-    uint8_t family;
-    uint32_t delay;
-    struct sockaddr *addr;
-    struct stopset_t *next;
-    struct stopset_t *path;
-};
-
-/* XXX need better names */
 struct probe_list_t {
     struct socket_t *sockets;
-    struct dest_info_t *pending;
-    struct dest_info_t *ready;
+    struct dest_info_t *pending;        /* targets yet to be probed */
+    struct dest_info_t *ready;          /* targets ready to be probed */
     struct dest_info_t *ready_end;
-    struct dest_info_t *outstanding;
+    struct dest_info_t *outstanding;    /* targets with an outstanding probe */
     struct dest_info_t *outstanding_end;
-    struct dest_info_t *done;
-    struct stopset_t *stopset;
+    struct dest_info_t *done;           /* targets with completed paths */
     struct wand_timer_t *timeout;
+    struct wand_timer_t *sendtimer;
     uint32_t count;
     uint32_t done_count;
     uint16_t ident;
     struct opt_t *opts;
     int window;
     int total_probes;
+    struct timeval *last_probe;	        /* when most recent probe was sent */
 };
 
 #endif

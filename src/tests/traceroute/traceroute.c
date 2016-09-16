@@ -71,7 +71,7 @@
 static struct option long_options[] = {
     {"asn", no_argument, 0, 'a'},
     {"noip", no_argument, 0, 'b'},
-    {"probeall", no_argument, 0, 'f'},
+    {"probeall", no_argument, 0, 'f'}, /* deprecated and ignored */
     {"perturbate", required_argument, 0, 'p'},
     {"random", no_argument, 0, 'r'},
     {"size", required_argument, 0, 's'},
@@ -85,6 +85,7 @@ static struct option long_options[] = {
     {"debug", no_argument, 0, 'x'},
     {NULL, 0, 0, 0}
 };
+
 
 
 /*
@@ -208,7 +209,6 @@ static int send_probe(struct socket_t *ip_sockets, uint16_t ident,
          */
         int i;
         info->done_forward = 1;
-        info->done_backward = 1;
         info->path_length = TRACEROUTE_NO_REPLY_LIMIT;
         for ( i = 0; i < info->path_length; i++ ) {
             info->hop[i].addr = NULL;
@@ -287,8 +287,7 @@ static int get_index(int family, char *embedded,
 
     if ( (index & 0x3FF) >= probelist->count ) {
         /*
-         * According to the original traceroute test:
-         * some boxes are broken and byteswap the ip id field but
+         * Some boxes are broken and byteswap the ip id field but
          * don't put it back before putting it into the end of the
          * icmp error. Check if swapping the byte order makes the
          * ip id match what we were expecting...
@@ -350,10 +349,13 @@ static int inc_attempt_counter(struct dest_info_t *info) {
         return 1;
     }
 
-    /* Too many attempts at this hop, mark is as no reply */
+    /* Too many attempts at this hop, mark it as no reply */
     info->hop[info->ttl - 1].addr = NULL;
     info->hop[info->ttl - 1].reply = REPLY_TIMED_OUT;
-    info->no_reply_count++;//XXX only do this on forward probes?
+
+    if ( !info->done_forward ) {
+        info->no_reply_count++;
+    }
 
     if ( !info->done_forward &&
             (info->no_reply_count >= TRACEROUTE_NO_REPLY_LIMIT ||
@@ -479,6 +481,9 @@ static int append_ready_item(struct probe_list_t *probelist,
     assert(probelist);
     assert(item);
 
+    Log(LOG_DEBUG, "Adding probe to target %d, ttl %d to ready list",
+            item->id, item->ttl);
+
     item->next = NULL;
 
     if ( probelist->ready == NULL ) {
@@ -507,38 +512,6 @@ static int enqueue_next_pending(struct probe_list_t *probelist) {
     }
 
     return 0;
-}
-
-
-
-/*
- * Check if an address and TTL pair has already been seen.
- */
-static struct stopset_t *find_in_stopset(struct sockaddr *addr, int ttl,
-        struct stopset_t **stopset) {
-
-    struct stopset_t *item, *prev = NULL;
-
-    if ( stopset == NULL || *stopset == NULL || addr == NULL ) {
-        return NULL;
-    }
-
-    for ( item = *stopset; item != NULL; item = item->next ) {
-        if ( item->addr && item->ttl == ttl &&
-                compare_addresses(item->addr, addr, 0) == 0 ) {
-            /* move the item to the front, LRU-like */
-            if ( prev ) {
-                prev->next = item->next;
-                item->next = *stopset;
-                *stopset = item;
-            }
-            return item;
-        }
-
-        prev = item;
-    }
-
-    return NULL;
 }
 
 
@@ -713,15 +686,31 @@ static int get_embedded_ttl(int family, char *packet) {
 
 
 /*
+ *
+ */
+static void set_done_item(struct probe_list_t *probelist,
+        struct dest_info_t *item) {
+    /* set the flags and move it onto the done list */
+    item->done_forward = 1;
+    item->next = probelist->done;
+    probelist->done = item;
+    probelist->done_count++;
+}
+
+
+
+/*
  * Deal with an incoming packet that may be a response to one of our probes.
  */
-static int process_packet(int family, struct sockaddr *addr, char *packet,
+static int process_packet(struct sockaddr *addr, char *packet,
         struct timeval now, struct probe_list_t *probelist ) {
 
     struct dest_info_t *item;
     int ttl, index, type, code;
     char *embedded;
-    struct stopset_t *existing = NULL;
+    int family;
+
+    family = addr->sa_family;
 
     /* get the embedded packet if there is a valid one present */
     if ( (embedded = get_embedded_packet(family, packet)) == NULL ) {
@@ -743,6 +732,9 @@ static int process_packet(int family, struct sockaddr *addr, char *packet,
         return -1;
     }
 
+    Log(LOG_DEBUG, "Received packet from destination %d, ttl %d",
+            item->id, item->ttl);
+
     /* we've hit the destination on the first go so need the real ttl */
     if ( terminal_error(family, type, code) && item->ttl == INITIAL_TTL ) {
         /* extract the TTL from the packet we sent, embedded in the response */
@@ -750,12 +742,8 @@ static int process_packet(int family, struct sockaddr *addr, char *packet,
 
         /* if the TTL was bogus then we end probing now */
         if ( ttl < 0 || ttl > MAX_HOPS_IN_PATH ) {
-            item->done_forward = 1;
-            item->done_backward = 1;
             item->path_length = 0;
-            item->next = probelist->done;
-            probelist->done = item;
-            probelist->done_count++;
+            set_done_item(probelist, item);
             return enqueue_next_pending(probelist);
         }
 
@@ -803,10 +791,7 @@ static int process_packet(int family, struct sockaddr *addr, char *packet,
         item->done_forward = 1;
         item->ttl = item->first_response - 1;
         if ( item->ttl == 0 ) {
-            item->done_backward = 1;
-            item->next = probelist->done;
-            probelist->done = item;
-            probelist->done_count++;
+            set_done_item(probelist, item);
             return enqueue_next_pending(probelist);
         }
         item->attempts = 0;
@@ -840,128 +825,9 @@ static int process_packet(int family, struct sockaddr *addr, char *packet,
     HOP_ADDR(ttl)->ai_canonname = NULL;
     HOP_ADDR(ttl)->ai_next = NULL;
 
-    /* end probing if probing all, going backwards and hit the first hop */
-    if ( item->done_forward && probelist->opts->probeall && item->ttl == 1) {
-        item->done_backward = 1;
-        item->next = probelist->done;
-        probelist->done = item;
-        probelist->done_count++;
-        return enqueue_next_pending(probelist);
-    }
-
-    /* end probing if using stopset, going backwards and reached known point */
-    if ( item->done_forward && ( (!probelist->opts->probeall &&
-                 (existing = find_in_stopset(addr, item->ttl,
-                                             &probelist->stopset))) ||
-                item->ttl == 1) ) {
-        int i;
-        int stopttl = item->ttl;
-        struct stopset_t *prev;
-
-        /* if we are at the first hop, or an existing hop then we stop */
-        if ( !probelist->opts->probeall && existing ) {
-            struct stopset_t *tmp;
-            /* check a few hops back, in case our previous hops were added */
-            for ( i = item->ttl + 1;
-                    i < item->path_length - 1 && i < INITIAL_TTL - 1; i++ ) {
-                //printf("i = %d, pathlen = %d, initial = %d\n", i,
-                //        item->path_length, INITIAL_TTL);
-                if ( !item->hop[i].addr ) {
-                    continue;
-                }
-                tmp = find_in_stopset(item->hop[i].addr->ai_addr, i + 1,
-                        &probelist->stopset);
-                if ( !tmp ) {
-                    break;
-                }
-                existing = tmp;
-                stopttl = i + 1;
-            }
-
-        } else if ( item->ttl == 1 ) {
-            stopttl = 0;
-        } else {
-            assert(0);
-        }
-
-        prev = existing;
-
-        /* add any previously unseen items in the path to the stopset */
-        for ( i = stopttl;
-                i < item->path_length - 1 && i < INITIAL_TTL - 1; i++ ) {
-            char addrstr[INET6_ADDRSTRLEN];
-            struct stopset_t *stopitem = calloc(1, sizeof(struct stopset_t));
-            stopitem->ttl = i + 1;
-            stopitem->delay = item->hop[i].delay;
-            stopitem->family = item->addr->ai_family;//XXX
-            if ( item->hop[i].addr && item->hop[i].addr->ai_addr ) {
-                stopitem->addr = item->hop[i].addr->ai_addr;
-                if ( stopitem->addr->sa_family == AF_INET ) {
-                    inet_ntop(AF_INET,
-                            &((struct sockaddr_in*)stopitem->addr)->sin_addr,
-                            addrstr, INET6_ADDRSTRLEN);
-                } else {
-                    inet_ntop(AF_INET6,
-                            &((struct sockaddr_in6*)stopitem->addr)->sin6_addr,
-                            addrstr, INET6_ADDRSTRLEN);
-                }
-                Log(LOG_DEBUG, "adding address %s (ttl %d) to stopset",
-                        addrstr, stopitem->ttl);
-            } else {
-                /* actually, don't bother adding a null hop as the last one */
-                if ( stopitem->ttl == INITIAL_TTL - 1 ) {
-                    free(stopitem);
-                    break;
-                }
-                stopitem->addr = NULL;
-                if ( stopitem->family == AF_INET ) {
-                    Log(LOG_DEBUG, "adding address 0.0.0.0 to stopset");
-                } else {
-                    Log(LOG_DEBUG, "adding address :: to stopset");
-                }
-            }
-            stopitem->next = probelist->stopset;
-
-            /* link it up to the rest of the path that already exists */
-            stopitem->path = prev;
-            prev = stopitem; //XXX any reason we can't just reuse existing?
-            probelist->stopset = stopitem;
-        }
-
-        if ( existing ) {
-            struct stopset_t *stop;
-            /*
-             * And then add the rest of this path from the stopset onto what
-             * we have measured so far, to complete the path
-             */
-             //TODO will hops[] always be able to be fixed length? or will
-             // need to move entries around in it?
-            for ( stop = existing->path; stop != NULL; stop = stop->path ) {
-                if ( stop->addr && item->hop[stop->ttl - 1].addr == NULL ) {
-                    Log(LOG_DEBUG, "filling in hop at ttl %d", stop->ttl);
-                    HOP_REPLY(stop->ttl) = REPLY_ASSUMED_STOPSET;
-                    HOP_ADDR(stop->ttl) =
-                        (struct addrinfo *)malloc(sizeof(struct addrinfo));
-                    HOP_ADDR(stop->ttl)->ai_addr = stop->addr;
-                    HOP_ADDR(stop->ttl)->ai_family = stop->addr->sa_family;
-                    HOP_ADDR(stop->ttl)->ai_canonname = NULL;
-                    HOP_ADDR(stop->ttl)->ai_next = NULL;
-                    item->hop[stop->ttl - 1].delay = stop->delay;
-                } else if ( item->hop[stop->ttl - 1].addr == NULL ) {
-                    Log(LOG_DEBUG, "filling in null hop at ttl %d", stop->ttl);
-                    HOP_REPLY(stop->ttl) = REPLY_TIMED_OUT;
-                    HOP_ADDR(stop->ttl) = NULL;
-                } else {
-                    Log(LOG_DEBUG, "leaving good hop at ttl %d", stop->ttl);
-                }
-            }
-        }
-
-        /* end probing for this destination */
-        item->done_backward = 1;
-        item->next = probelist->done;
-        probelist->done = item;
-        probelist->done_count++;
+    /* end probing if going backwards and reached the first hop */
+    if ( item->done_forward && item->ttl == 1 ) {
+        set_done_item(probelist, item);
         return enqueue_next_pending(probelist);
     }
 
@@ -998,10 +864,7 @@ static int process_packet(int family, struct sockaddr *addr, char *packet,
         }
 
         if ( item->ttl == 0 ) {
-            item->done_backward = 1;
-            item->next = probelist->done;
-            probelist->done = item;
-            probelist->done_count++;
+            set_done_item(probelist, item);
             return enqueue_next_pending(probelist);
         }
         item->attempts = 0;
@@ -1020,10 +883,7 @@ static int process_packet(int family, struct sockaddr *addr, char *packet,
         item->no_reply_count = 0;
         item->attempts = 0;
         if ( inc_probe_ttl(item) < 1 ) {
-            item->done_backward = 1;
-            item->next = probelist->done;
-            probelist->done = item;
-            probelist->done_count++;
+            set_done_item(probelist, item);
             return enqueue_next_pending(probelist);
         }
         return append_ready_item(probelist, item);
@@ -1266,8 +1126,6 @@ static void usage(void) {
             "Lookup AS numbers for all addresses\n");
     fprintf(stderr, "  -b, --no-ip                    "
             "Suppress IP addresses in output\n");
-    fprintf(stderr, "  -f, --probeall                 "
-            "Probe all paths fully, even if duplicate\n");
     fprintf(stderr, "  -r, --random                   "
             "Use a random packet size for each test\n");
     fprintf(stderr, "  -p, --perturbate     <msec>    "
@@ -1281,7 +1139,74 @@ static void usage(void) {
 }
 
 
-//XXX can we avoid having declarations please?
+
+/*
+ * Determine the time until we are allowed to send the next probe onto the
+ * network - must always wait at least the inter packet delay.
+ */
+static struct timeval get_next_send_time(struct timeval *last, uint32_t delay) {
+    struct timeval tmp = {0, 0};
+    struct timeval now;
+
+    /*
+     * Use gettimeofday so that we are using the same clock that set the last
+     * sent time for the probe. It's different to the clock used by
+     * libwandevent but we are only interested in the difference between values
+     * so that's ok.
+     */
+    gettimeofday(&now, NULL);
+
+    if ( last ) {
+        /* determine how long it was since we sent a probe */
+        int64_t diff = DIFF_TV_US(now, *last);
+
+        /* if it hasn't been long enough then wait the remaining time */
+        if ( diff < delay ) {
+            tmp.tv_sec = S_FROM_US(delay - diff);
+            tmp.tv_usec = US_FROM_US(delay - diff);
+        }
+    }
+
+    return tmp;
+}
+
+
+
+/*
+ * Determine how much time is left till the next timeout is due to expire.
+ * Do this by adding the delay to the longest outstanding packet and comparing
+ * that to the current time.
+ */
+static struct timeval get_next_timeout_time(struct timeval *next,
+        uint32_t delay) {
+    struct timeval tmp;
+    struct timeval now;
+
+    /* again, we need to use the same clock packet sent times used */
+    gettimeofday(&now, NULL);
+
+    if ( next ) {
+        /* determine how far in the future the next timeout should be */
+        int64_t diff = DIFF_TV_US(*next, now) + delay;
+
+        if ( diff < 0 ) {
+            /* deal with it immediately if it has already been */
+            delay = 0;
+        } else {
+            /* otherwise wait the remaining time */
+            delay = diff;
+        }
+    }
+
+    tmp.tv_sec = S_FROM_US(delay);
+    tmp.tv_usec = US_FROM_US(delay);
+
+    return tmp;
+}
+
+
+
+//XXX can we avoid having forward declarations?
 static void probe_timeout_callback(wand_event_handler_t *ev_hdl, void *data);
 
 
@@ -1289,6 +1214,10 @@ static void probe_timeout_callback(wand_event_handler_t *ev_hdl, void *data);
 static void send_probe_callback(wand_event_handler_t *ev_hdl, void *data) {
     struct probe_list_t *probelist = (struct probe_list_t*)data;
     struct dest_info_t *item;
+
+    Log(LOG_DEBUG, "send_probe_callback");
+
+    probelist->sendtimer = NULL;
 
     /* do nothing if there are no packets to send */
     if ( probelist->ready == NULL ) {
@@ -1308,18 +1237,19 @@ static void send_probe_callback(wand_event_handler_t *ev_hdl, void *data) {
                 probelist->opts->packet_size,
                 probelist->opts->inter_packet_delay,
                 probelist->opts->dscp, item) < 0 ) {
-        item->next = probelist->done;
-        probelist->done = item;
-        probelist->done_count++;
+        /* failed to send probe, mark the whole path as done */
+        set_done_item(probelist, item);
         enqueue_next_pending(probelist);
         if ( probelist->outstanding == NULL && probelist->ready == NULL ) {
             ev_hdl->running = 0;
             return;
         }
     } else {
+        /* probe sent ok, keep track of when the most recent probe was sent */
+        probelist->last_probe = &item->hop[item->ttl-1].time_sent;
         probelist->total_probes++;
+
         /* set a timeout if one hasn't already been set for an earlier probe */
-        // XXX probelist->timeout == NULL?
         if ( probelist->outstanding == NULL ) {
             probelist->outstanding = item;
             probelist->outstanding_end = item;
@@ -1332,11 +1262,16 @@ static void send_probe_callback(wand_event_handler_t *ev_hdl, void *data) {
         }
     }
 
-    /* schedule the next probe to be sent */
+    /* schedule the next probe to be sent if there are any ready to go */
     if ( probelist->ready != NULL ) {
-        wand_add_timer(ev_hdl,
-                (int) (probelist->opts->inter_packet_delay / 1000000),
-                (probelist->opts->inter_packet_delay % 1000000),
+        struct timeval delay;
+        assert(probelist->sendtimer == NULL);
+
+        delay = get_next_send_time(probelist->last_probe,
+                probelist->opts->inter_packet_delay);
+
+        probelist->sendtimer = wand_add_timer(ev_hdl,
+                delay.tv_sec, delay.tv_usec,
                 data, send_probe_callback);
     }
 }
@@ -1344,73 +1279,63 @@ static void send_probe_callback(wand_event_handler_t *ev_hdl, void *data) {
 
 
 /*
- * Callback function used when receiving an IPv4 packet.
+ * Callback function used when receiving a packet.
  */
-static void recv_probe4_callback(wand_event_handler_t *ev_hdl,
+static void recv_probe_callback(wand_event_handler_t *ev_hdl,
         int fd, void *data, __attribute__((unused))enum wand_eventtype_t ev) {
     char packet[2048];
     struct timeval now;
     struct probe_list_t *probelist = (struct probe_list_t*)data;
-    struct sockaddr_in addr;
+    struct sockaddr_storage addr;
     socklen_t socklen = sizeof(addr);
+    struct dest_info_t *item;
 
-    Log(LOG_DEBUG, "Got an IPv4 packet");
+    Log(LOG_DEBUG, "Got a packet");
 
+    /* TODO this should use the library functions rather than recvfrom */
     recvfrom(fd, packet, sizeof(packet), 0, (struct sockaddr*)&addr, &socklen);
     gettimeofday(&now, NULL);
-    if ( process_packet(AF_INET, (struct sockaddr*)&addr, packet, now,
-                data) > 0 ) {
-        wand_add_timer(ev_hdl,
-                (int) (probelist->opts->inter_packet_delay / 1000000),
-                (probelist->opts->inter_packet_delay % 1000000),
+
+    item = probelist->outstanding;
+
+    if ( process_packet((struct sockaddr*)&addr, packet, now, data) > 0 ) {
+        struct timeval delay;
+        assert(probelist->sendtimer == NULL);
+
+        delay = get_next_send_time(probelist->last_probe,
+                probelist->opts->inter_packet_delay);
+
+        probelist->sendtimer = wand_add_timer(ev_hdl,
+                delay.tv_sec, delay.tv_usec,
                 data, send_probe_callback);
     }
 
     if ( probelist->outstanding == NULL ) {
+        /* no outstanding probes, remove timer and check if we are done */
         if ( probelist->timeout ) {
             wand_del_timer(ev_hdl, probelist->timeout);
             probelist->timeout = NULL;
         }
+
         if ( probelist->ready == NULL ) {
             ev_hdl->running = 0;
         }
-    }
-}
+    } else if ( probelist->outstanding != item ) {
+        /* if we processed the head of the outstanding list, update timer */
+        struct timeval next;
+        item = probelist->outstanding;
 
+        /* delete the timer intended for the packet we just received */
+        wand_del_timer(ev_hdl, probelist->timeout);
+        probelist->timeout = NULL;
 
+        /* calculate the timeout for the next outstanding packet */
+        next = get_next_timeout_time(&item->hop[item->ttl-1].time_sent,
+                LOSS_TIMEOUT_US);
 
-/*
- * Callback function used when receiving an IPv6 packet.
- */
-static void recv_probe6_callback(wand_event_handler_t *ev_hdl,
-        int fd, void *data, __attribute__((unused))enum wand_eventtype_t ev) {
-    char packet[2048];
-    struct timeval now;
-    struct sockaddr_in6 addr;
-    struct probe_list_t *probelist = (struct probe_list_t*)data;
-    socklen_t socklen = sizeof(addr);
-
-    Log(LOG_DEBUG, "Got an IPv6 packet");
-
-    recvfrom(fd, packet, sizeof(packet), 0, (struct sockaddr*)&addr, &socklen);
-    gettimeofday(&now, NULL);
-    /* TODO get a full ipv6 header so we can treat them the same? */
-    if ( process_packet(AF_INET6, (struct sockaddr*)&addr, packet, now,
-                data) > 0 ) {
-        wand_add_timer(ev_hdl,
-                (int) (probelist->opts->inter_packet_delay / 1000000),
-                (probelist->opts->inter_packet_delay % 1000000),
-                data, send_probe_callback);
-    }
-
-    if ( probelist->outstanding == NULL ) {
-        if ( probelist->timeout ) {
-            wand_del_timer(ev_hdl, probelist->timeout);
-            probelist->timeout = NULL;
-        }
-        if ( probelist->ready == NULL ) {
-            ev_hdl->running = 0;
-        }
+        probelist->timeout =
+            wand_add_timer(ev_hdl, next.tv_sec, next.tv_usec, data,
+                    probe_timeout_callback);
     }
 }
 
@@ -1443,47 +1368,35 @@ static void probe_timeout_callback(wand_event_handler_t *ev_hdl, void *data) {
                 item->attempts, item->id);
         item->next = NULL;
 
-        if ( append_ready_item(probelist, item) ) {
-            /* XXX in 100usec, or just do it now? or always have timer firing */
-            wand_add_timer(ev_hdl,
-                    (int) (probelist->opts->inter_packet_delay / 1000000),
-                    (probelist->opts->inter_packet_delay % 1000000),
-                    data, send_probe_callback);
-        }
+        /* add the target back to the ready list so it gets probed again */
+        append_ready_item(probelist, item);
     } else {
-        /* no response at first hop, stop probing backwards */
-        item->done_backward = 1;
-        item->next = probelist->done;
-        probelist->done = item;
-        probelist->done_count++;
+        /* reached TTL 0, stop probing backwards */
+        set_done_item(probelist, item);
 
-        if ( enqueue_next_pending(probelist) ) {
-            wand_add_timer(ev_hdl,
-                    (int) (probelist->opts->inter_packet_delay / 1000000),
-                    (probelist->opts->inter_packet_delay % 1000000),
-                    data, send_probe_callback);
-        }
+        /* start probing another target now this one is completed */
+        enqueue_next_pending(probelist);
+    }
+
+    /* restart the send timer if needed, and we now have packets to send */
+    if ( probelist->sendtimer == NULL && probelist->ready != NULL ) {
+        struct timeval delay;
+        assert(probelist->sendtimer == NULL);
+
+        delay = get_next_send_time(probelist->last_probe,
+                probelist->opts->inter_packet_delay);
+
+        probelist->sendtimer = wand_add_timer(ev_hdl,
+                delay.tv_sec, delay.tv_usec,
+                data, send_probe_callback);
     }
 
     /* update timeout to be the next most outstanding packet */
     if ( probelist->outstanding != NULL ) {
-        struct timeval now, next;
+        struct timeval next;
         item = probelist->outstanding;
-
-        now = wand_get_walltime(ev_hdl);
-        next.tv_sec = item->hop[item->ttl - 1].time_sent.tv_sec + LOSS_TIMEOUT;
-        next.tv_usec = item->hop[item->ttl - 1].time_sent.tv_usec;
-
-        /*
-         * The next timeout has expired too, recursively call the callback
-         * until we encounter one that will expire in the future.
-         */
-        if ( timercmp(&next, &now, <) ) {
-            probe_timeout_callback(ev_hdl, data);
-            return;
-        }
-
-        timersub(&next, &now, &next);
+        next = get_next_timeout_time(&item->hop[item->ttl-1].time_sent,
+                LOSS_TIMEOUT_US);
 
         probelist->timeout =
             wand_add_timer(ev_hdl, next.tv_sec, next.tv_usec, data,
@@ -1517,8 +1430,7 @@ static void free_dest_info(struct dest_info_t *list) {
             }
 
             /* and need to free the addrinfo struct too if we got a result */
-            if ( item->hop[i].reply == REPLY_OK ||
-                    item->hop[i].reply == REPLY_ASSUMED_STOPSET ) {
+            if ( item->hop[i].reply == REPLY_OK ) {
                 if ( item->hop[i].addr != NULL ) {
                     freeaddrinfo(item->hop[i].addr);
                     item->hop[i].addr = NULL;
@@ -1547,12 +1459,9 @@ static void interrupt_test(wand_event_handler_t *ev_hdl,
 
 
 
-/* XXX don't need to pass around family? it's already in a sockaddr? */
-
 /*
- * Reimplementation of the traceroute test from AMP
- *
- * TODO const up the dest arguments so cant be changed?
+ * Main function to run the traceroute test, returning a result structure that
+ * will later be printed or sent across the network.
  */
 amp_test_result_t* run_traceroute(int argc, char *argv[], int count,
         struct addrinfo **dests) {
@@ -1567,7 +1476,6 @@ amp_test_result_t* run_traceroute(int argc, char *argv[], int count,
     struct probe_list_t probelist;
     wand_event_handler_t *ev_hdl;
     struct dest_info_t *item;
-    struct stopset_t *stop;
     amp_test_result_t *result;
 
     Log(LOG_DEBUG, "Starting TRACEROUTE test");
@@ -1578,7 +1486,6 @@ amp_test_result_t* run_traceroute(int argc, char *argv[], int count,
     options.packet_size = DEFAULT_TRACEROUTE_PROBE_LEN;
     options.random = 0;
     options.perturbate = 0;
-    options.probeall = 0;
     options.ip = 1;
     options.as = 0;
     sourcev4 = NULL;
@@ -1599,7 +1506,7 @@ amp_test_result_t* run_traceroute(int argc, char *argv[], int count,
             case 'Z': options.inter_packet_delay = atoi(optarg); break;
             case 'a': options.as = 1; break;
             case 'b': options.ip = 0; break;
-            case 'f': options.probeall = 1; break;
+            case 'f': /* deprecated probeall option */; break;
             case 'p': options.perturbate = atoi(optarg); break;
             case 'r': options.random = 1; break;
             case 's': options.packet_size = atoi(optarg); break;
@@ -1695,13 +1602,13 @@ amp_test_result_t* run_traceroute(int argc, char *argv[], int count,
     probelist.outstanding = NULL;
     probelist.outstanding_end = NULL;
     probelist.done = NULL;
-    probelist.stopset = NULL;
     probelist.sockets = &ip_sockets;
     probelist.timeout = NULL;
     probelist.window = INITIAL_WINDOW;
     probelist.opts = &options;
     probelist.total_probes = 0;
     probelist.done_count = 0;
+    probelist.last_probe = NULL;
 
     /* create all info blocks and place them in the send queue */
     for ( i = 0; i < count; i++ ) {
@@ -1711,6 +1618,11 @@ amp_test_result_t* run_traceroute(int argc, char *argv[], int count,
         item->id = i;
         item->next = NULL;
 
+        /*
+         * Put the first few targets into the ready list, add the remainder
+         * to the pending list. We'll try to complete paths before starting
+         * new ones.
+         */
         if ( probelist.window ) {
             append_ready_item(&probelist, item);
             probelist.window--;
@@ -1728,28 +1640,16 @@ amp_test_result_t* run_traceroute(int argc, char *argv[], int count,
 
     /* set up callbacks for receiving packets */
     wand_add_fd(ev_hdl, icmp_sockets.socket, EV_READ, &probelist,
-            recv_probe4_callback);
+            recv_probe_callback);
 
     wand_add_fd(ev_hdl, icmp_sockets.socket6, EV_READ, &probelist,
-            recv_probe6_callback);
+            recv_probe_callback);
 
-    /* set up timer to send packets */
-    wand_add_timer(ev_hdl,
-            (int) (options.inter_packet_delay / 1000000),
-            (options.inter_packet_delay % 1000000),
-            &probelist, send_probe_callback);
+    /* set up timer to send packets, starting immediately */
+    probelist.sendtimer = wand_add_timer(ev_hdl, 0, 0, &probelist,
+            send_probe_callback);
 
     wand_event_run(ev_hdl);
-
-    /* these are no longer true, if the test can be interrupted */
-#if 0
-    assert(probelist.pending == NULL);
-    assert(probelist.ready == NULL);
-    assert(probelist.ready_end == NULL);
-    assert(probelist.outstanding == NULL);
-    assert(probelist.outstanding_end == NULL);
-    assert(probelist.done);
-#endif
 
     wand_destroy_event_handler(ev_hdl);
 
@@ -1795,13 +1695,6 @@ amp_test_result_t* run_traceroute(int argc, char *argv[], int count,
     free_dest_info(probelist.pending);
     free_dest_info(probelist.outstanding);
     free_dest_info(probelist.done);
-
-    /* tidy up the stopset if it was used */
-    for ( stop = probelist.stopset, i = 0; stop != NULL; i++) {
-        struct stopset_t *tmp = stop;
-        stop = stop->next;
-        free(tmp);
-    }
 
     return result;
 }
@@ -1936,6 +1829,7 @@ test_t *register_test() {
 
     return new_test;
 }
+
 
 
 #if UNIT_TEST
