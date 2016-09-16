@@ -2,7 +2,7 @@
 .\" First parameter, NAME, should be all caps
 .\" Second parameter, SECTION, should be 1-8, maybe w/ subsection
 .\" other parameters are allowed: see man(7), man(1)
-.TH AMP-TRACE 8 "Jul 24, 2014" "amplet2-client" "The Active Measurement Project"
+.TH AMP-TRACE 8 "2016-09-16" "amplet2-client" "The Active Measurement Project"
 .\" Please adjust this date whenever revising the manpage.
 .\"
 .\" Some roff macros, for reference:
@@ -18,7 +18,7 @@
 .SH NAME
 amp-trace \- AMP standalone UDP traceroute test
 .SH SYNOPSIS
-\fBamp-trace\fR [\fB-abfhrx\fR] [\fB-p \fImilliseconds\fB\fR] [\fB-s \fIpacketsize\fB\fR] [\fB-I \fIiface\fB\fR] [\fB-4 \fIaddress\fB\fR] [\fB-6 \fIaddress\fB\fR] [\fB-Z \fImicroseconds\fB\fR] -- \fIdestination1\fR [\fIdestination2\fR \fI...\fR]
+\fBamp-trace\fR [\fB-abhrx\fR] [\fB-p \fImilliseconds\fB\fR] [\fB-s \fIpacketsize\fB\fR] [\fB-I \fIiface\fB\fR] [\fB-4 \fIaddress\fB\fR] [\fB-6 \fIaddress\fB\fR] [\fB-Z \fImicroseconds\fB\fR] -- \fIdestination1\fR [\fIdestination2\fR \fI...\fR]
 .SH DESCRIPTION
 .\" TeX users may be more comfortable with the \fB<whatever>\fP and
 .\" \fI<whatever>\fP escape sequences to invode bold face and italics,
@@ -36,9 +36,6 @@ Lookup AS numbers for all addresses using http://www.team-cymru.org/IP-ASN-mappi
 .TP
 \fB-b, --noip\fR
 Don't report IP addresses for each hop in the path.
-.TP
-\fB-f, --probeall\fR
-Disable the doubletree-like algorithm and probe every hop in the path.
 .TP
 \fB-h, --help\fR
 Show summary of options.
