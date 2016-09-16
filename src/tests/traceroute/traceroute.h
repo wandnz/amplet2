@@ -65,7 +65,8 @@
 #define TRACEROUTE_DEST_PORT 33434
 
 /* TTL to use for the first probe packet */
-#define INITIAL_TTL 3
+#define MIN_INITIAL_TTL 3
+#define MAX_INITIAL_TTL 8
 
 /* Maximum number of destinations that can have probe packets outstanding */
 #define INITIAL_WINDOW 50
@@ -146,6 +147,7 @@ struct dest_info_t {
     uint32_t probes;            /* number of probes sent so far */
     int8_t first_response;      /* TTL of first response packet */
     int8_t ttl;                 /* current TTL being probed */
+    int8_t first_ttl;           /* initial TTL that was probed */
     uint8_t path_length;        /* total length of path, once confirmed */
     uint8_t done_forward;       /* true if forward probing has finished */
     uint8_t attempts;           /* number of probe attempts at this TTL */

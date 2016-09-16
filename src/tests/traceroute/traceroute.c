@@ -737,9 +737,9 @@ static int process_packet(struct sockaddr *addr, char *packet,
             item->id, item->ttl);
 
     /* we've hit the destination on the first go so need the real ttl */
-    if ( terminal_error(family, type, code) && item->ttl == INITIAL_TTL ) {
+    if ( terminal_error(family, type, code) && item->ttl == item->first_ttl ) {
         /* extract the TTL from the packet we sent, embedded in the response */
-        ttl = (INITIAL_TTL - get_embedded_ttl(family, packet)) + 1;
+        ttl = (item->first_ttl - get_embedded_ttl(family, packet)) + 1;
 
         /* if the TTL was bogus then we end probing now */
         if ( ttl < 0 || ttl > MAX_HOPS_IN_PATH ) {
@@ -750,8 +750,8 @@ static int process_packet(struct sockaddr *addr, char *packet,
 
         item->ttl = ttl;
 
-        /* take the time the original probe to INITIAL_TTL was sent */
-        item->hop[ttl - 1].time_sent = item->hop[INITIAL_TTL - 1].time_sent;
+        /* take the time the original probe to the initial ttl was sent */
+        item->hop[ttl - 1].time_sent = item->hop[item->first_ttl - 1].time_sent;
     }
 
     /* mark first ttl to respond, so we know where to start reverse probing */
@@ -1620,7 +1620,9 @@ amp_test_result_t* run_traceroute(int argc, char *argv[], int count,
     for ( i = 0; i < count; i++ ) {
         item = (struct dest_info_t*)calloc(1, sizeof(struct dest_info_t));
         item->addr = dests[i];
-        item->ttl = INITIAL_TTL;
+        item->ttl = item->first_ttl = MIN_INITIAL_TTL +
+            (int)((MAX_INITIAL_TTL - MIN_INITIAL_TTL) *
+                    (random()/(RAND_MAX+1.0)));
         item->id = i;
         item->next = NULL;
 
