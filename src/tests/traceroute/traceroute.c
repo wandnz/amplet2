@@ -75,6 +75,7 @@ static struct option long_options[] = {
     {"perturbate", required_argument, 0, 'p'},
     {"random", no_argument, 0, 'r'},
     {"size", required_argument, 0, 's'},
+    {"window", required_argument, 0, 'w'},
     {"dscp", required_argument, 0, 'Q'},
     {"interpacketgap", required_argument, 0, 'Z'},
     {"interface", required_argument, 0, 'I'},
@@ -1116,6 +1117,7 @@ static amp_test_result_t* report_results(struct timeval *start_time, int count,
 static void usage(void) {
     fprintf(stderr,
             "Usage: amp-trace [-abhfrvx] [-p perturbate] [-s packetsize]\n"
+            "                 [-w windowsize]\n"
             "                 [-Q codepoint] [-Z interpacketgap]\n"
             "                 [-I interface] [-4 sourcev4] [-6 sourcev6]\n"
             "                 -- destination1 [destination2 ... destinationN]"
@@ -1132,6 +1134,8 @@ static void usage(void) {
             "Maximum number of milliseconds to delay test\n");
     fprintf(stderr, "  -s, --size           <bytes>   "
             "Fixed packet size to use for each test\n");
+    fprintf(stderr, "  -w, --window         <count>   "
+            "Maximum number of targets to probe at one time\n");
 
     print_probe_usage();
     print_interface_usage();
@@ -1477,6 +1481,7 @@ amp_test_result_t* run_traceroute(int argc, char *argv[], int count,
     wand_event_handler_t *ev_hdl;
     struct dest_info_t *item;
     amp_test_result_t *result;
+    int window;
 
     Log(LOG_DEBUG, "Starting TRACEROUTE test");
 
@@ -1491,8 +1496,9 @@ amp_test_result_t* run_traceroute(int argc, char *argv[], int count,
     sourcev4 = NULL;
     sourcev6 = NULL;
     device = NULL;
+    window = INITIAL_WINDOW;
 
-    while ( (opt = getopt_long(argc, argv, "abfp:rs:I:Q:Z:4:6:hvx",
+    while ( (opt = getopt_long(argc, argv, "abfp:rs:w:I:Q:Z:4:6:hvx",
                     long_options, NULL)) != -1 ) {
         switch ( opt ) {
             case '4': sourcev4 = get_numeric_address(optarg, NULL); break;
@@ -1510,6 +1516,7 @@ amp_test_result_t* run_traceroute(int argc, char *argv[], int count,
             case 'p': options.perturbate = atoi(optarg); break;
             case 'r': options.random = 1; break;
             case 's': options.packet_size = atoi(optarg); break;
+            case 'w': window = atoi(optarg); break;
             case 'v': print_package_version(argv[0]); exit(0);
             case 'x': log_level = LOG_DEBUG;
                       log_level_override = 1;
@@ -1604,7 +1611,6 @@ amp_test_result_t* run_traceroute(int argc, char *argv[], int count,
     probelist.done = NULL;
     probelist.sockets = &ip_sockets;
     probelist.timeout = NULL;
-    probelist.window = INITIAL_WINDOW;
     probelist.opts = &options;
     probelist.total_probes = 0;
     probelist.done_count = 0;
@@ -1623,9 +1629,9 @@ amp_test_result_t* run_traceroute(int argc, char *argv[], int count,
          * to the pending list. We'll try to complete paths before starting
          * new ones.
          */
-        if ( probelist.window ) {
+        if ( window ) {
             append_ready_item(&probelist, item);
-            probelist.window--;
+            window--;
         } else {
             item->next = probelist.pending;
             probelist.pending = item;

@@ -18,7 +18,7 @@
 .SH NAME
 amp-trace \- AMP standalone UDP traceroute test
 .SH SYNOPSIS
-\fBamp-trace\fR [\fB-abhrx\fR] [\fB-p \fImilliseconds\fB\fR] [\fB-s \fIpacketsize\fB\fR] [\fB-I \fIiface\fB\fR] [\fB-4 \fIaddress\fB\fR] [\fB-6 \fIaddress\fB\fR] [\fB-Z \fImicroseconds\fB\fR] -- \fIdestination1\fR [\fIdestination2\fR \fI...\fR]
+\fBamp-trace\fR [\fB-abhrx\fR] [\fB-p \fImilliseconds\fB\fR] [\fB-s \fIpacketsize\fB\fR] [\fB-w \fIwindow\fB\fR] [\fB-I \fIiface\fB\fR] [\fB-4 \fIaddress\fB\fR] [\fB-6 \fIaddress\fB\fR] [\fB-Z \fImicroseconds\fB\fR] -- \fIdestination1\fR [\fIdestination2\fR \fI...\fR]
 .SH DESCRIPTION
 .\" TeX users may be more comfortable with the \fB<whatever>\fP and
 .\" \fI<whatever>\fP escape sequences to invode bold face and italics,
@@ -53,6 +53,10 @@ Use a random packet size for each test.
 \fB-s, --size \fIpacketsize\fB\fR
 Specifies the total number of bytes to be sent per packet (including headers).
 The default is 60 bytes.
+.TP
+\fB-w, --window \fIcount\fB\fR
+Maximum number of targets to probe at one time. Only one probe will be outstanding for each target, so this number is also the total number of packets that can be put on to the network at any one time until a loss timeout occurs or a response is received.
+The default is 50.
 .TP
 \fB-v, --version\fR
 Show version of program.

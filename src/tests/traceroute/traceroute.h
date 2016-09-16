@@ -175,7 +175,6 @@ struct probe_list_t {
     uint32_t done_count;
     uint16_t ident;
     struct opt_t *opts;
-    int window;
     int total_probes;
     struct timeval *last_probe;	        /* when most recent probe was sent */
 };
