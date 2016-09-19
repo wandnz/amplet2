@@ -54,13 +54,11 @@
 #define SCHEDULE_DELIMITER ","
 
 /* TODO move config file defines elsewhere, point at sensible places */
-//#define AMP_CONFIG_DIR "/tmp/brendonj"
 #define SCHEDULE_DIR AMP_CONFIG_DIR "/schedules"
 #define REMOTE_SCHEDULE_FILE "/fetched.sched"
 #define TMP_REMOTE_SCHEDULE_FILE "/.fetched.sched.tmp"
 #define SCHEDULE_FETCH_FREQUENCY 3600
 #define SCHEDULE_FETCH_TIMEOUT 30
-//#define AMP_TEST_DIRECTORY AMP_CONFIG_DIR "/tests/"
 #define MAX_TEST_ARGS 128
 
 /* tests can start at most 500ms (in usec) early, otherwise reschedule them */

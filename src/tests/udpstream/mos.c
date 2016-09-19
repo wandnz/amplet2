@@ -108,7 +108,6 @@ int calculate_cisco_mos(int icpif) {
         mos = 3;
     } else if ( icpif <= 33 ) {
         mos = 2;
-    //} else if ( icpif <= 43 ) {
     } else {
         mos = 1;
     }
