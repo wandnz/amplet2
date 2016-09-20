@@ -98,7 +98,7 @@ do_start()
         # if the client was started right now then wait for the pidfile
         # to be correct before continuing (makes sure puppet doesn't try
         # to start extra copies thinking it isn't running ok).
-        if [ $RESULT -eq 0 ]; then
+        if [ $? -eq 0 ]; then
             # this will update $? for the next check, which is fine
             do_wait $PIDFILE
         fi
