@@ -61,8 +61,8 @@
 #define SCHEDULE_FETCH_TIMEOUT 30
 #define MAX_TEST_ARGS 128
 
-/* tests can start at most 500ms (in usec) early, otherwise reschedule them */
-#define SCHEDULE_CLOCK_FUDGE ( 500 * 1000 )
+/* tests can start at most 100ms (in usec) early, otherwise reschedule them */
+#define SCHEDULE_CLOCK_FUDGE ( 100 * 1000 )
 
 /* convenience time conversions */
 #define US_FROM_MS(x) (((x) % 1000)*1000)
