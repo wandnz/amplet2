@@ -52,6 +52,7 @@
 #include <curl/curl.h>
 #include <yaml.h>
 #include <stdint.h>
+#include <inttypes.h>
 #include <libwandevent.h>
 
 #include "config.h"
