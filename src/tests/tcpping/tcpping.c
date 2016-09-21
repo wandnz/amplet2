@@ -1014,7 +1014,7 @@ amp_test_result_t* run_tcpping(int argc, char *argv[], int count,
     globals->options.packet_size = MIN_TCPPING_PROBE_LEN;
     globals->options.random = 0;
     globals->options.perturbate = 0;
-    globals->options.port = 80;  /* Default to testing port 80 */
+    globals->options.port = DEFAULT_TCPPING_PORT;
     globals->sourcev4 = NULL;
     globals->sourcev6 = NULL;
     globals->device = NULL;

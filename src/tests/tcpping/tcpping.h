@@ -55,6 +55,7 @@
 
 #define MAX_TCPPING_PROBE_LEN 1500
 
+#define DEFAULT_TCPPING_PORT 80
 
 /*
  * Generally, we only need the TCP header of the response (no options) but
