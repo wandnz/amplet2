@@ -1,84 +1,99 @@
-.\"                                      Hey, EMACS: -*- nroff -*-
-.\" First parameter, NAME, should be all caps
-.\" Second parameter, SECTION, should be 1-8, maybe w/ subsection
-.\" other parameters are allowed: see man(7), man(1)
-.TH AMPLET2 8 "Jul 24, 2014" "amplet2-client" "The Active Measurement Project"
-.\" Please adjust this date whenever revising the manpage.
-.\"
-.\" Some roff macros, for reference:
-.\" .nh        disable hyphenation
-.\" .hy        enable hyphenation
-.\" .ad l      left justify
-.\" .ad b      justify to both left and right margins
-.\" .nf        disable filling
-.\" .fi        enable filling
-.\" .br        insert line break
-.\" .sp <n>    insert n+1 empty lines
-.\" for manpage-specific macros, see man(7)
+.TH AMPLET2 8 "2016-09-20" "amplet2-client" "The Active Measurement Project"
+
 .SH NAME
 amplet2 \- AMP measurement daemon
+
+
 .SH SYNOPSIS
-\fBamplet2\fR [\fB-dhrvx\fR] [\fB-c \fIconfig\fB\fR] [\fB-I \fIiface\fB\fR] [\fB-4 \fIaddress\fB\fR] [\fB-6 \fIaddress\fB\fR] [\fB-Z \fImicroseconds\fB\fR]
+\fBamplet2\fR [\fB-dhrvx\fR] [\fB-c \fIconfig\fR] [\fB-I \fIiface\fR] [\fB-4 \fIaddress\fR] [\fB-6 \fIaddress\fR] [\fB-Z \fImicroseconds\fR]
+
+
 .SH DESCRIPTION
-.\" TeX users may be more comfortable with the \fB<whatever>\fP and
-.\" \fI<whatever>\fP escape sequences to invode bold face and italics,
-.\" respectively.
 \fBamplet2\fP is the process responsible for scheduling the tests to other
 machines in the AMP mesh, or to nominated ad-hoc targets. It can also run
 servers for tests that require cooperation from an end host to perform, such
 as throughput tests.
+
+
 .SH OPTIONS
 .TP
-\fB-c, --config \fIconfig\fB\fR
+\fB-c, --config \fIconfig\fR
 Read configuration information from the file \fIconfig\fR. The default
 configuration file is /etc/amplet2/client.conf.
+
+
 .TP
 \fB-d, --daemonise\fR
 Detach and daemonise the process.
+
+
 .TP
 \fB-h, --help\fR
 Show summary of options.
+
+
 .TP
-\fB-I, --interface \fIiface\fB\fR
+\fB-I, --interface \fIiface\fR
 Specifies the interface (device) that tests should use when sending packets.
 By default the interface will be selected according to the routing table.
+
+
 .TP
 \fB-r, --noremote\fR
 Do not attempt to update test schedules from a remote server.
+
+
 .TP
 \fB-v, --version\fR
 Show version of program.
+
+
 .TP
 \fB-x, --debug\fR
 Enable extra debugging output.
+
+
 .TP
-\fB-Z, --interpacketgap \fImicroseconds\fB\fR
+\fB-Z, --interpacketgap \fImicroseconds\fR
 Minimum number of microseconds between sending probe/query packets.
+
+
 .TP
-\fB-4, --ipv4 \fIa.b.c.d\fB\fR
+\fB-4, --ipv4 \fIa.b.c.d\fR
 Specifies the source IPv4 address that tests should use when sending packets to
 IPv4 targets. This address must belong to one of the interfaces.
 By default the IPv4 address of the outgoing interface will be used.
+
+
 .TP
-\fB-6, --ipv6 \fIa:b:c:d:e:f:g:h\fB\fR
+\fB-6, --ipv6 \fIa:b:c:d:e:f:g:h\fR
 Specifies the source IPv6 address that tests should use when sending packets to
 IPv6 targets. This address must belong to one of the interfaces.
 By default the IPv6 address of the outgoing interface will be used.
+
 
 .SH FILES AND DIRECTORIES
 .\" TODO Give these relative to ${prefix} etc?
 .TP
 .I /etc/amplet2/clients/
 Default client configuration directory.
+
+
 .TP
 .I /etc/amplet2/clients/default.conf
 Default client configuration file.
+
+
 .TP
 .I /etc/amplet2/nametables/
 Default client nametable directory.
+
+
 .TP
 .I /etc/amplet2/keys/
 Default location for client SSL keys/certificates.
+
+
 .TP
 .I /etc/amplet2/schedules/
 Default client schedule directory.
@@ -104,6 +119,6 @@ test that uses raw sockets (icmp, traceroute).
 
 .SH AUTHOR
 amplet2 was written by Brendon Jones <brendonj@waikato.ac.nz>.
+
 .PP
-This manual page was written by Brendon Jones <brendonj@waikato.ac.nz>,
-for the Debian project (and may be used by others).
+This manual page was written by Brendon Jones <brendonj@waikato.ac.nz>.

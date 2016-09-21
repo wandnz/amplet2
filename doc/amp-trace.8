@@ -1,81 +1,94 @@
-.\"                                      Hey, EMACS: -*- nroff -*-
-.\" First parameter, NAME, should be all caps
-.\" Second parameter, SECTION, should be 1-8, maybe w/ subsection
-.\" other parameters are allowed: see man(7), man(1)
-.TH AMP-TRACE 8 "2016-09-16" "amplet2-client" "The Active Measurement Project"
-.\" Please adjust this date whenever revising the manpage.
-.\"
-.\" Some roff macros, for reference:
-.\" .nh        disable hyphenation
-.\" .hy        enable hyphenation
-.\" .ad l      left justify
-.\" .ad b      justify to both left and right margins
-.\" .nf        disable filling
-.\" .fi        enable filling
-.\" .br        insert line break
-.\" .sp <n>    insert n+1 empty lines
-.\" for manpage-specific macros, see man(7)
+.TH AMP-TRACE 8 "2016-09-20" "amplet2-client" "The Active Measurement Project"
+
 .SH NAME
 amp-trace \- AMP standalone UDP traceroute test
+
+
 .SH SYNOPSIS
-\fBamp-trace\fR [\fB-abhrx\fR] [\fB-p \fImilliseconds\fB\fR] [\fB-s \fIpacketsize\fB\fR] [\fB-w \fIwindow\fB\fR] [\fB-I \fIiface\fB\fR] [\fB-4 \fIaddress\fB\fR] [\fB-6 \fIaddress\fB\fR] [\fB-Z \fImicroseconds\fB\fR] -- \fIdestination1\fR [\fIdestination2\fR \fI...\fR]
+\fBamp-trace\fR [\fB-abhrx\fR] [\fB-p \fImilliseconds\fR] [\fB-s \fIpacketsize\fR] [\fB-w \fIwindow\fR] [\fB-I \fIiface\fR] [\fB-4 \fIaddress\fR] [\fB-6 \fIaddress\fR] [\fB-Z \fImicroseconds\fR] -- \fIdestination1\fR [\fIdestination2\fR \fI...\fR]
+
+
 .SH DESCRIPTION
-.\" TeX users may be more comfortable with the \fB<whatever>\fP and
-.\" \fI<whatever>\fP escape sequences to invode bold face and italics,
-.\" respectively.
 \fBamp-trace\fP is the standalone version of the \fBamplet2\fP(8)
 UDP traceroute test. It is very similar in function to \fBtraceroute\fR(1),
 except that it can
 test to multiple destinations simultaneously. All destinations listed on the
 command line will be tested to. Any destinations that are hostnames will be
 resolved, and every address that they resolve to will be tested.
+
+
 .SH OPTIONS
 .TP
 \fB-a, --asn\fR
 Lookup AS numbers for all addresses using http://www.team-cymru.org/IP-ASN-mapping.html
+
+
 .TP
 \fB-b, --noip\fR
 Don't report IP addresses for each hop in the path.
+
+
 .TP
 \fB-h, --help\fR
 Show summary of options.
+
+
 .TP
-\fB-I, --interface \fIiface\fB\fR
+\fB-I, --interface \fIiface\fR
 Specifies the interface (device) that tests should use when sending packets.
 By default the interface will be selected according to the routing table.
+
+
 .TP
-\fB-p, --perturbate \fImilliseconds\fB\fR
+\fB-p, --perturbate \fImilliseconds\fR
 Delay the test by a random number of milliseconds, up to a maximum of \fImilliseconds\fR. The default is to not perturbate tests (no delay).
+
+
 .TP
 \fB-r, --random\fR
 Use a random packet size for each test.
+
+
 .TP
-\fB-s, --size \fIpacketsize\fB\fR
+\fB-s, --size \fIpacketsize\fR
 Specifies the total number of bytes to be sent per packet (including headers).
 The default is 60 bytes.
+
+
 .TP
-\fB-w, --window \fIcount\fB\fR
+\fB-w, --window \fIcount\fR
 Maximum number of targets to probe at one time. Only one probe will be outstanding for each target, so this number is also the total number of packets that can be put on to the network at any one time until a loss timeout occurs or a response is received.
 The default is 50.
+
+
 .TP
 \fB-v, --version\fR
 Show version of program.
+
+
 .TP
 \fB-x, --debug\fR
 Enable extra debugging output.
+
+
 .TP
-\fB-Z, --interpacketgap \fImicroseconds\fB\fR
+\fB-Z, --interpacketgap \fImicroseconds\fR
 Minimum number of microseconds between sending probe/query packets.
+
+
 .TP
-\fB-4, --ipv4 \fIa.b.c.d\fB\fR
+\fB-4, --ipv4 \fIa.b.c.d\fR
 Specifies the source IPv4 address that tests should use when sending packets to
 IPv4 targets. This address must belong to one of the interfaces.
 By default the IPv4 address of the outgoing interface will be used.
+
+
 .TP
-\fB-6, --ipv6 \fIa:b:c:d:e:f:g:h\fB\fR
+\fB-6, --ipv6 \fIa:b:c:d:e:f:g:h\fR
 Specifies the source IPv6 address that tests should use when sending packets to
 IPv6 targets. This address must belong to one of the interfaces.
 By default the IPv6 address of the outgoing interface will be used.
+
 
 .SH SEE ALSO
 .BR amplet2 (8),
@@ -93,6 +106,6 @@ By default the IPv6 address of the outgoing interface will be used.
 
 .SH AUTHOR
 amp-trace was written by Brendon Jones <brendonj@waikato.ac.nz>.
+
 .PP
-This manual page was written by Brendon Jones <brendonj@waikato.ac.nz>,
-for the Debian project (and may be used by others).
+This manual page was written by Brendon Jones <brendonj@waikato.ac.nz>.

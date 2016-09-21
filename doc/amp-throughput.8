@@ -1,137 +1,176 @@
-.\"                                      Hey, EMACS: -*- nroff -*-
-.\" First parameter, NAME, should be all caps
-.\" Second parameter, SECTION, should be 1-8, maybe w/ subsection
-.\" other parameters are allowed: see man(7), man(1)
-.TH AMP-THROUGHPUT 8 "May 3, 2016" "amplet2-client" "The Active Measurement Project"
-.\" Please adjust this date whenever revising the manpage.
-.\"
-.\" Some roff macros, for reference:
-.\" .nh        disable hyphenation
-.\" .hy        enable hyphenation
-.\" .ad l      left justify
-.\" .ad b      justify to both left and right margins
-.\" .nf        disable filling
-.\" .fi        enable filling
-.\" .br        insert line break
-.\" .sp <n>    insert n+1 empty lines
-.\" for manpage-specific macros, see man(7)
+.TH AMP-THROUGHPUT 8 "2016-09-20" "amplet2-client" "The Active Measurement Project"
+
 .SH NAME
 amp-throughput \- AMP standalone TCP throughput test
+
+
 .SH SYNOPSIS
 \fBamp-throughput\fR \fB-s\fR [\fIoptions\fR]
 .br
-\fBamp-throughput\fR \fB-c \fIserver\fB\fR [\fIoptions\fR]
+\fBamp-throughput\fR \fB-c \fIserver\fR [\fIoptions\fR]
+
+
 .SH DESCRIPTION
-.\" TeX users may be more comfortable with the \fB<whatever>\fP and
-.\" \fI<whatever>\fP escape sequences to invode bold face and italics,
-.\" respectively.
 \fBamp-throughput\fP is the standalone version of the \fBamplet2\fP(8)
 TCP throughput test. It is very similar in function to \fBiperf\fR(1), except
 that it can also use a running instance of \fBamplet2\fP(8) as a server,
 authenticating the connection using SSL.
+
+
 .SH GENERAL OPTIONS
 .TP
-\fB-p, --port \fIport\fB\fR
+\fB-p, --port \fIport\fR
 Set server control port to connect to/listen on to be \fIport\fR. The default is 8815.
+
+
 .TP
-\fB-I, --interface \fIiface\fB\fR
+\fB-I, --interface \fIiface\fR
 Specifies the interface (device) that tests should use when sending packets.
 By default the interface will be selected according to the routing table.
+
+
 .TP
-\fB-4, --ipv4 \fIa.b.c.d\fB\fR
+\fB-4, --ipv4 \fIa.b.c.d\fR
 Specifies the source IPv4 address that tests should use when sending packets to
 IPv4 targets. This address must belong to one of the interfaces.
 By default the IPv4 address of the outgoing interface will be used.
+
+
 .TP
-\fB-6, --ipv6 \fIa:b:c:d:e:f:g:h\fB\fR
+\fB-6, --ipv6 \fIa:b:c:d:e:f:g:h\fR
 Specifies the source IPv6 address that tests should use when sending packets to
 IPv6 targets. This address must belong to one of the interfaces.
 By default the IPv6 address of the outgoing interface will be used.
+
 
 .SH SERVER OPTIONS
 .TP
 \fB-s, --server\fR
 Run in server mode.
 
+
 .SH CLIENT OPTIONS
 .TP
-\fB-c, --client \fIhost\fB\fR
+\fB-c, --client \fIhost\fR
 Run in client mode, connecting to \fIhost\fR.
+
+
 .TP
-\fB-i, --rcvbuf \fIbytes\fB\fR
+\fB-i, --rcvbuf \fIbytes\fR
 Set the maximum size of the socket receive (input) buffer to \fIbytes\fR bytes.
 The default is set by \fI/proc/sys/net/core/rmem_default\fR.
+
+
 .TP
-\fB-M, --mss \fIbytes\fB\fR
+\fB-M, --mss \fIbytes\fR
 Set the TCP maximum segment size to \fIbytes\fR bytes.
+
+
 .TP
 \fB-N, --nodelay\fR
 Disable Nagle's Algorithm (set TCP_NODELAY).
+
+
 .TP
-\fB-o, --sndbuf \fIbytes\fB\fR
+\fB-o, --sndbuf \fIbytes\fR
 Set the maximum size of the socket send (output) buffer to \fIbytes\fR bytes.
 The default is set by \fI/proc/sys/net/core/wmem_default\fR.
+
+
 .TP
-\fB-P, --test-port \fIport\fB\fR
+\fB-P, --test-port \fIport\fR
 Perform the actual throughput test using port \fIport\fR. The default is 8816.
+
+
 .TP
 \fB-r, --randomise\fR
 Randomise the contents of each test packet sent.
+
+
 .TP
-\fB-S, --schedule \fIsequence\fB\fR
-Test schedule describing direction and duration of tests (see below).
+\fB-S, --schedule \fIsequence\fR
+Test schedule describing direction and duration of tests (see below). The
+default is to test for 10 seconds from the client to the server.
+
+
 .TP
-\fB-t, --time \fIseconds\fB\fR
+\fB-t, --time \fIseconds\fR
 Test from client to server for \fIseconds\fR seconds. The default is 10 seconds.
+
+
 .TP
 \fB-w, --disable-web10g\fR
 Don't record Web10G results (if they are available).
+
+
 .TP
-\fB-z, --write-size \fIbytes\fB\fR
+\fB-z, --write-size \fIbytes\fR
 Use \fIbytes\fR bytes sized writes when writing data to the socket.
 The default is 131072 bytes (128KB).
+
 
 .SH MISCELLANEOUS OPTIONS
 .TP
 \fB-h, --help\fR
 Show summary of options.
+
+
 .TP
 \fB-v, --version\fR
 Show version of program.
+
+
 .TP
 \fB-x, --debug\fR
 Enable extra debugging output.
+
 
 .SH SOCKET CONFIGURATION
 .TP
 Socket options such as rcvbuf, sndbuf, mss and nodelay will be set on both the client and the server. The client sends the options across the control socket and they will get set on the test socket at both endpoints. Web10G can be used to check these are set correctly.
 
+
 .SH TEST SCHEDULES
 .TP
 A schedule is a sequence of tests. Each test starts with a single character representing the type. Tests are separated by a single comma. Valid types are:
+
+
 .TP
-\fBs\fIbytes\fB\fR
+\fBs\fIbytes\fR
 Run a server -> client test, sending data until \fIbytes\fR bytes have been sent.
+
+
 .TP
-\fBS\fIbytes\fB\fR
+\fBS\fIbytes\fR
 Run a client -> server test, sending data until \fIbytes\fR bytes have been sent.
+
+
 .TP
-\fBt\fImilliseconds\fB\fR
+\fBt\fImilliseconds\fR
 Run a server -> client test, sending data for \fImilliseconds\fR milliseconds.
+
+
 .TP
-\fBT\fImilliseconds\fB\fR
+\fBT\fImilliseconds\fR
 Run a client -> server test, sending data for \fImilliseconds\fR milliseconds.
+
+
 .TP
 \fBn\fR
 Make a new test connection (close and reopen it).
+
+
 .TP
-\fBp\fImilliseconds\fB\fR
+\fBp\fImilliseconds\fR
 Pause sending for \fImilliseconds\fR milliseconds.
+
 
 .SH EXAMPLES
 .TP
 \fBamp-thoughput -c \fI<target>\fB -S t10000,T10000\fR
 Run a server to client test for 10 seconds, then run a client to server test for 10 seconds across the same connection.
+
+
 .TP
 \fBamp-thoughput -c \fI<target>\fB -S s16000,n,S24000\fR
 Run a server to client test sending 16,000 bytes, then close and reopen the connection before running a client to server test sending 24,000 bytes.
@@ -147,8 +186,10 @@ Run a server to client test sending 16,000 bytes, then close and reopen the conn
 .BR amp-tcpping (8),
 .BR amp-udpstream (8).
 
+
 .SH AUTHOR
-amp-throughput was written by Richard Sanger with modifications by Brendon Jones <brendonj@waikato.ac.nz>.
+amp-throughput was written by Richard Sanger <rsangerarj@gmail.com> with
+modifications by Brendon Jones <brendonj@waikato.ac.nz>.
+
 .PP
-This manual page was written by Brendon Jones <brendonj@waikato.ac.nz>,
-for the Debian project (and may be used by others).
+This manual page was written by Brendon Jones <brendonj@waikato.ac.nz>.
