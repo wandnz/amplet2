@@ -47,9 +47,6 @@
  *  - set up and maintain control (and reporting?) sockets
  */
 
-
-#include <config.h>
-
 #include <stdio.h>
 #include <getopt.h>
 #include <assert.h>
@@ -60,9 +57,10 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <amqp_ssl_socket.h>
-
 #include <curl/curl.h>
 #include <libwandevent.h>
+
+#include "config.h"
 #include "schedule.h"
 #include "watchdog.h"
 #include "nametable.h"
