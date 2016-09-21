@@ -196,7 +196,7 @@ static void verify_response(struct test_request_t *a,
     struct test_result_t *result;
 
     assert(b->has_direction);
-    assert((int)a->type == (int)b->direction);//XXX
+    assert((int)a->type == (int)b->direction);
 
     /* XXX these might not all be present */
     assert(b->has_rtt);
@@ -235,7 +235,7 @@ static void verify_message(amp_test_result_t *result) {
     assert(msg->n_reports == count);
 
     verify_header(&options, msg->header);
-    verify_address(addr, msg->header);//XXX
+    verify_address(addr, msg->header);
 
     /* check each of the test results */
     for ( i = 0; i < msg->n_reports; i++ ) {
@@ -250,7 +250,7 @@ static void verify_message(amp_test_result_t *result) {
 
 
 /*
- * XXX count is being used weirdly
+ *
  */
 int main(void) {
     test_t udpstream_test;
@@ -271,7 +271,6 @@ int main(void) {
     for ( i = 0; i < count; i++ ) {
         result = amp_test_report_results(0, addr, &options);
     }
-
 
     freeaddrinfo(addr);
     return 0;

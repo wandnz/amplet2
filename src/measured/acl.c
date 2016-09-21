@@ -295,7 +295,7 @@ int add_acl(struct acl_root *root, char *fqdn, uint8_t property, uint8_t value) 
 
 
 /*
- *
+ * Traverse an ACL tree and print the contents.
  */
 static void print_acl_internal(struct acl_node *root) {
     int i;
@@ -317,7 +317,7 @@ static void print_acl_internal(struct acl_node *root) {
 
 
 /*
- *
+ * Print all three ACL trees used for server, test and schedule permissions.
  */
 void print_acl(struct acl_root *root) {
     if ( root == NULL ) {
@@ -337,7 +337,7 @@ void print_acl(struct acl_root *root) {
 
 
 /*
- *
+ * Traverse an ACL tree and free the contents.
  */
 static void free_acl_internal(struct acl_node *root) {
     int i;
@@ -356,7 +356,7 @@ static void free_acl_internal(struct acl_node *root) {
 
 
 /*
- *
+ * Free all three ACL trees used for server, test and schedule permissions.
  */
 void free_acl(struct acl_root *root) {
     if ( root == NULL ) {

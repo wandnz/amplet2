@@ -66,7 +66,7 @@
 #define RESPONSE_BUFFER_LEN ( \
         sizeof(struct iphdr) + 60 + sizeof(struct icmphdr) + 8)
 
-/* timeout in usec to wait before declaring the response lost, currently 10s */
+/* timeout (seconds) to wait after the last probe packet, currently 10s */
 #define LOSS_TIMEOUT 10
 
 
@@ -101,6 +101,9 @@ struct info_t {
 
 
 
+/*
+ * Global test options and pointers to the probe information blocks.
+ */
 struct icmpglobals_t {
     struct opt_t options;
     struct socket_t sockets;

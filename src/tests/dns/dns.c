@@ -964,7 +964,8 @@ static void usage(void) {
 
 
 /*
- * TODO const up the dest arguments so cant be changed?
+ * Main function to run the dns test, returning a result structure that will
+ * later be printed or sent across the network.
  */
 amp_test_result_t* run_dns(int argc, char *argv[], int count,
         struct addrinfo **dests) {

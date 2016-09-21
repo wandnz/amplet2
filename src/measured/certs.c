@@ -262,7 +262,7 @@ static X509_REQ *create_new_csr(RSA *key, char *ampname) {
 
     name = X509_REQ_get_subject_name(request);
 
-    /*XXX any other options we want to set? server will just add whatever? */
+    /* add the ampname as common name to the signing request */
     if ( !X509_NAME_add_entry_by_txt(name, "CN", MBSTRING_ASC,
                 (unsigned char*)ampname, -1, -1, 0) ) {
         Log(LOG_WARNING, "Failed to set Common Name in CSR");
@@ -273,7 +273,8 @@ static X509_REQ *create_new_csr(RSA *key, char *ampname) {
 
     /*
      * TODO this might need to be a different/custom label, as amplets need
-     * to be both servers and clients
+     * to be both servers and clients. The signing server does its own thing
+     * anyway so this might not really matter.
      */
     if ( !X509_NAME_add_entry_by_txt(name, "O", MBSTRING_ASC,
                 (unsigned char*)"client", -1, -1, 0) ) {
@@ -614,7 +615,7 @@ static int fetch_certificate(amp_ssl_opt_t *sslopts, char *ampname,
 
 
 /*
- *
+ * Check that the key directories exist, creating them if they don't.
  */
 static int check_key_directories(char *keydir) {
     struct stat statbuf;

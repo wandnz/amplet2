@@ -49,18 +49,18 @@
 #include "testlib.h"
 
 
-/* The 4 bytes here is to allow us to at least include an MSS option in
- * the SYN that we send.
- */
+/* The extra 4 bytes allows us to at least include an MSS option in the SYN */
 #define MIN_TCPPING_PROBE_LEN ( \
     sizeof(struct ip6_hdr) + sizeof(struct tcphdr) + 4)
 
 #define MAX_TCPPING_PROBE_LEN 1500
 
 
-/* Generally, we only need the TCP header of the response (no options) but
+/*
+ * Generally, we only need the TCP header of the response (no options) but
  * if we get an ICMP response we'll need enough space to store the headers
- * from the original packet... */
+ * from the original packet...
+ */
 #define RESPONSE_BUFFER_LEN (300)
 
 /* timeout in sec to wait before declaring the response lost, currently 10s */

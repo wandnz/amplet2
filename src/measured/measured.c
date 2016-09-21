@@ -37,16 +37,6 @@
  * along with amplet2. If not, see <http://www.gnu.org/licenses/>.
  */
 
-/*
- * src/measured/measured.c
- * Main controlling code for the core of measured
- *
- * Primary tasks:
- *  - test scheduling (keep up to date with schedule, run tests at right times)
- *  - set up environment and fork test processes
- *  - set up and maintain control (and reporting?) sockets
- */
-
 #include <stdio.h>
 #include <getopt.h>
 #include <assert.h>
@@ -298,7 +288,7 @@ static void debug_dump(wand_event_handler_t *ev_hdl, int signum,
 
 
 /*
- *
+ * Free the memory allocated for the meta interface variables.
  */
 static void free_local_meta_vars(amp_test_meta_t *meta) {
     if ( meta == NULL ) {
@@ -315,7 +305,7 @@ static void free_local_meta_vars(amp_test_meta_t *meta) {
 
 
 /*
- *
+ * Free the memory allocated for the global variable.
  */
 static void free_global_vars(struct amp_global_t *vars) {
     if ( vars == NULL ) {
@@ -454,8 +444,6 @@ int main(int argc, char *argv[]) {
     }
 
     /*
-     * TODO do we always want to create the pidfile, or only when daemonised?
-     * or only when explicitly set?
      * TODO is this the best location to create the pidfile? After parsing
      * configuration so we can log at the right level, but before doing any
      * real work -- especially important that it is before checking SSL keys

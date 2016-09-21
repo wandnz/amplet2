@@ -327,7 +327,8 @@ static void receive_probe_callback(wand_event_handler_t *ev_hdl,
     assert(ev == EV_READ);
 
     wait = 0;
-    /* XXX this doesn't matter as the family isn't used anywhere */
+
+    /* the socket used here doesn't matter as the family isn't used anywhere */
     sockets.socket = fd;
     sockets.socket6 = -1;
 
@@ -526,10 +527,10 @@ static Amplet2__Icmp__Item* report_destination(struct info_t *info) {
     item->name = address_to_name(info->addr);
     item->has_address = copy_address_to_protobuf(&item->address, info->addr);
 
-    /* TODO do we want to truncate to milliseconds like the old test? */
     if ( info->reply && info->time_sent.tv_sec > 0 &&
             (info->err_type == ICMP_REDIRECT ||
              (info->err_type == 0 && info->err_code == 0)) ) {
+        /* report the rtt if we got a valid reply */
         item->has_rtt = 1;
         item->rtt = info->delay;
         item->has_ttl = 1;
@@ -642,7 +643,8 @@ static void usage(void) {
 
 
 /*
- * TODO const up the dest arguments so cant be changed?
+ * Main function to run the icmp test, returning a result structure that will
+ * later be printed or sent across the network.
  */
 amp_test_result_t* run_icmp(int argc, char *argv[], int count,
         struct addrinfo **dests) {

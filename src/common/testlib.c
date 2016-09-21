@@ -176,6 +176,8 @@ void free_duped_environ(void) {
 
 
 /*
+ * Reset the handlers and unblock all the signals that we had associated with
+ * libwandevent in the parent process so that tests can receive them properly.
  * TODO maintain the list of signals dynamically?
  */
 int unblock_signals(void) {
@@ -341,6 +343,10 @@ int wait_for_data(struct socket_t *sockets, int *maxwait) {
  * sockets and return the number of bytes read. If valid pointers with
  * storage for an address or timeval are given then they will be populated
  * with the source address and time the packet was received.
+ *
+ * TODO can this take a single socket so that I don't need to create a whole
+ * struct socket_t when I only want to listen on one socket? Almost every use
+ * of this is for only one socket, except wait_for_data() which can use both.
  */
 int get_packet(struct socket_t *sockets, char *buf, int buflen,
         struct sockaddr *saddr, int *timeout, struct timeval *now) {
@@ -543,7 +549,7 @@ int compare_addresses(const struct sockaddr *a,
 
 
 /*
- *
+ * Perform a call to getaddrinfo expecting a numeric host of any family.
  */
 struct addrinfo *get_numeric_address(char *address, char *port) {
     struct addrinfo hints, *result;
@@ -555,7 +561,6 @@ struct addrinfo *get_numeric_address(char *address, char *port) {
     memset(&hints, 0, sizeof(struct addrinfo));
     hints.ai_family = AF_UNSPEC;
     hints.ai_flags = AI_NUMERICHOST;
-    /* XXX do we need to set socktype or protocol? */
 
     /* check if the given string is one of our addresses */
     if ( getaddrinfo(address, port, &hints, &result) == 0 ) {

@@ -84,7 +84,7 @@ static void usage(char *prog) {
 
 
 /*
- *
+ * Find the test info struct for the given test name string.
  */
 static test_type_t test_from_name(char *name) {
     int i;
@@ -102,6 +102,11 @@ static test_type_t test_from_name(char *name) {
 
 
 
+/*
+ * List all tests available to this (local) client. Not ideal because it
+ * doesn't know what tests are available on the remote client, but it's a
+ * start.
+ */
 static void list_all_tests(void) {
     int i;
 
@@ -117,7 +122,7 @@ static void list_all_tests(void) {
 
 
 /*
- *
+ * Run a test on a remote amplet2 client and output the results locally.
  */
 int main(int argc, char *argv[]) {
     int len;

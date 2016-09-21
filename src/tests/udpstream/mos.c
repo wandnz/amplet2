@@ -45,7 +45,7 @@
 
 
 /*
- * XXX All values currently for PCM G.711 codecs
+ * All values currently for PCM G.711 codecs
  */
 int calculate_icpif(uint32_t delay, double loss /* codec */) {
     /* Delay Impairment Factor */

@@ -56,12 +56,6 @@
 nametable_t *name_table = NULL;
 
 
-/*
- * TODO do we need some sort of NONE target like the existing AMP uses? Tests
- * to URLs etc often use NONE with the URL as a parameter.
- */
-
-
 
 /*
  * Insert a new nametable entry on to the front of the list and set the

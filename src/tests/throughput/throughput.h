@@ -41,7 +41,6 @@
 #ifndef _TESTS_THROUGHPUT_H
 #define _TESTS_THROUGHPUT_H
 
-
 #include <netdb.h>
 #include <inttypes.h>
 #include <string.h>

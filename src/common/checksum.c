@@ -5,7 +5,6 @@
  * From RFC 1071 "Computing the Internet Checksum" 1988.
  */
 
-
 #include <stdint.h>
 #include "checksum.h"
 

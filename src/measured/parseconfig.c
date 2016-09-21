@@ -110,7 +110,9 @@ static int callback_verify_packet_delay(cfg_t *cfg, cfg_opt_t *opt) {
 
 
 /*
- *
+ * Callback to verify that the DSCP value given in the configuration is a
+ * valid name of a differentiated services code point, or a numeric value
+ * that contains a 6-bit value.
  */
 static int callback_verify_dscp(cfg_t *cfg, cfg_opt_t *opt,
         const char *value, void *result) {
@@ -435,7 +437,8 @@ amp_test_meta_t* get_interface_config(cfg_t *cfg, amp_test_meta_t *meta) {
 
 
 /*
- *
+ * Parse the DNS nameserver configuration from the config file and return
+ * a DNS context initialised using those servers.
  */
 struct ub_ctx* get_dns_context_config(cfg_t *cfg, amp_test_meta_t *meta) {
     /* should we override /etc/resolv.conf and use our own nameservers */

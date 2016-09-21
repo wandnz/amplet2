@@ -77,9 +77,6 @@
 /* number of consecutive timeouts required before giving up on a path */
 #define TRACEROUTE_NO_REPLY_LIMIT 5
 
-/* TTL marker for probing full path length */
-#define TRACEROUTE_FULL_PATH_PROBE_TTL (-5)
-
 #define HOP_ADDR(ttl) (item->hop[ttl - 1].addr)
 #define HOP_REPLY(ttl) (item->hop[ttl - 1].reply)
 

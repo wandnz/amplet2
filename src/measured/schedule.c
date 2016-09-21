@@ -184,7 +184,7 @@ static void free_test_schedule_item(test_schedule_item_t *item) {
 
 
 /*
- *
+ * Free the memory allocated for a "fetch schedule" schedule item.
  */
 static void free_fetch_schedule_item(fetch_schedule_item_t *item) {
 
@@ -292,7 +292,8 @@ static time_t get_period_max_value(schedule_period_t period) {
 
 
 /*
- *
+ * Get the default test frequency (in seconds) to use for a test if it isn't
+ * specified, based on the test period.
  */
 static time_t get_period_default_frequency(schedule_period_t period) {
     switch ( period ) {
@@ -1037,7 +1038,8 @@ parser_load_error:
 
 
 /*
- *
+ * Read all the test schedule files in the given directory and add their
+ * contents to the global test schedule.
  */
 void read_schedule_dir(wand_event_handler_t *ev_hdl, char *directory,
         amp_test_meta_t *meta) {
@@ -1260,7 +1262,8 @@ static int update_remote_schedule(fetch_schedule_item_t *fetch, int clobber) {
 
 
 /*
- *
+ * Fork a process to check for a more up to date schedule file from a remote
+ * server.
  */
 static void fork_and_fetch(fetch_schedule_item_t *fetch, int clobber) {
     pid_t pid;
@@ -1303,7 +1306,7 @@ static void fork_and_fetch(fetch_schedule_item_t *fetch, int clobber) {
 
 
 /*
- *
+ * Callback for the manually fired user signal to trigger a schedule fetch.
  */
 void signal_fetch_callback(
         __attribute__((unused))wand_event_handler_t *ev_hdl,
@@ -1316,7 +1319,7 @@ void signal_fetch_callback(
 
 
 /*
- *
+ * Callback for the timer that triggers a schedule fetch.
  */
 static void timer_fetch_callback(wand_event_handler_t *ev_hdl, void *data) {
     schedule_item_t *item;

@@ -991,7 +991,8 @@ static void usage(void) {
 
 
 /*
- *
+ * Main function to run the tcpping test, returning a result structure that
+ * will later be printed or sent across the network.
  */
 amp_test_result_t* run_tcpping(int argc, char *argv[], int count,
         struct addrinfo **dests) {

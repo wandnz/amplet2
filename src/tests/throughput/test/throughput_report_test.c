@@ -208,7 +208,7 @@ static void verify_message(amp_test_result_t *result) {
     assert(msg->n_reports == count);
 
     verify_header(&options, msg->header);
-    verify_address(addr, msg->header);//XXX
+    verify_address(addr, msg->header);
 
     /* check each of the test results */
     for ( i = 0; i < msg->n_reports; i++ ) {
