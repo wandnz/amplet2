@@ -411,7 +411,7 @@ int delay_send_packet(int sock, char *packet, int size, struct addrinfo *dest,
     int bytes_sent;
     static struct timeval last = {0, 0};
     struct timeval now;
-    int delay;
+    int delay, diff;
 
     assert(sock > 0);
     assert(size > 0);
@@ -420,9 +420,14 @@ int delay_send_packet(int sock, char *packet, int size, struct addrinfo *dest,
 
     gettimeofday(&now, NULL);
 
+    /* if time has gone backwards then cap it at the last time */
+    if ( (diff = DIFF_TV_US(now, last)) < 0 ) {
+        diff = 0;
+    }
+
     /* determine how much time is left to wait until the minimum delay */
-    if ( last.tv_sec != 0 && DIFF_TV_US(now, last) < inter_packet_delay ) {
-	delay = inter_packet_delay - DIFF_TV_US(now, last);
+    if ( last.tv_sec != 0 && diff < (int)inter_packet_delay ) {
+	delay = inter_packet_delay - diff;
     } else {
 	delay = 0;
 	last.tv_sec = now.tv_sec;
