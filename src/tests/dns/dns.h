@@ -55,8 +55,8 @@
 /* Apparently BIND has a limit of 256 characters per line in /etc/resolv.conf */
 #define MAX_RESOLV_CONF_LINE 256
 
-/* timeout in usec to wait before declaring the response lost, currently 20s */
-#define LOSS_TIMEOUT 20000000
+/* timeout (seconds) to wait after the last probe packet, currently 10s */
+#define LOSS_TIMEOUT 10
 
 /* XXX do we want to change these response codes to make more sense? */
 #define RESPONSEOK  0
