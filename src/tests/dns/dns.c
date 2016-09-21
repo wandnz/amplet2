@@ -1262,7 +1262,7 @@ void print_dns(amp_test_result_t *result) {
 
         /* nothing further we can do if there is no rtt - no good response */
         if ( !item->has_rtt ) {
-            printf(" (%s) no response\n", addrstr);
+            printf(" (%s) no response\n\n", addrstr);
             continue;
         }
 
