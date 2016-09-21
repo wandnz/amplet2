@@ -80,6 +80,13 @@ Perform the actual throughput test using port \fIport\fR. The default is 8816.
 
 
 .TP
+\fB-Q, --dscp \fIcodepoint\fR
+IP differentiated services codepoint to set. This should be a string
+representing a 6-bit value in binary, octal, decimal or hexadecimal, or the
+short name of a predefined, commonly used codepoint.
+
+
+.TP
 \fB-r, --rtt-samples \fIN\fR
 Reflect every \fIN\fRth probe packet to provide an estimate of the round trip
 time. At large packet volumes or with low delay between packets, you may want

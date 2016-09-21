@@ -5,7 +5,7 @@ amp-trace \- AMP standalone UDP traceroute test
 
 
 .SH SYNOPSIS
-\fBamp-trace\fR [\fB-abhrx\fR] [\fB-p \fImilliseconds\fR] [\fB-s \fIpacketsize\fR] [\fB-w \fIwindow\fR] [\fB-I \fIiface\fR] [\fB-4 \fIaddress\fR] [\fB-6 \fIaddress\fR] [\fB-Z \fImicroseconds\fR] -- \fIdestination1\fR [\fIdestination2\fR \fI...\fR]
+\fBamp-trace\fR [\fB-abhrx\fR] [\fB-p \fImilliseconds\fR] [\fB-s \fIpacketsize\fR] [\fB-w \fIwindow\fR] [\fB-I \fIiface\fR] [\fB-4 \fIaddress\fR] [\fB-6 \fIaddress\fR] [\fB-Q \fIcodepoint\fR] [\fB-Z \fImicroseconds\fR] -- \fIdestination1\fR [\fIdestination2\fR \fI...\fR]
 
 
 .SH DESCRIPTION
@@ -42,6 +42,13 @@ By default the interface will be selected according to the routing table.
 .TP
 \fB-p, --perturbate \fImilliseconds\fR
 Delay the test by a random number of milliseconds, up to a maximum of \fImilliseconds\fR. The default is to not perturbate tests (no delay).
+
+
+.TP
+\fB-Q, --dscp \fIcodepoint\fR
+IP differentiated services codepoint to set. This should be a string
+representing a 6-bit value in binary, octal, decimal or hexadecimal, or the
+short name of a predefined, commonly used codepoint.
 
 
 .TP

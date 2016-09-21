@@ -5,7 +5,7 @@ amp-dns \- AMP standalone DNS lookup test
 
 
 .SH SYNOPSIS
-\fBamp-dns\fR [\fB-hnrsx\fR] [\fB-p \fImilliseconds\fR] [\fB-t \fItype\fR] [\fB-c \fIclass\fR] [\fB-z \fIsize\fR] [\fB-I \fIiface\fR] [\fB-4 \fIaddress\fR] [\fB-6 \fIaddress\fR] [\fB-Z \fImicroseconds\fR] \fB-q \fIquery\fR -- \fIdestination1\fR [\fIdestination2\fR \fI...\fR]
+\fBamp-dns\fR [\fB-hnrsx\fR] [\fB-p \fImilliseconds\fR] [\fB-t \fItype\fR] [\fB-c \fIclass\fR] [\fB-z \fIsize\fR] [\fB-I \fIiface\fR] [\fB-4 \fIaddress\fR] [\fB-6 \fIaddress\fR] [\fB-Q \fIcodepoint\fR] [\fB-Z \fImicroseconds\fR] \fB-q \fIquery\fR -- \fIdestination1\fR [\fIdestination2\fR \fI...\fR]
 
 
 .SH DESCRIPTION
@@ -44,6 +44,13 @@ Include an EDNS name server ID request when sending the query. Off by default.
 .TP
 \fB-p, --perturbate \fImilliseconds\fR
 Delay the test by a random number of milliseconds, up to a maximum of \fImilliseconds\fR. The default is to not perturbate tests (no delay).
+
+
+.TP
+\fB-Q, --dscp \fIcodepoint\fR
+IP differentiated services codepoint to set. This should be a string
+representing a 6-bit value in binary, octal, decimal or hexadecimal, or the
+short name of a predefined, commonly used codepoint.
 
 
 .TP

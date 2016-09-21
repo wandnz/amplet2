@@ -5,7 +5,7 @@ amp-http \- AMP standalone HTTP fetch test
 
 
 .SH SYNOPSIS
-\fBamp-http\fR \fB[-cdhkpvx]\fR [\fB-m \fImax_con\fR] [\fB-o \fImax_persistent_con\fR] [\fB-r \fImax_pipeline\fR] [\fB-s \fImax_con_per_server\fR] [\fB-S \fIsslversion\fR] [\fB-z \fIpipe_size\fR] [\fB-I \fIiface\fR] [\fB-4 \fIaddress\fR] [\fB-6 \fIaddress\fR] \fB-u \fIurl\fR
+\fBamp-http\fR \fB[-cdhkpvx]\fR [\fB-m \fImax_con\fR] [\fB-o \fImax_persistent_con\fR] [\fB-r \fImax_pipeline\fR] [\fB-s \fImax_con_per_server\fR] [\fB-S \fIsslversion\fR] [\fB-z \fIpipe_size\fR] [\fB-I \fIiface\fR] [\fB-4 \fIaddress\fR] [\fB-6 \fIaddress\fR] [\fB-Q \fIcodepoint\fR] \fB-u \fIurl\fR
 
 
 .SH DESCRIPTION
@@ -56,6 +56,13 @@ Set the maximum number of persistent connections per server to \fIcount\fR. The 
 .TP
 \fB-p, --pipeline\fR
 Enable pipelining. The default is disabled.
+
+
+.TP
+\fB-Q, --dscp \fIcodepoint\fR
+IP differentiated services codepoint to set. This should be a string
+representing a 6-bit value in binary, octal, decimal or hexadecimal, or the
+short name of a predefined, commonly used codepoint.
 
 
 .TP
