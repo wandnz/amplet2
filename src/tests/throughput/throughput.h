@@ -3,7 +3,8 @@
  *
  * Copyright (c) 2013-2016 The University of Waikato, Hamilton, New Zealand.
  *
- * Author: Brendon Jones
+ * Authors: Richard Sanger
+ *          Brendon Jones
  *
  * All rights reserved.
  *
@@ -35,13 +36,6 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with amplet2. If not, see <http://www.gnu.org/licenses/>.
- */
-
-/**
- * The AMP throughput test header.
- *
- * @author Richard Sanger
- * Based upon the old AMP throughput test
  */
 
 #ifndef _TESTS_THROUGHPUT_H
