@@ -153,7 +153,8 @@ static int read_asn_request(int fd, char *buffer, int buflen, int *offset) {
         if ( bytes == 0 ) {
             Log(LOG_DEBUG, "Finished receiving data from whois server");
         } else {
-            Log(LOG_WARNING, "Error receiving data from whois server");
+            Log(LOG_WARNING, "Error receiving data from whois server: %s",
+                    strerror(errno));
         }
         return -1;
     }
@@ -283,7 +284,8 @@ static int fill_request_trie(int fd, struct iptrie *requests) {
         if ( FD_ISSET(fd, &readset) ) {
             /* read address family */
             if ( recv(fd, &addr.ss_family, sizeof(uint16_t), 0) <= 0 ) {
-                Log(LOG_WARNING, "Error reading address family, aborting");
+                Log(LOG_WARNING, "Error reading address family: %s",
+                        strerror(errno));
                 return -1;
             }
 
@@ -307,7 +309,7 @@ static int fill_request_trie(int fd, struct iptrie *requests) {
 
             /* read the right number of bytes for the address */
             if ( (bytes = recv(fd, target, length, 0)) <= 0 ) {
-                Log(LOG_WARNING, "Error reading address, aborting");
+                Log(LOG_WARNING, "Error reading address: %s", strerror(errno));
                 return -1;
             }
 
@@ -391,7 +393,15 @@ static void *amp_asn_worker_thread(void *thread_data) {
 
         /* error, close the whois connection and just use the cache */
         if ( ready <= 0 ) {
-            Log(LOG_WARNING, "Error while waiting for ASN data");
+            if ( ready < 0 ) {
+                Log(LOG_WARNING,
+                        "Error while waiting for ASN data (r:%d w:%d): %s",
+                        outstanding, list ? 1 : 0, strerror(errno));
+            } else {
+                Log(LOG_WARNING,
+                        "Timeout while waiting for ASN data (r:%d w:%d)",
+                        outstanding, list ? 1 : 0);
+            }
             close(whois_fd);
             whois_fd = WHOIS_UNAVAILABLE;
             if ( list ) list = list->next;

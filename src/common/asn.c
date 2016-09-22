@@ -395,13 +395,21 @@ int connect_to_whois_server(void) {
         if ( errno == EINPROGRESS ) {
             struct timeval timeout = {10, 0};
             fd_set writeset;
+            int ready;
 
             FD_ZERO(&writeset);
             FD_SET(fd, &writeset);
 
             /* wait briefly to connect, we don't have all day */
-            if ( select(fd + 1, NULL, &writeset, NULL, &timeout) < 1 ) {
-                Log(LOG_WARNING, "Timeout waiting to connect to whois server");
+            ready = select(fd + 1, NULL, &writeset, NULL, &timeout);
+
+            if ( ready <= 0 ) {
+                if ( ready < 0 ) {
+                    Log(LOG_WARNING, "Error connecting to whois server: %s",
+                            strerror(errno));
+                } else {
+                    Log(LOG_WARNING, "Timeout connecting to whois server");
+                }
                 close(fd);
                 freeaddrinfo(result);
                 return WHOIS_UNAVAILABLE;
