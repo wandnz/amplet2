@@ -1,3 +1,33 @@
+amplet2 (0.7.0-1) unstable; urgency=low
+
+  * Add access control list for access to starting test servers, running tests.
+  * Remove standard Diffie-Hellman ciphers from list of allowable choices.
+  * Use libwandevent to run packet probing in icmp and dns tests.
+  * Use backported librabbitmq4 rather than our own version with EXTERNAL auth.
+  * Fix scheduling bug where the wrong time units could be used in some cases.
+  * Don't start the tcpping test loss timer till after the last packet is sent.
+  * Always include the scheme when reporting an HTTP test URL.
+  * Improve logging around fetching ASN data for traceroute test.
+  * Remove unused stopset code from traceroute test.
+  * Improve accuracy of probe timers in traceroute test.
+  * Randomise first TTL in traceroute test to help spread probes out.
+  * Add command line options to configure the traceroute probing window.
+  * Bind remotely started test servers to the correct interface and address.
+  * Fix certificate request retry timer to properly cap at the maximum value.
+  * Don't enforce client-wide minimum packet spacing in the udpstream test.
+  * Deal better with setting inter packet gap if time goes backwards.
+  * Tighten schedule clock fudge factor from 500ms to 100ms.
+  * Use '!' instead of ':' to specify address families in the schedule file.
+  * Tidy Debian init scripts to remove unused portions.
+  * Add manpages for amplet2-remote and amp-udpstream.
+  * Update example configuration file documentation.
+  * Update usage statements for binaries.
+  * Update build dependencies.
+  * Update licensing.
+  * Update man pages.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Mon, 26 Sep 2016 11:13:30 +1300
+
 amplet2 (0.6.2-1) unstable; urgency=low
 
   * Added new test to perform udp jitter/latency/loss/mos tests.
