@@ -1,19 +1,18 @@
 Name: amplet2
-Version: 0.6.2
+Version: 0.7.0
 Release: 1%{?dist}
 Summary: AMP Network Performance Measurement Suite - Client Tools
 
 Group: Applications/Internet
 License: AMP
 URL: http://research.wand.net.nz/software/amp.php
-Source0: http://research.wand.net.nz/software/amp/amplet2-0.6.2.tar.gz
+Source0: http://research.wand.net.nz/software/amp/amplet2-0.7.0.tar.gz
 Patch0: amplet2-client-init.patch
 Patch1: amplet2-client-default.patch
-Patch2: amplet2-client-makefile.patch
 BuildRoot:	%(mktemp -ud %{_tmppath}/%{name}-%{version}-%{release}-XXXXXX)
 
-BuildRequires: openssl-devel libconfuse-devel libwandevent-devel >= 3.0.1 libcurl-devel unbound-devel libpcap-devel protobuf-c-devel
-Requires: rabbitmq-server >= 3.1.5 librabbitmq-amp >= 0.4.0 libwandevent >= 3.0.1 libcurl unbound-libs libpcap rsyslog protobuf-c
+BuildRequires: openssl-devel libconfuse-devel libwandevent-devel >= 3.0.1 libcurl-devel unbound-devel libpcap-devel protobuf-c-devel librabbitmq4-devel >= 0.8.0
+Requires: rabbitmq-server >= 3.1.5 librabbitmq4 >= 0.8.0 libwandevent >= 3.0.1 libcurl unbound-libs libpcap rsyslog protobuf-c
 
 %description
 This package contains the client tools for the AMP Measurement Suite.
@@ -25,7 +24,7 @@ one or more rabbitmq brokers via the AMQP protocol.
 %package lite
 Summary: AMP client tools without a local rabbitmq broker
 Group: Applications/Internet
-Requires: librabbitmq-amp >= 0.4.0 libwandevent >= 3.0.1 libcurl unbound-libs libpcap rsyslog
+Requires: librabbitmq4 >= 0.8.0 libwandevent >= 3.0.1 libcurl unbound-libs libpcap rsyslog
 
 %description lite
 AMP client tools without a local rabbitmq broker
@@ -36,7 +35,6 @@ AMP client tools without a local rabbitmq broker
 %setup -q
 %patch0 -p1
 %patch1 -p1
-%patch2 -p1
 
 
 %build
@@ -193,6 +191,32 @@ fi
 
 
 %changelog
+* Mon Sep 22 2016 Brendon Jones <brendonj@waikato.ac.nz> 0.7.0-1
+- Add access control list for access to starting test servers, running tests.
+- Remove standard Diffie-Hellman ciphers from list of allowable choices.
+- Use libwandevent to run packet probing in icmp and dns tests.
+- Use backported librabbitmq4 rather than our own version with EXTERNAL auth.
+- Fix scheduling bug where the wrong time units could be used in some cases.
+- Don't start the tcpping test loss timer till after the last packet is sent.
+- Always include the scheme when reporting an HTTP test URL.
+- Improve logging around fetching ASN data for traceroute test.
+- Remove unused stopset code from traceroute test.
+- Improve accuracy of probe timers in traceroute test.
+- Randomise first TTL in traceroute test to help spread probes out.
+- Add command line options to configure the traceroute probing window.
+- Bind remotely started test servers to the correct interface and address.
+- Fix certificate request retry timer to properly cap at the maximum value.
+- Don't enforce client-wide minimum packet spacing in the udpstream test.
+- Deal better with setting inter packet gap if time goes backwards.
+- Tighten schedule clock fudge factor from 500ms to 100ms.
+- Use '!' instead of ':' to specify address families in the schedule file.
+- Add manpages for amplet2-remote and amp-udpstream.
+- Update example configuration file documentation.
+- Update usage statements for binaries.
+- Update build dependencies.
+- Update licensing.
+- Update man pages.
+
 * Tue May 31 2016 Brendon Jones <brendonj@waikato.ac.nz> 0.6.2-1
 - Added new test to perform udp jitter/latency/loss/mos tests.
 - Exit main event loop on SIGTERM so we can log shutdown messages.
