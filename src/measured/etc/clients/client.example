@@ -1,5 +1,7 @@
 # amplet2-client default client configuration file
 #
+# See: https://github.com/wanduow/amplet2/wiki/Configuring-the-Amplet2-Client
+#
 # You MUST configure collector:address to the server where you want to report,
 # otherwise your data will not be reported.
 #
@@ -53,7 +55,11 @@
 # but the files are always required even if not doing SSL to the rabbitmq
 # server. Run an amppki server on the collector to have it act as a certificate
 # authority and sign client certificates when the client first runs, unless you
-# want to use your own CA and distribute certificates yourself.
+# want to use your own CA and distribute certificates yourself. Default values
+# for the SSL certificates and key are based on the ampname and collector name:
+#     cacert = /etc/amplet2/keys/<collector>.pem
+#     cert   = /etc/amplet2/keys/<ampname>/<collector>.cert
+#     key    = /etc/amplet2/keys/<ampname>/key.pem
 collector {
     vialocal = true
     address = amp.example.com
