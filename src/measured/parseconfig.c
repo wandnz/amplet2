@@ -478,7 +478,7 @@ cfg_t* parse_config(char *filename, struct amp_global_t *vars) {
         CFG_BOOL("vialocal", cfg_true, CFGF_NONE),
         CFG_STR("local", AMQP_SERVER, CFGF_NONE),
         CFG_BOOL("configrabbit", cfg_true, CFGF_NONE),
-        CFG_STR("address", AMQP_SERVER, CFGF_NONE),
+        CFG_STR("address", NULL, CFGF_NONE),
         CFG_INT("port", AMQP_PORT, CFGF_NONE),
         CFG_STR("vhost", AMQP_VHOST, CFGF_NONE),
         CFG_STR("exchange", "amp_exchange", CFGF_NONE),
@@ -567,9 +567,17 @@ cfg_t* parse_config(char *filename, struct amp_global_t *vars) {
     /* parse the config for the collector we should report data to */
     for ( i=0; i<cfg_size(cfg, "collector"); i++ ) {
         cfg_sub = cfg_getnsec(cfg, "collector", i);
+
+        if ( cfg_getstr(cfg_sub, "address") == NULL ) {
+            cfg_free(cfg);
+            Log(LOG_ALERT, "No collector address in config file '%s', aborting",
+                    filename);
+            return NULL;
+        }
+
+        vars->collector = strdup(cfg_getstr(cfg_sub, "address"));
         vars->vialocal = cfg_getbool(cfg_sub, "vialocal");
         vars->local = strdup(cfg_getstr(cfg_sub, "local"));
-        vars->collector = strdup(cfg_getstr(cfg_sub, "address"));
         vars->port = cfg_getint(cfg_sub, "port");
         vars->vhost = strdup(cfg_getstr(cfg_sub, "vhost"));
         vars->exchange = strdup(cfg_getstr(cfg_sub, "exchange"));
