@@ -194,12 +194,23 @@ amp_test_result_t* run_remoteskeleton(int argc, char *argv[], int count,
     if ( response.code != MEASURED_CONTROL_OK ) {
         Log(LOG_WARNING, "Failed to start server: %d %s", response.code,
                 response.message);
+        free(response.message);
         return NULL;
     }
+
+    free(response.message);
 
     /* do something useful with the test server here */
 
     close_control_connection(ctrl);
+
+    if ( sockopts.sourcev4 ) {
+        freeaddrinfo(sockopts.sourcev4);
+    }
+
+    if ( sockopts.sourcev6 ) {
+        freeaddrinfo(sockopts.sourcev6);
+    }
 
     /* report some sort of dummy result */
     result = report_result(&start_time, valid);
