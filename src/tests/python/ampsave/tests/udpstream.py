@@ -40,7 +40,6 @@
 import ampsave.tests.udpstream_pb2
 from ampsave.common import getPrintableAddress, getPrintableDscp
 
-
 def build_loss_periods(data):
     periods = []
     for i in data:

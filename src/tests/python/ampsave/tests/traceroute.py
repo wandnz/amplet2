@@ -50,7 +50,7 @@ def get_data(data):
     msg.ParseFromString(data)
 
     # someone has turned off all the reporting, ignore it, we shouldn't do this
-    if msg.header.ip == False and msg.header.asn == False:
+    if msg.header.ip is False and msg.header.asn is False:
         return None
 
     for i in msg.reports:

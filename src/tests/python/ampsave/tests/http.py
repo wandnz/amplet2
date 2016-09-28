@@ -38,14 +38,13 @@
 #
 
 import ampsave.tests.http_pb2
-from ampsave.common import getPrintableAddress, getPrintableDscp
+from ampsave.common import getPrintableDscp
 
 def get_data(data):
     """
     Extract the HTTP test results from the protocol buffer data.
     """
 
-    results = []
     msg = ampsave.tests.http_pb2.Report()
     msg.ParseFromString(data)
 

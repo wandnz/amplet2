@@ -37,7 +37,7 @@
 # along with amplet2. If not, see <http://www.gnu.org/licenses/>.
 #
 
-import os, sys
+import sys
 import ampsave.tests
 
 def import_data_functions():
@@ -48,5 +48,5 @@ def import_data_functions():
     modules = {}
 
     for name in ampsave.tests.__all__:
-	modules[name] = sys.modules['ampsave.tests.' + name]
+        modules[name] = sys.modules['ampsave.tests.' + name]
     return modules

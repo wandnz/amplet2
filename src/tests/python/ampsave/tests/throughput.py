@@ -40,23 +40,21 @@
 import ampsave.tests.throughput_pb2
 from ampsave.common import getPrintableAddress, getPrintableDscp
 
-
 def schedule_to_test_params(schedule):
     params = []
 
     parts = schedule.split(",")
     tcpreused = False
-    for p in parts:
-        if p == "n":
+    for part in parts:
+        if part == "n":
             tcpreused = False
             continue
 
-        duration = p[1:]
+        duration = part[1:]
         params.append({"duration":duration, "tcpreused":tcpreused})
         tcpreused = True
 
     return params
-
 
 def direction_to_string(direction):
     if direction == ampsave.tests.throughput_pb2.Item.CLIENT_TO_SERVER:
@@ -64,7 +62,6 @@ def direction_to_string(direction):
     if direction == ampsave.tests.throughput_pb2.Item.SERVER_TO_CLIENT:
         return "in"
     return "unknown"
-
 
 def get_data(data):
     """

@@ -42,7 +42,7 @@ import socket
 def getPrintableAddress(family, address):
     try:
         addrstr = socket.inet_ntop(family, address)
-    except (ValueError, socket.error) as e:
+    except (ValueError, socket.error):
         if family == socket.AF_INET:
             addrstr = "0.0.0.0"
         elif family == socket.AF_INET6:

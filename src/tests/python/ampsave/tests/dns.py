@@ -86,15 +86,15 @@ def get_data(data):
             )
 
     return {
-	"query": msg.header.query,
-	"query_type": get_query_type(msg.header.query_type),
-	"query_class": get_query_class(msg.header.query_class),
-	"udp_payload_size": msg.header.udp_payload_size,
-	"recurse": msg.header.recurse,
-	"dnssec": msg.header.dnssec,
-	"nsid": msg.header.nsid,
+        "query": msg.header.query,
+        "query_type": get_query_type(msg.header.query_type),
+        "query_class": get_query_class(msg.header.query_class),
+        "udp_payload_size": msg.header.udp_payload_size,
+        "recurse": msg.header.recurse,
+        "dnssec": msg.header.dnssec,
+        "nsid": msg.header.nsid,
         "dscp": getPrintableDscp(msg.header.dscp),
-	"results": results,
+        "results": results,
     }
 
 def get_query_class(qclass):
