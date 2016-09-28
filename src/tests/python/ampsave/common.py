@@ -40,6 +40,9 @@
 import socket
 
 def getPrintableAddress(family, address):
+    """
+    Convert a packed IP address into a human readable string
+    """
     try:
         addrstr = socket.inet_ntop(family, address)
     except (ValueError, socket.error):
@@ -54,6 +57,9 @@ def getPrintableAddress(family, address):
     return addrstr
 
 def getPrintableDscp(value):
+    """
+    Convert a DSCP value into a human readable string
+    """
     if value == 0:
         return "Default"
     if value == 0b001000:

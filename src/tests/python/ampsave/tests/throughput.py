@@ -41,6 +41,9 @@ import ampsave.tests.throughput_pb2
 from ampsave.common import getPrintableAddress, getPrintableDscp
 
 def schedule_to_test_params(schedule):
+    """
+    Extract the test parameters we care about from the test schedule
+    """
     params = []
 
     parts = schedule.split(",")
@@ -57,6 +60,9 @@ def schedule_to_test_params(schedule):
     return params
 
 def direction_to_string(direction):
+    """
+    Convert direction enum into a human readable string
+    """
     if direction == ampsave.tests.throughput_pb2.Item.CLIENT_TO_SERVER:
         return "out"
     if direction == ampsave.tests.throughput_pb2.Item.SERVER_TO_CLIENT:

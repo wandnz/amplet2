@@ -41,6 +41,9 @@ import ampsave.tests.udpstream_pb2
 from ampsave.common import getPrintableAddress, getPrintableDscp
 
 def build_loss_periods(data):
+    """
+    Build the loss periods list showing packet drop patterns
+    """
     periods = []
     for i in data:
         if i.status == ampsave.tests.udpstream_pb2.Period.LOST:
@@ -50,6 +53,9 @@ def build_loss_periods(data):
     return periods
 
 def build_summary(data):
+    """
+    Build the jitter summary dictionary if the appropriate data was reported
+    """
     if not data:
         return None
     return {
@@ -60,6 +66,9 @@ def build_summary(data):
     }
 
 def build_voip(data):
+    """
+    Build the VoIP result dictionary if the appropriate data was reported
+    """
     if not data:
         return None
     return {
@@ -70,6 +79,9 @@ def build_voip(data):
     }
 
 def direction_to_string(direction):
+    """
+    Convert direction enum into a human readable string
+    """
     if direction == ampsave.tests.udpstream_pb2.Item.CLIENT_TO_SERVER:
         return "out"
     if direction == ampsave.tests.udpstream_pb2.Item.SERVER_TO_CLIENT:

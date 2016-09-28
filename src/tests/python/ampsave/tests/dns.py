@@ -98,11 +98,17 @@ def get_data(data):
     }
 
 def get_query_class(qclass):
+    """
+    Convert a DNS query class into a human readable string
+    """
     if qclass == 0x01:
         return "IN"
     return "0x%.02x" % qclass
 
 def get_query_type(qtype):
+    """
+    Convert a DNS query type into a human readable string
+    """
     if qtype == 0x01:
         return "A"
     if qtype == 0x02:
