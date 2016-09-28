@@ -1293,12 +1293,30 @@ static void recv_probe_callback(wand_event_handler_t *ev_hdl,
     struct sockaddr_storage addr;
     socklen_t socklen = sizeof(addr);
     struct dest_info_t *item;
+    struct socket_t sockets;
+    int wait;
 
     Log(LOG_DEBUG, "Got a packet");
 
-    /* TODO this should use the library functions rather than recvfrom */
-    recvfrom(fd, packet, sizeof(packet), 0, (struct sockaddr*)&addr, &socklen);
-    gettimeofday(&now, NULL);
+    /*
+     * determine the address family of the socket, so we can properly get
+     * the source address from the get_packet() call
+     */
+    if ( getsockname(fd, (struct sockaddr*)&addr, &socklen) < 0 ) {
+        Log(LOG_WARNING, "getsockname() failed in receive callback: %s",
+                strerror(errno));
+        return;
+    }
+
+    wait = 0;
+    sockets.socket = (addr.ss_family == AF_INET) ? fd : -1;
+    sockets.socket6 = (addr.ss_family == AF_INET6) ? fd : -1;
+
+    if ( get_packet(&sockets, packet, sizeof(packet), (struct sockaddr*)&addr,
+                &wait, &now) < 1 ) {
+        Log(LOG_WARNING, "Failed to get packet data");
+        return;
+    }
 
     item = probelist->outstanding;
 
