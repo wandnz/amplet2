@@ -438,9 +438,16 @@ static void split_url(char *orig_url, char *server, char *path, int set) {
 
     /* determine end of the host portion and extract the remaining path */
     if ( (end = index(start, '/')) == NULL ) {
-        end = start + strlen(start);
-        strncpy(path, "/\0", 2);
+        if ( (end = index(start, '?')) == NULL ) {
+            /* no '?' or '/', make the path just a '/' */
+            end = start + strlen(start);
+            strncpy(path, "/\0", 2);
+        } else {
+            /* no '/' but there is a '?', split on that instead */
+            snprintf(path, MAX_PATH_LEN, "/%s", end);
+        }
     } else {
+        /* split on the first '/' */
         strncpy(path, end, MAX_PATH_LEN);
         path[MAX_PATH_LEN - 1] = '\0';
     }
