@@ -89,6 +89,14 @@ CHAR	    [a-zA-Z0-9_ ]
 
 <linktag>">"			{ url_index = 0; yy_pop_state(); };
 
+<dbquote>&#[0-9]{2,3};          {
+                                    /* decode decimal encoded HTML characters */
+                                    url[url_index++] = atoi(yytext+2);
+                                }
+<dbquote>#                      {
+                                    /* end the url when a '#' is seen */
+                                    url[url_index++] = '\0';
+                                }
 <dbquote>[^\"]{1}		{ url[url_index] = yytext[0]; url_index++; };
 <dbquote>"\""			{
 				    url[url_index] = '\0';
@@ -102,6 +110,14 @@ CHAR	    [a-zA-Z0-9_ ]
                                     yy_pop_state();
 				};
 
+<squote>&#[0-9]{2,3};           {
+                                    /* decode decimal encoded HTML characters */
+                                    url[url_index++] = atoi(yytext+2);
+                                }
+<squote>#                       {
+                                    /* end the url when a '#' is seen */
+                                    url[url_index++] = '\0';
+                                }
 <squote>[^']{1}			{ url[url_index] = yytext[0]; url_index++; };
 <squote>"'"			{
 				    url[url_index] = '\0';
