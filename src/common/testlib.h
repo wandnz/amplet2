@@ -63,8 +63,10 @@
 
 #define US_FROM_US(x) ((x) % 1000000)
 #define S_FROM_US(x)  ((int)((x)/1000000))
-#define DIFF_TV_US(tva, tvb) ( (((tva).tv_sec - (tvb).tv_sec) * 1000000) + \
-                              ((tva).tv_usec - (tvb).tv_usec) )
+#define DIFF_TV_US(tva, tvb) ( \
+        (int64_t) ( (((tva).tv_sec - (tvb).tv_sec) * 1000000) + \
+            ((tva).tv_usec - (tvb).tv_usec) ) \
+        )
 
 
 /*

@@ -69,7 +69,7 @@ int main(void) {
     char in_packet[MAX_PACKET_LEN];
     int delay, length, i;
     struct timeval start, end;
-    uint64_t duration;
+    int64_t duration;
 
     /*
      * use a pair of unix sockets to test sending data without relying on
