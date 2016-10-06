@@ -1,3 +1,15 @@
+amplet2 (0.7.1-1) unstable; urgency=low
+
+  * http: try to parse URL fragments or decimal encoded characters.
+  * http: split URLs where '?' is used after hostname without '/'.
+  * traceroute: use library functions to receive packets rather than calling
+    the low level functions directly.
+  * testlib: fix wrapping values when comparing timevals on 32-bit machines.
+  * amplet2: remove default collector address and make it mandatory to be set.
+  * Update documentation.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Wed,  5 Oct 2016 16:01:16 +1300
+
 amplet2 (0.7.0-1) unstable; urgency=low
 
   * Add access control list for access to starting test servers, running tests.
