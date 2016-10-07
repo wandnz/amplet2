@@ -86,7 +86,7 @@ static int run_rabbitmqctl(char *args[]) {
                 dup2(err, STDERR_FILENO);
             }
             Log(LOG_ALERT, "Failed to run %s:%s", RABBITMQCTL, strerror(errno));
-            exit(-1);
+            exit(255);
         }
         exit(0);
     }
@@ -99,6 +99,16 @@ static int run_rabbitmqctl(char *args[]) {
             Log(LOG_ALERT, "Insufficient permissions (are you root?)");
             return -1;
         }
+
+        /* if we can't run the command at all then error */
+        if ( WEXITSTATUS(status) == 255 ) {
+            return -1;
+        }
+
+        /*
+         * return program exit code, could still be an error (due to the
+         * user/vhost etc already existing), but we can usually continue ok.
+         */
         return WEXITSTATUS(status);
     }
 

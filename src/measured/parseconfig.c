@@ -53,6 +53,7 @@
 #include "testlib.h"
 #include "acl.h"
 #include "dscp.h"
+#include "rabbitcfg.h"
 
 
 
@@ -473,9 +474,17 @@ cfg_t* parse_config(char *filename, struct amp_global_t *vars) {
     int ret;
     unsigned int i;
     cfg_t *cfg, *cfg_sub;
+    cfg_bool_t default_vialocal;
+
+    /* if rabbitmq exists on the system, then default to using it */
+    if ( check_exists(RABBITMQCTL, 0) == 0 ) {
+        default_vialocal = cfg_true;
+    } else {
+        default_vialocal = cfg_false;
+    }
 
     cfg_opt_t opt_collector[] = {
-        CFG_BOOL("vialocal", cfg_true, CFGF_NONE),
+        CFG_BOOL("vialocal", default_vialocal, CFGF_NONE),
         CFG_STR("local", AMQP_SERVER, CFGF_NONE),
         CFG_BOOL("configrabbit", cfg_true, CFGF_NONE),
         CFG_STR("address", NULL, CFGF_NONE),

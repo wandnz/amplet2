@@ -45,11 +45,13 @@
 # will be used.
 #nameservers = { 192.0.2.100, 192.0.2.101, 192.0.2.102 }
 
-# Collecter to which data should be reported. If there is a rabbitmq broker
-# running on the local machine then "vialocal" should be set to true and the
-# broker should be configured appropriately (the amplet client will try to do
-# this on startup). A diskless/lightweight client may want to forgoe some
-# reliability and report directly to a remote collector.
+# Collector to which data should be reported. If there is a rabbitmq broker
+# installed on the local machine then by default the amplet client will try
+# to use it. If there isn't a local rabbitmq broker then it will try to report
+# directly to the remote collector (diskless/lightweight clients might want
+# to do this, giving up some reliability to save local resources). This
+# behaviour can be overridden by setting the "vialocal" option - true will
+# force use of a local collector, false will force reporting directly.
 #
 # cacert, cert and key don't need to be set (they will be automagically set)
 # but the files are always required even if not doing SSL to the rabbitmq
@@ -61,7 +63,7 @@
 #     cert   = /etc/amplet2/keys/<ampname>/<collector>.cert
 #     key    = /etc/amplet2/keys/<ampname>/key.pem
 collector {
-    vialocal = true
+#   vialocal = true
     address = amp.example.com
     vhost = /
     exchange = amp_exchange
