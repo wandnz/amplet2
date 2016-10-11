@@ -69,7 +69,9 @@ ssl {
 # directly to the remote collector (diskless/lightweight clients might want
 # to do this, giving up some reliability to save local resources). This
 # behaviour can be overridden by setting the "vialocal" option - true will
-# force use of a local collector, false will force reporting directly.
+# force use of a local collector, false will force reporting directly. SSL
+# will be used by default unless the collector is running on port 5672, or it
+# is set manually with the "ssl" option.
 collector {
 #   vialocal = true
     address = amp.example.com
@@ -77,7 +79,7 @@ collector {
     exchange = amp_exchange
     routingkey = amp
     port = 5671
-    ssl = true
+#   ssl = true
 }
 
 # The control interface is used by other amplets to request test servers be
