@@ -225,13 +225,70 @@ int should_wait_for_cert(cfg_t *cfg) {
     cfg_t *cfg_sub;
 
     assert(cfg);
-    cfg_sub = cfg_getsec(cfg, "collector");
 
-    if ( cfg_sub ) {
+    cfg_sub = cfg_getsec(cfg, "ssl");
+
+    if ( cfg_sub && (int)cfg_getbool(cfg_sub, "waitforcert") != -1 ) {
         return cfg_getbool(cfg_sub, "waitforcert");
     }
 
-    return 0;
+    /* try the deprecated settings in the collector section */
+    cfg_sub = cfg_getsec(cfg, "collector");
+
+    if ( cfg_sub && (int)cfg_getbool(cfg_sub, "waitforcert") != -1 ) {
+        return cfg_getbool(cfg_sub, "waitforcert");
+    }
+
+    /* return the default value if neither option is set */
+    return cfg_true;
+}
+
+
+
+/*
+ * Get the SSL config from a section (either "ssl" or the deprecated
+ * "collector") and return if anything was actually set.
+ */
+static int get_ssl_config(cfg_t *cfg_sub, amp_ssl_opt_t *amqp_ssl) {
+    int set = 0;
+
+    assert(cfg_sub);
+    assert(amqp_ssl);
+
+    /* if these aren't set, then they will be generated later if required */
+    if ( cfg_getstr(cfg_sub, "cacert") ) {
+        amqp_ssl->cacert = strdup(cfg_getstr(cfg_sub, "cacert"));
+        set = 1;
+    } else {
+        amqp_ssl->cacert = NULL;
+    }
+
+    if ( cfg_getstr(cfg_sub, "key") ) {
+        amqp_ssl->key = strdup(cfg_getstr(cfg_sub, "key"));
+        set = 1;
+    } else {
+        amqp_ssl->key = NULL;
+    }
+
+    if ( cfg_getstr(cfg_sub, "cert") ) {
+        amqp_ssl->cert = strdup(cfg_getstr(cfg_sub, "cert"));
+        set = 1;
+    } else {
+        amqp_ssl->cert = NULL;
+    }
+
+    /*
+     * if we set anything, then this is the true ssl config. If the waitforcert
+     * option isn't set, set it ourselves now so that it doesn't get the chance
+     * to fall through if the value is set later in a deprecated section.
+     */
+    if ( set && (int)cfg_getbool(cfg_sub, "waitforcert") == -1 ) {
+        cfg_setbool(cfg_sub, "waitforcert", cfg_true);
+    } else if ( !set && (int)cfg_getbool(cfg_sub, "waitforcert") != -1 ) {
+        set = 1;
+    }
+
+    return set;
 }
 
 
@@ -472,9 +529,9 @@ struct ub_ctx* get_dns_context_config(cfg_t *cfg, amp_test_meta_t *meta) {
 cfg_t* parse_config(char *filename, struct amp_global_t *vars) {
 
     int ret;
-    unsigned int i;
     cfg_t *cfg, *cfg_sub;
     cfg_bool_t default_vialocal;
+    int set_ssl;
 
     /* if rabbitmq exists on the system, then default to using it */
     if ( check_exists(RABBITMQCTL, 0) == 0 ) {
@@ -482,6 +539,18 @@ cfg_t* parse_config(char *filename, struct amp_global_t *vars) {
     } else {
         default_vialocal = cfg_false;
     }
+
+    cfg_opt_t opt_ssl[] = {
+        CFG_STR("cacert", NULL, CFGF_NONE),
+        CFG_STR("key", NULL, CFGF_NONE),
+        CFG_STR("cert", NULL, CFGF_NONE),
+        /*
+         * XXX can't set a sensible default here while deprecated option
+         * exists. Use -1 so we can tell when it get set later
+         */
+        CFG_BOOL("waitforcert", -1, CFGF_NONE),
+        CFG_END()
+    };
 
     cfg_opt_t opt_collector[] = {
         CFG_BOOL("vialocal", default_vialocal, CFGF_NONE),
@@ -493,10 +562,11 @@ cfg_t* parse_config(char *filename, struct amp_global_t *vars) {
         CFG_STR("exchange", "amp_exchange", CFGF_NONE),
         CFG_STR("routingkey", "test", CFGF_NONE),
         CFG_BOOL("ssl", cfg_false, CFGF_NONE),
+        /* deprecated, will be ignored if global ssl options are set */
         CFG_STR("cacert", NULL, CFGF_NONE),
         CFG_STR("key", NULL, CFGF_NONE),
         CFG_STR("cert", NULL, CFGF_NONE),
-        CFG_BOOL("waitforcert", cfg_true, CFGF_NONE),
+        CFG_BOOL("waitforcert", -1, CFGF_NONE),
         CFG_END()
     };
 
@@ -517,7 +587,6 @@ cfg_t* parse_config(char *filename, struct amp_global_t *vars) {
         CFG_END()
     };
 
-
     cfg_opt_t opt_control[] = {
         CFG_BOOL("enabled", cfg_false, CFGF_NONE),
         CFG_STR("port", DEFAULT_AMPLET_CONTROL_PORT, CFGF_NONE),
@@ -537,6 +606,7 @@ cfg_t* parse_config(char *filename, struct amp_global_t *vars) {
         CFG_INT_CB("loglevel", LOG_INFO, CFGF_NONE, &callback_verify_loglevel),
         CFG_INT_CB("dscp", DEFAULT_DSCP_VALUE, CFGF_NONE,&callback_verify_dscp),
         CFG_STR_LIST("nameservers", NULL, CFGF_NONE),
+	CFG_SEC("ssl", opt_ssl, CFGF_NONE),
 	CFG_SEC("collector", opt_collector, CFGF_NONE),
         CFG_SEC("remotesched", opt_remotesched, CFGF_NONE),
         CFG_SEC("control", opt_control, CFGF_NONE),
@@ -558,8 +628,7 @@ cfg_t* parse_config(char *filename, struct amp_global_t *vars) {
 
     if ( ret == CFG_PARSE_ERROR ) {
 	cfg_free(cfg);
-	Log(LOG_ALERT, "Failed to parse config file '%s', aborting.",
-		filename);
+	Log(LOG_ALERT, "Failed to parse config file '%s', aborting.", filename);
 	return NULL;
     }
 
@@ -573,10 +642,18 @@ cfg_t* parse_config(char *filename, struct amp_global_t *vars) {
         }
     }
 
-    /* parse the config for the collector we should report data to */
-    for ( i=0; i<cfg_size(cfg, "collector"); i++ ) {
-        cfg_sub = cfg_getnsec(cfg, "collector", i);
+    /* parse the config for the global SSL configuration */
+    cfg_sub = cfg_getsec(cfg, "ssl");
+    if ( cfg_sub ) {
+        set_ssl = get_ssl_config(cfg_sub, &vars->amqp_ssl);
+    } else {
+        /* default values means this should never be reached */
+        set_ssl = 0;
+    }
 
+    /* parse the config for the collector we should report data to */
+    cfg_sub = cfg_getsec(cfg, "collector");
+    if ( cfg_sub ) {
         if ( cfg_getstr(cfg_sub, "address") == NULL ) {
             cfg_free(cfg);
             Log(LOG_ALERT, "No collector address in config file '%s', aborting",
@@ -593,24 +670,27 @@ cfg_t* parse_config(char *filename, struct amp_global_t *vars) {
         vars->routingkey = strdup(cfg_getstr(cfg_sub, "routingkey"));
         vars->ssl = cfg_getbool(cfg_sub, "ssl");
 
-        /* if these aren't set, then they will be generated later if required */
-        if ( cfg_getstr(cfg_sub, "cacert") ) {
-            vars->amqp_ssl.cacert = strdup(cfg_getstr(cfg_sub, "cacert"));
-        } else {
-            vars->amqp_ssl.cacert = NULL;
+        /* TODO remove deprecated options */
+        if ( set_ssl && (cfg_getstr(cfg_sub, "cacert") != NULL ||
+                cfg_getstr(cfg_sub, "cert") != NULL ||
+                cfg_getstr(cfg_sub, "key") != NULL ||
+                (int)cfg_getbool(cfg_sub, "waitforcert") != -1 ) ) {
+            /* warn the user if they try to set both the old and new options */
+            Log(LOG_WARNING,
+                    "Ignoring deprecated ssl settings from collector section");
+        } else if ( !set_ssl ) {
+            /* if not set by ssl section, try to set in the collector section */
+            if ( get_ssl_config(cfg_sub, &vars->amqp_ssl) ) {
+                /* warn if the values changed - the collector section set it */
+                Log(LOG_WARNING, "Missing ssl configuration, using deprecated "
+                        "collector ssl settings. Update configuration file!");
+            }
         }
-
-        if ( cfg_getstr(cfg_sub, "key") ) {
-            vars->amqp_ssl.key = strdup(cfg_getstr(cfg_sub, "key"));
-        } else {
-            vars->amqp_ssl.key = NULL;
-        }
-
-        if ( cfg_getstr(cfg_sub, "cert") ) {
-            vars->amqp_ssl.cert = strdup(cfg_getstr(cfg_sub, "cert"));
-        } else {
-            vars->amqp_ssl.cert = NULL;
-        }
+    } else {
+        cfg_free(cfg);
+        Log(LOG_ALERT, "No collector section in config file '%s', aborting",
+                filename);
+        return NULL;
     }
 
     /* keep the config pointer around so we can query other parts of it */

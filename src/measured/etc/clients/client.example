@@ -45,14 +45,8 @@
 # will be used.
 #nameservers = { 192.0.2.100, 192.0.2.101, 192.0.2.102 }
 
-# Collector to which data should be reported. If there is a rabbitmq broker
-# installed on the local machine then by default the amplet client will try
-# to use it. If there isn't a local rabbitmq broker then it will try to report
-# directly to the remote collector (diskless/lightweight clients might want
-# to do this, giving up some reliability to save local resources). This
-# behaviour can be overridden by setting the "vialocal" option - true will
-# force use of a local collector, false will force reporting directly.
-#
+# SSL settings used for reporting to the collector or communicating with other
+# amplet clients to start remote test servers (e.g. throughput).
 # cacert, cert and key don't need to be set (they will be automagically set)
 # but the files are always required even if not doing SSL to the rabbitmq
 # server. Run an amppki server on the collector to have it act as a certificate
@@ -62,6 +56,20 @@
 #     cacert = /etc/amplet2/keys/<collector>.pem
 #     cert   = /etc/amplet2/keys/<ampname>/<collector>.cert
 #     key    = /etc/amplet2/keys/<ampname>/key.pem
+ssl {
+    waitforcert = true
+#    cacert = /etc/amplet2/keys/cacert.pem
+#    cert = /etc/amplet2/keys/cert.pem
+#    key = /etc/amplet2/keys/key.pem
+}
+
+# Collector to which data should be reported. If there is a rabbitmq broker
+# installed on the local machine then by default the amplet client will try
+# to use it. If there isn't a local rabbitmq broker then it will try to report
+# directly to the remote collector (diskless/lightweight clients might want
+# to do this, giving up some reliability to save local resources). This
+# behaviour can be overridden by setting the "vialocal" option - true will
+# force use of a local collector, false will force reporting directly.
 collector {
 #   vialocal = true
     address = amp.example.com
@@ -70,10 +78,6 @@ collector {
     routingkey = amp
     port = 5671
     ssl = true
-#    cacert = /etc/amplet2/keys/cacert.pem
-#    cert = /etc/amplet2/keys/cert.pem
-#    key = /etc/amplet2/keys/key.pem
-    waitforcert = true
 }
 
 # The control interface is used by other amplets to request test servers be
