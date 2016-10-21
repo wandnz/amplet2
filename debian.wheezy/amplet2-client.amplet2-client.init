@@ -117,6 +117,10 @@ do_start()
     # Make sure that the log dir exists
     if [ ! -d $LOGDIR ]; then
         mkdir -p $LOGDIR
+        # some systems expect syslog to own the log files/directories
+        if getent passwd syslog > /dev/null; then
+            chown syslog:adm $LOGDIR
+        fi
     fi
 
     # For every config file, try to run an amplet client
