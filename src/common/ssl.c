@@ -256,6 +256,9 @@ SSL_CTX* initialise_ssl_context(amp_ssl_opt_t *sslopts) {
     /* disable compression to mitigate CRIME attack */
     SSL_CTX_set_options(ssl_ctx, SSL_OP_NO_COMPRESSION);
 
+    /* use server cipher list ordering as we trust ourselves more than them */
+    SSL_CTX_set_options(ssl_ctx, SSL_OP_CIPHER_SERVER_PREFERENCE);
+
     /* Make sure all clients provide a certificate, and that it is valid */
     SSL_CTX_set_verify(ssl_ctx,
             SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT, NULL);
