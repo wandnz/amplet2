@@ -105,10 +105,6 @@ control {
 #        allow = { .amp.example.com }
 #        deny = { foo.amp.example.com }
 #    }
-#    acl schedule {
-#        allow = {}
-#        deny = all
-#    }
 }
 
 # Schedule fetching allows the schedule file to be kept up to date with a
