@@ -27,10 +27,10 @@ export DEB_PYTHON_INSTALL_ARGS = --install-layout=deb --single-version-externall
 	dh $@ --with python2 --with=systemd
 
 override_dh_installinit:
-	dh_installinit --name=amplet2-client --no-start
+	dh_installinit --no-start
 
 override_dh_auto_configure:
 	dh_auto_configure -- $(shell dpkg-buildflags --export=configure)
 
 override_dh_systemd_enable:
-	dh_systemd_enable --no-enable --name=amplet2-client
+	dh_systemd_enable --no-enable

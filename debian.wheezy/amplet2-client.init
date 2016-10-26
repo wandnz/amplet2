@@ -17,13 +17,14 @@
 
 # PATH should only include /usr/* if it runs after the mountnfs.sh script
 PATH=/sbin:/usr/sbin:/bin:/usr/bin
-DESC=amplet2                    # Introduce a short description here
+DESC="amplet2 measurement client"
 PKG_NAME=amplet2-client
 DAEMON_NAME=amplet2             # Introduce the short server's name here
 DAEMON=/usr/sbin/$DAEMON_NAME   # Introduce the server's location here
 DAEMON_OPTS="-d"
 SCRIPTNAME=/etc/init.d/$PKG_NAME
 CONFDIR=/etc/amplet2/clients
+KEYDIR=/etc/amplet2/keys
 PIDDIR=/var/run/amplet2
 LOGDIR=/var/log/amplet2
 
@@ -33,8 +34,22 @@ if [ ! -x $DAEMON ]; then
     exit 5
 fi
 
-# Load the VERBOSE setting and other rcS variables
-. /lib/init/vars.sh
+# Read configuration variable file if it is present (wheezy or similar)
+if [ -r /etc/default/$PKG_NAME ]; then
+    START_DAEMON=1
+    . /etc/default/$PKG_NAME
+
+    # Don't start the daemon unless it has been manually enabled in
+    # /etc/default/amplet2. There is too much configuration required
+    # to assume it can be started initially.
+    if [ $START_DAEMON -le 0 ]; then
+        echo "$PKG_NAME is disabled in /etc/default/$PKG_NAME, not starting."
+        echo "Ensure config in /etc/amplet2/ is up to date before enabling."
+        # Return 0 so package installation doesn't error
+        exit 0
+    fi
+fi
+
 
 # Define LSB log_* functions.
 # Depend on lsb-base (>= 3.0-6) to ensure that this file is present.
@@ -65,13 +80,11 @@ do_wait()
 
 
 #
-# Function that starts the daemon/service
+# Make sure that the configuration directories exist and have the appropriate
+# permissions, and that rabbitmq has the correct plugins enabled.
 #
-do_start()
+do_local_config()
 {
-    SUCCESS=0
-    FAILED=0
-
     # Make sure that the pid dir exists
     if [ ! -d $PIDDIR ]; then
         mkdir -p $PIDDIR
@@ -88,6 +101,53 @@ do_start()
         fi
     fi
 
+    # Make sure the keys directory exists and has the appropriate permissions
+    if [ ! -d $KEYDIR ]; then
+        mkdir -p $KEYDIR
+    fi
+
+    # If using a local rabbitmq broker then check that it is configured. For
+    # now we'll make the assumption that if the user and control program exist
+    # then we should probably be using rabbitmq.
+    if getent passwd rabbitmq > /dev/null && [ -x /usr/sbin/rabbitmqctl ]; then
+        # grant access to the keys directory
+        chown root:rabbitmq $KEYDIR
+        chmod 2750 $KEYDIR
+
+        # make sure the shovel plugin is enabled
+        if ! rabbitmq-plugins list -e rabbitmq_shovel | \
+                cut -d ' ' -f 2 | grep -qx rabbitmq_shovel; then
+            log_action_begin_msg "Enabling rabbitmq shovel plugin for $DAEMON_NAME"
+            rabbitmq-plugins enable rabbitmq_shovel >/dev/null || exit $?
+            log_action_end_msg 0
+        fi
+    else
+        chown root:root $KEYDIR
+        chmod 700 $KEYDIR
+    fi
+
+}
+
+
+#
+# Function that starts the daemon/service
+#
+do_start()
+{
+    SUCCESS=0
+    FAILED=0
+
+    # Try to deal with network manager and friends taking too long to start
+    # so that we don't always have a useful network configuration when
+    # amplet2-client starts. Would be nice to be able to use the
+    # init_is_upstart function, but then this delay always triggers rather
+    # than only triggering on boot.
+    if [ -n "$UPSTART_JOB" ]; then
+        sleep 30
+    fi
+
+    do_local_config
+
     # For every config file, try to run an amplet client
     for client in ${CONFDIR}/*.conf; do
         NAME=${client#$CONFDIR/}
@@ -95,6 +155,7 @@ do_start()
         PIDFILE=${PIDDIR}/${NAME%.conf}.pid
 
         # TODO return appropriate thing if already running
+        log_daemon_msg "Starting ${DESC}" $NAME
         # use start-stop-daemon --test?
         start-stop-daemon --start --quiet --exec $DAEMON \
                 --pidfile $PIDFILE -- $DAEMON_OPTS -c $client -p $PIDFILE
@@ -109,9 +170,11 @@ do_start()
 
         case "$?" in
             0|1) SUCCESS=$((SUCCESS+1)); \
-                    [ "$VERBOSE" != no ] && log_success_msg $NAME ;;
+                log_end_msg 0
+                ;;
             2|3) FAILED=$((FAILED+1)); \
-                    [ "$VERBOSE" != no ] && log_failure_msg $NAME ;;
+                log_end_msg 1
+                ;;
         esac
     done
 
@@ -122,18 +185,22 @@ do_start()
 
     # Some failures and some successes, return warning
     if ([ $FAILED -gt 0 ] && [ $SUCCESS -gt 0 ]); then
-        return 1
+        return 255
     fi
 
     # No successes, return failed
-    return 2
+    return 1
 }
+
 
 #
 # Function that stops the daemon/service
 #
 do_stop()
 {
+    SUCCESS=0
+    FAILED=0
+
     for pidfile in ${PIDDIR}/*.pid; do
 
         if [ ! -f $pidfile ]; then
@@ -144,6 +211,7 @@ do_stop()
         NAME=${NAME%.pid}
         PID=`cat $pidfile`
 
+        log_daemon_msg "Stopping ${DESC}" $NAME
         start-stop-daemon --stop --quiet --retry=TERM/30/KILL/5 \
                 --name $DAEMON_NAME --pidfile $pidfile
         start-stop-daemon --stop --quiet --oknodo  --retry=0/30/KILL/5 \
@@ -163,11 +231,49 @@ do_stop()
                 /bin/kill -s KILL -- -$PID 2> /dev/null
             fi
         fi
+
+        if `/usr/bin/pgrep -s $PID > /dev/null`; then
+            FAILED=$((FAILED+1));
+            log_end_msg 1
+        else
+            SUCCESS=$((SUCCESS+1));
+            log_end_msg 0
+        fi
     done
 
-    # We'll assume nothing survived the purge
-    return 0
+    # No failures, return success (could have zero successes if none running)
+    if [ $FAILED -eq 0 ]; then
+        return 0
+    fi
+
+    # Some failures and some successes, return warning
+    if ([ $FAILED -gt 0 ] && [ $SUCCESS -gt 0 ]); then
+        return 255
+    fi
+
+    # Some failures and no successes, return failed
+    return 1
 }
+
+
+#
+#
+#
+do_status() {
+    RETVAL=0
+    for client in ${CONFDIR}/*.conf; do
+        NAME=${client#$CONFDIR/}
+        NAME=${NAME%.conf}
+        PIDFILE=${PIDDIR}/${NAME%.conf}.pid
+
+        status_of_proc -p $PIDFILE "$DAEMON" "$NAME"
+        if [ $? -gt 0 ]; then
+            RETVAL=1
+        fi
+    done
+    return $RETVAL
+}
+
 
 #
 # Function that sends a SIGHUP to the daemon/service
@@ -183,11 +289,14 @@ do_reload() {
         NAME=${NAME%.conf}
         PIDFILE=${PIDDIR}/${NAME%.conf}.pid
 
+        log_daemon_msg "Reloading ${DESC}" $NAME
         start-stop-daemon --stop --signal 1 --quiet --pidfile $PIDFILE \
             --name $DAEMON_NAME
+        log_end_msg 0
     done
     return 0
 }
+
 
 case "$1" in
     start)
@@ -197,6 +306,10 @@ case "$1" in
     stop)
         do_stop
         ;;
+
+  status)
+        do_status && exit 0 || exit $?
+       ;;
 
     reload|force-reload)
         do_reload
