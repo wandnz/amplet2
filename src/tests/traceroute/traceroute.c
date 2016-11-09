@@ -761,8 +761,13 @@ static int process_packet(struct sockaddr *addr, char *packet,
 
     /* record the delay between sending this probe and getting a response */
     if ( item->hop[ttl - 1].delay == 0 ) {
-        item->hop[ttl - 1].delay =
-            DIFF_TV_US(now, item->hop[ttl - 1].time_sent);
+        int64_t delay = DIFF_TV_US(now, item->hop[ttl - 1].time_sent);
+        /* don't allow a negative delay */
+        if ( delay > 0 ) {
+            item->hop[ttl - 1].delay = (uint32_t)delay;
+        } else {
+            item->hop[ttl - 1].delay = 0;
+        }
     }
 
     /* if unexpected error, record it and look to keep probing */

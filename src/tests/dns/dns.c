@@ -275,6 +275,7 @@ static void process_packet(struct dnsglobals_t *globals, char *packet,
     int i;
     int response_count;
     struct info_t *info;
+    int64_t delay;
 
     info = globals->info;
 
@@ -383,7 +384,12 @@ static void process_packet(struct dnsglobals_t *globals, char *packet,
         info[index].bytes = rr_start - packet;
     }
 
-    info[index].delay = DIFF_TV_US(*now, info[index].time_sent);
+    delay = DIFF_TV_US(*now, info[index].time_sent);
+    if ( delay > 0 ) {
+        info[index].delay = (uint32_t)delay;
+    } else {
+        info[index].delay = 0;
+    }
     globals->outstanding--;
 }
 

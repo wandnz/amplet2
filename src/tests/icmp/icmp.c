@@ -206,6 +206,7 @@ static int process_ipv4_packet(struct icmpglobals_t *globals, char *packet,
     struct iphdr *ip;
     struct icmphdr *icmp;
     uint16_t seq;
+    int64_t delay;
 
     /* make sure that we read enough data to have a valid response */
     if ( bytes < sizeof(struct iphdr) + sizeof(struct icmphdr) +
@@ -256,8 +257,14 @@ static int process_ipv4_packet(struct icmpglobals_t *globals, char *packet,
 
     /* reply is good, record the round trip time */
     globals->info[seq].reply = 1;
-    globals->info[seq].delay = DIFF_TV_US(*now, globals->info[seq].time_sent);
     globals->outstanding--;
+
+    delay = DIFF_TV_US(*now, globals->info[seq].time_sent);
+    if ( delay > 0 ) {
+        globals->info[seq].delay = (uint32_t)delay;
+    } else {
+        globals->info[seq].delay = 0;
+    }
 
     Log(LOG_DEBUG, "Good ICMP ECHOREPLY");
     return 0;
@@ -275,6 +282,7 @@ static int process_ipv6_packet(struct icmpglobals_t *globals, char *packet,
 
     struct icmp6_hdr *icmp;
     uint16_t seq;
+    int64_t delay;
 
     if ( bytes < sizeof(struct icmp6_hdr) ) {
         return -1;
@@ -299,8 +307,14 @@ static int process_ipv6_packet(struct icmpglobals_t *globals, char *packet,
 
     /* reply is good, record the round trip time */
     globals->info[seq].reply = 1;
-    globals->info[seq].delay = DIFF_TV_US(*now, globals->info[seq].time_sent);
     globals->outstanding--;
+
+    delay = DIFF_TV_US(*now, globals->info[seq].time_sent);
+    if ( delay > 0 ) {
+        globals->info[seq].delay = (uint32_t)delay;
+    } else {
+        globals->info[seq].delay = 0;
+    }
 
     Log(LOG_DEBUG, "Good ICMP6 ECHOREPLY");
     return 0;

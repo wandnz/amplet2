@@ -536,9 +536,17 @@ static void process_tcp_response(struct tcppingglobals *tp, struct tcphdr *tcp,
     }
 
     if ((destid = match_response(tp, tcp, true)) >= 0) {
+        int64_t delay;
+
         tp->info[destid].reply = TCP_REPLY;
-        tp->info[destid].delay = DIFF_TV_US(ts, tp->info[destid].time_sent);
         tp->info[destid].replyflags = 0;
+
+        delay = DIFF_TV_US(ts, tp->info[destid].time_sent);
+        if ( delay > 0 ) {
+            tp->info[destid].delay = (uint32_t)delay;
+        } else {
+            tp->info[destid].delay = 0;
+        }
 
         if ( tcp->urg )
             tp->info[destid].replyflags += 0x20;
@@ -603,11 +611,19 @@ static void process_icmp4_response(struct tcppingglobals *tp,
     }
 
     if ((destid = match_response(tp, (struct tcphdr *)packet, false)) >= 0) {
+        int64_t delay;
+
         tp->info[destid].icmptype = icmp->type;
         tp->info[destid].icmpcode = icmp->code;
         tp->info[destid].reply = ICMP_REPLY;
-        tp->info[destid].delay = DIFF_TV_US(ts, tp->info[destid].time_sent);
         tp->outstanding --;
+
+        delay = DIFF_TV_US(ts, tp->info[destid].time_sent);
+        if ( delay > 0 ) {
+            tp->info[destid].delay = (uint32_t)delay;
+        } else {
+            tp->info[destid].delay = 0;
+        }
     }
 }
 
@@ -651,11 +667,19 @@ static void process_icmp6_response(struct tcppingglobals *tp,
     }
 
     if ((destid = match_response(tp, (struct tcphdr *)packet, false)) >= 0) {
+        int64_t delay;
+
         tp->info[destid].icmptype = icmp->icmp6_type;
         tp->info[destid].icmpcode = icmp->icmp6_code;
         tp->info[destid].reply = ICMP_REPLY;
-        tp->info[destid].delay = DIFF_TV_US(ts, tp->info[destid].time_sent);
         tp->outstanding --;
+
+        delay = DIFF_TV_US(ts, tp->info[destid].time_sent);
+        if ( delay > 0 ) {
+            tp->info[destid].delay = (uint32_t)delay;
+        } else {
+            tp->info[destid].delay = 0;
+        }
     }
 }
 
