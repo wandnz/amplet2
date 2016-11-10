@@ -25,10 +25,15 @@ case "$1" in
                 cut -d ' ' -f 2 | grep -qx rabbitmq_auth_mechanism_ssl; then
 
             rabbitmq-plugins enable rabbitmq_auth_mechanism_ssl || exit $?
-            if [ -x "`which invoke-rc.d 2>/dev/null`" ]; then
-                invoke-rc.d rabbitmq-server restart || exit $?
-            else
-                /etc/init.d/rabbitmq-server restart || exit $?
+
+            # restart rabbitmq-server if version is < 3.4.0
+            V=`dpkg -s rabbitmq-server | grep "Version:" | cut -d ' ' -f 2`
+            if dpkg --compare-versions "$V" lt "3.4.0"; then
+                if [ -x "`which invoke-rc.d 2>/dev/null`" ]; then
+                    invoke-rc.d rabbitmq-server restart || exit $?
+                else
+                    /etc/init.d/rabbitmq-server restart || exit $?
+                fi
             fi
         fi
 
