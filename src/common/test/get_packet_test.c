@@ -99,12 +99,6 @@ int main(void) {
                 break;
         };
 
-        /*
-         * There might be some sizing issues with get_packet() setting addrlen
-         * internally to the sizeof a sockaddr_in or sockaddr_in6, but that\
-         * will just truncate the address returned by recvfrom(), something we
-         * aren't looking at.
-         */
         bytes = get_packet(&amp_sockets, in_packet, MAX_PACKET_LEN, NULL,
                 &maxwait, NULL);
 
