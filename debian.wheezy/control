@@ -11,7 +11,7 @@ Homepage: http://amp.wand.net.nz
 Package: amplet2-client
 Architecture: any
 Conflicts: amplet2-client-lite
-Depends: ${shlibs:Depends}, ${misc:Depends}, libwandevent (>= 3.0.0), libcurl3, librabbitmq4, libunbound2, libpcap0.8, rsyslog, libprotobuf-c0, lsb-base (>= 3.0-6)
+Depends: ${shlibs:Depends}, ${misc:Depends}, libwandevent (>= 3.0.0), libcurl3, librabbitmq4 (>=0.7.1), libunbound2, libpcap0.8, rsyslog, libprotobuf-c0, lsb-base (>= 3.0-6)
 Recommends: rabbitmq-server (>= 3.4.0)
 Description: AMP Network Performance Measurement Suite - Client Tools
  This package contains the client tools for the AMP Measurement Suite. These

@@ -88,8 +88,12 @@ static int connect_to_broker(void) {
             return -1;
         }
 
+#if AMQP_VERSION >= AMQP_VERSION_CODE(0, 8, 0, 0)
         amqp_ssl_socket_set_verify_hostname(sock, 1);
         amqp_ssl_socket_set_verify_peer(sock, 1);
+#else
+        amqp_ssl_socket_set_verify(sock, 1);
+#endif
 
         if ( amqp_socket_open(sock, collector, port) != 0 ) {
             Log(LOG_ERR, "Failed to open connection to %s:%d", collector, port);
