@@ -804,7 +804,7 @@ int check_exists(char *path, int strict) {
 
     /* file was manually specified, but doesn't exist, that's an error */
     if ( strict ) {
-        Log(LOG_WARNING, "Manually specified file %s not found", path);
+        Log(LOG_WARNING, "Required file %s not found", path);
         return -1;
     }
 

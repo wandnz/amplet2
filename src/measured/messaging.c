@@ -106,7 +106,8 @@ static int connect_to_broker(void) {
         if ( (amqp_login(conn, vhost, 0, AMQP_FRAME_MAX, 0,
                         AMQP_SASL_METHOD_EXTERNAL, vars.ampname)
              ).reply_type != AMQP_RESPONSE_NORMAL ) {
-            Log(LOG_ERR, "Failed to login to broker");
+            Log(LOG_ERR, "Failed to login to broker %s:%s using EXTERNAL auth",
+                    collector, port);
             return -1;
         }
 
@@ -129,7 +130,8 @@ static int connect_to_broker(void) {
         if ( (amqp_login(conn, vhost, 0, AMQP_FRAME_MAX,0,
                         AMQP_SASL_METHOD_PLAIN, vars.ampname, vars.ampname)
              ).reply_type != AMQP_RESPONSE_NORMAL ) {
-            Log(LOG_ERR, "Failed to login to broker");
+            Log(LOG_ERR, "Failed to login to broker %s:%s using PLAIN AUTH",
+                    collector, port);
             return -1;
         }
     }

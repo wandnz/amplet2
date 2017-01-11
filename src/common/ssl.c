@@ -117,8 +117,7 @@ static int check_key_locations(amp_ssl_opt_t *sslopts, char *collector) {
      * exist here for us to continue.
      */
     if ( check_exists(sslopts->cacert, 1) < 0 ) {
-        Log(LOG_WARNING, "Server certificate %s doesn't exist!",
-                sslopts->cacert);
+        Log(LOG_ALERT, "Server certificate %s doesn't exist!", sslopts->cacert);
         return -1;
     }
 
