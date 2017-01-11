@@ -8,6 +8,7 @@ testdir=$(libdir)/$(PACKAGE)/tests
 bin_PROGRAMS=amp-http
 amp_http_SOURCES=../testmain.c
 amp_http_LDADD=http.la -L../../common/ -lamp -lcurl -lprotobuf-c -lunbound
+amp_http_LDFLAGS=-Wl,--no-as-needed
 
 test_LTLIBRARIES=http.la
 http_la_SOURCES=http.c servers.c parsers.c output.c lexer.l

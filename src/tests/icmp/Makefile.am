@@ -8,6 +8,7 @@ testdir=$(libdir)/$(PACKAGE)/tests
 bin_PROGRAMS=amp-icmp
 amp_icmp_SOURCES=../testmain.c
 amp_icmp_LDADD=icmp.la -L../../common/ -lamp -lprotobuf-c -lunbound -lwandevent
+amp_icmp_LDFLAGS=-Wl,--no-as-needed
 
 test_LTLIBRARIES=icmp.la
 icmp_la_SOURCES=icmp.c

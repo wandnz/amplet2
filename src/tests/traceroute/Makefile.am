@@ -8,6 +8,7 @@ testdir=$(libdir)/$(PACKAGE)/tests
 bin_PROGRAMS=amp-trace
 amp_trace_SOURCES=../testmain.c
 amp_trace_LDADD=trace.la -L../../common/ -lamp -lwandevent -lpthread -lunbound -lprotobuf-c -lunbound
+amp_trace_LDFLAGS=-Wl,--no-as-needed
 
 test_LTLIBRARIES=trace.la
 trace_la_SOURCES=traceroute.c as.c

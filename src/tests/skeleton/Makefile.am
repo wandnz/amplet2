@@ -8,6 +8,7 @@ testdir=$(libdir)/$(PACKAGE)/tests
 bin_PROGRAMS=amp-skeleton
 amp_skeleton_SOURCES=../testmain.c
 amp_skeleton_LDADD=skeleton.la -L../../common/ -lamp -lprotobuf-c -lunbound
+amp_skeleton_LDFLAGS=-Wl,--no-as-needed
 
 test_LTLIBRARIES=skeleton.la
 skeleton_la_SOURCES=skeleton.c
