@@ -60,6 +60,8 @@ struct option long_options[] = {
     {"cacert", required_argument, 0, '0'},
     {"cert", required_argument, 0, '9'},
     {"key", required_argument, 0, '8'},
+    {"dns", required_argument, 0, '7'},
+    {"dns-server", required_argument, 0, '7'},
     {"debug", no_argument, 0, 'x'},
     {"help", no_argument, 0, 'h'},
 };
@@ -156,7 +158,7 @@ int main(int argc, char *argv[]) {
      * the end of the list and then taken just the argv array after the last
      * known argument, but for some reason the permutation isn't working?
      */
-    while ( (opt = getopt_long(argc, argv, "-x0:9:8:D:4:6:",
+    while ( (opt = getopt_long(argc, argv, "-x0:9:8:7:4:6:",
                     long_options, NULL)) != -1 ) {
 	/* generally do nothing, just use up arguments until the -- marker */
         switch ( opt ) {
@@ -165,7 +167,7 @@ int main(int argc, char *argv[]) {
                       log_level_override = 1;
                       break;
             /* nameserver config is also only for us and not passed on */
-            case 'D': nameserver = optarg;
+            case '7': nameserver = optarg;
                       break;
             /* use these for nameserver config, but also pass onto the test */
             case '4': test_argv = realloc(test_argv,
