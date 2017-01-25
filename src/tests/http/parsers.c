@@ -101,47 +101,47 @@ size_t parse_headers(void *ptr, size_t size, size_t nmemb, void *data) {
              * strlen() should be used rather than a fixed value but the
              * added length turns it into an (even more) unreadable mess.
              */
-            if ( strncmp(token, "public", 6) == 0 ) {
+            if ( strncasecmp(token, "public", 6) == 0 ) {
                 cache->flags.pub = 1;
-            } else if ( strncmp(token, "private", 7) == 0 ) {
+            } else if ( strncasecmp(token, "private", 7) == 0 ) {
                 cache->flags.priv = 1;
-            } else if ( strncmp(token, "no-cache", 8) == 0 ) {
+            } else if ( strncasecmp(token, "no-cache", 8) == 0 ) {
                 cache->flags.no_cache = 1;
-            } else if ( strncmp(token, "no-store", 8) == 0 ) {
+            } else if ( strncasecmp(token, "no-store", 8) == 0 ) {
                 cache->flags.no_store = 1;
-            } else if ( strncmp(token, "no-transform", 12) == 0 ) {
+            } else if ( strncasecmp(token, "no-transform", 12) == 0 ) {
                 cache->flags.no_transform = 1;
-            } else if ( strncmp(token, "must-revalidate", 15) == 0 ) {
+            } else if ( strncasecmp(token, "must-revalidate", 15) == 0 ) {
                 cache->flags.must_revalidate = 1;
-            } else if ( strncmp(token, "proxy-revalidate", 16) == 0 ) {
+            } else if ( strncasecmp(token, "proxy-revalidate", 16) == 0 ) {
                 cache->flags.proxy_revalidate = 1;
-            } else if ( strncmp(token, "max-age", 7) == 0 ) {
+            } else if ( strncasecmp(token, "max-age", 7) == 0 ) {
                 sscanf(token, "max-age=%d", &cache->max_age);
-            } else if ( strncmp(token, "s-maxage", 8) == 0 ) {
+            } else if ( strncasecmp(token, "s-maxage", 8) == 0 ) {
                 sscanf(token, "s-maxage=%d", &cache->s_maxage);
             } else {
                 Log(LOG_DEBUG, "skipping unknown directive: '%s'\n", token);
             }
         } while ( (token = strtok_r(NULL, " ,", &dirptr)) != NULL );
 
-    } else if ( strncmp(buf, "X-Cache: ", strlen("X-Cache: ")) == 0 ) {
+    } else if ( strncasecmp(buf, "X-Cache: ", strlen("X-Cache: ")) == 0 ) {
         char *directives = buf + strlen("X-Cache: ");
 
-        if ( strncmp(directives, "HIT", strlen("HIT")) == 0 ) {
+        if ( strncasecmp(directives, "HIT", strlen("HIT")) == 0 ) {
             cache->x_cache = 1;
-        } else if ( strncmp(directives, "MISS", strlen("MISS")) == 0 ) {
+        } else if ( strncasecmp(directives, "MISS", strlen("MISS")) == 0 ) {
             cache->x_cache = 0;
         } else {
             Log(LOG_DEBUG, "skipping unknown x-cache response: '%s'\n",
                     directives);
         }
 
-    } else if(strncmp(buf,"X-Cache-Lookup: ",strlen("X-Cache-Lookup: ")) == 0) {
+    } else if(strncasecmp(buf,"X-Cache-Lookup: ",strlen("X-Cache-Lookup: ")) == 0) {
         char *directives = buf + strlen("X-Cache-Lookup: ");
 
-        if ( strncmp(directives, "HIT", strlen("HIT")) == 0 ) {
+        if ( strncasecmp(directives, "HIT", strlen("HIT")) == 0 ) {
             cache->x_cache_lookup = 1;
-        } else if ( strncmp(directives, "MISS", strlen("MISS")) == 0 ) {
+        } else if ( strncasecmp(directives, "MISS", strlen("MISS")) == 0 ) {
             cache->x_cache_lookup = 0;
         } else {
             Log(LOG_DEBUG, "skipping unknown x-cache response: '%s'\n",
