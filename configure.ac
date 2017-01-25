@@ -16,6 +16,12 @@ AC_PROG_CC
 AM_PROG_CC_C_O
 AC_PROG_LIBTOOL
 
+# Checks for flex
+AC_PROG_LEX
+if test "$LEX" != "flex"; then
+        AC_MSG_ERROR(Required program flex not found)
+fi
+
 # Checks for libraries.
 AC_SEARCH_LIBS(dlopen, dl)
 
