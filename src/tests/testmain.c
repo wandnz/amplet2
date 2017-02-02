@@ -64,6 +64,7 @@ struct option long_options[] = {
     {"dns-server", required_argument, 0, '7'},
     {"debug", no_argument, 0, 'x'},
     {"help", no_argument, 0, 'h'},
+    {NULL, 0, 0, 0}
 };
 
 
