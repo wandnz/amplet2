@@ -66,6 +66,7 @@ struct option long_options[] = {
     {"args", required_argument, 0, 'a'},
     {"debug", no_argument, 0, 'x'},
     {"help", no_argument, 0, 'h'},
+    {NULL, 0, 0, 0}
 };
 
 static void usage(char *prog) {
