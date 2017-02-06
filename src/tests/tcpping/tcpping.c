@@ -1072,7 +1072,7 @@ amp_test_result_t* run_tcpping(int argc, char *argv[], int count,
     }
 
     if ( count < 1 ) {
-        usage();
+        Log(LOG_WARNING, "No resolvable destinations were specified!");
         exit(-1);
     }
 
