@@ -254,10 +254,37 @@ int main(int argc, char *argv[]) {
 		    test_info->max_targets);
 	    break;
 	}
+
         /* make room for a new destination and fill it */
         dests = realloc(dests, (count + 1) * sizeof(struct addrinfo*));
         dests[count] = rp;
         count++;
+
+        /*
+         * Remove the destination from the argument list if it is still
+         * present. Involves iterating over argv once for each address, but
+         * there shouldn't be too many when run interactively. The usefulness
+         * of the error checking will hopefully outweigh the time spent doing
+         * this.
+         */
+        for ( i=optind; i<argc; i++ ) {
+            if ( argv[i] == NULL ) {
+                continue;
+            }
+
+            /* null the destination to mark it as resolved */
+            if ( strcmp(argv[i], rp->ai_canonname) == 0 ) {
+                argv[i] = NULL;
+                continue;
+            }
+        }
+    }
+
+    /* check if any destinations didn't resolve so we can warn the user */
+    for ( i=optind; i<argc; i++ ) {
+        if ( argv[i] != NULL ) {
+            Log(LOG_WARNING, "Host '%s' did not resolve!", argv[i]);
+        }
     }
 
     /*
