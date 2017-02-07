@@ -125,27 +125,27 @@ static void amp_resolve_callback(void *d, int err, struct ub_result *result) {
     int qcount;
     int i;
 
-    Log(LOG_DEBUG, "Got a DNS response for %s (%x)", result->qname,
-            result->qtype);
-
     /* lock the data block, we are about to update the address list */
     pthread_mutex_lock(data->lock);
 
     assert(data->qcount > 0);
     assert(*data->remaining > 0);
 
-    /* shared counter to track outstanding queries for this test */
-    (*data->remaining)--;
-
-    if ( err != 0 || !result->havedata ) {
+    if ( err != 0 || result == NULL || !result->havedata ) {
         if ( err != 0 ) {
-            Log(LOG_DEBUG, "resolve error: %s\n", ub_strerror(err));
+            Log(LOG_DEBUG, "Resolve error: %s\n", ub_strerror(err));
+        } else if ( result ) {
+            Log(LOG_DEBUG, "No results for query %s (%x)", result->qname,
+                    result->qtype);
         } else {
-            Log(LOG_DEBUG, "no results for query");
+            Log(LOG_DEBUG, "Unknown error while resolving");
         }
 
         goto end;
     }
+
+    Log(LOG_DEBUG, "Got a DNS response for %s (%x)", result->qname,
+            result->qtype);
 
     /*
      * Loop over all the results until we hit max or run out of results. Note
@@ -194,6 +194,9 @@ static void amp_resolve_callback(void *d, int err, struct ub_result *result) {
     }
 
 end:
+    /* shared counter to track outstanding queries for this test */
+    (*data->remaining)--;
+
     /* get outstanding queries for this name while we still have it locked */
     qcount = --data->qcount;
 
@@ -204,7 +207,9 @@ end:
         free(data);
     }
 
-    ub_resolve_free(result);
+    if ( result ) {
+        ub_resolve_free(result);
+    }
 }
 
 
