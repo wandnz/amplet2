@@ -30,18 +30,6 @@ case "$1" in
             cp ${CLIENTDIR}/client.example ${CLIENTDIR}/default.conf
         fi
 
-        # Don't do anything with rabbit if $HOME isn't set, as some of the
-        # rabbit scripts require it. The only obvious case where $HOME
-        # isn't set is when this is being run with puppet, in which case
-        # this is all taken care of anyway.
-        if [ -n "$HOME" ]; then
-            # Enable the shovel plugin for rabbitmq if it isn't already
-            if ! rabbitmq-plugins list -e rabbitmq_shovel | \
-                    cut -d ' ' -f 2 | grep -qx rabbitmq_shovel; then
-                rabbitmq-plugins enable rabbitmq_shovel || exit $?
-            fi
-        fi
-
         # if this is a new install or a client older than 0.7.2 it will need
         # rsyslog to be restarted as the configuration has changed
         if dpkg --compare-versions "0.7.2" gt "$2"; then
