@@ -69,8 +69,8 @@
 #define DEFAULT_TEST_PORT 8826 /* Run test across a separate port */
 #define MAX_TEST_PORT 8836
 #define DEFAULT_WRITE_SIZE  (128 * 1024) // 128-kbyte like iperf uses
-#define DEFAULT_TPUT_PAUSE  10000
 #define DEFAULT_TEST_DURATION 10 /* iperf default: 10s */
+#define MAX_MALLOC 20e6
 
 
 /*
@@ -87,7 +87,6 @@ enum tput_schedule_direction {
     SERVER_THEN_CLIENT = 3,
 };
 
-
 enum tput_type {
     TPUT_NULL = 0,
     TPUT_2_CLIENT,
@@ -95,6 +94,7 @@ enum tput_type {
     TPUT_PAUSE,
     TPUT_NEW_CONNECTION,
 };
+
 amp_test_result_t* run_throughput(int argc, char *argv[], int count,
         struct addrinfo **dests);
 test_t *register_test(void);
@@ -105,9 +105,6 @@ void print_throughput(amp_test_result_t *result);
 void usage(void);
 
 
-
-
-#define MAX_MALLOC 20e6
 
 /**
  * The very large structure holding everything we can get from web10g
@@ -244,19 +241,17 @@ struct report_web10g_t {
  * A internal format for holding a test result
  */
 struct test_result_t {
-    uint32_t packets; /* packet count */
     uint32_t write_size; /* XXX write_size seems a bit pointless maybe remove it?? */
     uint64_t bytes; /* Bytes seen */
     uint64_t start_ns; /* Start time in nanoseconds */
     uint64_t end_ns; /* End time in nanoseconds */
-    uint32_t done; /* This test has completed */
 };
 
 /* A single request */
 struct test_request_t {
     enum tput_type type;
     uint64_t bytes;
-    uint32_t duration; /* pause duration in milliseconds */
+    uint32_t duration;
     uint32_t write_size;
     uint32_t randomise;
 
@@ -304,38 +299,19 @@ enum TPUT_PKT {
     TPUT_PKT_HELLO = 5,
     TPUT_PKT_READY = 6,
 };
-/* This should align correctly under
- * sizeof(struct packet_t) == 32
- */
-/* TODO remove most of this, unnecessary */
-struct packet_t {
-    struct header_t {
-        uint32_t type;
-        uint32_t size; /* Size excluding header sizeof(struct packet_t) */
-    } header;
-    union type_t {
-        struct dataPacket_t {
-            uint32_t  more;
-        } data;
-    } types; //type union
-}; //packet_t struct
 
 
 /* Shared common functions from throughput_common.c */
 Amplet2__Throughput__Item* report_schedule(struct test_request_t *info);
-int readDataPacket(const struct packet_t *packet, const int write_size,
-        struct test_result_t *res);
 
 /* do outgoing test */
-int sendPackets(int sock_fd,
-                    struct test_request_t *test_opts,
-                    struct test_result_t *res);
+int sendStream(int sock_fd, struct test_request_t *test_opts,
+        struct test_result_t *res);
+
 /* Receive incoming test */
 int incomingTest(int sock_fd, struct test_result_t *result);
-/* Read write individual packets */
-int writePacket(int sock_fd, struct packet_t *packet);
-int readPacket(int test_socket, struct packet_t *packet,
-                    char **additional);
+int writeBuffer(int sock_fd, void *packet, size_t length);
+int readBuffer(int test_socket);
 
 uint64_t timeNanoseconds(void);
 ProtobufCBinaryData* build_hello(struct opt_t *options);

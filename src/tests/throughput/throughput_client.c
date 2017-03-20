@@ -67,10 +67,6 @@ static void printSchedule(struct test_request_t *schedule) {
    for ( cur = schedule; cur != NULL ; cur = cur->next ) {
        switch ( cur->type ) {
            case TPUT_NULL: Log(LOG_DEBUG, "Found a TPUT_NULL"); break;
-           case TPUT_PAUSE: Log(LOG_DEBUG, "Found a TPUT_PAUSE"); break;
-           case TPUT_NEW_CONNECTION:
-                            Log(LOG_DEBUG, "Found a TPUT_NEW_CONNECTION");
-                            break;
            case TPUT_2_CLIENT: Log(LOG_DEBUG, "Found a TPUT_2_CLIENT"); break;
            case TPUT_2_SERVER: Log(LOG_DEBUG, "Found a TPUT_2_SERVER"); break;
            default : Log(LOG_DEBUG, "Found a bad type"); break;
@@ -98,7 +94,6 @@ static void printSchedule(struct test_request_t *schedule) {
 static void parseSchedule(struct opt_t *options, char *request) {
     struct test_request_t ** current;
     long arg;
-    int noArg;
     char *pch;
 
     /* Point current to the end of the chain */
@@ -138,10 +133,7 @@ static void parseSchedule(struct opt_t *options, char *request) {
         (*current)->next = NULL;
 
         arg = 0;
-        if ( pch[1] == '\0' ) {
-            noArg = 1;
-        } else {
-            noArg = 0;
+        if ( pch[1] != '\0' ) {
             arg = atol(pch + 1);
         } //schedule has > 1 character
 
@@ -150,7 +142,6 @@ static void parseSchedule(struct opt_t *options, char *request) {
             case 'S':
                 (*current)->type = (pch[0] == 's')?TPUT_2_CLIENT:TPUT_2_SERVER;
                 (*current)->bytes = arg;
-                /* TODO enforce minimum bytes of sizeof(struct packet_t) */
                 break;
 
             case 't':
@@ -161,13 +152,12 @@ static void parseSchedule(struct opt_t *options, char *request) {
 
             case 'p':
             case 'P':
-                (*current)->type  = TPUT_PAUSE;
-                (*current)->duration = (noArg ? DEFAULT_TPUT_PAUSE : arg);
+                Log(LOG_WARNING, "Ignoring deprecated 'p' flag in schedule\n");
                 break;
 
             case 'n':
             case 'N':
-                (*current)->type = TPUT_NEW_CONNECTION;
+                Log(LOG_WARNING, "Ignoring deprecated 'n' flag in schedule\n");
                 break;
 
             default:
@@ -175,8 +165,7 @@ static void parseSchedule(struct opt_t *options, char *request) {
         };
 
         /* Check test is valid and has a stopping condition*/
-        if ( (*current)->type != TPUT_NEW_CONNECTION &&
-                (*current)->type != TPUT_NULL ) {
+        if ( (*current)->type != TPUT_NULL ) {
             if ( (*current)->bytes == 0 && (*current)->duration == 0 ) {
                 (*current)->type = TPUT_NULL;
                 Log(LOG_WARNING,
@@ -305,16 +294,14 @@ static amp_test_result_t* report_results(uint64_t start_time,
 static amp_test_result_t* runSchedule(struct addrinfo *serv_addr,
         struct opt_t *options, struct sockopt_t *sockopts, BIO *ctrl) {
     int test_socket = -1;
-    struct packet_t packet;
     uint64_t start_time_ns;
     ProtobufCBinaryData data;
     Amplet2__Throughput__Item *remote_results = NULL;
     amp_test_result_t *result;
+    int sent_result;
 
     /* Loop through the schedule */
     struct test_request_t *cur;
-
-    memset(&packet, 0, sizeof(packet));
 
     /* TODO can we do this with less duplication? or do it earlier? */
     sockopts->sock_mss = options->sock_mss;
@@ -328,11 +315,12 @@ static amp_test_result_t* runSchedule(struct addrinfo *serv_addr,
     if ( send_control_hello(AMP_TEST_THROUGHPUT, ctrl,
                 build_hello(options)) < 0 ) {
         Log(LOG_WARNING, "Failed to send HELLO packet, aborting");
-        goto errorCleanup;
+        goto end;
     }
 
-    /* Wait test socket to become ready */
-    if ( read_control_ready(AMP_TEST_THROUGHPUT, ctrl, &options->tport) < 0 ) {
+    /* Wait for test socket to become ready */
+    if ( read_control_ready(AMP_TEST_THROUGHPUT, ctrl,
+                &options->tport) < 0 ) {
         Log(LOG_WARNING, "Failed to read READY packet, aborting");
         return NULL;
     }
@@ -341,48 +329,37 @@ static amp_test_result_t* runSchedule(struct addrinfo *serv_addr,
     test_socket = connect_to_server(serv_addr, options->tport, sockopts);
     if ( test_socket == -1 ) {
         Log(LOG_ERR, "Cannot connect to the server testsocket");
-        goto errorCleanup;
+        goto end;
     }
 
     // TODO can these be extracted into functions or something tidier?
     for ( cur = options->schedule; cur != NULL ; cur = cur->next ) {
+
+        /* TODO rather than renew, just start with a HELLO every time */
+        /* reset the test connection between tests */
+        if ( test_socket < 0 ) {
+            Log(LOG_DEBUG, "Asking the Server to renew the connection");
+            if ( send_control_renew(AMP_TEST_THROUGHPUT, ctrl) < 0 ) {
+                Log(LOG_ERR, "Failed to send reset packet");
+                goto end;
+            }
+            /* Read the actual port to use */
+            if ( read_control_ready(AMP_TEST_THROUGHPUT, ctrl,
+                        &options->tport) < 0 ) {
+                Log(LOG_WARNING, "Failed to read READY packet, aborting");
+                return NULL;
+            }
+            /* Open up a new one */
+            test_socket = connect_to_server(serv_addr, options->tport,
+                    sockopts);
+            if ( test_socket == -1 ) {
+                Log(LOG_ERR, "Failed to open a new connection");
+                goto end;
+            }
+        }
+
         switch ( cur->type ) {
             case TPUT_NULL:
-                continue;
-
-            case TPUT_PAUSE:
-                Log(LOG_DEBUG, "Pausing for %" PRIu32 "milliseconds",
-                        cur->duration);
-                sleep((int)(cur->duration / 1000));
-                usleep((cur->duration % 1000) * 1000);
-                continue;
-
-            case TPUT_NEW_CONNECTION:
-                Log(LOG_DEBUG, "Asking the Server to renew the connection");
-                if ( send_control_renew(AMP_TEST_THROUGHPUT, ctrl) < 0 ) {
-                    Log(LOG_ERR, "Failed to send reset packet");
-                    goto errorCleanup;
-                }
-                /* Wait for server to start listening */
-                if ( readPacket(test_socket, &packet, NULL) != 0 ) {
-                    Log(LOG_ERR, "TPUT_NEW_CONNECTION expected the TCP "
-                            "connection to be closed in this direction");
-                    goto errorCleanup;
-                }
-                close(test_socket);
-                /* Read the actual port to use */
-                if ( read_control_ready(AMP_TEST_THROUGHPUT, ctrl,
-                            &options->tport) < 0 ) {
-                    Log(LOG_WARNING, "Failed to read READY packet, aborting");
-                    return NULL;
-                }
-                /* Open up a new one */
-                test_socket = connect_to_server(serv_addr, options->tport,
-                        sockopts);
-                if ( test_socket == -1 ) {
-                    Log(LOG_ERR, "Failed to open a new connection");
-                    goto errorCleanup;
-                }
                 continue;
 
             case TPUT_2_CLIENT:
@@ -390,7 +367,7 @@ static amp_test_result_t* runSchedule(struct addrinfo *serv_addr,
                 /* Request a test from the server */
                 if ( send_control_send(AMP_TEST_THROUGHPUT, ctrl,
                             build_send(cur)) < 0 ) {
-                    goto errorCleanup;
+                    goto end;
                 }
 
                 /* Get ready for results */
@@ -403,8 +380,10 @@ static amp_test_result_t* runSchedule(struct addrinfo *serv_addr,
                 if ( incomingTest(test_socket, cur->c_result) != 0 ) {
                     Log(LOG_ERR, "Something went wrong when receiving an "
                             "incoming test from the server");
-                    goto errorCleanup;
+                    goto end;
                 }
+                close(test_socket);
+                test_socket = -1;
 
                 /* No errors so we should have a valid result */
                 //XXX web10g
@@ -444,7 +423,11 @@ static amp_test_result_t* runSchedule(struct addrinfo *serv_addr,
                     return NULL;
                 }
 
-                if ( sendPackets(test_socket, cur, cur->c_result) == 0 ) {
+                sent_result = sendStream(test_socket, cur, cur->c_result);
+                close(test_socket);
+                test_socket = -1;
+
+                if ( sent_result == 0 ) {
                     Log(LOG_DEBUG, "Finished sending - now getting results");
 
                     //XXX web10g
@@ -479,9 +462,6 @@ static amp_test_result_t* runSchedule(struct addrinfo *serv_addr,
                             packet.types.result.duration_ns,
                             packet.types.result.bytes);
  */
-                } else {
-                    Log(LOG_ERR, "Failed to sent packets to the server");
-                    goto errorCleanup;
                 }
                 continue;
 
@@ -489,10 +469,10 @@ static amp_test_result_t* runSchedule(struct addrinfo *serv_addr,
                 Log(LOG_WARNING,
                         "runSchedule found an invalid test_request_t->type");
                 continue;
-        }
+        };
     }
 
-
+end:
     /**
      * Now for the fun bit, results. At this point the schedule has
      * the results of the tests attached to it stored in malloc'd mem:
@@ -502,21 +482,10 @@ static amp_test_result_t* runSchedule(struct addrinfo *serv_addr,
      */
     result = report_results(start_time_ns / 1000000000, serv_addr, options);
 
-    Log(LOG_DEBUG, "Closing test");
-
-    close(test_socket);
-
-    return result;
-errorCleanup :
-    /* TODO is this really that different to the good code path? */
-    /* TODO do we really care about reporting a partial result anyway? */
-
-    /* See if we can report something anyway */
-    result = report_results(start_time_ns / 1000000000, serv_addr, options);
-
     if ( test_socket != -1 ) {
         close(test_socket);
     }
+
     return result;
 }
 
@@ -653,10 +622,9 @@ amp_test_result_t* run_throughput_client(int argc, char *argv[], int count,
     }
 
     /* make sure write size is sensible */
-    if ( test_options.write_size < sizeof(struct packet_t) ||
-            test_options.write_size > MAX_MALLOC ) {
-        Log(LOG_ERR, "Write size invalid, should be %d < x < %d, got %d",
-                sizeof(struct packet_t), MAX_MALLOC, test_options.write_size);
+    if ( test_options.write_size < 1 || test_options.write_size > MAX_MALLOC ) {
+        Log(LOG_ERR, "Write size invalid, should be 0 < x < %d, got %d",
+                MAX_MALLOC, test_options.write_size);
         exit(1);
     }
 
@@ -706,10 +674,10 @@ amp_test_result_t* run_throughput_client(int argc, char *argv[], int count,
                 snprintf(sched, sizeof(sched), "t%d", duration);
                 break;
             case CLIENT_THEN_SERVER:
-                snprintf(sched, sizeof(sched), "T%d,n,t%d", duration, duration);
+                snprintf(sched, sizeof(sched), "T%d,t%d", duration, duration);
                 break;
             case SERVER_THEN_CLIENT:
-                snprintf(sched, sizeof(sched), "t%d,n,T%d", duration, duration);
+                snprintf(sched, sizeof(sched), "t%d,T%d", duration, duration);
                 break;
             default:
                 Log(LOG_DEBUG, "Using default direction client -> server");

@@ -160,7 +160,7 @@ static int do_send(BIO *ctrl, int test_sock, struct opt_t *options,
             request->write_size);
 
     /* Send the actual packets */
-    switch ( sendPackets(test_sock, request, &result) ) {
+    switch ( sendStream(test_sock, request, &result) ) {
         case -1:
             /* Failed to write to socket */
             return -1;
@@ -214,14 +214,11 @@ static int do_send(BIO *ctrl, int test_sock, struct opt_t *options,
 static int do_renew(BIO *ctrl, int test_sock, uint16_t port, uint16_t portmax,
         struct sockopt_t *sockopts) {
 
-    struct packet_t packet;
     struct socket_t sockets;
     int t_listen;
     int res;
 
     Log(LOG_DEBUG, "Client asked to renew the connection");
-
-    memset(&packet, 0, sizeof(packet));
 
     /* Ready the listening socket again */
     do {
@@ -239,16 +236,6 @@ static int do_renew(BIO *ctrl, int test_sock, uint16_t port, uint16_t portmax,
         t_listen = sockets.socket6;
     }
 
-    /* Finish this side of the TCP connection */
-    shutdown(test_sock, SHUT_WR);
-
-    /* Now the client has also closed */
-    if ( readPacket(test_sock, &packet, NULL) != 0 ) {
-        Log(LOG_WARNING,
-                "TPUT_NEW_CONNECTION expected the connection to be closed");
-    }
-    close(test_sock);
-
     send_control_ready(AMP_TEST_THROUGHPUT, ctrl, getSocketPort(t_listen));
     do {
         test_sock = accept(t_listen, NULL, NULL);
@@ -262,7 +249,7 @@ static int do_renew(BIO *ctrl, int test_sock, uint16_t port, uint16_t portmax,
     /* Close the listening socket again */
     close(t_listen);
 
-    return 0;
+    return test_sock;
 }
 
 
@@ -364,6 +351,9 @@ static int serveTest(BIO *ctrl, struct sockopt_t *sockopts) {
                     goto errorCleanup;
                 }
 
+                close(test_sock);
+                test_sock = -1;
+
                 break;
             }
 
@@ -378,6 +368,8 @@ static int serveTest(BIO *ctrl, struct sockopt_t *sockopts) {
                     goto errorCleanup;
                 }
 
+                close(test_sock);
+                test_sock = -1;
                 free(request);
 
                 break;
@@ -385,8 +377,8 @@ static int serveTest(BIO *ctrl, struct sockopt_t *sockopts) {
 
             case AMPLET2__CONTROLMSG__CONTROL__TYPE__RENEW: {
 
-                if ( do_renew(ctrl, test_sock, options->tport,
-                            portmax, sockopts) < 0 ) {
+                if ( (test_sock = do_renew(ctrl, test_sock, options->tport,
+                            portmax, sockopts)) < 0 ) {
                     goto errorCleanup;
                 }
 

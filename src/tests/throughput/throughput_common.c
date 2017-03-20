@@ -45,7 +45,6 @@
  * @author Richard Sanger
  * Based upon the old AMP throughput test
  */
-#include <getopt.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -214,47 +213,6 @@ Amplet2__Throughput__Item* report_schedule(struct test_request_t *info) {
 
 
 /**
- * Converts a valid packet format from host to big endian ready for
- * the network
- *
- * @param p
- *          A pointer to the packet to convert
- */
-static void htonPacket(struct packet_t *p) {
-    switch ( p->header.type ) {
-        case TPUT_PKT_DATA:
-            p->types.data.more = htonl(p->types.data.more);
-            break;
-        default:
-            Log(LOG_WARNING, "Bad packet type found cannot decode!!!");
-    }
-    p->header.type = htonl(p->header.type);
-    p->header.size = htonl(p->header.size);
-}
-
-
-
-/**
- * Converts a valid packet from the network to host endianness
- *
- * @param p
- *          A pointer to the packet to convert
- */
-static void ntohPacket(struct packet_t *p) {
-    p->header.type = ntohl(p->header.type);
-    p->header.size = ntohl(p->header.size);
-    switch ( p->header.type ) {
-        case TPUT_PKT_DATA:
-            p->types.data.more = ntohl(p->types.data.more);
-            break;
-        default:
-            Log(LOG_WARNING, "Bad packet type found cannot decode!!!");
-    }
-}
-
-
-
-/**
  * Fills memory with random data, much like memset()
  *
  * @param data
@@ -262,7 +220,7 @@ static void ntohPacket(struct packet_t *p) {
  * @param size
  *          The number of bytes (chars) to fill
  */
-static void randomMemset(char *data, unsigned int size){
+static void randomMemset(void *data, unsigned int size) {
     int fd;
 
     if ( (fd = open("/dev/urandom", O_RDONLY)) < 0 ) {
@@ -278,38 +236,26 @@ static void randomMemset(char *data, unsigned int size){
 
 
 /**
- * Do the actual write and ensure the entire packet is written.
- * This handles conversion of the packet to Big Endian before sending.
- * The packet will be returned unchanged
- *                          (i.e. converted back to host byte order).
+ * Do the actual write and ensure the entire buffer is written.
  *
  * @param sock_fd
  *          The sock to write() to
- * @param packet
- *          The packet to write, returned unchanged. Size must be correct.
+ * @param data
+ *          Pointer to the data buffer to be written.
+ * @param length
+ *          The length of the data buffer.
  *
  * @return 0 if successful, -1 if failure.
  */
-int writePacket(int sock_fd, struct packet_t *packet){
-    int res;
-    int total_written = 0;
-    int total_size = packet->header.size + sizeof(struct packet_t);
-
-/*
-    Log(LOG_DEBUG, "Sending packet of type %d with size %d",
-            packet->header.type, total_size);
-*/
-    /* Convert to big endian */
-    htonPacket(packet);
+int writeBuffer(int sock_fd, void *data, size_t length) {
+    int result;
+    size_t total_written = 0;
 
     do {
-        res = write(sock_fd, (void*)packet+total_written,
-                total_size-total_written);
+        result = write(sock_fd, data + total_written, length - total_written);
 
-        if ( res > 0 ) {
-            total_written += res;
-            /*Log(LOG_DEBUG, "wrote %d, now at %d of %d bytes",
-                res, total_written, total_size);*/
+        if ( result > 0 ) {
+            total_written += result;
         }
 
         /*
@@ -318,15 +264,12 @@ int writePacket(int sock_fd, struct packet_t *packet){
          * give an EINTR, it will just return less than the full number of
          * bytes it was meant to send.
          */
-    } while ( (res > 0 && total_written < total_size) ||
-                    ( res < 0 && errno == EINTR ) );
+    } while ( (result > 0 && total_written < length) ||
+                    ( result < 0 && errno == EINTR ) );
 
-    /* Convert back to host, we don't actually want to change the packet */
-    ntohPacket(packet);
-
-    if ( total_written != total_size ) {
-        Log(LOG_WARNING, "write return %d, total %d (not %d): %s\n", res,
-                total_written, total_size, strerror(errno));
+    if ( total_written != length ) {
+        Log(LOG_WARNING, "write return %d, total %d (not %d): %s\n", result,
+                total_written, length, strerror(errno));
         return -1;
     }
 
@@ -339,104 +282,29 @@ int writePacket(int sock_fd, struct packet_t *packet){
 
 
 
-/**
- * Read() in a packet_t
- * Recevies the header
- * Dumps any additional data, unless given additional in which case
- * a malloc'd memory block will be returned.
- *
- * @param test_socket
- *          The socket to read from
- * @param packet
- *          To put result into
- * @param addtional
- *          Will place a malloc'd block of memory here with any extra
- *          data (beyond the header).
- *          If packet.header.size is 0 this is set to NULL.
- * @return the number of bytes read, 0 is used to indicate a failure.
- *         A failure includes a socket error, early packet termination
- *         and EOF reached before reading any packet.
+/*
+ * Read and discard some test data.
  */
-int readPacket(int test_socket, struct packet_t *packet, char **additional) {
+int readBuffer(int test_socket) {
     int result;
-    uint32_t bytes_read;
     char buf[DEFAULT_WRITE_SIZE];
 
-    bytes_read = 0;
-
-    /* Read in the packet_t first, so we can get the packet size */
     do {
-        /*
-        Log(LOG_DEBUG, "DOING READ %" PRIu32 " %d", bytes_read,
-                sizeof(struct packet_t));
-        */
-        result = read(test_socket, ((uint8_t *) packet) + bytes_read,
-                sizeof(struct packet_t) - bytes_read);
+        result = read(test_socket, buf, sizeof(buf));
+    } while ( result < 0 && errno == EINTR );
 
-        if ( result == -1 && errno == EINTR ) {
-            continue;
-        }
-        if ( result == -1 ) {
-            Log(LOG_WARNING, "read() on socket failed : %s" , strerror(errno));
-            return 0;
-        }
-        if ( result == 0 ) {
-            /* EOF */
-            return 0;
-        }
-        /* increase the read_count */
-        bytes_read += result;
-    } while ( bytes_read < sizeof(struct packet_t));
-
-    /* Fix endianness */
-    ntohPacket(packet);
-
-    /* packet->header.size excludes it's own size */
-    bytes_read = 0;
-
-    if ( additional ) {
-        if ( packet->header.size > 0 && packet->header.size < MAX_MALLOC ) {
-            *additional = malloc(packet->header.size);
-        } else {
-            *additional = NULL;
-        }
+    if ( result < 0 ) {
+        Log(LOG_WARNING, "Error receiving TCP throughput data: %s\n",
+                strerror(errno));
     }
 
-    /* Dump out the rest of the packet */
-    while ( bytes_read < packet->header.size ) {
-        if ( additional == NULL || *additional == NULL ) {
-            /* Throw away */
-            result = read(test_socket, buf,
-                     MIN(packet->header.size-bytes_read, sizeof(buf)));
-        } else {
-            /* Store in our buffer */
-            result = read(test_socket, *additional + bytes_read,
-                                        packet->header.size-bytes_read);
-        }
-
-        if ( result == -1 && errno == EINTR ) {
-            continue;
-        }
-        if ( result == -1 ) {
-            Log(LOG_WARNING, "read() on socket failed : %s" , strerror(errno));
-            return 0;
-        }
-        if ( result == 0 ) {
-            Log(LOG_WARNING,
-                    "EOF found before the end of the packet additional data");
-            return 0;
-        }
-        bytes_read += result;
-    }
-
-    /* return will be above 0 if successful - 0 indicates failure */
-    return bytes_read + sizeof(struct packet_t);
+    return result;
 }
 
 
 
 /**
- * Send Packets over the given socket i.e. do an outgoing tput test.
+ * Send data over the given socket i.e. do an outgoing tput test.
  * Based upon test options, if test options are invalid no packets
  * are sent (such as no terminating condition, 0 packet size etc).
  *
@@ -450,18 +318,22 @@ int readPacket(int test_socket, struct packet_t *packet, char **additional) {
  *
  * @return 0 success, 1 if bad test supplied, -1 if socket error
  */
-int sendPackets(int sock_fd, struct test_request_t *test_opts,
-                struct test_result_t *res) {
+int sendStream(int sock_fd, struct test_request_t *test_opts,
+        struct test_result_t *res) {
 
-    int more; /* Still got more to send ? */
+    int more;
     uint64_t run_time_ms;
-    struct packet_t *packet_out; /* the packet header and data */
+    void *packet_out;
     int32_t bytes_sent = 0;
+    uint32_t bytes_to_send;
+    struct timeval timeout;
+    int result;
+    fd_set write_set;
 
     /* Make sure the test is valid */
     if ( test_opts->bytes == 0 && test_opts->duration == 0 ) {
         Log(LOG_ERR, "no terminating condition for test");
-        return 1;
+        return -1;
     }
 
     /* Log the stopping condition */
@@ -473,56 +345,81 @@ int sendPackets(int sock_fd, struct test_request_t *test_opts,
     }
 
     /* Build our packet */
-    packet_out = (struct packet_t *) malloc(test_opts->write_size);
+    packet_out = calloc(1, test_opts->write_size);
     if ( packet_out == NULL ) {
-        Log(LOG_ERR, "sendPackets() malloc failed : %s\n", strerror(errno));
-        return 1;
+        Log(LOG_ERR, "sendStream() malloc failed : %s\n", strerror(errno));
+        return -1;
     }
-    memset(packet_out, 0, sizeof(struct packet_t));
-    packet_out->header.type = TPUT_PKT_DATA;
-    packet_out->header.size = test_opts->write_size - sizeof(struct packet_t);
-    packet_out->types.data.more = 1;
 
     /* Note starting time */
     run_time_ms = 0;
     res->start_ns = timeNanoseconds();
     more = 1;
 
-    while ( more ) {
+    do {
         res->end_ns = timeNanoseconds();
         run_time_ms = (res->end_ns - res->start_ns) / 1e6;
-        /* Log(LOG_DEBUG, "runtime = %ld/%ld", run_time_ms,
-                        test_opts->duration); */
 
-        /* Randomise the first packet, possibly every packet if option set */
-        if ( test_opts->randomise || res->bytes == 0 ) {
-            randomMemset((char *)(packet_out+1), packet_out->header.size);
+        /* timeout should be remaining duration of the test (if set) */
+        if ( test_opts->duration > 0 ) {
+            if ( run_time_ms >= test_opts->duration ) {
+                break;
+            }
+            /* run time is being measured in ms, so measure timeout the same */
+            timeout.tv_sec = (test_opts->duration - run_time_ms) / 1000;
+            timeout.tv_usec = (test_opts->duration - run_time_ms) % 1000 * 1000;
+        } else {
+            timeout.tv_sec = 10;
+            timeout.tv_usec = 0;
         }
 
-        /* Check if we have meet our exit condition */
-        if ( (test_opts->bytes != 0 &&
-                    test_opts->bytes - res->bytes < test_opts->write_size) ) {
-            /* send the smaller remaining portion and mark end of data */
-            packet_out->header.size = test_opts->bytes - res->bytes -
-                sizeof(struct packet_t);
+        /* amount of data to send should be remaining data (if set) */
+        if ( test_opts->bytes > 0 &&
+                test_opts->bytes - res->bytes < test_opts->write_size) {
+            bytes_to_send = test_opts->bytes - res->bytes;
             more = 0;
-
-        } else if ( test_opts->duration != 0 &&
-                run_time_ms >= test_opts->duration) {
-            /* mark end of data, we have reached our time limit */
-            more = 0;
+        } else {
+            bytes_to_send = test_opts->write_size;
         }
 
-        packet_out->types.data.more = more;
+        FD_ZERO(&write_set);
+        FD_SET(sock_fd, &write_set);
 
-        if ( (bytes_sent = writePacket(sock_fd, packet_out)) < 0 ) {
-            Log(LOG_ERR, "sendPackets() could not send data packet\n");
-            free(packet_out);
-            return -1;
+        result = select(sock_fd + 1, NULL, &write_set, NULL, &timeout);
+
+        /* timeout has fired, stop the test */
+        if ( result == 0 ) {
+            break;
         }
 
-        res->bytes += bytes_sent;
-    }
+        /* error, check if we can carry on or need to stop the test */
+        if ( result < 0 ) {
+            if ( errno == EINTR ) {
+                continue;
+            } else {
+                Log(LOG_WARNING, "Error sending TCP throughput data: %s\n",
+                        strerror(errno));
+                break;
+            }
+        }
+
+        /* we can write to the test socket, do so */
+        if ( FD_ISSET(sock_fd, &write_set) ) {
+            /* randomise the first packet, or every packet if option set */
+            if ( test_opts->randomise || res->bytes == 0 ) {
+                randomMemset(packet_out, bytes_to_send);
+            }
+
+            /* send the data */
+            if ( (bytes_sent = writeBuffer(sock_fd, packet_out,
+                            bytes_to_send)) < 0 ) {
+                Log(LOG_ERR, "sendStream() could not send data packet\n");
+                break;
+            }
+
+            res->bytes += bytes_sent;
+        }
+    } while ( more );
 
     res->end_ns = timeNanoseconds();
     free(packet_out);
@@ -544,38 +441,25 @@ int sendPackets(int sock_fd, struct test_request_t *test_opts,
  * @return 0 upon success otherwise -1
  */
 int incomingTest(int sock_fd, struct test_result_t *result) {
-    struct packet_t packet;
     int bytes_read;
 
-    memset(&packet, 0, sizeof(packet));
     memset(result, 0, sizeof(struct test_result_t));
 
-    while ( (bytes_read = readPacket(sock_fd, &packet, NULL)) != 0 ) {
-        switch ( packet.header.type ) {
-            case TPUT_PKT_DATA:
-                if ( readDataPacket(&packet, bytes_read, result) != 0 ) {
-                    /* Error */
-                    return -1;
-                }
-                if ( result->done ) {
-                    /* Log() our result */
-                    Log(LOG_DEBUG, "incomingTest() Got result from myself "
-                                    "%"PRIu32" %"PRIu32" %"PRIu64" %"PRIu64,
-                                    result->packets,
-                                    result->write_size,
-                                    result->end_ns - result->start_ns,
-                                    result->bytes);
-                    return 0;
-                }
-                break;
-            default:
-                Log(LOG_WARNING,
-                        "incomingTest() found an unexpected packet type %d",
-                        packet.header.type);
+    while ( (bytes_read = readBuffer(sock_fd)) > 0 ) {
+        /* The first data packet is the indicator the test has started */
+        if ( result->bytes == 0 ) {
+            Log(LOG_DEBUG, "Received first packet from incoming test");
+            result->start_ns = timeNanoseconds();
         }
+        result->bytes += bytes_read;
     }
-    /* Failed to read packet */
-    return -1;
+
+    /* No more packets to be received means we should send our results */
+    if ( result->bytes > 0 ) {
+        result->end_ns = timeNanoseconds();
+    }
+
+    return 0;
 }
 
 
@@ -590,50 +474,4 @@ uint64_t timeNanoseconds(void){
     gettimeofday(&t, NULL);
     return (uint64_t) t.tv_sec * (uint64_t) 1000000000 +
         (uint64_t) t.tv_usec * (uint64_t) 1000;
-}
-
-
-
-/**
- * Opposite of sendPackets(), used to interpret incoming DATA packets.
- *
- * @param packet
- *          A packet previously received
- * @param write_size
- *          The size of the packet returned by readPacket()
- * @param res
- *          A test result structure to store this result into, keeps the
- *          track of the test state. Reuse the same res structure.
- *
- * @return 0 upon success, -1 if an error occurs like an unexpected packet type.
- */
-int readDataPacket(const struct packet_t *packet, const int write_size,
-                                    struct test_result_t *res) {
-    if ( packet->header.type != TPUT_PKT_DATA ) {
-        return -1;
-    }
-
-    if ( res->done ) {
-        /* Should always wipe the result for the next test */
-        Log(LOG_ERR, "readDataPacket() is using a finished test result.");
-        return -1;
-    }
-
-    /* The first data packet is the indicator the test has started */
-    if ( res->packets == 0 ) {
-        Log(LOG_DEBUG, "Received first packet from incoming test");
-        res->start_ns = timeNanoseconds();
-        res->write_size = write_size;
-    }
-
-    res->packets++;
-    res->bytes += write_size;
-
-    if ( !packet->types.data.more ) {
-        /* No more packets to be received means we should send our results */
-        res->done = 1;
-        res->end_ns = timeNanoseconds();
-    }
-
-    return 0;
 }
