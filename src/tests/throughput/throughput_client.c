@@ -128,6 +128,7 @@ static void parseSchedule(struct opt_t *options, char *request) {
         (*current)->duration = 0;
         (*current)->write_size = options->write_size;
         (*current)->randomise = options->randomise;
+        (*current)->protocol = options->protocol;
         (*current)->s_result = (*current)->c_result = NULL;
         (*current)->s_web10g = (*current)->c_web10g = NULL;
         (*current)->next = NULL;
@@ -243,6 +244,8 @@ static amp_test_result_t* report_results(uint64_t start_time,
     header.has_address = copy_address_to_protobuf(&header.address, dest);
     header.has_dscp = 1;
     header.dscp = options->dscp;
+    header.has_protocol = 1;
+    header.protocol = options->protocol;
 
     /* build up the repeated reports section with each of the results */
     for ( i = 0, item = options->schedule; item != NULL; item = item->next ) {
@@ -513,6 +516,7 @@ amp_test_result_t* run_throughput_client(int argc, char *argv[], int count,
     test_options.dscp = DEFAULT_DSCP_VALUE;
     test_options.write_size = DEFAULT_WRITE_SIZE;
     test_options.randomise = 0;
+    test_options.protocol = TPUT_PROTOCOL_NONE;
     test_options.sock_rcvbuf = 0;
     test_options.sock_sndbuf = 0;
     test_options.sock_disable_nagle = 0;
@@ -529,7 +533,7 @@ amp_test_result_t* run_throughput_client(int argc, char *argv[], int count,
     client = NULL;
 
     while ( (opt = getopt_long(argc, argv,
-                    "c:d:i:M:No:p:P:rS:t:z:I:Q:Z:4:6:hx",
+                    "c:d:i:M:No:p:P:rS:t:u:z:I:Q:Z:4:6:hx",
                     long_options, NULL)) != -1 ) {
 
         switch ( opt ) {
@@ -556,6 +560,10 @@ amp_test_result_t* run_throughput_client(int argc, char *argv[], int count,
             /* TODO if this isn't last, some options use default values! */
             case 'S': parseSchedule(&test_options, optarg); break;
             case 't': duration = atoi(optarg); break;
+            case 'u': if ( strcasecmp(optarg, "http") == 0 ) {
+                          test_options.protocol = TPUT_PROTOCOL_HTTP_POST;
+                      }
+                      break;
 #if 0
             case 'w': test_options.disable_web10g = 1; break;
 #endif
@@ -833,8 +841,16 @@ void print_throughput(amp_test_result_t *result) {
     printf("AMP throughput test to %s (%s)\n", msg->header->name, addrstr);
     printf("writesize:%" PRIu32 " schedule:%s ", msg->header->write_size,
             msg->header->schedule);
-    printf(" DSCP:%s(0x%0x)\n", dscp_to_str(msg->header->dscp),
+    printf(" DSCP:%s(0x%0x)", dscp_to_str(msg->header->dscp),
             msg->header->dscp);
+
+    switch ( msg->header->protocol ) {
+        case TPUT_PROTOCOL_NONE: break;
+        case TPUT_PROTOCOL_HTTP_POST: printf(" as HTTP POST"); break;
+        default: break;
+    };
+
+    printf("\n");
 
     for ( i=0; i < msg->n_reports; i++ ) {
         item = msg->reports[i];

@@ -10,6 +10,11 @@
  */
 package amplet2.throughput;
 
+enum Protocol {
+    NONE = 0;
+    HTTP_POST = 1;
+}
+
 
 /**
  * An instance of the test will generate one Report message.
@@ -40,6 +45,8 @@ message Header {
     optional string name = 5;
     /** Differentiated Services Code Point (DSCP) used */
     optional uint32 dscp = 6 [default = 0];
+    /** Protocol that the throughput test appeared as */
+    optional Protocol protocol = 7 [default = NONE];
 }
 
 
@@ -87,6 +94,7 @@ message Hello {
     optional bool reuse_addr = 8;
     optional uint32 write_size = 9;
     optional uint32 dscp = 10;
+    optional Protocol protocol = 11;
 }
 
 

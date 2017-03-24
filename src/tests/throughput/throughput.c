@@ -58,6 +58,7 @@ struct option long_options[] =
         {"server", no_argument, 0, 's'},
         {"sequence", required_argument, 0, 'S'},
         {"time", required_argument, 0, 't'},
+        {"protocol", required_argument, 0, 'u'},
 #if 0
         {"disable-web10g", no_argument, 0, 'w'},
 #endif
@@ -110,6 +111,8 @@ void usage(void) {
             "Test schedule (see below)\n");
     fprintf(stderr, "  -t, --time           <sec>     "
             "Time in seconds to transmit (default 10s)\n");
+    fprintf(stderr, "  -u, --protocol       <proto>   "
+            "Protocol to imitate (default:none, options: none, http)\n");
     fprintf(stderr, "  -z, --write-size     <bytes>   "
             "Length of buffer to write (default %d)\n",
             (int)DEFAULT_WRITE_SIZE );
@@ -158,7 +161,7 @@ amp_test_result_t* run_throughput(int argc, char *argv[], int count,
 
     /* this option string needs to be kept up to date with server and client */
     while ( (opt = getopt_long(argc, argv,
-                    "c:d:i:Nm:o:p:P:rsS:t:z:I:Q:Z:4:6:hvx",
+                    "c:d:i:Nm:o:p:P:rsS:t:u:z:I:Q:Z:4:6:hvx",
                     long_options, NULL)) != -1 ) {
         switch ( opt ) {
             case 's': server_flag_index = optind - 1; break;

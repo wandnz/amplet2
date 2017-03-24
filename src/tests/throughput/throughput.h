@@ -95,6 +95,12 @@ enum tput_type {
     TPUT_NEW_CONNECTION,
 };
 
+enum tput_protocol {
+    TPUT_PROTOCOL_NONE = 0,
+    TPUT_PROTOCOL_HTTP_POST = 1,
+};
+
+
 amp_test_result_t* run_throughput(int argc, char *argv[], int count,
         struct addrinfo **dests);
 test_t *register_test(void);
@@ -250,6 +256,7 @@ struct test_result_t {
 /* A single request */
 struct test_request_t {
     enum tput_type type;
+    enum tput_protocol protocol;
     uint64_t bytes;
     uint32_t duration;
     uint32_t write_size;
@@ -271,6 +278,7 @@ struct test_request_t {
  * Global test options that control packet size and timing.
  */
 struct opt_t {
+    enum tput_protocol protocol;
     uint16_t cport; /* The control port to connect to */
     uint16_t tport; /* The test port to connect to or create */
     uint32_t write_size; /* The TCP write size to use */

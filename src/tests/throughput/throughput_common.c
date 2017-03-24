@@ -83,6 +83,8 @@ ProtobufCBinaryData* build_hello(struct opt_t *options) {
     hello.write_size = options->write_size;
     hello.has_dscp = 1;
     hello.dscp = options->dscp;
+    hello.has_protocol = 1;
+    hello.protocol = options->protocol;
 
     data->len = amplet2__throughput__hello__get_packed_size(&hello);
     data->data = malloc(data->len);
@@ -114,6 +116,7 @@ void* parse_hello(ProtobufCBinaryData *data) {
     options->reuse_addr = hello->reuse_addr;
     options->write_size = hello->write_size;
     options->dscp = hello->dscp;
+    options->protocol = hello->protocol;
 
     amplet2__throughput__hello__free_unpacked(hello, NULL);
 
@@ -231,6 +234,85 @@ static void randomMemset(void *data, unsigned int size) {
 
     read(fd, data, size);
     close(fd);
+}
+
+
+
+/*
+ * Add an HTTP chunk header to the buffer. If we are transmitting data for a
+ * set time then we don't know how much data will get sent, so make one chunk
+ * per write.
+ *
+ * The chunk starts with a string of hex digits describing the size of the
+ * chunk, followed by CRLF, the data itself, and a terminating CRLF.
+ *
+ * See https://tools.ietf.org/html/rfc7230#section-4.1
+ */
+static void addHttpChunkHeader(void *data, unsigned int size, int randomise) {
+    /* fill the buffer with random data if required */
+    if ( randomise ) {
+        randomMemset(data, size);
+    }
+
+    /*
+     * Figure out how long the size string will be, and subtract its length,
+     * the following CRLF and the trailing CLRF from the total length.
+     */
+    if ( size < 0x5 ) {
+        /*
+         * Don't do anything, there isn't enough room here. It can just be
+         * random data and hopefully no HTTP proxies will mind too much.
+         */
+        return;
+    } else if ( size < 0x10 + 3 + 2 ) {
+        sprintf(data, "%x\r\n", size - 3 - 2);
+    } else if ( size < 0x100 + 4 + 2 ) {
+        sprintf(data, "%x\r\n", size - 4 - 2);
+    } else if ( size < 0x10000 + 5 + 2 ) {
+        sprintf(data, "%x\r\n", size - 5 - 2);
+    } else if ( size < 0x100000 + 6 + 2 ) {
+        sprintf(data, "%x\r\n", size - 6 - 2);
+    } else if ( size < 0x1000000 + 7 + 2 ) {
+        sprintf(data, "%x\r\n", size - 7 - 2);
+    } else if ( size < 0x10000000 + 8 + 2 ) {
+        sprintf(data, "%x\r\n", size - 8 - 2);
+    } else {
+        sprintf(data, "%x\r\n", size - 9 - 2);
+    }
+
+    /* terminate the chunk with CRLF */
+    ((char*)data)[size - 2] = '\r';
+    ((char*)data)[size - 1] = '\n';
+}
+
+
+
+/*
+ * Add some typical HTTP headers to the buffer to make it look like an upload.
+ */
+static void addHttpHeaders(void *data, unsigned int size) {
+    char *headers =
+        "POST / HTTP/1.1\r\n"
+        "Host: 127.0.0.1\r\n"
+        "User-Agent: AMP throughput test agent\r\n"
+        "Accept: */*\r\n"
+        "Transfer-Encoding: chunked\r\n"
+        "Content-Type: application/x-www-form-urlencoded\r\n"
+        "\r\n";
+
+    if ( size < strlen(headers) ) {
+        Log(LOG_WARNING,
+                "Write size %d too small to fit headers in single write (%d)",
+                size, strlen(headers));
+        return;
+    }
+
+    sprintf(data, headers);
+
+    /* make a chunk out of the remaining space in the buffer */
+    if ( size - strlen(headers) > 0 ) {
+        addHttpChunkHeader(data + strlen(headers), size - strlen(headers), 1);
+    }
 }
 
 
@@ -405,8 +487,16 @@ int sendStream(int sock_fd, struct test_request_t *test_opts,
 
         /* we can write to the test socket, do so */
         if ( FD_ISSET(sock_fd, &write_set) ) {
-            /* randomise the first packet, or every packet if option set */
-            if ( test_opts->randomise || res->bytes == 0 ) {
+            if ( test_opts->protocol == TPUT_PROTOCOL_HTTP_POST ) {
+                if ( res->bytes == 0 ) {
+                    /* start with an HTTP header to get proxies interested */
+                    addHttpHeaders(packet_out, bytes_to_send);
+                } else {
+                    addHttpChunkHeader(packet_out, bytes_to_send,
+                            test_opts->randomise);
+                }
+            } else if ( test_opts->randomise || res->bytes == 0 ) {
+                /* randomise the first packet, or every packet if option set */
                 randomMemset(packet_out, bytes_to_send);
             }
 
