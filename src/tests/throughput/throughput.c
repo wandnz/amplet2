@@ -141,9 +141,8 @@ void usage(void) {
     fprintf(stderr, "  S<num_bytes> run a client -> server test, sending a fixed number of bytes\n");
     fprintf(stderr, "  t<ms>        run a server -> client test, for the time given in milliseconds\n");
     fprintf(stderr, "  T<ms>        run a client -> server test, for the time given in milliseconds\n");
-    fprintf(stderr, " e.g. -S \"t1000,T1000\"      Run two tests each for 1 second first S2C then C2S\n");
-    fprintf(stderr, " e.g. -S \"s10000,n,S10000\"  Run two tests S2C then C2S each sending 10,000");
-    fprintf(stderr, "                                  bytes with the connection reset in between\n");
+    fprintf(stderr, " e.g. -S \"t1000,T1000\"    Run two tests each for 1 second first S2C then C2S\n");
+    fprintf(stderr, " e.g. -S \"s10000,S10000\"  Run two tests S2C then C2S each sending 10,000 bytes\n");
 }
 
 
