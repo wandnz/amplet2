@@ -307,7 +307,7 @@ static void addHttpHeaders(void *data, unsigned int size) {
         return;
     }
 
-    sprintf(data, headers);
+    sprintf(data, "%s", headers);
 
     /* make a chunk out of the remaining space in the buffer */
     if ( size - strlen(headers) > 0 ) {
