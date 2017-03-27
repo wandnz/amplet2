@@ -69,6 +69,14 @@ def direction_to_string(direction):
         return "in"
     return "unknown"
 
+def protocol_to_string(protocol):
+    """
+    Convert protocol enum into a human readable string
+    """
+    if protocol == ampsave.tests.throughput_pb2.HTTP_POST:
+        return "http"
+    return "default"
+
 def get_data(data):
     """
     Extract the throughput test results from the protocol buffer data.
@@ -99,6 +107,7 @@ def get_data(data):
         "schedule": msg.header.schedule,
         "write_size": msg.header.write_size,
         "dscp": getPrintableDscp(msg.header.dscp),
+        "protocol": protocol_to_string(msg.header.protocol),
         "results": results,
     }
 
