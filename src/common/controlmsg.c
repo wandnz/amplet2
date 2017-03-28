@@ -793,7 +793,7 @@ int read_control_result(test_type_t test, BIO *ctrl,
     Log(LOG_DEBUG, "Waiting for RESULT packet");
 
     if ( (len = read_control_packet(ctrl, &data)) < 0 ) {
-        Log(LOG_ERR, "Failed to read READY packet");
+        Log(LOG_ERR, "Failed to read RESULT packet");
         return -1;
     }
 
