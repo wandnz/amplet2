@@ -47,15 +47,16 @@ def schedule_to_test_params(schedule):
     params = []
 
     parts = schedule.split(",")
-    tcpreused = False
     for part in parts:
+        # for now, ignore 'n' in the schedule in case old versions are reporting
         if part == "n":
-            tcpreused = False
             continue
-
         duration = part[1:]
-        params.append({"duration":duration, "tcpreused":tcpreused})
-        tcpreused = True
+        # tcpreused is now always false, but needs to still be present for
+        # backwards compatibility with old streams. There are no known
+        # instances where anyone has reused the TCP connection so this
+        # shouldn't affect anything.
+        params.append({"duration":duration, "tcpreused":False})
 
     return params
 
