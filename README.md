@@ -11,6 +11,11 @@ Prebuilt .deb packages are available at http://amp.wand.net.nz/debian/. The
 [amplet2 wiki](https://github.com/wanduow/amplet2/wiki) contains instructions
 on [installing the amplet2 client](https://github.com/wanduow/amplet2/wiki/Installing-the-Amplet2-Client) using these packages.
 
+The other components of the AMP system are:
+- [ampweb](https://github.com/wanduow/amp-web) - Front-end web interface.
+- [ampy](https://github.com/wanduow/ampy) - Interface between the display front- and the data storage back-end.
+- [nntsc](https://github.com/wanduow/nntsc) - Data storage back-end.
+
 
 ## Tests
 
