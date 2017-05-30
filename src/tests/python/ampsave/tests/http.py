@@ -62,6 +62,7 @@ def get_data(data):
         "pipelining_maxrequests": msg.header.pipelining_maxrequests,
         "caching": msg.header.caching,
         "dscp": getPrintableDscp(msg.header.dscp),
+        "failed_object_count": 0,
         "servers": []
     }
 
@@ -79,6 +80,8 @@ def get_data(data):
 
         # extract each object from this server
         for obj in s.objects:
+            if obj.code == 0:
+                results["failed_object_count"] += 1
             # XXX can we report properly to prevent this?
             # If there is only one server, with one object and that object
             # has a code of zero, then we failed to fetch anything at all.
