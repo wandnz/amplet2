@@ -317,16 +317,6 @@ void run_udpstream_server(int argc, char *argv[], BIO *ctrl) {
 
     Log(LOG_DEBUG, "udpstream server port=%d, maxport=%d", port, portmax);
 
-    /*
-     * We currently need the addrinfo structs to exist so we can set the port
-     * number for the server to listen on, so create them if they don't exist.
-     */
-    if ( sockopts.sourcev4 == NULL ) {
-        sockopts.sourcev4 = get_numeric_address("0.0.0.0", NULL);
-    }
-    if ( sockopts.sourcev6 == NULL ) {
-        sockopts.sourcev6 = get_numeric_address("::", NULL);
-    }
     /* use TCP for the control connection, even though it's a udp test */
     sockopts.socktype = SOCK_STREAM;
     sockopts.protocol = IPPROTO_TCP;
@@ -335,6 +325,18 @@ void run_udpstream_server(int argc, char *argv[], BIO *ctrl) {
     if ( !ctrl ) {
         /* The server was started standalone, wait for a control connection */
         standalone = 1;
+
+        /* if no address was set then listen on all addresses */
+        if ( sockopts.sourcev4 == NULL && sockopts.sourcev6 == NULL ) {
+            sockopts.sourcev4 = get_numeric_address("0.0.0.0", NULL);
+            sockopts.sourcev6 = get_numeric_address("::", NULL);
+        }
+
+        /*
+         * listen_control_server() will close the ports afterwards and unset
+         * the address family that wasn't used for the control connection,
+         * so only the active family gets used for the test traffic.
+         */
         Log(LOG_DEBUG, "udpstream server trying to listen on port %d", port);
         if ( (ctrl=listen_control_server(port, portmax, &sockopts)) == NULL ) {
             Log(LOG_WARNING, "Failed to establish control connection");
