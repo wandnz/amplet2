@@ -44,6 +44,7 @@
 #include <sys/stat.h>
 #include <errno.h>
 #include <curl/curl.h>
+#include <string.h>
 
 #include "config.h"
 #include "debug.h"

@@ -42,6 +42,7 @@
 #include <limits.h>
 #include <unistd.h>
 #include <errno.h>
+#include <string.h>
 
 #include "config.h"
 #include "debug.h"

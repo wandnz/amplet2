@@ -42,6 +42,7 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <time.h>
+#include <sys/time.h>
 #include <string.h>
 #include <sys/types.h>
 #include <ifaddrs.h>

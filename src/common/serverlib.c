@@ -43,6 +43,7 @@
 #include <sys/socket.h>
 #include <errno.h>
 #include <assert.h>
+#include <string.h>
 
 #include "debug.h"
 #include "ssl.h"

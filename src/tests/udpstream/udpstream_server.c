@@ -42,6 +42,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <netdb.h>
+#include <string.h>
 
 #include "ssl.h"
 #include "tests.h"

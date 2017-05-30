@@ -44,6 +44,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <stdio.h>
+#include <strings.h>
 
 #include "debug.h"
 #include "ssl.h"
