@@ -67,13 +67,13 @@ fi
 
 AC_CHECK_HEADER(amqp.h, ampq_h_found=1, amqp_h_found=0)
 if test "$amqp_h_found" = 0; then
-    AC_MSG_ERROR(Required headers for librabbitmq-dev not found; use CFLAGS to specify header location)
+    AC_MSG_ERROR(Required headers for librabbitmq not found; use CFLAGS to specify header location)
 fi
 
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM(
     [[#include <amqp.h>]],
     [[amqp_sasl_method_enum a = AMQP_SASL_METHOD_EXTERNAL;]])],
-[], [AC_MSG_ERROR(Library librabbitmq-dev missing AMQP_SASL_METHOD_EXTERNAL, ensure version >= 0.7.1)])
+[], [AC_MSG_ERROR(Library librabbitmq missing AMQP_SASL_METHOD_EXTERNAL, ensure version >= 0.7.1)])
 
 AC_CHECK_LIB([pthread], [pthread_create],pthread_found=1,pthread_found=0)
 if test "$pthread_found" = 0; then
@@ -97,7 +97,7 @@ if test "$libcurl_found" = 0; then
 fi
 AC_CHECK_HEADER(curl/curl.h, curl_h_found=1, curl_h_found=0)
 if test "$curl_h_found" = 0; then
-    AC_MSG_ERROR(Required headers for libcurl not found; use CLFAGS to specify header location)
+    AC_MSG_ERROR(Required headers for libcurl not found; use CFLAGS to specify header location)
 fi
 
 # make sure google protocol buffer C libraries exist
@@ -107,7 +107,7 @@ if test "$libprotobufc_found" = 0; then
 fi
 AC_CHECK_HEADER(google/protobuf-c/protobuf-c.h, protobuf_h_found=1, protobuf_h_found=0)
 if test "$protobuf_h_found" = 0; then
-    AC_MSG_ERROR(Required headers for protobuf-c not found; use CLFAGS to specify header location)
+    AC_MSG_ERROR(Required headers for protobuf-c not found; use CFLAGS to specify header location)
 fi
 
 # check if we have the web10g library, it's ok for it to be missing
