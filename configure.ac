@@ -45,7 +45,9 @@ if test "$crypto_found" = 0; then
     AC_MSG_ERROR(Required library libcrypto not found; use LDFLAGS to specify library location)
 fi
 
-AC_CHECK_LIB([ssl], [SSL_library_init],ssl_found=1,ssl_found=0)
+ssl_found=0
+AC_CHECK_LIB([ssl], [OPENSSL_init_ssl], [ssl_found=1])
+AC_CHECK_LIB([ssl], [SSL_library_init], [ssl_found=1])
 if test "$ssl_found" = 0; then
     AC_MSG_ERROR(Required library libssl not found; use LDFLAGS to specify library location)
 fi
