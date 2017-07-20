@@ -1,11 +1,12 @@
---- a/amplet2-client.init	1970-01-01 00:00:00.000000000 +0000
-+++ b/amplet2-client.init	2016-05-31 05:35:58.000000000 +0000
-@@ -0,0 +1,305 @@
+--- a/amplet2-client.init      1970-01-01 00:00:00.000000000 +0000
++++ b/amplet2-client.init      2017-07-19 11:06:50.000000000 +0000
+@@ -0,0 +1,319 @@
 +#!/bin/sh
 +### BEGIN INIT INFO
 +# Provides:          amplet2
-+# Required-Start:    $remote_fs $network $local_fs
-+# Required-Stop:     $remote_fs $network $local_fs
++# Required-Start:    $remote_fs $network $local_fs $named $syslog
++# Required-Stop:     $remote_fs $network $local_fs $named $syslog
++# Should-Start:      rabbitmq-server
 +# Default-Start:     2 3 4 5
 +# Default-Stop:      0 1 6
 +# Short-Description: AMP measurement daemon
@@ -14,17 +15,23 @@
 +
 +# Author: Brendon Jones <brendonj@waikato.ac.nz>
 +
-+# PATH should only include /usr/* if it runs after the mountnfs.sh script
-+PATH=/sbin:/usr/sbin:/bin:/usr/bin
-+DESC=amplet2		         # Introduce a short description here
++# For return codes see:
++# http://refspecs.linuxbase.org/LSB_3.1.0/LSB-Core-generic/LSB-Core-generic/iniscrptact.html
++
++# source function library
++. /etc/rc.d/init.d/functions
++
++PATH=$PATH:/usr/lib/rabbitmq/bin
++DESC="amplet2 measurement client"
 +PKG_NAME=amplet2-client
 +DAEMON_NAME=amplet2             # Introduce the short server's name here
 +DAEMON=/usr/sbin/$DAEMON_NAME   # Introduce the server's location here
-+SCRIPTNAME=/etc/init.d/$PKG_NAME
-+START_DAEMON=1
 +DAEMON_OPTS="-d"
++SCRIPTNAME=/etc/init.d/$PKG_NAME
 +CONFDIR=/etc/amplet2/clients
++KEYDIR=/etc/amplet2/keys
 +PIDDIR=/var/run/amplet2
++LOGDIR=/var/log/amplet2
 +
 +# Exit if the package is not installed
 +if [ ! -x $DAEMON ]; then
@@ -32,38 +39,22 @@
 +    exit 5
 +fi
 +
-+# Read configuration variable file if it is present
-+[ -r /etc/default/$PKG_NAME ] && . /etc/default/$PKG_NAME
++# Read configuration variable file if it is present (wheezy or similar)
++if [ -r /etc/default/$PKG_NAME ]; then
++    START_DAEMON=1
++    . /etc/default/$PKG_NAME
 +
-+# Don't start the daemon unless it has been manually enabled in
-+# /etc/default/amplet2-client. There is too much configuration required
-+# to assume it can be started initially.
-+if [ $START_DAEMON -le 0 ]; then
-+    echo "$PKG_NAME is disabled in /etc/default/$PKG_NAME, not starting."
-+    echo "Ensure configuration in /etc/amplet2/ is up to date before enabling."
-+    exit 0
++    # Don't start the daemon unless it has been manually enabled in
++    # /etc/default/amplet2. There is too much configuration required
++    # to assume it can be started initially.
++    if [ $START_DAEMON -le 0 ]; then
++        echo "$PKG_NAME is disabled in /etc/default/$PKG_NAME, not starting."
++        echo "Ensure config in /etc/amplet2/ is up to date before enabling."
++        # Return 0 so package installation doesn't error
++        exit 0
++    fi
 +fi
 +
-+# source function library
-+. /etc/rc.d/init.d/functions
-+
-+#
-+# Simple function to check if an item is contained within a list. The first
-+# argument is the item to search for, the rest of the arguments are the
-+# haystack to search.
-+#
-+contains()
-+{
-+    first=1
-+    for item in $@; do
-+        if [ $first -eq 1 ]; then
-+            first=0
-+        elif [ $item = $1 ]; then
-+            return 0
-+        fi
-+    done
-+    return 1
-+}
 +
 +#
 +# Wait for the pidfile to be populated and to contain a running pid
@@ -75,7 +66,7 @@
 +        attempt=$((attempt+1))
 +        if [ -f $1 ]; then
 +            # check if valid, running pid
-+            ps -p `cat $PIDFILE` > /dev/null
++            ps -p `cat $1` > /dev/null
 +            if [ $? -eq 0 ]; then
 +                # return success, amplet2 client started ok
 +                return 0
@@ -89,13 +80,11 @@
 +
 +
 +#
-+# Function that starts the daemon/service
++# Make sure that the configuration directories exist and have the appropriate
++# permissions, and that rabbitmq has the correct plugins enabled.
 +#
-+do_start()
++do_local_config()
 +{
-+    SUCCESS=0
-+    FAILED=0
-+
 +    # Make sure that the pid dir exists
 +    if [ ! -d $PIDDIR ]; then
 +        mkdir -p $PIDDIR
@@ -103,35 +92,89 @@
 +        #chgrp
 +    fi
 +
++    # Make sure that the log dir exists
++    if [ ! -d $LOGDIR ]; then
++        mkdir -p $LOGDIR
++        # some systems expect syslog to own the log files/directories
++        if getent passwd syslog > /dev/null; then
++            chown syslog:adm $LOGDIR
++        fi
++    fi
++
++    # Make sure the keys directory exists and has the appropriate permissions
++    if [ ! -d $KEYDIR ]; then
++        mkdir -p $KEYDIR
++    fi
++
++    # If using a local rabbitmq broker then check that it is configured. For
++    # now we'll make the assumption that if the user and control program exist
++    # then we should probably be using rabbitmq.
++    if getent passwd rabbitmq > /dev/null && [ -x /usr/sbin/rabbitmqctl ]; then
++        # grant access to the keys directory
++        chown root:rabbitmq $KEYDIR
++        chmod 2750 $KEYDIR
++
++        # make sure the shovel plugin is enabled
++        if ! rabbitmq-plugins list -e rabbitmq_shovel | \
++                cut -d ' ' -f 2 | grep -qx rabbitmq_shovel; then
++            echo -n "Enabling rabbitmq shovel plugin for $DAEMON_NAME"
++            rabbitmq-plugins enable rabbitmq_shovel >/dev/null || exit $?
++            echo
++        fi
++    else
++        chown root:root $KEYDIR
++        chmod 700 $KEYDIR
++    fi
++
++}
++
++
++#
++# Function that starts the daemon/service
++#
++do_start()
++{
++    SUCCESS=0
++    FAILED=0
++
++    # Try to deal with network manager and friends taking too long to start
++    # so that we don't always have a useful network configuration when
++    # amplet2-client starts. Would be nice to be able to use the
++    # init_is_upstart function, but then this delay always triggers rather
++    # than only triggering on boot.
++    if [ -n "$UPSTART_JOB" ]; then
++        sleep 30
++    fi
++
++    do_local_config
++
 +    # For every config file, try to run an amplet client
 +    for client in ${CONFDIR}/*.conf; do
 +        NAME=${client#$CONFDIR/}
 +        NAME=${NAME%.conf}
 +        PIDFILE=${PIDDIR}/${NAME%.conf}.pid
 +
-+        # Start the client if no client is specified, or if it matches
-+        if ([ $# -eq 0 ] || contains $NAME $@); then
-+            # TODO return appropriate thing if already running
-+            # use start-stop-daemon --test?
-+	    echo -n $NAME
-+            daemon --user=measure --pidfile=$PIDFILE \
-+		    $DAEMON $DAEMON_OPTS -c $client -p $PIDFILE
++        # TODO return appropriate thing if already running
++        echo -n "Starting ${DESC}" $NAME
++        # use start-stop-daemon --test?
++        daemon --pidfile $PIDFILE $DAEMON $DAEMON_OPTS -c $client -p $PIDFILE
 +
-+            # if the client was started right now then wait for the pidfile
-+            # to be correct before continuing (makes sure puppet doesn't try
-+            # to start extra copies thinking it isn't running ok).
-+            if [ $? -eq 0 ]; then
-+                do_wait $PIDFILE
-+            fi
-+
-+            case "$?" in
-+                0) SUCCESS=$((SUCCESS+1)); \
-+                        [ "$VERBOSE" != no ] && echo_success $NAME ;;
-+                *) FAILED=$((FAILED+1)); \
-+                        [ "$VERBOSE" != no ] && echo_failure $NAME ;;
-+            esac
-+	    echo
++        # if the client was started right now then wait for the pidfile
++        # to be correct before continuing (makes sure puppet doesn't try
++        # to start extra copies thinking it isn't running ok).
++        if [ $? -eq 0 ]; then
++            # this will update $? for the next check, which is fine
++            do_wait $PIDFILE
 +        fi
++
++        case "$?" in
++            0|1) SUCCESS=$((SUCCESS+1)); \
++                echo
++                ;;
++            2|3) FAILED=$((FAILED+1)); \
++                echo
++                ;;
++        esac
 +    done
 +
 +    # No failures and at least one success, return success
@@ -141,12 +184,13 @@
 +
 +    # Some failures and some successes, return warning
 +    if ([ $FAILED -gt 0 ] && [ $SUCCESS -gt 0 ]); then
-+        return 1
++        return 255
 +    fi
 +
 +    # No successes, return failed
-+    return 2
++    return 1
 +}
++
 +
 +#
 +# Function that stops the daemon/service
@@ -157,26 +201,19 @@
 +    FAILED=0
 +
 +    for pidfile in ${PIDDIR}/*.pid; do
-+	if [ ! -f $pidfile ]; then
-+	    continue
-+	fi
++
++        if [ ! -f $pidfile ]; then
++            continue
++        fi
++
 +        NAME=${pidfile#$PIDDIR/}
 +        NAME=${NAME%.pid}
 +        PID=`cat $pidfile`
 +
-+        # Stop the client if no client is specified, or if it matches
-+        if ([ $# -eq 0 ] || contains $NAME $@); then
-+	    echo -n $NAME
-+	    killproc -p $pidfile $DAEMON
++        echo -n "Stopping ${DESC}" $NAME
++        killproc -p $pidfile $DAEMON
 +
-+            case "$?" in
-+                0|7) SUCCESS=$((SUCCESS+1)); \
-+                    [ "$VERBOSE" != no ] && echo_success $NAME ;;
-+                *) FAILED=$((FAILED+1)); \
-+                    [ "$VERBOSE" != no ] && echo_failure $NAME ;;
-+            esac
-+	    echo
-+
++        if [ -n "$PID" ]; then
 +            # if there are any children left, send them a SIGTERM
 +            /usr/bin/pgrep -s $PID > /dev/null
 +            if [ $? -eq 0 ]; then
@@ -190,30 +227,33 @@
 +                /bin/kill -s KILL -- -$PID 2> /dev/null
 +            fi
 +        fi
++
++        if `/usr/bin/pgrep -s $PID > /dev/null`; then
++            FAILED=$((FAILED+1));
++            echo
++        else
++            SUCCESS=$((SUCCESS+1));
++            echo
++        fi
 +    done
 +
-+    # No failures and no successes - client(s) not running
-+    if ([ $FAILED -eq 0 ] && [ $SUCCESS -eq 0 ]); then
-+	echo "Not running"
-+        return 0
-+    fi
-+
-+    # No failures and at least one success, return success
-+    if ([ $FAILED -eq 0 ] && [ $SUCCESS -gt 0 ]); then
++    # No failures, return success (could have zero successes if none running)
++    if [ $FAILED -eq 0 ]; then
 +        return 0
 +    fi
 +
 +    # Some failures and some successes, return warning
 +    if ([ $FAILED -gt 0 ] && [ $SUCCESS -gt 0 ]); then
-+        return 1
++        return 255
 +    fi
 +
-+    # No successes, return failed
-+    return 2
++    # Some failures and no successes, return failed
++    return 1
 +}
 +
++
 +#
-+# Function that checks the status of any amplet2 clients
++#
 +#
 +do_status() {
 +    RETVAL=0
@@ -222,16 +262,14 @@
 +        NAME=${NAME%.conf}
 +        PIDFILE=${PIDDIR}/${NAME%.conf}.pid
 +
-+        # Query the client if no client is specified, or if it matches
-+        if ([ $# -eq 0 ] || contains $NAME $@); then
-+            status -p $PIDFILE "$NAME"
-+            if [ $? -gt 0 ]; then
-+                RETVAL=2
-+            fi
++        status -p $PIDFILE "$DAEMON" "$NAME"
++        if [ $? -gt 0 ]; then
++            RETVAL=1
 +        fi
 +    done
 +    return $RETVAL
 +}
++
 +
 +#
 +# Function that sends a SIGHUP to the daemon/service
@@ -247,62 +285,38 @@
 +        NAME=${NAME%.conf}
 +        PIDFILE=${PIDDIR}/${NAME%.conf}.pid
 +
-+        # Reload the client if no client is specified, or if it matches
-+        if ([ $# -eq 0 ] || contains $NAME $@); then
-+	    echo -n $NAME
-+	    killproc -p $PIDFILE $DAEMON -HUP
-+	    echo
-+        fi
++        echo -n "Reloading ${DESC}" $NAME
++        killproc -p $PIDFILE $DAEMON -HUP
++        echo
 +    done
 +    return 0
 +}
 +
++
 +case "$1" in
-+  start)
-+    [ "$VERBOSE" != no ] && echo "Starting $DESC clients:"
-+    shift
-+    do_start $@
-+  ;;
-+  stop)
-+        [ "$VERBOSE" != no ] && echo "Stopping $DESC:"
-+	 shift
-+        do_stop $@
++    start)
++        do_start
 +        ;;
++
++    stop)
++        do_stop
++        ;;
++
 +  status)
-+	shift
-+	echo "Current status of $DESC clients:"
-+	do_status $@ && exit 0 || exit $?
++        do_status && exit 0 || exit $?
 +       ;;
-+  reload)
-+        #
-+        # If do_reload() is not implemented then leave this commented out
-+	# and leave 'force-reload' as an alias for 'restart'.
-+        #
-+        [ "$VERBOSE" != no ] && echo "Reloading $DESC clients:"
-+	shift
-+        do_reload $@
++
++    reload|force-reload)
++        do_reload
 +        ;;
-+  restart)
-+        #
-+        # If the "reload" option is implemented then remove the
-+        # 'force-reload' alias
-+        #
-+	shift
-+        echo "Stopping $DESC clients:"
-+        do_stop $@
-+        case "$?" in
-+          0|1)
-+        	echo "Starting $DESC clients:"
-+                do_start $@
-+		;;
-+          *)
-+                # Failed to stop
-+                ;;
-+        esac
++
++    restart)
++        do_stop
++        do_start
 +        ;;
-+  *)
++
++    *)
 +        echo "Usage: $SCRIPTNAME {start|stop|status|restart|reload}" >&2
-+        #echo "Usage: $SCRIPTNAME {start|stop|status|restart|force-reload}" >&2
-+        exit 3
-+        ;;
++	exit 3
++	;;
 +esac

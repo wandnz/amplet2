@@ -1,34 +1,24 @@
 Name: amplet2
-Version: 0.7.0
+Version: 0.8.0
 Release: 1%{?dist}
 Summary: AMP Network Performance Measurement Suite - Client Tools
 
 Group: Applications/Internet
 License: AMP
 URL: http://research.wand.net.nz/software/amp.php
-Source0: http://research.wand.net.nz/software/amp/amplet2-0.7.0.tar.gz
+Source0: http://research.wand.net.nz/software/amp/amplet2-0.8.0.tar.gz
 Patch0: amplet2-client-init.patch
 Patch1: amplet2-client-default.patch
 BuildRoot:	%(mktemp -ud %{_tmppath}/%{name}-%{version}-%{release}-XXXXXX)
 
-BuildRequires: openssl-devel libconfuse-devel libwandevent-devel >= 3.0.1 libcurl-devel unbound-devel libpcap-devel protobuf-c-devel librabbitmq4-devel >= 0.8.0
-Requires: rabbitmq-server >= 3.1.5 librabbitmq4 >= 0.8.0 libwandevent >= 3.0.1 libcurl unbound-libs libpcap rsyslog protobuf-c
+BuildRequires: openssl-devel libconfuse-devel libwandevent-devel >= 3.0.1 libcurl-devel unbound-devel libpcap-devel protobuf-c-devel librabbitmq4-devel >= 0.7.1
+Requires: librabbitmq4 >= 0.7.1 libwandevent >= 3.0.1 libcurl unbound-libs libpcap rsyslog protobuf-c
 
 %description
 This package contains the client tools for the AMP Measurement Suite.
 These measure the network performance to specified targets according
 to a configured schedule. The resulting data is transferred back to
 one or more rabbitmq brokers via the AMQP protocol.
-
-
-%package lite
-Summary: AMP client tools without a local rabbitmq broker
-Group: Applications/Internet
-Requires: librabbitmq4 >= 0.8.0 libwandevent >= 3.0.1 libcurl unbound-libs libpcap rsyslog
-
-%description lite
-AMP client tools without a local rabbitmq broker
-
 
 
 %prep
@@ -48,7 +38,7 @@ rm -rf %{buildroot}
 make install DESTDIR=%{buildroot}
 install -D amplet2-client.init %{buildroot}%{_initrddir}/%{name}-client
 install -D amplet2-client.default %{buildroot}%{_sysconfdir}/default/%{name}-client
-install -D src/measured/rsyslog/amplet2.conf %{buildroot}%{_sysconfdir}/rsyslog.d/amplet2.conf
+install -D src/measured/rsyslog/10-amplet2.conf %{buildroot}%{_sysconfdir}/rsyslog.d/10-amplet2.conf
 # XXX this is hax, should amplet2 be in sbin or bin?
 mkdir %{buildroot}%{_sbindir}/
 mv %{buildroot}%{_bindir}/amplet2 %{buildroot}%{_sbindir}/
@@ -69,42 +59,10 @@ rm -rf %{buildroot}
 %{_libdir}/*so
 %{_libdir}/amplet2/tests/*so
 %{_sysconfdir}/%{name}/*
-%{_sysconfdir}/rsyslog.d/amplet2.conf
+%{_sysconfdir}/rsyslog.d/10-amplet2.conf
 %config %{_initrddir}/*
 %config %{_sysconfdir}/default/*
 %dir %{_localstatedir}/run/%{name}/
-
-%files lite
-%defattr(-,root,root,-)
-%doc
-%{_bindir}/*
-%attr(4755, root, root) %{_sbindir}/amplet2
-%{_libdir}/*so
-%{_libdir}/amplet2/tests/*so
-%{_sysconfdir}/%{name}/*
-%{_sysconfdir}/rsyslog.d/amplet2.conf
-%config %{_initrddir}/*
-%config %{_sysconfdir}/default/*
-%dir %{_localstatedir}/run/%{name}/
-
-
-%pre
-GROUPNAME=measure
-USERNAME=measure
-getent group $GROUPNAME >/dev/null || groupadd -r $GROUPNAME
-getent passwd $USERNAME >/dev/null || \
-    useradd -r -g $GROUPNAME -s /sbin/nologin \
-    -c "AMP measurement daemon user" $USERNAME
-exit 0
-
-%pre lite
-GROUPNAME=measure
-USERNAME=measure
-getent group $GROUPNAME >/dev/null || groupadd -r $GROUPNAME
-getent passwd $USERNAME >/dev/null || \
-    useradd -r -g $GROUPNAME -s /sbin/nologin \
-    -c "AMP measurement daemon user" $USERNAME
-exit 0
 
 
 %post
@@ -114,22 +72,6 @@ else
 	/etc/init.d/rsyslog restart || exit $?
 fi
 
-# Create directory for SSL keys
-if [ ! -d "/etc/amplet2/keys/" ]; then
-	mkdir /etc/amplet2/keys/
-	chown measure: /etc/amplet2/keys
-	chmod 700 /etc/amplet2/keys
-	# TODO fetch the keys somehow and save them here
-fi
-
-# Enable the shovel plugin for rabbitmq
-if [ -x "`which rabbitmq-plugins 2>/dev/null`" ]; then
-	rabbitmq-plugins enable rabbitmq_shovel || exit $?
-else
-	echo "Can't enable shovel plugin, aborting"
-	exit 1
-fi
-
 # update init scripts
 if [ -x /sbin/chkconfig ]; then
 	/sbin/chkconfig --add amplet2-client
@@ -142,32 +84,6 @@ else
 	done
 fi
 
-%post lite
-if [ -x "`which invoke-rc.d 2>/dev/null`" ]; then
-	invoke-rc.d rsyslog restart || exit $?
-else
-	/etc/init.d/rsyslog restart || exit $?
-fi
-
-# Create directory for SSL keys
-if [ ! -d "/etc/amplet2/keys/" ]; then
-	mkdir /etc/amplet2/keys/
-	chown measure: /etc/amplet2/keys
-	chmod 700 /etc/amplet2/keys
-	# TODO fetch the keys somehow and save them here
-fi
-
-# update init scripts
-if [ -x /sbin/chkconfig ]; then
-	/sbin/chkconfig --add amplet2-client
-else
-	for i in 2 3 4 5; do
-		ln -sf /etc/init.d/amplet2-client /etc/rc.d/rc${i}.d/S60amplet2-client
-	done
-	for i in 1 6; do
-		ln -sf /etc/init.d/amplet2-client /etc/rc.d/rc${i}.d/K20amplet2-client
-	done
-fi
 
 %preun
 if [ $1 -eq 0 ]; then
@@ -179,18 +95,39 @@ if [ $1 -eq 0 ]; then
 	fi
 fi
 
-%preun lite
-if [ $1 -eq 0 ]; then
-	/etc/init.d/amplet2-client stop > /dev/null 2>&1
-	if [ -x /sbin/chkconfig ]; then
-		/sbin/chkconfig --del amplet2-client
-	else
-		rm -f /etc/rc.d/rc?.d/???amplet2-client
-	fi
-fi
-
 
 %changelog
+* Tue Jul 18 2017 Brendon Jones <brendonj@waikato.ac.nz> 0.8.0-1
+- build: update SSL library check to still succeed with newer versions.
+- build: check for external SASL method in AMQP library.
+- throughput: fix EADDRINUSE by not binding to addresses that aren't used.
+- http: extract count of failed object fetches in ampsave.
+- server: force tcpreused to always be true in throughput test results.
+- amplet2: move SSL configuration to its own section in the config file.
+- amplet2: set default value of vialocal based on rabbitmq being present.
+- amplet2: set default collector SSL config option based on the port used.
+- amplet2: use server-side cipher list ordering.
+- amplet2: ensure that the correct versions of librabbitmq functions are
+  used that match the version listed as a dependency.
+- amplet2: don't allow negative latency values, clamp them at zero.
+- amplet2: improve some error messages to be more useful/accurate.
+- amplet2: set --no-as-needed to build test libraries using newer GCC.
+- amplet2: don't crash when bad options are given on the command line.
+- package: update init script to configure rabbitmq and required directories.
+- package: try to avoid restarting services unnecessarily on package install.
+- package: rename rsyslogd config file so it sorts earlier than default.
+- package: removed amplet2-client-lite packages, determine rabbitmq usage at
+  runtime.
+- throughput: added ability to masquerade as HTTP POST stream.
+- throughput: removed test control headers from data stream.
+- http: try to parse URL fragments or decimal encoded characters.
+- http: split URLs where '?' is used after hostname without '/'.
+- traceroute: use library functions to receive packets rather than calling
+  the low level functions directly.
+- testlib: fix wrapping values when comparing timevals on 32-bit machines.
+- amplet2: remove default collector address and make it mandatory to be set.
+- Update documentation.
+
 * Mon Sep 22 2016 Brendon Jones <brendonj@waikato.ac.nz> 0.7.0-1
 - Add access control list for access to starting test servers, running tests.
 - Remove standard Diffie-Hellman ciphers from list of allowable choices.
