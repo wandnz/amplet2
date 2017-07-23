@@ -1,3 +1,31 @@
+amplet2 (0.8.0-1) unstable; urgency=low
+
+  * build: add missing dependency on flex.
+  * build: update SSL library check to still succeed with newer versions.
+  * build: check for external SASL method in AMQP library.
+  * throughput: fix EADDRINUSE by not binding to addresses that aren't used.
+  * http: extract count of failed object fetches in ampsave.
+  * server: force tcpreused to always be true in throughput test results.
+  * amplet2: move SSL configuration to its own section in the config file.
+  * amplet2: set default value of vialocal based on rabbitmq being present.
+  * amplet2: set default collector SSL config option based on the port used.
+  * amplet2: use server-side cipher list ordering.
+  * amplet2: ensure that the correct versions of librabbitmq functions are
+    used that match the version listed as a dependency.
+  * amplet2: don't allow negative latency values, clamp them at zero.
+  * amplet2: improve some error messages to be more useful/accurate.
+  * amplet2: set --no-as-needed to build test libraries using newer GCC.
+  * amplet2: don't crash when bad options are given on the command line.
+  * package: update init script to configure rabbitmq and required directories.
+  * package: try to avoid restarting services unnecessarily on package install.
+  * package: rename rsyslogd config file so it sorts earlier than default.
+  * package: removed amplet2-client-lite packages, determine rabbitmq usage at
+    runtime.
+  * throughput: added ability to masquerade as HTTP POST stream.
+  * throughput: removed test control headers from data stream.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Fri, 21 Jul 2017 16:16:23 +1200
+
 amplet2 (0.7.1-1) unstable; urgency=low
 
   * http: try to parse URL fragments or decimal encoded characters.
