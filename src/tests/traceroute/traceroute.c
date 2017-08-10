@@ -79,8 +79,8 @@ static struct option long_options[] = {
     {"dscp", required_argument, 0, 'Q'},
     {"interpacketgap", required_argument, 0, 'Z'},
     {"interface", required_argument, 0, 'I'},
-    {"ipv4", required_argument, 0, '4'},
-    {"ipv6", required_argument, 0, '6'},
+    {"ipv4", optional_argument, 0, '4'},
+    {"ipv6", optional_argument, 0, '6'},
     {"help", no_argument, 0, 'h'},
     {"version", no_argument, 0, 'v'},
     {"debug", no_argument, 0, 'x'},
@@ -1124,7 +1124,7 @@ static void usage(void) {
             "Usage: amp-trace [-abhfrvx] [-p perturbate] [-s packetsize]\n"
             "                 [-w windowsize]\n"
             "                 [-Q codepoint] [-Z interpacketgap]\n"
-            "                 [-I interface] [-4 sourcev4] [-6 sourcev6]\n"
+            "                 [-I interface] [-4 [sourcev4]] [-6 [sourcev6]]\n"
             "                 -- destination1 [destination2 ... destinationN]"
             "\n\n");
 
@@ -1505,6 +1505,7 @@ amp_test_result_t* run_traceroute(int argc, char *argv[], int count,
     struct dest_info_t *item;
     amp_test_result_t *result;
     int window;
+    char *address_string;
 
     Log(LOG_DEBUG, "Starting TRACEROUTE test");
 
@@ -1521,11 +1522,21 @@ amp_test_result_t* run_traceroute(int argc, char *argv[], int count,
     device = NULL;
     window = INITIAL_WINDOW;
 
-    while ( (opt = getopt_long(argc, argv, "abfp:rs:w:I:Q:Z:4:6:hvx",
+    while ( (opt = getopt_long(argc, argv, "abfp:rs:w:I:Q:Z:4::6::hvx",
                     long_options, NULL)) != -1 ) {
         switch ( opt ) {
-            case '4': sourcev4 = get_numeric_address(optarg, NULL); break;
-            case '6': sourcev6 = get_numeric_address(optarg, NULL); break;
+            case '4': address_string = parse_optional_argument(argv);
+                      /* -4 without address is sorted at a higher level */
+                      if ( address_string ) {
+                          sourcev4 = get_numeric_address(address_string, NULL);
+                      };
+                      break;
+            case '6': address_string = parse_optional_argument(argv);
+                      /* -6 without address is sorted at a higher level */
+                      if ( address_string ) {
+                          sourcev6 = get_numeric_address(address_string, NULL);
+                      };
+                      break;
             case 'I': device = optarg; break;
             case 'Q': if ( parse_dscp_value(optarg, &options.dscp) < 0 ) {
                           Log(LOG_WARNING, "Invalid DSCP value, aborting");

@@ -66,8 +66,8 @@ struct option long_options[] =
         {"dscp", required_argument, 0, 'Q'},
         {"interpacketgap", required_argument, 0, 'Z'},
         {"interface", required_argument, 0, 'I'},
-        {"ipv4", required_argument, 0, '4'},
-        {"ipv6", required_argument, 0, '6'},
+        {"ipv4", optional_argument, 0, '4'},
+        {"ipv6", optional_argument, 0, '6'},
         {"help", no_argument, 0, 'h'},
         {"version", no_argument, 0, 'v'},
         {"debug", no_argument, 0, 'x'},
@@ -160,7 +160,7 @@ amp_test_result_t* run_throughput(int argc, char *argv[], int count,
 
     /* this option string needs to be kept up to date with server and client */
     while ( (opt = getopt_long(argc, argv,
-                    "c:d:i:Nm:o:p:P:rsS:t:u:z:I:Q:Z:4:6:hvx",
+                    "c:d:i:Nm:o:p:P:rsS:t:u:z:I:Q:Z:4::6::hvx",
                     long_options, NULL)) != -1 ) {
         switch ( opt ) {
             case 's': server_flag_index = optind - 1; break;

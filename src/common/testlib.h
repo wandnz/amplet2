@@ -82,7 +82,7 @@ void set_proc_name(char *testname);
 void free_duped_environ(void);
 int unblock_signals(void);
 int wait_for_data(struct socket_t *sockets, int *maxwait);
-int get_packet(struct socket_t *sockets, char *buf, int len,
+int get_packet(struct socket_t *sockets, char *buf, int buflen,
 	struct sockaddr *saddr, int *timeout, struct timeval *now);
 int delay_send_packet(int sock, char *packet, int size, struct addrinfo *dest,
         uint32_t inter_packet_delay, struct timeval *sent);
@@ -100,4 +100,5 @@ int set_dscp_socket_options(struct socket_t *sockets, uint8_t dscp);
 int check_exists(char *path, int strict);
 int copy_address_to_protobuf(ProtobufCBinaryData *dst,
         const struct addrinfo *src);
+char *parse_optional_argument(char *argv[]);
 #endif

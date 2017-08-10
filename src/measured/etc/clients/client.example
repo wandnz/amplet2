@@ -27,12 +27,16 @@
 
 # Source IPv4 address that all tests should bind to when sending test data. If
 # not set then any address on the machine may be used (depending on interface
-# selection).
+# selection). If set, only this IPv4 address will be used unless IPv6 is also
+# explicitly enabled. The value "any" may be used to explicitly enable this
+# address family but not force a specific address.
 #ipv4 = 192.0.2.1
 
 # Source IPv6 address that all tests should bind to when sending test data. If
 # not set then any address on the machine may be used (depending on interface
-# selection).
+# selection). If set, only this IPv6 address will be used unless IPv4 is also
+# explicitly enabled. The value "any" may be used to explicitly enable this
+# address family but not force a specific address.
 #ipv6 = 2001:DB8::1
 
 # Minimum gap (in microseconds) between sending probe packets for most tests.

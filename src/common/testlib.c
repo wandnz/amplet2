@@ -50,6 +50,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <signal.h>
+#include <getopt.h>
 
 #include <google/protobuf-c/protobuf-c.h>
 
@@ -846,4 +847,32 @@ int copy_address_to_protobuf(ProtobufCBinaryData *dst,
     };
 
     return dst->data ? 1 : 0;
+}
+
+
+
+/*
+ * Remove the annoying requirement that optional arguments in getopt be
+ * part of the same word. If we get an optional argument first check if
+ * it exists in optarg (it was part of the word), then check if we can
+ * use the following word as an argument (it isn't part of another option).
+ *
+ * Messing around with getopt like this isn't idempotent unfortunately -
+ * the global variable "optind" is modified in some cases.
+ */
+char *parse_optional_argument(char *argv[]) {
+    char *argument = NULL;
+
+    if ( optarg ) {
+        /* argument is in the same word as the option name, e.g. "-oarg") */
+        argument = optarg;
+    } else if ( argv[optind] == NULL || argv[optind][0] == '-' ) {
+        /* the next element is NULL or looks like an option - no argument */
+        argument = NULL;
+    } else {
+        /* the next element is the argument to this option */
+        argument = argv[optind++];
+    }
+
+    return argument;
 }

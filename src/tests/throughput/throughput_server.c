@@ -430,6 +430,9 @@ void run_throughput_server(int argc, char *argv[], BIO *ctrl) {
     extern struct option long_options[];
     uint16_t portmax;
     int standalone;
+    int forcev4 = 0;
+    int forcev6 = 0;
+    char *address_string;
 
     /* Possibly could use dests to limit interfaces to listen on */
 
@@ -441,12 +444,22 @@ void run_throughput_server(int argc, char *argv[], BIO *ctrl) {
     portmax = MAX_CONTROL_PORT;
     standalone = 0;
 
-    while ( (opt = getopt_long(argc, argv, "p:I:Q:Z:4:6:hx",
+    while ( (opt = getopt_long(argc, argv, "p:I:Q:Z:4::6::hx",
                     long_options, NULL)) != -1 ) {
         switch ( opt ) {
-            case '4': sockopts.sourcev4 = get_numeric_address(optarg, NULL);
+            case '4': forcev4 = 1;
+                      address_string = parse_optional_argument(argv);
+                      if ( address_string ) {
+                          sockopts.sourcev4 =
+                              get_numeric_address(address_string, NULL);
+                      }
                       break;
-            case '6': sockopts.sourcev6 = get_numeric_address(optarg, NULL);
+            case '6': forcev6 = 1;
+                      address_string = parse_optional_argument(argv);
+                      if ( address_string ) {
+                          sockopts.sourcev6 =
+                              get_numeric_address(address_string, NULL);
+                      }
                       break;
             case 'I': sockopts.device = optarg; break;
             case 'Q': /* option does nothing for this test */ break;
@@ -470,9 +483,12 @@ void run_throughput_server(int argc, char *argv[], BIO *ctrl) {
         /* The server was started standalone, wait for a control connection */
         standalone = 1;
 
-        /* if no address was set then listen on all addresses */
-        if ( sockopts.sourcev4 == NULL && sockopts.sourcev6 == NULL ) {
+        /* enable families if they are forced on, or enable both by default */
+        if ( (forcev4 && !sockopts.sourcev4) || (!forcev4 && !forcev6) ) {
             sockopts.sourcev4 = get_numeric_address("0.0.0.0", NULL);
+        }
+
+        if ( (forcev6 && !sockopts.sourcev6) || (!forcev4 && !forcev6) ) {
             sockopts.sourcev6 = get_numeric_address("::", NULL);
         }
 

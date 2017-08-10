@@ -508,6 +508,9 @@ amp_test_result_t* run_throughput_client(int argc, char *argv[], int count,
     enum tput_schedule_direction direction = DIRECTION_NOT_SET;
     amp_test_result_t *result;
     BIO *ctrl;
+    char *address_string;
+    int forcev4 = 0;
+    int forcev6 = 0;
 
     Log(LOG_DEBUG, "Running throughput test as client");
 
@@ -533,13 +536,23 @@ amp_test_result_t* run_throughput_client(int argc, char *argv[], int count,
     client = NULL;
 
     while ( (opt = getopt_long(argc, argv,
-                    "c:d:i:M:No:p:P:rS:t:u:z:I:Q:Z:4:6:hx",
+                    "c:d:i:M:No:p:P:rS:t:u:z:I:Q:Z:4::6::hx",
                     long_options, NULL)) != -1 ) {
 
         switch ( opt ) {
-            case '4': sockopts.sourcev4 = get_numeric_address(optarg, NULL);
+            case '4': forcev4 = 1;
+                      address_string = parse_optional_argument(argv);
+                      if ( address_string ) {
+                          sockopts.sourcev4 =
+                              get_numeric_address(address_string, NULL);
+                      }
                       break;
-            case '6': sockopts.sourcev6 = get_numeric_address(optarg, NULL);
+            case '6': forcev6 = 1;
+                      address_string = parse_optional_argument(argv);
+                      if ( address_string ) {
+                          sockopts.sourcev6 =
+                              get_numeric_address(address_string, NULL);
+                      }
                       break;
             case 'I': sockopts.device = optarg; break;
             case 'Q': if ( parse_dscp_value(optarg, &test_options.dscp) < 0 ) {
@@ -592,7 +605,13 @@ amp_test_result_t* run_throughput_client(int argc, char *argv[], int count,
         struct addrinfo hints;
 
         memset(&hints, 0, sizeof(hints));
-        hints.ai_family = AF_UNSPEC; // XXX depends on if source is given?
+        if ( forcev4 && !forcev6 ) {
+            hints.ai_family = AF_INET;
+        } else if ( forcev6 && !forcev4 ) {
+            hints.ai_family = AF_INET6;
+        } else {
+            hints.ai_family = AF_UNSPEC;
+        }
         hints.ai_socktype = SOCK_STREAM;
         hints.ai_protocol = IPPROTO_TCP;
 
@@ -604,6 +623,7 @@ amp_test_result_t* run_throughput_client(int argc, char *argv[], int count,
         }
 
         /* just take the first address we find */
+        /* TODO retry with the next address if one fails */
         count = 1;
 
         /* set the canonical name to be the address so we can print it later */

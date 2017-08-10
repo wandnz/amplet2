@@ -503,59 +503,81 @@ int initialise_control_socket(wand_event_handler_t *ev_hdl,
 
     sockets.socket = -1;
     sockets.socket6 = -1;
+    addr4 = NULL;
+    addr6 = NULL;
 
-    if ( (sockets.socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0 ) {
-        Log(LOG_WARNING, "Failed to open IPv4 control socket: %s",
-                strerror(errno));
+    /* only set up the ipv4 socket if we have an address to listen on */
+    if ( control->ipv4 ) {
+        addr4 = get_numeric_address(control->ipv4, control->port);
+        if ( (sockets.socket=socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) > 0 ) {
+            if ( setsockopt(sockets.socket, SOL_SOCKET, SO_REUSEADDR, &one,
+                        sizeof(int)) < 0 ) {
+                close(sockets.socket);
+                sockets.socket = -1;
+            }
+        } else {
+            Log(LOG_WARNING, "Failed to open IPv4 control socket: %s",
+                    strerror(errno));
+        }
     }
-    if ( (sockets.socket6 = socket(AF_INET6, SOCK_STREAM, IPPROTO_TCP)) < 0 ) {
-        Log(LOG_WARNING, "Failed to open IPv6 control socket: %s",
-                strerror(errno));
+
+    /* only set up the ipv6 socket if we have an address to listen on */
+    if ( control->ipv6 ) {
+        addr6 = get_numeric_address(control->ipv6, control->port);
+        if ( (sockets.socket6=socket(AF_INET6, SOCK_STREAM, IPPROTO_TCP)) > 0 ){
+            /* IPV6_V6ONLY prevents it trying to listen on IPv4 as well */
+            if ( setsockopt(sockets.socket6, IPPROTO_IPV6, IPV6_V6ONLY, &one,
+                        sizeof(one)) < 0 ) {
+                close(sockets.socket6);
+                sockets.socket6 = -1;
+            } else {
+                if ( setsockopt(sockets.socket6, SOL_SOCKET, SO_REUSEADDR, &one,
+                            sizeof(int)) < 0 ) {
+                    close(sockets.socket6);
+                    sockets.socket6 = -1;
+                }
+            }
+        } else {
+            Log(LOG_WARNING, "Failed to open IPv6 control socket: %s",
+                    strerror(errno));
+        }
     }
 
     /* make sure that at least one of them was opened ok */
     if ( sockets.socket < 0 && sockets.socket6 < 0 ) {
+        if ( addr4 ) {
+            freeaddrinfo(addr4);
+        }
+
+        if ( addr6 ) {
+            freeaddrinfo(addr6);
+        }
         return -1;
-    }
-
-    /* set socket options */
-    if ( sockets.socket > 0 ) {
-        if ( setsockopt(sockets.socket, SOL_SOCKET, SO_REUSEADDR, &one,
-                    sizeof(int)) < 0 ) {
-            close(sockets.socket);
-            sockets.socket = -1;
-        }
-    }
-
-    if ( sockets.socket6 > 0 ) {
-        /* IPV6_V6ONLY prevents it trying to listen on IPv4 as well */
-        if ( setsockopt(sockets.socket6, IPPROTO_IPV6, IPV6_V6ONLY, &one,
-                    sizeof(one)) < 0 ) {
-            close(sockets.socket6);
-            sockets.socket6 = -1;
-        } else {
-            if ( setsockopt(sockets.socket6, SOL_SOCKET, SO_REUSEADDR, &one,
-                        sizeof(int)) < 0 ) {
-                close(sockets.socket6);
-                sockets.socket6 = -1;
-            }
-        }
     }
 
     /* bind them to interfaces and addresses if required */
     if ( control->interface &&
             bind_sockets_to_device(&sockets, control->interface) < 0 ) {
         Log(LOG_ERR, "Unable to bind control socket to device, disabling");
+        if ( addr4 ) {
+            freeaddrinfo(addr4);
+        }
+
+        if ( addr6 ) {
+            freeaddrinfo(addr6);
+        }
         return -1;
     }
 
-    addr4 = get_numeric_address(control->ipv4, control->port);
-    addr6 = get_numeric_address(control->ipv6, control->port);
-
     if ( bind_sockets_to_address(&sockets, addr4, addr6) < 0 ) {
         Log(LOG_ERR,"Unable to bind control socket to address, disabling");
-        freeaddrinfo(addr4);
-        freeaddrinfo(addr6);
+        if ( addr4 ) {
+            freeaddrinfo(addr4);
+        }
+
+        if ( addr6 ) {
+            freeaddrinfo(addr6);
+        }
         return -1;
     }
 
@@ -584,8 +606,13 @@ int initialise_control_socket(wand_event_handler_t *ev_hdl,
         }
     }
 
-    freeaddrinfo(addr4);
-    freeaddrinfo(addr6);
+    if ( addr4 ) {
+        freeaddrinfo(addr4);
+    }
+
+    if ( addr6 ) {
+        freeaddrinfo(addr6);
+    }
 
     /* make sure that at least one of them is listening ok */
     if ( sockets.socket < 0 && sockets.socket6 < 0 ) {

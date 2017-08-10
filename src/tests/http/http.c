@@ -91,8 +91,8 @@ static struct option long_options[] = {
     {"dscp", required_argument, 0, 'Q'},
     {"interpacketgap", required_argument, 0, 'Z'},
     {"interface", required_argument, 0, 'I'},
-    {"ipv4", required_argument, 0, '4'},
-    {"ipv6", required_argument, 0, '6'},
+    {"ipv4", optional_argument, 0, '4'},
+    {"ipv6", optional_argument, 0, '6'},
     {"help", no_argument, 0, 'h'},
     {"version", no_argument, 0, 'v'},
     {"debug", no_argument, 0, 'x'},
@@ -539,29 +539,24 @@ static curl_socket_t open_socket(__attribute__((unused))void *clientp,
         }
     }
 
-    /*
-     * Bind any source addresses that have been set. If at least one address
-     * has been set then the name resolution will be limited to that address
-     * family, which should prevent us trying to connect to an IPv6 address
-     * using an IPv4 as the source.
-     */
+    /* bind to a given source address if it was specified and is relevant */
     if ( options.sourcev4 || options.sourcev6 ) {
-        struct addrinfo *addr;
+        struct addrinfo *addr = NULL;
 
-        switch ( address->family ) {
-            case AF_INET: addr = get_numeric_address(options.sourcev4, NULL);
-                          break;
-            case AF_INET6: addr = get_numeric_address(options.sourcev6, NULL);
-                           break;
-            default: return CURL_SOCKET_BAD;
-        };
-
-        if ( bind_socket_to_address(sock, addr) < 0 ) {
-            freeaddrinfo(addr);
-            return CURL_SOCKET_BAD;
+        if ( options.sourcev4 && address->family == AF_INET ) {
+            addr = get_numeric_address(options.sourcev4, NULL);
+        } else if ( options.sourcev6 && address->family == AF_INET6 ) {
+            addr = get_numeric_address(options.sourcev6, NULL);
         }
 
-        freeaddrinfo(addr);
+        if ( addr ) {
+            if ( bind_socket_to_address(sock, addr) < 0 ) {
+                freeaddrinfo(addr);
+                return CURL_SOCKET_BAD;
+            }
+
+            freeaddrinfo(addr);
+        }
     }
 
     return sock;
@@ -920,9 +915,9 @@ CURL *pipeline_next_object(CURLM *multi, struct server_stats_t *server) {
     }
 
     /* if we have bound to a particular address family, use it exclusively */
-    if ( options.sourcev4 && !options.sourcev6 ) {
+    if ( options.forcev4 && !options.forcev6 ) {
         curl_easy_setopt(object->handle, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V4);
-    } else if ( options.sourcev6 && !options.sourcev4 ) {
+    } else if ( options.forcev6 && !options.forcev4 ) {
         curl_easy_setopt(object->handle, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V6);
     } else {
         curl_easy_setopt(object->handle, CURLOPT_IPRESOLVE,
@@ -1331,7 +1326,7 @@ static void usage(void) {
             "                [-o max-persistent] [-r max-pipelined-requests]\n"
             "                [-s max-con-per-server] [-S sslversion]\n"
             "                [-z pipe-size] [-Q codepoint]\n"
-            "                [-I interface] [-4 sourcev4] [-6 sourcev6]\n"
+            "                [-I interface] [-4 [sourcev4]] [-6 [sourcev6]]\n"
             "\n");
 
     fprintf(stderr, "Options:\n");
@@ -1391,16 +1386,22 @@ amp_test_result_t* run_http(int argc, char *argv[],
     options.parse = 1;
     options.pipe_size_before_skip = 2;
     options.device = NULL;
+    options.forcev4 = 0;
+    options.forcev6 = 0;
     options.sourcev4 = NULL;
     options.sourcev6 = NULL;
     options.sslversion = CURL_SSLVERSION_DEFAULT;
     options.dscp = DEFAULT_DSCP_VALUE;
 
-    while ( (opt = getopt_long(argc, argv, "cdkm:o:pr:s:S:u:z:I:Q:Z:4:6:hvx",
+    while ( (opt = getopt_long(argc, argv, "cdkm:o:pr:s:S:u:z:I:Q:Z:4::6::hvx",
                     long_options, NULL)) != -1 ) {
 	switch ( opt ) {
-            case '4': options.sourcev4 = optarg; break;
-            case '6': options.sourcev6 = optarg; break;
+            case '4': options.forcev4 = 1;
+                      options.sourcev4 = parse_optional_argument(argv);
+                      break;
+            case '6': options.forcev6 = 1;
+                      options.sourcev6 = parse_optional_argument(argv);
+                      break;
             case 'I': options.device = optarg; break;
             case 'Q': if ( parse_dscp_value(optarg, &options.dscp) < 0 ) {
                           Log(LOG_WARNING, "Invalid DSCP value, aborting");

@@ -327,29 +327,53 @@ amp_control_t* get_control_config(cfg_t *cfg, amp_test_meta_t *meta) {
         }
 
         /*
-         * If the IPv4 address for the control interface is not set, then use
-         * the globally set IPv4 address (if that is set), otherwise listen on
-         * all addresses.
+         * Prefer to use the address given in the control option, but if
+         * it isn't set then try to use the address used by tests, otherwise
+         * listen on all addresses in both address families.
          */
         if ( cfg_getstr(cfg_sub, "ipv4") != NULL ) {
-            control->ipv4 = strdup(cfg_getstr(cfg_sub, "ipv4"));
-        } else if ( meta->sourcev4 ) {
-            control->ipv4 = strdup(meta->sourcev4);
+            if ( strcmp(cfg_getstr(cfg_sub, "ipv4"), "any") == 0 ) {
+                control->ipv4 = strdup("0.0.0.0");
+            } else {
+                control->ipv4 = strdup(cfg_getstr(cfg_sub, "ipv4"));
+            }
         } else {
-            control->ipv4 = strdup("0.0.0.0");
+            control->ipv4 = NULL;
         }
 
-        /*
-         * If the IPv6 address for the control interface is not set, then use
-         * the globally set IPv6 address (if that is set), otherwise listen on
-         * all addresses.
-         */
         if ( cfg_getstr(cfg_sub, "ipv6") != NULL ) {
-            control->ipv6 = strdup(cfg_getstr(cfg_sub, "ipv6"));
-        } else if ( meta->sourcev6 ) {
-            control->ipv6 = strdup(meta->sourcev6);
+            if ( strcmp(cfg_getstr(cfg_sub, "ipv6"), "any") == 0 ) {
+                control->ipv6 = strdup("::");
+            } else {
+                control->ipv6 = strdup(cfg_getstr(cfg_sub, "ipv6"));
+            }
         } else {
-            control->ipv6 = strdup("::");
+            control->ipv6 = NULL;
+        }
+
+        /* addresses aren't explicitly set, so try to inherit from tests */
+        if ( control->ipv4 == NULL && control->ipv6 == NULL ) {
+            if ( meta->sourcev4 ) {
+                if ( strcmp(meta->sourcev4, "any") == 0 ) {
+                    control->ipv4 = strdup("0.0.0.0");
+                } else {
+                    control->ipv4 = strdup(meta->sourcev4);
+                }
+            }
+
+            if ( meta->sourcev6 ) {
+                if ( strcmp(meta->sourcev6, "any") == 0 ) {
+                    control->ipv6 = strdup("::");
+                } else {
+                    control->ipv6 = strdup(meta->sourcev6);
+                }
+            }
+
+            /* no addresses are set, so listen on all addresses */
+            if ( control->ipv4 == NULL && control->ipv6 == NULL ) {
+                control->ipv4 = strdup("0.0.0.0");
+                control->ipv6 = strdup("::");
+            }
         }
 
         /* build up the access control lists for the control socket */

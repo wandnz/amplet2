@@ -82,6 +82,8 @@ void run_test(const test_schedule_item_t * const item, BIO *ctrl) {
     timer_t watchdog;
     char *dscp_str = NULL;
     char *port_str = NULL;
+    int forcev4 = 0;
+    int forcev6 = 0;
 
     assert(item);
     assert(item->test_id < AMP_TEST_LAST);
@@ -92,6 +94,7 @@ void run_test(const test_schedule_item_t * const item, BIO *ctrl) {
     test = amp_tests[item->test_id];
 
     /* Start the timer so the test will be killed if it runs too long */
+    /* XXX should this start before or after DNS resolution, maybe after? */
     if ( start_test_watchdog(test, &watchdog) < 0 ) {
         Log(LOG_WARNING, "Aborting %s test run", test->name);
         return;
@@ -165,20 +168,32 @@ void run_test(const test_schedule_item_t * const item, BIO *ctrl) {
 
     /* set the outgoing source v4 address if configured at the global level */
     if ( item->meta->sourcev4 != NULL ) {
+        forcev4 = 1;
         argv[argc++] = "-4";
-        argv[argc++] = item->meta->sourcev4;
+        if ( strcmp(item->meta->sourcev4, "any") != 0 ) {
+            argv[argc++] = item->meta->sourcev4;
+        }
     }
 
     /* set the outgoing source v6 if configured at the global level */
     if ( item->meta->sourcev6 != NULL ) {
+        forcev6 = 1;
         argv[argc++] = "-6";
-        argv[argc++] = item->meta->sourcev6;
+        if ( strcmp(item->meta->sourcev6, "any") != 0 ) {
+            argv[argc++] = item->meta->sourcev6;
+        }
     }
 
     /* add in any of the test parameters from the schedule file */
     if ( item->params != NULL ) {
 	for ( offset=0; item->params[offset] != NULL; offset++ ) {
 	    argv[argc++] = item->params[offset];
+            /* limit resolving address family if the test requires */
+            if ( strcmp(item->params[offset], "-4") == 0 ) {
+                forcev4 = 1;
+            } else if ( strcmp(item->params[offset], "-6") == 0 ) {
+                forcev6 = 1;
+            }
 	}
     }
 
@@ -213,7 +228,13 @@ void run_test(const test_schedule_item_t * const item, BIO *ctrl) {
          * when AI_ADDRCONFIG is set. Might be nice to do this inside the
          * amp_resolve_add() function, but then it's harder to keep state.
          */
-        if ( getifaddrs(&ifaddrlist) < 0 ) {
+        if ( forcev4 && !forcev6 ) {
+            seen_ipv4 = 1;
+            seen_ipv6 = 0;
+        } else if ( forcev6 && !forcev4 ) {
+            seen_ipv4 = 0;
+            seen_ipv6 = 1;
+        } else if ( getifaddrs(&ifaddrlist) < 0 ) {
             /* error getting interfaces, assume we can do both IPv4 and 6 */
             seen_ipv4 = 1;
             seen_ipv6 = 1;

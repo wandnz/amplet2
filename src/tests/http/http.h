@@ -70,6 +70,8 @@ struct opt_t {
     int caching;                               /* allow cached content */
     int parse;                                  /* extract objects from page */
     int pipe_size_before_skip;
+    int forcev4;                                /* force use of ipv4 */
+    int forcev6;                                /* force use of ipv6 */
     char *device;                               /* source device name */
     char *sourcev4;                             /* source v4 address */
     char *sourcev6;                             /* source v6 address */

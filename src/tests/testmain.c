@@ -127,6 +127,8 @@ int main(int argc, char *argv[]) {
     char *nameserver = NULL;
     int remaining = 0;
     pthread_mutex_t addrlist_lock;
+    int forcev4 = 0;
+    int forcev6 = 0;
     char *sourcev4 = NULL;
     char *sourcev6 = NULL;
     amp_test_result_t *result;
@@ -159,7 +161,7 @@ int main(int argc, char *argv[]) {
      * the end of the list and then taken just the argv array after the last
      * known argument, but for some reason the permutation isn't working?
      */
-    while ( (opt = getopt_long(argc, argv, "-x0:9:8:7:4:6:",
+    while ( (opt = getopt_long(argc, argv, "-x0:9:8:7:4::6::",
                     long_options, NULL)) != -1 ) {
 	/* generally do nothing, just use up arguments until the -- marker */
         switch ( opt ) {
@@ -171,15 +173,27 @@ int main(int argc, char *argv[]) {
             case '7': nameserver = optarg;
                       break;
             /* use these for nameserver config, but also pass onto the test */
-            case '4': test_argv = realloc(test_argv,
-                              (test_argc+3) * sizeof(char*));
+            case '4': forcev4 = 1;
+                      sourcev4 = parse_optional_argument(argv);
                       test_argv[test_argc++] = "-4";
-                      test_argv[test_argc++] = sourcev4 = optarg;
+                      test_argv = realloc(test_argv,
+                              (test_argc+1) * sizeof(char*));
+                      if ( sourcev4 ) {
+                          test_argv[test_argc++] = sourcev4;
+                          test_argv = realloc(test_argv,
+                                  (test_argc+1) * sizeof(char*));
+                      }
                       break;
-            case '6': test_argv = realloc(test_argv,
-                              (test_argc+3) * sizeof(char*));
+            case '6': forcev6 = 1;
+                      sourcev6 = parse_optional_argument(argv);
                       test_argv[test_argc++] = "-6";
-                      test_argv[test_argc++] = sourcev6 = optarg;
+                      test_argv = realloc(test_argv,
+                              (test_argc+1) * sizeof(char*));
+                      if ( sourcev6 ) {
+                          test_argv[test_argc++] = sourcev6;
+                          test_argv = realloc(test_argv,
+                                  (test_argc+1) * sizeof(char*));
+                      }
                       break;
             /* configure ssl certs if we want to talk to a real server */
             case '0': vars.amqp_ssl.cacert = optarg;
@@ -230,6 +244,8 @@ int main(int argc, char *argv[]) {
 
     /* process all destinations */
     for ( i=optind; i<argc; i++ ) {
+        int family;
+
 	/* check if adding the new destination would be allowed by the test */
 	if ( test_info->max_targets > 0 &&
                 (i-optind) >= test_info->max_targets ) {
@@ -239,8 +255,17 @@ int main(int argc, char *argv[]) {
 	    break;
 	}
 
+        /* limit name resolution if address families are specified */
+        if ( forcev4 && !forcev6 ) {
+            family = AF_INET;
+        } else if ( forcev6 && !forcev4 ) {
+            family = AF_INET6;
+        } else {
+            family = AF_UNSPEC;
+        }
+
         amp_resolve_add(vars.ctx, &addrlist, &addrlist_lock, argv[i],
-                AF_UNSPEC, -1, &remaining);
+                family, -1, &remaining);
     }
 
     /* wait for all the responses to come in */

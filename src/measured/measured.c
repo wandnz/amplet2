@@ -93,7 +93,7 @@ static struct option long_options[] = {
 static void usage(void) {
 
     fprintf(stderr, "Usage: amplet2 [-dvxr] [-c <config>] [-I <iface>]\n"
-            "               [-4 <address>] [-6 <address>]\n");
+            "               [-4 [<address>]] [-6 [<address>]]\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "Options:\n");
     fprintf(stderr, "  -d, --daemonise                Detach and run in background\n");
@@ -344,11 +344,12 @@ int main(int argc, char *argv[]) {
     fetch_schedule_item_t *fetch;
     cfg_t *cfg;
     int opt;
+    char *address_string;
 
     memset(&meta, 0, sizeof(meta));
     meta.inter_packet_delay = MIN_INTER_PACKET_DELAY;
 
-    while ( (opt = getopt_long(argc, argv, "dhp:vxc:rZ:I:4:6:",
+    while ( (opt = getopt_long(argc, argv, "dhp:vxc:rZ:I:4::6::",
                     long_options, NULL)) != -1 ) {
 
 	switch ( opt ) {
@@ -391,11 +392,21 @@ int main(int argc, char *argv[]) {
                 break;
             case '4':
                 /* override config settings and set the source IPv4 address */
-                meta.sourcev4 = optarg;
+                address_string = parse_optional_argument(argv);
+                if ( address_string ) {
+                    meta.sourcev4 = optarg;
+                } else {
+                    meta.sourcev4 = "any";
+                }
                 break;
             case '6':
                 /* override config settings and set the source IPv6 address */
-                meta.sourcev6 = optarg;
+                address_string = parse_optional_argument(argv);
+                if ( address_string ) {
+                    meta.sourcev6 = optarg;
+                } else {
+                    meta.sourcev6 = "any";
+                }
                 break;
 	    case 'h':
 	    default:
