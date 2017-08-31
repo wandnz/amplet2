@@ -71,6 +71,30 @@ message Item {
     }
     /** The direction of the data flow during the test */
     optional Direction direction = 3;
+    /** Extra TCP information that may not be available on all hosts */
+    optional TCPInfo tcpinfo = 4;
+}
+
+
+/**
+ * Extra information that was extracted from the tcp_info struct. Only really
+ * interesting in kernels >= 4.10, will otherwise be left empty.
+ */
+message TCPInfo {
+    /** Highest goodput measurement (Bps) if app limited, otherwise zero */
+    optional uint64 delivery_rate = 1;
+    /** Total count of retransmitted packets sent */
+    optional uint32 total_retrans = 2;
+    /** Smoothed round trip time (usec) */
+    optional uint32 rtt = 3;
+    /** Round trip time variance (usec) */
+    optional uint32 rttvar = 4;
+    /** Time (usec) busy sending data */
+    optional uint64 busy_time = 5;
+    /** Time (usec) limited by receive window */
+    optional uint64 rwnd_limited = 6;
+    /** Time (usec) limited by send buffer */
+    optional uint64 sndbuf_limited = 7;
 }
 
 

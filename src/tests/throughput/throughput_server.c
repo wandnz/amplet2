@@ -100,15 +100,9 @@ static int do_receive(BIO *ctrl, int test_sock) {
         return -1;
     }
 
-#if 0
-    if ( !sockopts->disable_web10g ) {
-        web10g = getWeb10GSnap(test_sock);
-    }
-#endif
-
     /* Send our result */
     request.type = TPUT_2_SERVER;
-    request.s_result = &result;
+    request.result = &result;
 
     item = report_schedule(&request);
 
@@ -116,20 +110,13 @@ static int do_receive(BIO *ctrl, int test_sock) {
     packed.len = amplet2__throughput__item__get_packed_size(item);
     packed.data = malloc(packed.len);
     amplet2__throughput__item__pack(item, packed.data);
+    free(item);
 
     if ( send_control_result(AMP_TEST_THROUGHPUT, ctrl, &packed) < 0 ) {
-        free(item);
         free(packed.data);
         return -1;
     }
 
-#if 0
-    if ( web10g != NULL ) {
-        free(web10g);
-    }
-#endif
-
-    free(item);
     free(packed.data);
 
     return 0;
@@ -147,9 +134,6 @@ static int do_send(BIO *ctrl, int test_sock, struct opt_t *options,
     Amplet2__Throughput__Item *item;
     ProtobufCBinaryData packed;
     struct test_result_t result;
-#if 0
-    struct report_web10g_t *web10g = NULL;
-#endif
 
     memset(&result, 0, sizeof(result));
 
@@ -165,16 +149,10 @@ static int do_send(BIO *ctrl, int test_sock, struct opt_t *options,
         return -1;
     }
 
-#if 0
-    if ( !options->disable_web10g ) {
-        web10g = getWeb10GSnap(test_sock);
-    }
-#endif
-
     /* Unlike old test, send result for either direction */
     memset(request, 0, sizeof(*request));
     request->type = TPUT_2_CLIENT;
-    request->c_result = &result;
+    request->result = &result;
     item = report_schedule(request);
 
     /* pack the result for sending to the client */
@@ -182,22 +160,21 @@ static int do_send(BIO *ctrl, int test_sock, struct opt_t *options,
     packed.data = malloc(packed.len);
     amplet2__throughput__item__pack(item, packed.data);
 
+    if ( result.tcpinfo ) {
+        free(result.tcpinfo);
+    }
+    if ( item->tcpinfo ) {
+        free(item->tcpinfo);
+    }
+    free(item);
+
     /* send result to the client for reporting */
     if ( send_control_result(AMP_TEST_THROUGHPUT, ctrl, &packed) < 0 ) {
-        free(item);
         free(packed.data);
         return -1;
     }
 
-    free(item);
     free(packed.data);
-
-#if 0
-    if ( web10g != NULL ) {
-        free(web10g);
-    }
-#endif
-
     return 0;
 }
 

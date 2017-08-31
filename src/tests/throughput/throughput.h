@@ -54,11 +54,11 @@
 #include <sys/socket.h>
 #include <sys/time.h>
 #include <netinet/in.h>
-#include <netinet/tcp.h>
 #include <getopt.h>
 
 #include "tests.h"
 #include "throughput.pb-c.h"
+#include "tcpinfo.h"
 
 /* The default test time in seconds */
 #define DEFAULT_TESTTIME  20
@@ -111,136 +111,15 @@ void print_throughput(amp_test_result_t *result);
 void usage(void);
 
 
-
-/**
- * The very large structure holding everything we can get from web10g
- * TODO convert to protocol buffers
- *
- * sizeof(struct report_web10g_t) == 480
- */
-struct report_web10g_t {
-    uint64_t HCDataOctetsOut;
-    uint64_t HCDataOctetsIn;
-    uint64_t HCSumRTT;
-    uint64_t HCThruOctetsAcked;
-    uint64_t HCThruOctetsReceived;
-
-    uint32_t SegsOut;
-    uint32_t DataSegsOut;
-    uint32_t DataOctetsOut;
-    uint32_t SegsRetrans;
-    uint32_t OctetsRetrans;
-    uint32_t SegsIn;
-    uint32_t DataSegsIn;
-    uint32_t DataOctetsIn;
-    uint32_t ElapsedSecs;
-    uint32_t ElapsedMicroSecs;
-    uint32_t CurMSS;
-    uint32_t PipeSize;
-    uint32_t MaxPipeSize;
-    uint32_t SmoothedRTT;
-    uint32_t CurRTO;
-    uint32_t CongSignals;
-    uint32_t CurCwnd;
-    uint32_t CurSsthresh;
-    uint32_t Timeouts;
-    uint32_t CurRwinSent;
-    uint32_t MaxRwinSent;
-    uint32_t ZeroRwinSent;
-    uint32_t CurRwinRcvd;
-    uint32_t MaxRwinRcvd;
-    uint32_t ZeroRwinRcvd;
-    uint32_t SndLimTransRwin;
-    uint32_t SndLimTransCwnd;
-    uint32_t SndLimTransSnd;
-    uint32_t SndLimTimeRwin;
-    uint32_t SndLimTimeCwnd;
-    uint32_t SndLimTimeSnd;
-    uint32_t RetranThresh;
-    uint32_t NonRecovDAEpisodes;
-    uint32_t SumOctetsReordered;
-    uint32_t NonRecovDA;
-    uint32_t SampleRTT;
-    uint32_t RTTVar;
-    uint32_t MaxRTT;
-    uint32_t MinRTT;
-    uint32_t SumRTT;
-    uint32_t CountRTT;
-    uint32_t MaxRTO;
-    uint32_t MinRTO;
-    uint32_t IpTtl;
-    uint32_t PreCongSumCwnd;
-    uint32_t PreCongSumRTT;
-    uint32_t PostCongSumRTT;
-    uint32_t PostCongCountRTT;
-    uint32_t ECNsignals;
-    uint32_t DupAckEpisodes;
-    uint32_t RcvRTT;
-    uint32_t DupAcksOut;
-    uint32_t CERcvd;
-    uint32_t ECESent;
-    int32_t ActiveOpen;
-    uint32_t MSSSent;
-    uint32_t MSSRcvd;
-    int32_t WinScaleSent;
-    int32_t WinScaleRcvd;
-    int32_t TimeStamps;
-    int32_t ECN;
-    int32_t WillSendSACK;
-    int32_t WillUseSACK;
-    int32_t State;
-    int32_t Nagle;
-    uint32_t MaxSsCwnd;
-    uint32_t MaxCaCwnd;
-    uint32_t MaxSsthresh;
-    uint32_t MinSsthresh;
-    int32_t InRecovery;
-    uint32_t DupAcksIn;
-    uint32_t SpuriousFrDetected;
-    uint32_t SpuriousRtoDetected;
-    uint32_t SoftErrors;
-    int32_t SoftErrorReason;
-    uint32_t SlowStart;
-    uint32_t CongAvoid;
-    uint32_t OtherReductions;
-    uint32_t CongOverCount;
-    uint32_t FastRetran;
-    uint32_t SubsequentTimeouts;
-    uint32_t CurTimeoutCount;
-    uint32_t AbruptTimeouts;
-    uint32_t SACKsRcvd;
-    uint32_t SACKBlocksRcvd;
-    uint32_t SendStall;
-    uint32_t DSACKDups;
-    uint32_t MaxMSS;
-    uint32_t MinMSS;
-    uint32_t SndInitial;
-    uint32_t RecInitial;
-    uint32_t CurRetxQueue;
-    uint32_t MaxRetxQueue;
-    uint32_t CurReasmQueue;
-    uint32_t MaxReasmQueue;
-    uint32_t SndUna;
-    uint32_t SndNxt;
-    uint32_t SndMax;
-    uint32_t ThruOctetsAcked;
-    uint32_t RcvNxt;
-    uint32_t ThruOctetsReceived;
-    uint32_t CurAppWQueue;
-    uint32_t MaxAppWQueue;
-    uint32_t CurAppRQueue;
-    uint32_t MaxAppRQueue;
-    uint32_t LimCwnd;
-    uint32_t LimSsthresh;
-    uint32_t LimRwin;
-    uint32_t LimMSS;
-
-
-    int8_t StartTimeStamp;
-    uint8_t IpTosIn;
-    uint8_t IpTosOut;
-    uint8_t __PADDING1;
-
+/* internal format for holding tcpinfo results if present */
+struct tcpinfo_result_t {
+    uint64_t delivery_rate;
+    uint64_t busy_time;
+    uint64_t rwnd_limited;
+    uint64_t sndbuf_limited;
+    uint32_t total_retrans;
+    uint32_t rtt;
+    uint32_t rttvar;
 };
 
 /**
@@ -251,7 +130,9 @@ struct test_result_t {
     uint64_t bytes; /* Bytes seen */
     uint64_t start_ns; /* Start time in nanoseconds */
     uint64_t end_ns; /* End time in nanoseconds */
+    struct tcpinfo_result_t *tcpinfo;
 };
+
 
 /* A single request */
 struct test_request_t {
@@ -261,15 +142,7 @@ struct test_request_t {
     uint32_t duration;
     uint32_t write_size;
     uint32_t randomise;
-
-    /* Result for the client and server - these should almost be identical */
-    struct test_result_t *c_result;
-    struct test_result_t *s_result;
-
-    /* Web10g results again should mirror each other but interesting to see if they do */
-    struct report_web10g_t *c_web10g;
-    struct report_web10g_t *s_web10g;
-
+    struct test_result_t *result;
     struct test_request_t *next;
 };
 
@@ -326,19 +199,6 @@ ProtobufCBinaryData* build_hello(struct opt_t *options);
 ProtobufCBinaryData* build_send(struct test_request_t *options);
 void* parse_hello(ProtobufCBinaryData *data);
 void* parse_send(ProtobufCBinaryData *data);
-
-/*
- * Shared function from web10g.c
- */
-void print_web10g(struct report_web10g_t * web10g);
-
-#if 0
-#ifdef HAVE_ESTATS
-struct report_web10g_t * getWeb10GSnap(int socket);
-#else
-#define getWeb10GSnap(sock) NULL
-#endif
-#endif
 
 #if UNIT_TEST
 amp_test_result_t* amp_test_report_results(uint64_t start_time,

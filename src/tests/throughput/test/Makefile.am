@@ -2,7 +2,7 @@ TESTS=throughput_register.test throughput_hello.test throughput_ready.test throu
 check_PROGRAMS=throughput_register.test throughput_hello.test throughput_ready.test throughput_request.test throughput_report.test
 
 check_LTLIBRARIES=testthroughput.la
-testthroughput_la_SOURCES=../throughput.c ../throughput_server.c ../throughput_client.c ../throughput_common.c ../web10g.c
+testthroughput_la_SOURCES=../throughput.c ../throughput_server.c ../throughput_client.c ../throughput_common.c
 nodist_testthroughput_la_SOURCES=../throughput.pb-c.c
 testthroughput_la_CFLAGS=-rdynamic -DUNIT_TEST
 testthroughput_la_LDFLAGS=-module -avoid-version -L../../../common/ -lamp -lprotobuf-c

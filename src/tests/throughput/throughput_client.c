@@ -129,8 +129,7 @@ static void parseSchedule(struct opt_t *options, char *request) {
         (*current)->write_size = options->write_size;
         (*current)->randomise = options->randomise;
         (*current)->protocol = options->protocol;
-        (*current)->s_result = (*current)->c_result = NULL;
-        (*current)->s_web10g = (*current)->c_web10g = NULL;
+        (*current)->result = NULL;
         (*current)->next = NULL;
 
         arg = 0;
@@ -196,22 +195,16 @@ static void freeSchedule(struct opt_t *options){
         tmp = item;
         item = item->next;
 
-        if ( tmp->s_result ) {
-            free(tmp->s_result);
-            tmp->s_result = NULL;
+        if ( tmp->result ) {
+            if ( tmp->result->tcpinfo ) {
+                free(tmp->result->tcpinfo);
+                tmp->result->tcpinfo = NULL;
+            }
+
+            free(tmp->result);
+            tmp->result = NULL;
         }
-        if ( tmp->c_result ) {
-            free(tmp->c_result);
-            tmp->c_result = NULL;
-        }
-        if ( tmp->s_web10g ) {
-            free(tmp->s_web10g);
-            tmp->s_web10g = NULL;
-        }
-        if ( tmp->c_web10g ) {
-            free(tmp->c_web10g);
-            tmp->c_web10g = NULL;
-        }
+
         free(tmp);
     }
 
@@ -254,7 +247,7 @@ static amp_test_result_t* report_results(uint64_t start_time,
             continue;
         }
 
-        if ( item->c_result == NULL || item->s_result == NULL ) {
+        if ( item->result == NULL ) {
             continue;
         }
 
@@ -276,12 +269,40 @@ static amp_test_result_t* report_results(uint64_t start_time,
 
     /* free up all the memory we had to allocate to report items */
     for ( i = 0; i < msg.n_reports; i++ ) {
+        if ( reports[i]->tcpinfo ) {
+            free(reports[i]->tcpinfo);
+        }
         free(reports[i]);
     }
 
     free(reports);
 
     return result;
+}
+
+
+
+static struct tcpinfo_result_t *extract_tcpinfo(ProtobufCBinaryData *data) {
+    struct tcpinfo_result_t *tcpinfo = NULL;
+    Amplet2__Throughput__Item *item = amplet2__throughput__item__unpack(
+            NULL, data->len, data->data);
+
+    Log(LOG_DEBUG, "Extracting tcpinfo information from results");
+
+    if ( item->tcpinfo ) {
+        tcpinfo = malloc(sizeof(struct tcpinfo_result_t));
+        tcpinfo->delivery_rate = item->tcpinfo->delivery_rate;
+        tcpinfo->total_retrans = item->tcpinfo->total_retrans;
+        tcpinfo->rtt = item->tcpinfo->rtt;
+        tcpinfo->rttvar = item->tcpinfo->rttvar;
+        tcpinfo->busy_time = item->tcpinfo->busy_time;
+        tcpinfo->rwnd_limited = item->tcpinfo->rwnd_limited;
+        tcpinfo->sndbuf_limited = item->tcpinfo->sndbuf_limited;
+    }
+
+    amplet2__throughput__item__free_unpacked(item, NULL);
+
+    return tcpinfo;
 }
 
 
@@ -374,13 +395,10 @@ static amp_test_result_t* runSchedule(struct addrinfo *serv_addr,
                 }
 
                 /* Get ready for results */
-                cur->c_result = malloc(sizeof(struct test_result_t));
-                cur->s_result = malloc(sizeof(struct test_result_t));
-                memset(cur->c_result, 0, sizeof(struct test_result_t));
-                memset(cur->s_result, 0, sizeof(struct test_result_t));
+                cur->result = calloc(1, sizeof(struct test_result_t));
 
                 /* Receive the test */
-                if ( incomingTest(test_socket, cur->c_result) != 0 ) {
+                if ( incomingTest(test_socket, cur->result) != 0 ) {
                     Log(LOG_ERR, "Something went wrong when receiving an "
                             "incoming test from the server");
                     goto end;
@@ -388,34 +406,20 @@ static amp_test_result_t* runSchedule(struct addrinfo *serv_addr,
                 close(test_socket);
                 test_socket = -1;
 
-                /* No errors so we should have a valid result */
-                //XXX web10g
-                //if ( !options->disable_web10g ) {
-                //    cur->c_web10g = getWeb10GSnap(test_socket);
-                //}
-
-                /* Get servers result - might even have web10g attached */
+                /* Get server result to get the tcpinfo from the sender */
                 if ( read_control_result(AMP_TEST_THROUGHPUT,ctrl,&data) < 0 ) {
                     Log(LOG_WARNING, "Failed to read RESULT packet, aborting");
                     return NULL;
                 }
-                remote_results = amplet2__throughput__item__unpack(NULL,
-                        data.len, data.data);
-                /* XXX extracting this now cause it's easier :( */
-                cur->s_result->start_ns = 0;
-                cur->s_result->end_ns = remote_results->duration;
-                cur->s_result->bytes = remote_results->bytes;
+                /* main result is already filled locally, add server tcpinfo */
+                cur->result->tcpinfo = extract_tcpinfo(&data);
                 free(data.data);
-                amplet2__throughput__item__free_unpacked(remote_results, NULL);
                 Log(LOG_DEBUG, "Received results of test from server");
                 continue;
 
             case TPUT_2_SERVER:
                 Log(LOG_DEBUG, "Starting Client to Server Throughput test");
-                cur->c_result = malloc(sizeof(struct test_result_t));
-                cur->s_result = malloc(sizeof(struct test_result_t));
-                memset(cur->c_result, 0, sizeof(struct test_result_t));
-                memset(cur->s_result, 0, sizeof(struct test_result_t));
+                cur->result = calloc(1, sizeof(struct test_result_t));
 
                 /* Tell the server we are starting a test */
                 send_control_receive(AMP_TEST_THROUGHPUT, ctrl, 0);
@@ -426,22 +430,12 @@ static amp_test_result_t* runSchedule(struct addrinfo *serv_addr,
                     return NULL;
                 }
 
-                sent_result = sendStream(test_socket, cur, cur->c_result);
+                sent_result = sendStream(test_socket, cur, cur->result);
                 close(test_socket);
                 test_socket = -1;
 
                 if ( sent_result == 0 ) {
                     Log(LOG_DEBUG, "Finished sending - now getting results");
-
-                    //XXX web10g
-                    //if ( !options->disable_web10g ) {
-                    //    cur->c_web10g = getWeb10GSnap(test_socket);
-                    //}
-                    //if ( !readPacket(control_socket, &packet,
-                    //            (char **) &cur->s_web10g) ) {
-                    //    Log(LOG_ERR,"Failed to get results");
-                    //    goto errorCleanup;
-                    //}
 
                     if ( read_control_result(AMP_TEST_THROUGHPUT, ctrl,
                                 &data) < 0 ) {
@@ -451,9 +445,9 @@ static amp_test_result_t* runSchedule(struct addrinfo *serv_addr,
                     remote_results = amplet2__throughput__item__unpack(NULL,
                             data.len, data.data);
                     /* XXX extracting this now cause it's easier :( */
-                    cur->s_result->start_ns = 0;
-                    cur->s_result->end_ns = remote_results->duration;
-                    cur->s_result->bytes = remote_results->bytes;
+                    cur->result->start_ns = 0;
+                    cur->result->end_ns = remote_results->duration;
+                    cur->result->bytes = remote_results->bytes;
                     free(data.data);
                     amplet2__throughput__item__free_unpacked(remote_results,
                             NULL);
@@ -476,13 +470,6 @@ static amp_test_result_t* runSchedule(struct addrinfo *serv_addr,
     }
 
 end:
-    /**
-     * Now for the fun bit, results. At this point the schedule has
-     * the results of the tests attached to it stored in malloc'd mem:
-     * s_result c_result c_web10g s_web10g (C= client==us S= Server )
-     *
-     * We will report this set of results then we can finish
-     */
     result = report_results(start_time_ns / 1000000000, serv_addr, options);
 
     if ( test_socket != -1 ) {
@@ -577,9 +564,6 @@ amp_test_result_t* run_throughput_client(int argc, char *argv[], int count,
                           test_options.protocol = TPUT_PROTOCOL_HTTP_POST;
                       }
                       break;
-#if 0
-            case 'w': test_options.disable_web10g = 1; break;
-#endif
             case 'z': test_options.write_size = atoi(optarg); break;
             case 'x': log_level = LOG_DEBUG;
                       log_level_override = 1;
@@ -870,7 +854,7 @@ void print_throughput(amp_test_result_t *result) {
         default: break;
     };
 
-    printf("\n");
+    printf("\n\n");
 
     for ( i=0; i < msg->n_reports; i++ ) {
         item = msg->reports[i];
@@ -888,13 +872,35 @@ void print_throughput(amp_test_result_t *result) {
         printDuration(item->duration);
         printSpeed(item->bytes, item->duration);
         printf("\n");
-#if 0
-        if ( item->has_web10g_client ) {
+
+        if ( item->tcpinfo ) {
+            printf("\tTotal retransmits: %d\n",
+                    item->tcpinfo->total_retrans);
+            printf("\tSmoothed RTT: %.02fms +/- %.02fms\n",
+                    item->tcpinfo->rtt / 1000.0,
+                    item->tcpinfo->rttvar / 1000.0);
+            printf("\tPeak throughput: ");
+            if ( item->tcpinfo->delivery_rate > 0 ) {
+                printf("%.02fMbps\n",
+                        item->tcpinfo->delivery_rate / 1000.0 / 1000.0 * 8);
+            } else {
+                printf("unavailable (delivery_rate_app_limited = 0)\n");
+            }
+            if ( item->tcpinfo->rwnd_limited ) {
+                printf("\tLimited by receive window %.02f%% of the test\n",
+                        100.0 * item->tcpinfo->rwnd_limited /
+                        item->tcpinfo->busy_time);
+            }
+            if ( item->tcpinfo->sndbuf_limited ) {
+                printf("\tLimited by send buffer %.02f%% of the test\n",
+                        100.0 * item->tcpinfo->sndbuf_limited /
+                        item->tcpinfo->busy_time);
+            }
+        } else {
+            printf("\tNo further TCP information available from sender\n");
         }
 
-        if ( item->has_web10g_server ) {
-        }
-#endif
+        printf("\n");
     }
 
     amplet2__throughput__report__free_unpacked(msg, NULL);

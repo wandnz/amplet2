@@ -59,9 +59,6 @@ struct option long_options[] =
         {"sequence", required_argument, 0, 'S'},
         {"time", required_argument, 0, 't'},
         {"protocol", required_argument, 0, 'u'},
-#if 0
-        {"disable-web10g", no_argument, 0, 'w'},
-#endif
         {"write-size", required_argument, 0, 'z'},
         {"dscp", required_argument, 0, 'Q'},
         {"interpacketgap", required_argument, 0, 'Z'},
@@ -116,10 +113,6 @@ void usage(void) {
     fprintf(stderr, "  -z, --write-size     <bytes>   "
             "Length of buffer to write (default %d)\n",
             (int)DEFAULT_WRITE_SIZE );
-#if 0
-    fprintf(stderr, "  -w, --disable-web10g           "
-            "Don't record Web10G results\n");
-#endif
     fprintf(stderr, "\n");
 
     fprintf(stderr, "Miscellaneous:\n");
@@ -128,9 +121,6 @@ void usage(void) {
 
     fprintf(stderr, "Socket options such as rcvbuf, sndbuf, mss and nodelay "
             "will be set on both\nthe client and the server.");
-#if 0
-    fprintf(stderr, " Web10G can be used to check these are set correctly.");
-#endif
     fprintf(stderr, "\n\n");
 
     /* TODO make schedules like iperf? just do one way for a period */

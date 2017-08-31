@@ -48,6 +48,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <netinet/tcp.h>
 
 #include "config.h"
 #include "throughput.h"
@@ -179,30 +180,35 @@ Amplet2__Throughput__Item* report_schedule(struct test_request_t *info) {
 
     Amplet2__Throughput__Item *item =
         (Amplet2__Throughput__Item*)malloc(sizeof(Amplet2__Throughput__Item));
-    struct test_result_t *result;
-
-    /* Get the result from the receiving side */
-    result = (info->type == TPUT_2_CLIENT) ? info->c_result : info->s_result;
 
     /* fill the report item with results of a test */
     amplet2__throughput__item__init(item);
     item->has_direction = 1;
     item->direction = info->type;
     item->has_duration = 1;
-    item->duration = result->end_ns - result->start_ns;
+    item->duration = info->result->end_ns - info->result->start_ns;
     item->has_bytes = 1;
-    item->bytes = result->bytes;
+    item->bytes = info->result->bytes;
 
-#if 0
-    item->has_web10g_client = info->c_web10g ? 1 : 0;
-    item->has_web10g_server = info->s_web10g ? 1 : 0;
-
-    if ( item->c_web10g ) {
+    /* add the tcpinfo block if there is one */
+    if ( info->result->tcpinfo ) {
+        item->tcpinfo = calloc(1, sizeof(Amplet2__Throughput__TCPInfo));
+        amplet2__throughput__tcpinfo__init(item->tcpinfo);
+        item->tcpinfo->has_delivery_rate = 1;
+        item->tcpinfo->delivery_rate = info->result->tcpinfo->delivery_rate;
+        item->tcpinfo->has_total_retrans = 1;
+        item->tcpinfo->total_retrans = info->result->tcpinfo->total_retrans;
+        item->tcpinfo->has_rtt = 1;
+        item->tcpinfo->rtt = info->result->tcpinfo->rtt;
+        item->tcpinfo->has_rttvar = 1;
+        item->tcpinfo->rttvar = info->result->tcpinfo->rttvar;
+        item->tcpinfo->has_busy_time = 1;
+        item->tcpinfo->busy_time = info->result->tcpinfo->busy_time;
+        item->tcpinfo->has_rwnd_limited = 1;
+        item->tcpinfo->rwnd_limited = info->result->tcpinfo->rwnd_limited;
+        item->tcpinfo->has_sndbuf_limited = 1;
+        item->tcpinfo->sndbuf_limited = info->result->tcpinfo->sndbuf_limited;
     }
-
-    if ( item->s_web10g ) {
-    }
-#endif
 
     Log(LOG_DEBUG, "tput result: %" PRIu64 " bytes in %" PRIu64 "ms to %s",
         item->bytes, item->duration / (uint64_t) 1000000,
@@ -315,6 +321,66 @@ static void addHttpHeaders(void *data, unsigned int size) {
     }
 }
 
+
+
+/*
+ * Query the socket for some more in-depth information about the TCP state
+ * at the end of the throughput test.
+ */
+static struct tcpinfo_result_t *get_tcp_info(int sock_fd) {
+    struct tcpinfo_result_t *result;
+    struct amp_tcp_info *tcp_info = calloc(1, sizeof(struct amp_tcp_info));
+    int tcp_info_len = sizeof(struct amp_tcp_info);
+    int attempts = 10;
+
+    do {
+        /* get the tcp info block */
+        if ( getsockopt(sock_fd, IPPROTO_TCP, TCP_INFO, (void *)tcp_info,
+                    (socklen_t *)&tcp_info_len) < 0 ) {
+            perror("getsockopt");
+            free(tcp_info);
+            return NULL;
+        }
+        /* delay until all bytes have been sent or we've waited long enough */
+        attempts--;
+    } while ( attempts > 0 && tcp_info->tcpi_notsent_bytes > 0 &&
+            usleep(100000) == 0 );
+
+    /*
+     * don't try to parse any results that don't match our expected format -
+     * new fields get added at any point in the structure so we can't be sure
+     * that we are getting the correct data.
+     */
+    if ( tcp_info_len != sizeof(struct amp_tcp_info) ) {
+        free(tcp_info);
+        return NULL;
+    }
+
+    result = calloc(1, sizeof(struct tcpinfo_result_t));
+
+    /*
+     * if the connection isn't app limited then the delivery rate is the most
+     * recent value rather than the maximum
+     * TODO why isn't it always app limited when we have no data left to send?
+     * https://github.com/torvalds/linux/commit/eb8329e0a04db0061f714f033b4454
+     * https://github.com/torvalds/linux/commit/b9f64820fb226a4e8ab10591f46cec
+     * https://github.com/torvalds/linux/commit/d7722e8570fc0f1e003cee7cf37694
+     */
+    if ( tcp_info->tcpi_delivery_rate_app_limited ) {
+        result->delivery_rate = tcp_info->tcpi_delivery_rate;
+    }
+
+    result->total_retrans = tcp_info->tcpi_total_retrans;
+    result->rtt = tcp_info->tcpi_rtt;
+    result->rttvar = tcp_info->tcpi_rttvar;
+    result->busy_time = tcp_info->tcpi_busy_time;
+    result->rwnd_limited = tcp_info->tcpi_rwnd_limited;
+    result->sndbuf_limited = tcp_info->tcpi_sndbuf_limited;
+
+    free(tcp_info);
+
+    return result;
+}
 
 
 /**
@@ -513,6 +579,9 @@ int sendStream(int sock_fd, struct test_request_t *test_opts,
 
     res->end_ns = timeNanoseconds();
     free(packet_out);
+
+    res->tcpinfo = get_tcp_info(sock_fd);
+
     return 0;
 }
 

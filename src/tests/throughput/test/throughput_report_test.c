@@ -68,13 +68,13 @@ static void free_info(void) {
         tmp = info;
         info = info->next;
 
-        if ( tmp->s_result ) {
-            free(tmp->s_result);
-            tmp->s_result = NULL;
-        }
-        if ( tmp->c_result ) {
-            free(tmp->c_result);
-            tmp->c_result = NULL;
+        if ( tmp->result ) {
+            if ( tmp->result->tcpinfo ) {
+                free(tmp->result->tcpinfo);
+                tmp->result->tcpinfo = NULL;
+            }
+            free(tmp->result);
+            tmp->result = NULL;
         }
 
         free(tmp);
@@ -96,21 +96,15 @@ static struct test_request_t* build_info(struct test_request_t *next,
     item = (struct test_request_t*)malloc(sizeof(struct test_request_t)*count);
     item->type = direction;
     item->next = next;
-    item->s_web10g = NULL;
-    item->c_web10g = NULL;
 
     result = (struct test_result_t*)malloc(sizeof(struct test_result_t));
     result->start_ns = start * 1000000000;
     result->end_ns = end * 1000000000;
     result->bytes = bytes;
+    /* TODO add tcpinfo */
+    result->tcpinfo = NULL;
 
-    if ( item->type == TPUT_2_CLIENT ) {
-        item->c_result = result;
-        item->s_result = malloc(sizeof(struct test_result_t));
-    } else {
-        item->s_result = result;
-        item->c_result = malloc(sizeof(struct test_result_t));
-    }
+    item->result = result;
 
     return item;
 }
@@ -172,17 +166,12 @@ static void verify_address(struct addrinfo *a, Amplet2__Throughput__Header *b) {
 static void verify_response(struct test_request_t *a,
         Amplet2__Throughput__Item *b) {
 
-    struct test_result_t *result;
-
     assert(b->has_direction);
     assert((int)a->type == (int)b->direction);
-
-    result = (a->type == TPUT_2_CLIENT) ? a->c_result : a->s_result;
-
     assert(b->has_duration);
-    assert(result->end_ns - result->start_ns == b->duration);
+    assert(a->result->end_ns - a->result->start_ns == b->duration);
     assert(b->has_bytes);
-    assert(result->bytes == b->bytes);
+    assert(a->result->bytes == b->bytes);
 }
 
 
