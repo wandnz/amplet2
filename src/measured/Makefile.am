@@ -11,8 +11,11 @@ amplet2_remote_SOURCES=remote-client.c
 amplet2_remote_CFLAGS=-I../common/ -D_GNU_SOURCE -DAMP_TEST_DIRECTORY=\"$(libdir)/$(PACKAGE)/tests\" -rdynamic
 amplet2_remote_LDFLAGS=-L../common/ -lamp -lssl -lcrypto -lprotobuf-c
 
-sharedir=$(pkgdatadir)/rsyslog
-dist_share_DATA=rsyslog/*
+syslogdir=$(pkgdatadir)/rsyslog
+dist_syslog_DATA=rsyslog/*
+
+rabbitdir=$(pkgdatadir)/rabbitmq
+dist_rabbit_DATA=rabbitmq/*
 
 install-data-local:
 	$(MKDIR_P) $(DESTDIR)$(localstatedir)/run/$(PACKAGE)

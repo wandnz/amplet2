@@ -30,6 +30,25 @@ case "$1" in
             cp ${CLIENTDIR}/client.example ${CLIENTDIR}/default.conf
         fi
 
+        # Copy a default rabbitmq configuration file into place if there
+        # isn't already one there. We'll assume if there is one then the
+        # user knows what they are doing.
+        # TODO this doesn't help if the user later installs rabbitmq-server
+        if dpkg -s rabbitmq-server 2>/dev/null | \
+                grep -qx "Status: .* installed"; then
+            if [ -d /etc/rabbitmq/ -a ! -f /etc/rabbitmq/rabbitmq.config ]; then
+                cp /usr/share/doc/amplet2-client/examples/client-rabbitmq.config \
+                        /etc/rabbitmq/rabbitmq.config
+                chown rabbitmq:rabbitmq /etc/rabbitmq/rabbitmq.config
+                # restart rabbitmq-server so the new config takes effect
+                if [ -x "`which invoke-rc.d 2>/dev/null`" ]; then
+                    invoke-rc.d rabbitmq-server restart || exit $?
+                else
+                    /etc/init.d/rabbitmq-server restart || exit $?
+                fi
+            fi
+        fi
+
         # if this is a new install or a client older than 0.7.2 it will need
         # rsyslog to be restarted as the configuration has changed
         if dpkg --compare-versions "0.7.2" gt "$2"; then
