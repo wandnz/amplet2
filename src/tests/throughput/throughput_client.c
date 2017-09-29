@@ -770,7 +770,7 @@ amp_test_result_t* run_throughput_client(int argc, char *argv[], int count,
  */
 static void printSize(uint64_t bytes) {
     double scaled = (double)bytes;
-    char *units[] = {"bytes", "KBytes", "MBytes", "GBytes", NULL};
+    char *units[] = {"bytes", "KiB", "MiB", "GiB", NULL};
     char **unit;
 
     for ( unit = units; *unit != NULL; unit++ ) {
@@ -781,7 +781,7 @@ static void printSize(uint64_t bytes) {
         scaled = scaled / 1024.0;
     }
 
-    printf(" %.02lf TBytes", scaled);
+    printf(" %.02lf TiB", scaled);
 }
 
 
