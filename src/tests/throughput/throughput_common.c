@@ -202,6 +202,8 @@ Amplet2__Throughput__Item* report_schedule(struct test_request_t *info) {
         item->tcpinfo->rtt = info->result->tcpinfo->rtt;
         item->tcpinfo->has_rttvar = 1;
         item->tcpinfo->rttvar = info->result->tcpinfo->rttvar;
+        item->tcpinfo->has_min_rtt = 1;
+        item->tcpinfo->min_rtt = info->result->tcpinfo->min_rtt;
         item->tcpinfo->has_busy_time = 1;
         item->tcpinfo->busy_time = info->result->tcpinfo->busy_time;
         item->tcpinfo->has_rwnd_limited = 1;
@@ -373,6 +375,7 @@ static struct tcpinfo_result_t *get_tcp_info(int sock_fd) {
     result->total_retrans = tcp_info->tcpi_total_retrans;
     result->rtt = tcp_info->tcpi_rtt;
     result->rttvar = tcp_info->tcpi_rttvar;
+    result->min_rtt = tcp_info->tcpi_min_rtt;
     result->busy_time = tcp_info->tcpi_busy_time;
     result->rwnd_limited = tcp_info->tcpi_rwnd_limited;
     result->sndbuf_limited = tcp_info->tcpi_sndbuf_limited;

@@ -120,6 +120,7 @@ struct tcpinfo_result_t {
     uint32_t total_retrans;
     uint32_t rtt;
     uint32_t rttvar;
+    uint32_t min_rtt;
 };
 
 /**

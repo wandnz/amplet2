@@ -95,6 +95,8 @@ message TCPInfo {
     optional uint64 rwnd_limited = 6;
     /** Time (usec) limited by send buffer */
     optional uint64 sndbuf_limited = 7;
+    /* Minimum round trip time (usec) */
+    optional uint32 min_rtt = 8;
 }
 
 

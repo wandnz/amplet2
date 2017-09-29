@@ -295,6 +295,7 @@ static struct tcpinfo_result_t *extract_tcpinfo(ProtobufCBinaryData *data) {
         tcpinfo->total_retrans = item->tcpinfo->total_retrans;
         tcpinfo->rtt = item->tcpinfo->rtt;
         tcpinfo->rttvar = item->tcpinfo->rttvar;
+        tcpinfo->min_rtt = item->tcpinfo->min_rtt;
         tcpinfo->busy_time = item->tcpinfo->busy_time;
         tcpinfo->rwnd_limited = item->tcpinfo->rwnd_limited;
         tcpinfo->sndbuf_limited = item->tcpinfo->sndbuf_limited;
@@ -876,6 +877,7 @@ void print_throughput(amp_test_result_t *result) {
         if ( item->tcpinfo ) {
             printf("\tTotal retransmits: %d\n",
                     item->tcpinfo->total_retrans);
+            printf("\tMinimum RTT: %.02fms\n", item->tcpinfo->min_rtt / 1000.0);
             printf("\tSmoothed RTT: %.02fms +/- %.02fms\n",
                     item->tcpinfo->rtt / 1000.0,
                     item->tcpinfo->rttvar / 1000.0);
