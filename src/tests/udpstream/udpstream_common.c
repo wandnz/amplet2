@@ -149,6 +149,54 @@ void* parse_send(ProtobufCBinaryData *data) {
 
 
 /*
+ * Receive and process any reflected packets that have been sent back to us
+ * as a response to our probes. Compare the arrival timestamp with the sending
+ * timestamp and update the RTT statistics.
+ */
+static void receive_reflected_packets(struct socket_t *sockets, int wait,
+        uint32_t expected, struct summary_t *rtt) {
+    ssize_t bytes;
+    struct timeval now;
+    char response[MAXIMUM_UDPSTREAM_PACKET_LENGTH];
+    static double mean = 0;
+
+    assert(sockets);
+    assert(rtt);
+    assert(expected > 0);
+
+    /* TODO timing won't be super accurate, but good enough for now */
+    while ( expected > rtt->samples &&
+            (bytes = get_packet(sockets, response,
+                                MAXIMUM_UDPSTREAM_PACKET_LENGTH,
+                                NULL, &wait, &now)) > 0 ) {
+        struct payload_t *recv_payload;
+        struct timeval sent_time;
+        uint32_t value;
+        double delta;
+
+        //XXX check that this is actually a related packet
+
+        recv_payload = (struct payload_t*)&response;
+        /* this should cast appropriately whether 32 or 64 bit */
+        sent_time.tv_sec = (time_t)be64toh(recv_payload->sec);
+        sent_time.tv_usec = (time_t)be64toh(recv_payload->usec);
+        value = DIFF_TV_US(now, sent_time);
+        if ( value > rtt->maximum ) {
+            rtt->maximum = value;
+        }
+        if ( value < rtt->minimum ) {
+            rtt->minimum = value;
+        }
+        rtt->samples++;
+        delta = (double)value - mean;
+        mean += delta / rtt->samples;
+    }
+
+    rtt->mean = (uint32_t)round(mean);
+}
+
+
+/*
  * Send a stream of UDP packets towards the remote target, with the given
  * test options (size, spacing and count).
  */
@@ -157,12 +205,9 @@ struct summary_t* send_udp_stream(int sock, struct addrinfo *remote,
     struct timeval now;
     struct payload_t *payload;
     size_t payload_len;
-    char response[MAXIMUM_UDPSTREAM_PACKET_LENGTH];
-    ssize_t bytes;
     uint32_t i;
     struct socket_t sockets;
     struct summary_t *rtt = NULL;
-    double mean = 0;
 
     Log(LOG_DEBUG, "Sending UDP stream, packets:%d size:%d spacing:%d",
             options->packet_count, options->packet_size,
@@ -218,46 +263,24 @@ struct summary_t* send_udp_stream(int sock, struct addrinfo *remote,
             return NULL;
         }
 
+        /* XXX subtract time from the amount we wait between packets? */
         if ( options->rtt_samples > 0 ) {
             /*
-             * After sending the packet, check for any reflected packets
-             * before sending the next one.
+             * After sending the packet, check briefly for any reflected
+             * packets before sending the next one.
              */
-            int wait = options->packet_spacing;
-
-            /* TODO timing won't be super accurate, but good enough for now */
-            while ( (bytes = get_packet(&sockets, response,
-                            MAXIMUM_UDPSTREAM_PACKET_LENGTH,
-                            NULL, &wait, &now)) > 0 ) {
-                struct payload_t *recv_payload;
-                struct timeval sent_time;
-                uint32_t value;
-                double delta;
-
-                //XXX check that this is actually a related packet
-
-                recv_payload = (struct payload_t*)&response;
-                /* this should cast appropriately whether 32 or 64 bit */
-                sent_time.tv_sec = (time_t)be64toh(recv_payload->sec);
-                sent_time.tv_usec = (time_t)be64toh(recv_payload->usec);
-                value = DIFF_TV_US(now, sent_time);
-                if ( value > rtt->maximum ) {
-                    rtt->maximum = value;
-                }
-                if ( value < rtt->minimum ) {
-                    rtt->minimum = value;
-                }
-                rtt->samples++;
-                delta = (double)value - mean;
-                mean += delta / rtt->samples;
-            }
+             receive_reflected_packets(&sockets, options->packet_spacing,
+                     (uint32_t)(options->packet_count / options->rtt_samples),
+                     rtt);
         } else {
             usleep(options->packet_spacing);
         }
     }
 
     if ( options->rtt_samples > 0 ) {
-        rtt->mean = (uint32_t)round(mean);
+        /* do a final wait for any packets that haven't yet arrived */
+        receive_reflected_packets(&sockets, UDPSTREAM_LOSS_TIMEOUT,
+                (uint32_t)(options->packet_count / options->rtt_samples), rtt);
     }
 
     free(payload);
