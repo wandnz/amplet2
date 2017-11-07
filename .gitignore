@@ -42,3 +42,6 @@ Makefile.in
 /test-driver
 /ylwrap
 
+# Misc
+*.tar.gz
+*.swp
