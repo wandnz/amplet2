@@ -1,12 +1,12 @@
 Name: amplet2
-Version: 0.8.0
+Version: 0.8.1
 Release: 1%{?dist}
 Summary: AMP Network Performance Measurement Suite - Client Tools
 
 Group: Applications/Internet
 License: AMP
 URL: http://research.wand.net.nz/software/amp.php
-Source0: http://research.wand.net.nz/software/amp/amplet2-0.8.0.tar.gz
+Source0: https://github.com/wanduow/amplet2/archive/v0.8.1.tar.gz
 Patch0: amplet2-client-init.patch
 Patch1: amplet2-client-default.patch
 BuildRoot:	%(mktemp -ud %{_tmppath}/%{name}-%{version}-%{release}-XXXXXX)
@@ -63,6 +63,7 @@ rm -rf %{buildroot}
 %config %{_initrddir}/*
 %config %{_sysconfdir}/default/*
 %dir %{_localstatedir}/run/%{name}/
+%doc %{_datarootdir}/%{name}/rabbitmq/*
 
 
 %post
@@ -97,6 +98,13 @@ fi
 
 
 %changelog
+* Tue Nov  7 2017 Brendon Jones <brendonj@waikato.ac.nz> 0.8.1-1
+- amplet2: allow tests to be limited to a single address family.
+- throughput: replace web10g with newly available TCP_INFO stats.
+- throughput: report total data transmitted using power of two units.
+- udpstream: increase wait time for reflected packets once sending complete.
+- package: supply sample rabbitmq.config files, but don't install any.
+
 * Tue Jul 18 2017 Brendon Jones <brendonj@waikato.ac.nz> 0.8.0-1
 - build: update SSL library check to still succeed with newer versions.
 - build: check for external SASL method in AMQP library.
