@@ -5,7 +5,7 @@ amplet2 (0.8.0-1) unstable; urgency=low
   * build: check for external SASL method in AMQP library.
   * throughput: fix EADDRINUSE by not binding to addresses that aren't used.
   * http: extract count of failed object fetches in ampsave.
-  * server: force tcpreused to always be true in throughput test results.
+  * server: force tcpreused to always be false in throughput test results.
   * amplet2: move SSL configuration to its own section in the config file.
   * amplet2: set default value of vialocal based on rabbitmq being present.
   * amplet2: set default collector SSL config option based on the port used.
