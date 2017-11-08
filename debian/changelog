@@ -1,3 +1,14 @@
+amplet2 (0.8.1-1) unstable; urgency=low
+
+  * amplet2: allow tests to be limited to a single address family.
+  * throughput: replace web10g with newly available TCP_INFO stats.
+  * throughput: report total data transmitted using power of two units.
+  * udpstream: increase wait time for reflected packets once sending complete.
+  * package: supply sample rabbitmq.config files, installing the client config
+    file if one doesn't already exist.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Tue,  7 Nov 2017 16:36:55 +1300
+
 amplet2 (0.8.0-1) unstable; urgency=low
 
   * build: add missing dependency on flex.
