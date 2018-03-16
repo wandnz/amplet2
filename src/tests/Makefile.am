@@ -39,3 +39,7 @@ endif
 if WANT_UDPSTREAM_TEST
 SUBDIRS+=udpstream
 endif
+
+if WANT_YOUTUBE_TEST
+SUBDIRS+=youtube
+endif

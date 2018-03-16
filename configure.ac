@@ -4,7 +4,7 @@
 AC_PREREQ([2.67])
 AC_INIT([amplet2], [0.8.1], [amp@wand.net.nz])
 #AC_CONFIG_SRCDIR([src/measured/measured.c])
-AM_INIT_AUTOMAKE
+AM_INIT_AUTOMAKE([subdir-objects])
 AC_CONFIG_HEADERS([config.h])
 
 AC_CONFIG_MACRO_DIR([m4])
@@ -13,6 +13,7 @@ m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES([yes])])
 
 # Checks for programs.
 AC_PROG_CC
+AC_PROG_CXX
 AM_PROG_CC_C_O
 AC_PROG_LIBTOOL
 
@@ -302,6 +303,37 @@ AC_ARG_ENABLE(udpstream,
 # using AM_CONDITIONAL propagates this value through to all Makefile.am files
 AM_CONDITIONAL(WANT_UDPSTREAM_TEST, [test x"$want_udpstream_test" = xtrue])
 
+AC_ARG_ENABLE(youtube,
+    AC_HELP_STRING([--enable-youtube],
+	[Enable the youtube test (default: no)]),
+    [case "${enableval}" in
+    true) ;&
+    yes) want_youtube_test=true ;;
+    false) ;&
+    no)	 want_youtube_test=false ;;
+    *) AC_MSG_ERROR(bad value ${enableval} for --enable-youtube) ;;
+    esac],
+    [want_youtube_test=false])
+
+CHROMIUM_INCLUDE_DIR=""
+AC_ARG_WITH(chromium-build,
+    AC_HELP_STRING([--with-chromium-build=DIR],
+        [Specify the base location of the built chromium libraries]),
+        [CHROMIUM_BUILD_DIR="${withval}" CHROMIUM_INCLUDE_DIR="-I${withval}/gen" want_youtube_test=true])
+AC_SUBST(CHROMIUM_BUILD_DIR)
+
+AC_ARG_WITH(chromium-includes,
+    AC_HELP_STRING([--with-chromium-includes=DIR],
+        [Specify the location of the chromium headers]),
+        [CHROMIUM_INCLUDE_DIR+=" -I${withval}" want_youtube_test=true])
+AC_SUBST(CHROMIUM_INCLUDE_DIR)
+
+
+# using AM_CONDITIONAL propagates this value through to all Makefile.am files
+AM_CONDITIONAL(WANT_YOUTUBE_TEST, [test x"$want_youtube_test" = xtrue])
+
+
+
 # Set default CFLAGS including the AMP_CONFIG_DIR and AMP_TEST_DIR
 AC_SUBST([AM_CFLAGS], ["-rdynamic -g -Wall -W -D_GNU_SOURCE -DAMP_CONFIG_DIR=\\\"\$(sysconfdir)/\$(PACKAGE)\\\" -DAMP_TEST_DIRECTORY=\\\"\$(libdir)/\$(PACKAGE)/tests\\\" -DAMP_LOG_DIR=\\\"\$(localstatedir)/log/\\\""])
 
@@ -330,7 +362,9 @@ AC_CONFIG_FILES([Makefile
                  src/tests/throughput/test/Makefile
                  src/tests/remoteskeleton/Makefile
                  src/tests/udpstream/Makefile
-                 src/tests/udpstream/test/Makefile])
+                 src/tests/udpstream/test/Makefile
+                 src/tests/youtube/Makefile])
+                 #src/tests/youtube/test/Makefile])
 AC_OUTPUT
 
 reportopt() {
@@ -352,3 +386,4 @@ reportopt "Compiled with http test support" $want_http_test
 reportopt "Compiled with throughput test support" $want_throughput_test
 reportopt "Compiled with tcpping test support" $want_tcpping_test
 reportopt "Compiled with udpstream test support" $want_udpstream_test
+reportopt "Compiled with youtube test support" $want_youtube_test

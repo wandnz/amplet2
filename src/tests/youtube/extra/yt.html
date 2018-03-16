@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html>
+  <body>
+    <!-- 1. The <iframe> (and video player) will replace this <div> tag. -->
+    <div id="player"></div>
+
+    <script>
+      var video_id;
+      var quality;
+
+      var urlParams = new URLSearchParams(window.location.search);
+
+      if ( urlParams.has("video") ) {
+          video_id = urlParams.get("video");
+      } else {
+          video_id = "C0DPdy98e4c"; /* short 17s test */
+      }
+
+      if ( urlParams.has("quality") ) {
+          quality = urlParams.get("quality");
+      } else {
+          quality = "default";
+      }
+
+    /*
+     * https://developers.google.com/youtube/player_parameters
+     * https://developers.google.com/youtube/iframe_api_reference
+     */
+      var starttime;
+      /* can this browser actually play videos? */
+      console.log("video: " + !!document.createElement("video").canPlayType);
+
+      // 2. This code loads the IFrame Player API code asynchronously.
+      var tag = document.createElement('script');
+
+      tag.src = "https://www.youtube.com/iframe_api";
+      var firstScriptTag = document.getElementsByTagName('script')[0];
+      firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+
+      // 3. This function creates an <iframe> (and YouTube player)
+      //    after the API code downloads.
+      var player;
+      var timeline = []
+
+        function getQualityHeight(quality) {
+            var heights = {
+                "default": 1080,
+                "small": 240,
+                "medium": 360,
+                "large": 480,
+                "hd720": 720,
+                "hd1080": 1080,
+                "highres": 2160,
+            };
+
+            if ( quality in heights ) {
+                return heights[quality];
+            }
+
+            return heights["default"];
+        }
+
+        function getQualityWidth(quality) {
+            var widths = {
+                "default": 1080,
+                //"small": 320,
+                "small": 427,
+                "medium": 640,
+                "large": 583,
+                "hd720": 1280,
+                "hd1080": 1920,
+                "highres": 3840,
+            };
+
+            if ( quality in widths ) {
+                return widths[quality];
+            }
+
+            return widths["default"];
+        }
+
+      function onYouTubeIframeAPIReady() {
+          console.log("onYouTubeIframeAPIReady");
+          player = new YT.Player('player', {
+          height: getQualityHeight(quality),
+          width: getQualityWidth(quality),
+          videoId: video_id,
+          playerVars: {
+              'autoplay': 0,
+              'controls': 0,
+              'enablejsapi': 1,
+              'iv_load_policy': 3,
+              'rel': 0,
+          },
+          events: {
+            'onReady': onPlayerReady,
+            'onStateChange': onPlayerStateChange,
+            'onError': onPlayerError,
+          }
+        });
+      }
+
+      // 4. The API will call this function when the video player is ready.
+      function onPlayerReady(event) {
+          console.log("onPlayerReady");
+          /* XXX no guarantee, look for onPlaybackQualityChange event? */
+          event.target.setPlaybackQuality(quality);
+          starttime = Date.now();
+          event.target.playVideo();
+      }
+
+      function onPlayerError(event) {
+          console.log("onPlayerError");
+          console.log(event);
+      }
+
+      // 5. The API calls this function when the player's state changes.
+      //    The function indicates that when playing a video (state=1),
+      //    the player should play for six seconds and then stop.
+      var playtime = 0;
+      var beforetime = 0;
+      var buftime = 0;
+      var bufcount = 0;
+      var time = 0;
+      var state = -1;
+
+      function onPlayerStateChange(event) {
+          var now = Date.now();
+
+          if ( time > 0 ) {
+              console.log(now - time);
+          }
+
+          console.log(event.target.getPlaybackQuality() + " (" +
+                  event.target.getAvailableQualityLevels() + ")");
+          /*
+           * If this isn't the first time through we might need to update
+           * some timers. Currently tracking time spent buffering and time
+           * spent playing.
+           */
+          if ( time > 0 ) {
+              /* buffering before the video starts counts separately */
+              if ( state == YT.PlayerState.BUFFERING && beforetime > 0 ) {
+                  buftime += (now - time);
+                  bufcount++;
+                  timeline.push({"stall": now - time});
+              } else if ( state == YT.PlayerState.PLAYING ) {
+                  playtime += (now - time);
+                  timeline.push({"play": now - time});
+              }
+          }
+
+          switch ( event.data ) {
+            case YT.PlayerState.UNSTARTED:
+                console.log("unstarted");
+                state = YT.PlayerState.UNSTARTED;
+                break;
+
+            case YT.PlayerState.BUFFERING:
+                console.log("buffering");
+                state = YT.PlayerState.BUFFERING;
+                break;
+
+            case YT.PlayerState.PLAYING:
+                console.log("playing");
+                if ( beforetime == 0 ) {
+                    if ( time == 0 ) {
+                        beforetime = 0;
+                    } else {
+                        beforetime = (now - starttime);
+                    }
+                    timeline.push({"buffer": beforetime});
+                }
+                state = YT.PlayerState.PLAYING;
+                break;
+
+            case YT.PlayerState.ENDED:
+                console.log("ended");
+                //now = Date.now();
+                console.log("Intial buffering time:" + beforetime);
+                console.log("Playing time:" + playtime);
+                console.log("Stall time:" + buftime);
+                console.log("Stall count:" + bufcount);
+                console.log("Total time:" + (now - starttime));
+                console.log("Unaccounted:" + ((now - starttime) - playtime -
+                        buftime - beforetime));
+                console.log("getCurrentTime():"+event.target.getCurrentTime());
+                console.log("getDuration():" + event.target.getDuration());
+                youtuberesults = {
+                    "video": video_id,
+                    /* TODO getVideoData() is undocumented, not official */
+                    "title": player.getVideoData().title,
+                    "quality": event.target.getPlaybackQuality(),
+                    "initial_buffering": beforetime,
+                    "playing_time": playtime,
+                    "stall_time": buftime,
+                    "stall_count": bufcount,
+                    "total_time": now - starttime,
+                    "unknown_time": ((now - starttime) - playtime -
+                                            buftime - beforetime),
+                    "reported_duration": event.target.getDuration(),
+                    "timeline": timeline,
+                };
+                foo = youtuberesults; // XXX
+                console.log(youtuberesults);
+
+                alert("done");
+                break;
+
+            default:
+                console.log("new state: " + event.data);
+                state = event.data;
+                return; /* so the time doesn't get updated */
+        };
+        time = now;
+      }
+    </script>
+  </body>
+</html>

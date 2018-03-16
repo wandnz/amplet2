@@ -1,0 +1,55 @@
+/**
+ * Data reporting messages for the AMP youtube (chromium) test.
+ *
+ * Each message contains one Report.
+ */
+package amplet2.youtube;
+
+/**
+ * Video quality as described in the YouTube iframe player docs:
+ *     https://developers.google.com/youtube/iframe_api_reference
+ */
+enum Quality {
+    UNKNOWN = 0;
+    DEFAULT = 1;
+    SMALL = 2;
+    MEDIUM = 3;
+    LARGE = 4;
+    HD720 = 5;
+    HD1080 = 6;
+    HIGHRES = 7;
+}
+
+/**
+ * An instance of the test will generate one Report message.
+ */
+message Report {
+    /** Describes the test settings used in this test instance */
+    optional Header header = 1;
+    optional Item item = 2;
+}
+
+/**
+ * The test header describes all of the settings that the test was configured
+ * to run with, as well as global statistics about how the test ran.
+ */
+message Header {
+    /** The unique identifier youtube uses for this video */
+    optional string video = 1;
+    optional Quality quality = 2;
+    /** Differentiated Services Code Point (DSCP) used */
+    optional uint32 dscp = 3 [default = 0];
+}
+
+message Item {
+    optional string title = 1;
+    optional Quality quality = 2;
+    optional uint64 initial_buffering = 3;
+    optional uint64 playing_time = 4;
+    optional uint64 stall_time = 5 [default = 0];
+    optional uint64 stall_count = 6 [default = 0];
+    optional uint64 total_time = 7;
+    optional uint64 unknown_time = 8 [default = 0];
+    optional double reported_duration = 9;
+    /* TODO timeline of playing and buffering */
+}
