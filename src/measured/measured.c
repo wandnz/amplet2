@@ -436,6 +436,8 @@ int main(int argc, char *argv[]) {
 
     Log(LOG_INFO, "%s starting", PACKAGE_STRING);
 
+    srandom(time(NULL));
+
     /* load the default config file if one isn't specified */
     if ( !config_file ) {
 	config_file = AMP_CLIENT_CONFIG_DIR "/default.conf";

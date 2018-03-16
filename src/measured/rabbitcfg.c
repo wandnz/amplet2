@@ -213,6 +213,7 @@ int setup_rabbitmq_shovel(char *ampname, char *local, char *collector, int port,
     char *args[] = { RABBITMQCTL, "set_parameter", "shovel", ampname,
         NULL, NULL };
     int result;
+    int retry;
 
     Log(LOG_DEBUG, "Creating rabbitmq shovel for \"%s\" to %s",
             ampname, collector);
@@ -228,6 +229,13 @@ int setup_rabbitmq_shovel(char *ampname, char *local, char *collector, int port,
     assert(routingkey);
 
     /*
+     * Try to spread the retry time for each client across the arbitrary
+     * range of 60s to 180s so they don't all reconnect at once (don't
+     * appear able to do exponential backoff with a shovel?).
+     */
+    retry = 60 + (120 * (random()/(RAND_MAX+1.0)));
+
+    /*
      * Create the shovel configuration to send data from our queues in our
      * own vhost back to the collector server.
      */
@@ -241,10 +249,11 @@ int setup_rabbitmq_shovel(char *ampname, char *local, char *collector, int port,
                 "&verify=verify_peer"
                 "&fail_if_no_peer_cert=true"
                 "&auth_mechanism=external\", "
+                "\"reconnect-delay\":%d,"
                 "\"dest-exchange\":\"%s\", "
                 "\"dest-exchange-key\":\"%s\"}",
                 ampname, ampname, local, ampname, collector, port, cacert,
-                cert, key, exchange, routingkey) < 0 ) {
+                cert, key, retry, exchange, routingkey) < 0 ) {
         exit(-1);
     }
 
