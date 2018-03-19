@@ -102,11 +102,15 @@
 
       // 4. The API will call this function when the video player is ready.
       function onPlayerReady(event) {
+          starttime = Date.now();
           console.log("onPlayerReady");
           /* XXX no guarantee, look for onPlaybackQualityChange event? */
           event.target.setPlaybackQuality(quality);
-          starttime = Date.now();
           event.target.playVideo();
+          timeline.push({
+                  "timestamp": 0,
+                  "event": "ready",
+                  });
       }
 
       function onPlayerError(event) {
@@ -143,10 +147,8 @@
               if ( state == YT.PlayerState.BUFFERING && beforetime > 0 ) {
                   buftime += (now - time);
                   bufcount++;
-                  timeline.push({"stall": now - time});
               } else if ( state == YT.PlayerState.PLAYING ) {
                   playtime += (now - time);
-                  timeline.push({"play": now - time});
               }
           }
 
@@ -154,11 +156,19 @@
             case YT.PlayerState.UNSTARTED:
                 console.log("unstarted");
                 state = YT.PlayerState.UNSTARTED;
+                timeline.push({
+                        "timestamp": now - starttime,
+                        "event": "unstarted",
+                        });
                 break;
 
             case YT.PlayerState.BUFFERING:
                 console.log("buffering");
                 state = YT.PlayerState.BUFFERING;
+                timeline.push({
+                        "timestamp": now - starttime,
+                        "event": "buffering",
+                        });
                 break;
 
             case YT.PlayerState.PLAYING:
@@ -167,16 +177,22 @@
                     if ( time == 0 ) {
                         beforetime = 0;
                     } else {
-                        beforetime = (now - starttime);
+                        beforetime = (now - time);
                     }
-                    timeline.push({"buffer": beforetime});
                 }
                 state = YT.PlayerState.PLAYING;
+                timeline.push({
+                        "timestamp": now - starttime,
+                        "event": "playing",
+                        });
                 break;
 
             case YT.PlayerState.ENDED:
+                timeline.push({
+                        "timestamp": now - starttime,
+                        "event": "ended",
+                        });
                 console.log("ended");
-                //now = Date.now();
                 console.log("Intial buffering time:" + beforetime);
                 console.log("Playing time:" + playtime);
                 console.log("Stall time:" + buftime);
