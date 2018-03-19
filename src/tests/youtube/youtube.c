@@ -115,6 +115,8 @@ static int validate_quality(char *quality) {
             strcmp(quality, "large") == 0 ||
             strcmp(quality, "hd720") == 0 ||
             strcmp(quality, "hd1080") == 0 ||
+            strcmp(quality, "hd1440") == 0 ||
+            strcmp(quality, "hd2160") == 0 ||
             strcmp(quality, "highres") == 0 ) {
         return 0;
     }
@@ -142,6 +144,10 @@ static Amplet2__Youtube__Quality parse_quality(char *quality) {
         return AMPLET2__YOUTUBE__QUALITY__HD720;
     } else if ( strcmp(quality, "hd1080") == 0 ) {
         return AMPLET2__YOUTUBE__QUALITY__HD1080;
+    } else if ( strcmp(quality, "hd1440") == 0 ) {
+        return AMPLET2__YOUTUBE__QUALITY__HD1440;
+    } else if ( strcmp(quality, "hd2160") == 0 ) {
+        return AMPLET2__YOUTUBE__QUALITY__HD2160;
     } else if ( strcmp(quality, "highres") == 0 ) {
         return AMPLET2__YOUTUBE__QUALITY__HIGHRES;
     }
@@ -163,6 +169,8 @@ static char* print_quality(Amplet2__Youtube__Quality quality) {
         case AMPLET2__YOUTUBE__QUALITY__LARGE: return "large";
         case AMPLET2__YOUTUBE__QUALITY__HD720: return "hd720";
         case AMPLET2__YOUTUBE__QUALITY__HD1080: return "hd1080";
+        case AMPLET2__YOUTUBE__QUALITY__HD1440: return "hd1440";
+        case AMPLET2__YOUTUBE__QUALITY__HD2160: return "hd2160";
         case AMPLET2__YOUTUBE__QUALITY__HIGHRES: return "highres";
         default: return "unknown";
     };

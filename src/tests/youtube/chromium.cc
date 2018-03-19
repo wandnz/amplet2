@@ -304,6 +304,10 @@ void HeadlessTest::UpdateYoutubeTiming(
             item->quality = AMPLET2__YOUTUBE__QUALITY__HD720;
         } else if ( quality == "hd1080" ) {
             item->quality = AMPLET2__YOUTUBE__QUALITY__HD1080;
+        } else if ( quality == "hd1440" ) {
+            item->quality = AMPLET2__YOUTUBE__QUALITY__HD1440;
+        } else if ( quality == "hd2160" ) {
+            item->quality = AMPLET2__YOUTUBE__QUALITY__HD2160;
         } else if ( quality == "highres" ) {
             item->quality = AMPLET2__YOUTUBE__QUALITY__HIGHRES;
         } else {
