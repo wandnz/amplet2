@@ -323,8 +323,8 @@ void HeadlessTest::UpdateYoutubeTiming(
         item->stall_count = GetInteger(value);
     } else if ( name == "total_time" ) {
         item->total_time = GetInteger(value);
-    } else if ( name == "unknown_time" ) {
-        item->unknown_time = GetInteger(value);
+    } else if ( name == "pre_time" ) {
+        item->pre_time = GetInteger(value);
     } else if ( name == "reported_duration" ) {
         item->reported_duration = GetDouble(value);
     }

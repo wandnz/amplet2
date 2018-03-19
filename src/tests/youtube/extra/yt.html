@@ -127,7 +127,8 @@
       //    The function indicates that when playing a video (state=1),
       //    the player should play for six seconds and then stop.
       var playtime = 0;
-      var beforetime = 0;
+      var pretime = 0;
+      var firstbuffer = 0;
       var buftime = 0;
       var bufcount = 0;
       var time = 0;
@@ -159,7 +160,7 @@
            */
           if ( time > 0 ) {
               /* buffering before the video starts counts separately */
-              if ( state == YT.PlayerState.BUFFERING && beforetime > 0 ) {
+              if ( state == YT.PlayerState.BUFFERING && firstbuffer > 0 ) {
                   buftime += (now - time);
                   bufcount++;
               } else if ( state == YT.PlayerState.PLAYING ) {
@@ -180,6 +181,10 @@
             case YT.PlayerState.BUFFERING:
                 console.log("buffering");
                 state = YT.PlayerState.BUFFERING;
+                /* pre time ends once we start to buffer for the first time */
+                if ( pretime == 0 ) {
+                    pretime = now - starttime;
+                }
                 timeline.push({
                         "timestamp": now - starttime,
                         "event": "buffering",
@@ -188,11 +193,12 @@
 
             case YT.PlayerState.PLAYING:
                 console.log("playing");
-                if ( beforetime == 0 ) {
+                /* initial buffering ends the first time we enter play state */
+                if ( firstbuffer == 0 ) {
                     if ( time == 0 ) {
-                        beforetime = 0;
+                        firstbuffer = 0;
                     } else {
-                        beforetime = (now - time);
+                        firstbuffer = (now - time);
                     }
                 }
                 state = YT.PlayerState.PLAYING;
@@ -208,13 +214,11 @@
                         "event": "ended",
                         });
                 console.log("ended");
-                console.log("Intial buffering time:" + beforetime);
+                console.log("Intial buffering time:" + firstbuffer);
                 console.log("Playing time:" + playtime);
                 console.log("Stall time:" + buftime);
                 console.log("Stall count:" + bufcount);
                 console.log("Total time:" + (now - starttime));
-                console.log("Unaccounted:" + ((now - starttime) - playtime -
-                        buftime - beforetime));
                 console.log("getCurrentTime():"+event.target.getCurrentTime());
                 console.log("getDuration():" + event.target.getDuration());
                 youtuberesults = {
@@ -222,13 +226,12 @@
                     /* TODO getVideoData() is undocumented, not official */
                     "title": player.getVideoData().title,
                     "quality": event.target.getPlaybackQuality(),
-                    "initial_buffering": beforetime,
+                    "initial_buffering": firstbuffer,
                     "playing_time": playtime,
                     "stall_time": buftime,
                     "stall_count": bufcount,
                     "total_time": now - starttime,
-                    "unknown_time": ((now - starttime) - playtime -
-                                            buftime - beforetime),
+                    "pre_time": pretime,
                     "reported_duration": event.target.getDuration(),
                     "timeline": timeline,
                 };

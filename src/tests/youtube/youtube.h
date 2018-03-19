@@ -39,7 +39,7 @@ struct YoutubeTiming {
     uint64_t stall_time;
     uint64_t stall_count;
     uint64_t total_time;
-    uint64_t unknown_time;
+    uint64_t pre_time;
     double reported_duration;
 };
 

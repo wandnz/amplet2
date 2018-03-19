@@ -187,6 +187,7 @@ static void print_video(Amplet2__Youtube__Item *video) {
     printf("  Title: \"%s\"\n", video->title);
     printf("  Actual quality: %s\n", print_quality(video->quality));
     printf("  Reported duration: %0.3fs\n", video->reported_duration);
+    printf("  Time before buffering: %lums\n", video->pre_time);
     printf("  Initial buffering: %lums\n", video->initial_buffering);
     printf("  Time playing: %lums\n", video->playing_time);
     if ( video->stall_count == 0 ) {
@@ -194,9 +195,6 @@ static void print_video(Amplet2__Youtube__Item *video) {
     } else {
         printf("  Stalled %lu times for a total of %lums\n",
                 video->stall_count, video->stall_time);
-    }
-    if ( video->has_unknown_time ) {
-        printf("  %lums unaccounted for (rounding?)\n", video->unknown_time);
     }
     printf("  Total time: %lums\n", video->total_time);
 }
@@ -221,6 +219,8 @@ static Amplet2__Youtube__Item* report_video_results(
     video->has_quality = 1;
     video->title = info->title;
 
+    video->has_pre_time = 1;
+    video->pre_time = info->pre_time;
     video->has_initial_buffering = 1;
     video->initial_buffering = info->initial_buffering;
     video->has_playing_time = 1;
@@ -233,11 +233,6 @@ static Amplet2__Youtube__Item* report_video_results(
     video->total_time = info->total_time;
     video->has_reported_duration = 1;
     video->reported_duration = info->reported_duration;
-
-    if ( info->unknown_time > 0 ) {
-        video->has_unknown_time = 1;
-        video->unknown_time = info->unknown_time;
-    }
 
     return video;
 }
