@@ -130,7 +130,7 @@ static int validate_quality(char *quality) {
  *
  */
 static Amplet2__Youtube__Quality parse_quality(char *quality) {
-    if ( quality == NULL ) {
+    if ( quality == NULL || strcmp(quality, "default") == 0 ) {
         return AMPLET2__YOUTUBE__QUALITY__DEFAULT;
     }
 
