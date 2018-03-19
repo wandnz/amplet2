@@ -95,6 +95,7 @@
           events: {
             'onReady': onPlayerReady,
             'onStateChange': onPlayerStateChange,
+            'onPlaybackQualityChange': onQualityChange,
             'onError': onPlayerError,
           }
         });
@@ -127,6 +128,16 @@
       var bufcount = 0;
       var time = 0;
       var state = -1;
+
+      function onQualityChange(event) {
+          var now = Date.now();
+          console.log("quality change: " + event.data);
+          timeline.push({
+                  "timestamp": now - starttime,
+                  "event": "quality",
+                  "quality": event.data
+                  });
+      }
 
       function onPlayerStateChange(event) {
           var now = Date.now();
