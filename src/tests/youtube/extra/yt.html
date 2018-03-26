@@ -7,6 +7,7 @@
     <script>
       var video_id;
       var quality;
+      var debug;
 
       var urlParams = new URLSearchParams(window.location.search);
 
@@ -22,13 +23,24 @@
           quality = "default";
       }
 
+      if ( urlParams.has("debug") ) {
+          debug = urlParams.get("debug");
+      } else {
+          debug = false;
+      }
+
     /*
      * https://developers.google.com/youtube/player_parameters
      * https://developers.google.com/youtube/iframe_api_reference
      */
       var starttime;
-      /* can this browser actually play videos? */
-      console.log("video: " + !!document.createElement("video").canPlayType);
+
+      if ( debug ) {
+          /* TODO do something sensible if the browser can't? */
+          /* can this browser actually play videos? */
+          console.log("video: " +
+                  !!document.createElement("video").canPlayType);
+      }
 
       // 2. This code loads the IFrame Player API code asynchronously.
       var tag = document.createElement('script');
@@ -84,7 +96,9 @@
         }
 
       function onYouTubeIframeAPIReady() {
-          console.log("onYouTubeIframeAPIReady");
+          if ( debug ) {
+              console.log("onYouTubeIframeAPIReady");
+          }
           player = new YT.Player('player', {
           height: getQualityHeight(quality),
           width: getQualityWidth(quality),
@@ -108,7 +122,9 @@
       // 4. The API will call this function when the video player is ready.
       function onPlayerReady(event) {
           starttime = Date.now();
-          console.log("onPlayerReady");
+          if ( debug ) {
+              console.log("onPlayerReady");
+          }
           /* XXX no guarantee, look for onPlaybackQualityChange event? */
           event.target.setPlaybackQuality(quality);
           event.target.playVideo();
@@ -136,7 +152,9 @@
 
       function onQualityChange(event) {
           var now = Date.now();
-          console.log("quality change: " + event.data);
+          if ( debug ) {
+              console.log("quality change: " + event.data);
+          }
           timeline.push({
                   "timestamp": now - starttime,
                   "event": "quality",
@@ -146,13 +164,17 @@
 
       function onPlayerStateChange(event) {
           var now = Date.now();
+          if ( debug ) {
+              console.log("state change at " + now);
 
-          if ( time > 0 ) {
-              console.log(now - time);
+              if ( time > 0 ) {
+                  console.log("time since last event:" + (now - time));
+              }
+
+              console.log("quality options: " +
+                      event.target.getPlaybackQuality() + " (" +
+                      event.target.getAvailableQualityLevels() + ")");
           }
-
-          console.log(event.target.getPlaybackQuality() + " (" +
-                  event.target.getAvailableQualityLevels() + ")");
           /*
            * If this isn't the first time through we might need to update
            * some timers. Currently tracking time spent buffering and time
@@ -170,7 +192,10 @@
 
           switch ( event.data ) {
             case YT.PlayerState.UNSTARTED:
-                console.log("unstarted");
+                if ( debug ) {
+                    console.log("unstarted");
+                    console.log((now - time) + " from previous to this point");
+                }
                 state = YT.PlayerState.UNSTARTED;
                 timeline.push({
                         "timestamp": now - starttime,
@@ -179,7 +204,10 @@
                 break;
 
             case YT.PlayerState.BUFFERING:
-                console.log("buffering");
+                if ( debug ) {
+                    console.log("buffering");
+                    console.log((now - time) + " from previous to this point");
+                }
                 state = YT.PlayerState.BUFFERING;
                 /* pre time ends once we start to buffer for the first time */
                 if ( pretime == 0 ) {
@@ -192,7 +220,10 @@
                 break;
 
             case YT.PlayerState.PLAYING:
-                console.log("playing");
+                if ( debug ) {
+                    console.log("playing");
+                    console.log((now - time) + " from previous to this point");
+                }
                 /* initial buffering ends the first time we enter play state */
                 if ( firstbuffer == 0 ) {
                     if ( time == 0 ) {
@@ -213,14 +244,6 @@
                         "timestamp": now - starttime,
                         "event": "ended",
                         });
-                console.log("ended");
-                console.log("Intial buffering time:" + firstbuffer);
-                console.log("Playing time:" + playtime);
-                console.log("Stall time:" + buftime);
-                console.log("Stall count:" + bufcount);
-                console.log("Total time:" + (now - starttime));
-                console.log("getCurrentTime():"+event.target.getCurrentTime());
-                console.log("getDuration():" + event.target.getDuration());
                 youtuberesults = {
                     "video": video_id,
                     /* TODO getVideoData() is undocumented, not official */
@@ -242,7 +265,9 @@
                 break;
 
             default:
-                console.log("new state: " + event.data);
+                if ( debug ) {
+                    console.log("new state: " + event.data);
+                }
                 state = event.data;
                 return; /* so the time doesn't get updated */
         };
