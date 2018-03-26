@@ -162,7 +162,7 @@ static Amplet2__Youtube__Quality parse_quality(char *quality) {
 /*
  * Convert the video quality enum into a printable string.
  */
-static char* print_quality(Amplet2__Youtube__Quality quality) {
+static char* get_quality_string(Amplet2__Youtube__Quality quality) {
     switch ( quality ) {
         case AMPLET2__YOUTUBE__QUALITY__DEFAULT: return "default";
         case AMPLET2__YOUTUBE__QUALITY__SMALL: return "small";
@@ -213,7 +213,7 @@ static void print_video(Amplet2__Youtube__Item *video) {
     assert(video);
 
     printf("  Title: \"%s\"\n", video->title);
-    printf("  Actual quality: %s\n", print_quality(video->quality));
+    printf("  Final quality: %s\n", get_quality_string(video->quality));
     printf("  Reported duration: %lums\n", video->reported_duration);
     printf("  Time before buffering: %lums\n", video->pre_time);
     printf("  Initial buffering: %lums\n", video->initial_buffering);
@@ -502,7 +502,7 @@ void print_youtube(amp_test_result_t *result) {
     assert(msg->header);
 
     printf("AMP YouTube test, video: %s, desired quality: %s\n",
-            msg->header->video, print_quality(msg->header->quality));
+            msg->header->video, get_quality_string(msg->header->quality));
     print_video(msg->item);
 
     amplet2__youtube__report__free_unpacked(msg, NULL);
