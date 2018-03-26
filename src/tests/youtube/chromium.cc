@@ -326,7 +326,7 @@ void HeadlessTest::UpdateYoutubeTiming(
     } else if ( name == "pre_time" ) {
         item->pre_time = GetInteger(value);
     } else if ( name == "reported_duration" ) {
-        item->reported_duration = GetDouble(value);
+        item->reported_duration = GetInteger(value);
     }
 }
 

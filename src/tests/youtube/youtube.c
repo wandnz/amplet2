@@ -186,7 +186,7 @@ static void print_video(Amplet2__Youtube__Item *video) {
 
     printf("  Title: \"%s\"\n", video->title);
     printf("  Actual quality: %s\n", print_quality(video->quality));
-    printf("  Reported duration: %0.3fs\n", video->reported_duration);
+    printf("  Reported duration: %lums\n", video->reported_duration);
     printf("  Time before buffering: %lums\n", video->pre_time);
     printf("  Initial buffering: %lums\n", video->initial_buffering);
     printf("  Time playing: %lums\n", video->playing_time);
