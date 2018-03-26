@@ -22,6 +22,16 @@ enum Quality {
     HIGHRES = 9;
 }
 
+enum EventType {
+    UNKNOWN_EVENT = 0;
+    READY = 1;
+    UNSTARTED = 2;
+    BUFFERING = 3;
+    QUALITY = 4;
+    PLAYING = 5;
+    ENDED = 6;
+}
+
 /**
  * An instance of the test will generate one Report message.
  */
@@ -53,5 +63,11 @@ message Item {
     optional uint64 total_time = 7;
     optional uint64 pre_time = 8;
     optional uint64 reported_duration = 9;
-    /* TODO timeline of playing and buffering */
+    repeated Event timeline = 10;
+}
+
+message Event {
+    optional uint64 timestamp = 1;
+    optional EventType type = 2;
+    optional Quality quality = 3;
 }

@@ -43,6 +43,10 @@ class HeadlessTest : public headless::HeadlessWebContents::Observer,
              std::unique_ptr<headless::runtime::GetPropertiesResult> result);
      void UpdateYoutubeTiming(struct YoutubeTiming *item,
              std::string name, const base::Value *value);
+     int UpdateTimeline(struct TimelineEvent *item,
+             std::string name, const base::Value *value);
+     void OnTimelineFetched(
+             std::unique_ptr<headless::runtime::GetPropertiesResult> result);
  private:
 
      /* The headless browser instance. Owned by the headless library */
@@ -230,6 +234,88 @@ void HeadlessTest::OnEvaluateResult(
 
 
 /*
+ * Callback for dealing with results of GetProperties() on the timeline array.
+ *
+ * Extracts each of the useful items from the response, fetching deeper
+ * layers as required and stores them in a linked list under the global
+ * youtube timing object.
+ */
+void HeadlessTest::OnTimelineFetched(
+        std::unique_ptr<headless::runtime::GetPropertiesResult> result) {
+
+    int fields = 0;
+
+    if (result->HasExceptionDetails()) {
+        printf("exception when fetching properties\n");
+        return;
+    }
+
+    assert(youtube);
+
+    struct TimelineEvent *timeline =
+        (struct TimelineEvent*)calloc(1, sizeof(struct TimelineEvent));
+
+    const std::vector<std::unique_ptr<headless::runtime::PropertyDescriptor>>*
+        properties = result->GetResult();
+
+    for ( std::vector<std::unique_ptr<headless::runtime::PropertyDescriptor>>::const_iterator it = properties->begin(); it != properties->end(); ++it ) {
+
+        if ( (*it)->HasValue() ) {
+            const headless::runtime::RemoteObject *obj;
+            obj = (*it)->GetValue();
+            if ( obj->GetType() ==
+                    headless::runtime::RemoteObjectType::STRING ||
+                    obj->GetType() ==
+                    headless::runtime::RemoteObjectType::NUMBER ) {
+
+                /* OR the fields together to make sure we have all of them */
+                fields |= UpdateTimeline(timeline, (*it)->GetName(),
+                        obj->GetValue());
+            } else if ( obj->GetType() ==
+                    headless::runtime::RemoteObjectType::OBJECT ) {
+                std::unique_ptr<base::Value> value = obj->Serialize();
+                /* dig into the elements within the dictionary item */
+                if ( value.get()->type() == base::Value::Type::DICTIONARY ) {
+                    std::string string_value;
+                    base::DictionaryValue *dict_value;
+                    value->GetAsDictionary(&dict_value);
+                    dict_value->GetString("objectId", &string_value);
+                    devtools_client_->GetRuntime()->GetProperties(
+                            string_value,
+                            base::Bind(&HeadlessTest::OnTimelineFetched,
+                                weak_factory_.GetWeakPtr()));
+                    ++outstanding_;
+                }
+            } else {
+            }
+        }
+    }
+
+    /* check that the required fields are filled in */
+    if ( fields & 0x3 == 0x3 ) {
+        /* append it to the list of events */
+        if ( youtube->timeline == NULL ) {
+            youtube->timeline = timeline;
+        } else {
+            struct TimelineEvent *tmp = youtube->timeline;
+            while ( tmp->next != NULL ) {
+                tmp = tmp->next;
+            }
+            tmp->next = timeline;
+        }
+
+        youtube->event_count++;
+    }
+
+    if ( --outstanding_ <= 0 ) {
+        delete g_example;
+        g_example = nullptr;
+    }
+}
+
+
+
+/*
  * Callback for dealing with results of GetProperties() on the timings object.
  *
  * Extracts each of the useful items from the response dictionary and stores
@@ -261,8 +347,21 @@ void HeadlessTest::OnVideoItemFetched(
                     headless::runtime::RemoteObjectType::NUMBER ) {
 
                 UpdateYoutubeTiming(youtube, (*it)->GetName(),obj->GetValue());
-            } else {
-                /* TODO load the "timeline" array */
+            } else if ( obj->GetType() ==
+                    headless::runtime::RemoteObjectType::OBJECT ) {
+                /* load the "timeline" array */
+                std::unique_ptr<base::Value> value = obj->Serialize();
+                if ( value.get()->type() == base::Value::Type::DICTIONARY ) {
+                    std::string string_value;
+                    base::DictionaryValue *dict_value;
+                    value->GetAsDictionary(&dict_value);
+                    dict_value->GetString("objectId", &string_value);
+                    devtools_client_->GetRuntime()->GetProperties(
+                            string_value,
+                            base::Bind(&HeadlessTest::OnTimelineFetched,
+                                weak_factory_.GetWeakPtr()));
+                            ++outstanding_;
+                }
             }
         }
     }
@@ -328,6 +427,80 @@ void HeadlessTest::UpdateYoutubeTiming(
     } else if ( name == "reported_duration" ) {
         item->reported_duration = GetInteger(value);
     }
+}
+
+
+
+/*
+ * Extract a timeline value and store it in the timeline object.
+ *
+ * Returns a flag describing the sort of value that was extracted so that
+ * the parent can check all the required fields were found.
+ */
+int HeadlessTest::UpdateTimeline(
+        struct TimelineEvent *item,
+        std::string name,
+        const base::Value *value) {
+
+    assert(item);
+    assert(value);
+
+    if ( name == "timestamp" ) {
+        item->timestamp = GetInteger(value);
+        return 0x1;
+    }
+
+    if ( name == "event" ) {
+        std::string event = GetString(value);
+
+        if ( event == "ready" ) {
+            item->type = AMPLET2__YOUTUBE__EVENT_TYPE__READY;
+        } else if ( event == "unstarted" ) {
+            item->type = AMPLET2__YOUTUBE__EVENT_TYPE__UNSTARTED;
+        } else if ( event == "buffering" ) {
+            item->type = AMPLET2__YOUTUBE__EVENT_TYPE__BUFFERING;
+        } else if ( event == "quality" ) {
+            item->type = AMPLET2__YOUTUBE__EVENT_TYPE__QUALITY;
+        } else if ( event == "playing" ) {
+            item->type = AMPLET2__YOUTUBE__EVENT_TYPE__PLAYING;
+        } else if ( event == "ended" ) {
+            item->type = AMPLET2__YOUTUBE__EVENT_TYPE__ENDED;
+        } else {
+            item->type = AMPLET2__YOUTUBE__EVENT_TYPE__UNKNOWN_EVENT;
+        }
+
+        return 0x2;
+    }
+
+    if ( name == "quality" ) {
+        std::string quality = GetString(value);
+
+        if ( quality == "default" ) {
+            item->quality = AMPLET2__YOUTUBE__QUALITY__DEFAULT;
+        } else if ( quality == "small" ) {
+            item->quality = AMPLET2__YOUTUBE__QUALITY__SMALL;
+        } else if ( quality == "medium" ) {
+            item->quality = AMPLET2__YOUTUBE__QUALITY__MEDIUM;
+        } else if ( quality == "large" ) {
+            item->quality = AMPLET2__YOUTUBE__QUALITY__LARGE;
+        } else if ( quality == "hd720" ) {
+            item->quality = AMPLET2__YOUTUBE__QUALITY__HD720;
+        } else if ( quality == "hd1080" ) {
+            item->quality = AMPLET2__YOUTUBE__QUALITY__HD1080;
+        } else if ( quality == "hd1440" ) {
+            item->quality = AMPLET2__YOUTUBE__QUALITY__HD1440;
+        } else if ( quality == "hd2160" ) {
+            item->quality = AMPLET2__YOUTUBE__QUALITY__HD2160;
+        } else if ( quality == "highres" ) {
+            item->quality = AMPLET2__YOUTUBE__QUALITY__HIGHRES;
+        } else {
+            item->quality = AMPLET2__YOUTUBE__QUALITY__UNKNOWN;
+        }
+
+        return 0x4;
+    }
+
+    return 0;
 }
 
 

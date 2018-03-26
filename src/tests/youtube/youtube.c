@@ -49,6 +49,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <sys/mman.h>
+#include <inttypes.h>
 
 #include "config.h"
 #include "tests.h"
@@ -178,10 +179,37 @@ static char* print_quality(Amplet2__Youtube__Quality quality) {
 
 
 
+static char* get_event_string(Amplet2__Youtube__EventType event) {
+    switch ( event ) {
+        case AMPLET2__YOUTUBE__EVENT_TYPE__READY: return "ready";
+        case AMPLET2__YOUTUBE__EVENT_TYPE__UNSTARTED: return "unstarted";
+        case AMPLET2__YOUTUBE__EVENT_TYPE__BUFFERING: return "buffering";
+        case AMPLET2__YOUTUBE__EVENT_TYPE__QUALITY: return "quality change";
+        case AMPLET2__YOUTUBE__EVENT_TYPE__PLAYING: return "playing";
+        case AMPLET2__YOUTUBE__EVENT_TYPE__ENDED: return "ended";
+        default: return "unknown";
+    };
+}
+
+
+static void print_timeline_event(Amplet2__Youtube__Event *event) {
+    printf("    %8" PRIu64 "ms", event->timestamp);
+    printf(" %s", get_event_string(event->type));
+    if ( event->type == AMPLET2__YOUTUBE__EVENT_TYPE__QUALITY &&
+            event->has_quality ) {
+        printf(" (%s)", get_quality_string(event->quality));
+    }
+    printf("\n");
+}
+
+
+
 /*
  * Print statistics related to the video playback.
  */
 static void print_video(Amplet2__Youtube__Item *video) {
+    unsigned int i;
+
     assert(video);
 
     printf("  Title: \"%s\"\n", video->title);
@@ -197,8 +225,35 @@ static void print_video(Amplet2__Youtube__Item *video) {
                 video->stall_count, video->stall_time);
     }
     printf("  Total time: %lums\n", video->total_time);
+    printf("  Timeline:\n");
+    for ( i = 0; i < video->n_timeline; i++ ) {
+        print_timeline_event(video->timeline[i]);
+    }
 }
 
+
+
+static Amplet2__Youtube__Event* report_timeline_event(
+        struct TimelineEvent *info) {
+    Amplet2__Youtube__Event *event =
+        (Amplet2__Youtube__Event*)malloc(sizeof(Amplet2__Youtube__Event));
+
+    assert(info);
+    assert(event);
+
+    amplet2__youtube__event__init(event);
+    event->has_timestamp = 1;
+    event->timestamp = info->timestamp;
+    event->has_type = 1;
+    event->type = info->type;
+
+    if ( event->type == AMPLET2__YOUTUBE__EVENT_TYPE__QUALITY ) {
+        event->has_quality = 1;
+        event->quality = info->quality;
+    }
+
+    return event;
+}
 
 
 /*
@@ -207,6 +262,8 @@ static void print_video(Amplet2__Youtube__Item *video) {
 static Amplet2__Youtube__Item* report_video_results(
         struct YoutubeTiming *info) {
 
+    unsigned int i;
+    struct TimelineEvent *event;
     Amplet2__Youtube__Item *video =
         (Amplet2__Youtube__Item*)malloc(sizeof(Amplet2__Youtube__Item));
 
@@ -234,6 +291,16 @@ static Amplet2__Youtube__Item* report_video_results(
     video->has_reported_duration = 1;
     video->reported_duration = info->reported_duration;
 
+    /* build up the repeated timeline section */
+    video->n_timeline = info->event_count;
+    video->timeline =
+        malloc(sizeof(Amplet2__Youtube__Event*) * info->event_count);
+    for ( i = 0, event = info->timeline;
+            i < video->n_timeline && event != NULL;
+            i++, event = event->next ) {
+        video->timeline[i] = report_timeline_event(event);
+    }
+
     return video;
 }
 
@@ -246,6 +313,7 @@ static Amplet2__Youtube__Item* report_video_results(
 static amp_test_result_t* report_results(struct timeval *start_time,
         struct YoutubeTiming *youtube, struct opt_t *opt) {
 
+    unsigned int i;
     amp_test_result_t *result = calloc(1, sizeof(amp_test_result_t));
 
     Amplet2__Youtube__Report msg = AMPLET2__YOUTUBE__REPORT__INIT;
@@ -269,6 +337,11 @@ static amp_test_result_t* report_results(struct timeval *start_time,
     amplet2__youtube__report__pack(&msg, result->data);
 
     /* free up all the memory we had to allocate to report items */
+    for ( i = 0; i < msg.item->n_timeline; i++ ) {
+        free(msg.item->timeline[i]);
+    }
+
+    free(msg.item->timeline);
     free(msg.item);
 
     return result;

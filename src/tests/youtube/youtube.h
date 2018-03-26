@@ -30,6 +30,13 @@ struct opt_t {
     uint8_t dscp;
 };
 
+struct TimelineEvent {
+    uint64_t timestamp;
+    Amplet2__Youtube__EventType type;
+    Amplet2__Youtube__Quality quality;
+    struct TimelineEvent *next;
+};
+
 struct YoutubeTiming {
     char *video;
     char *title;
@@ -41,6 +48,8 @@ struct YoutubeTiming {
     uint64_t total_time;
     uint64_t pre_time;
     uint64_t reported_duration;
+    uint64_t event_count;
+    struct TimelineEvent *timeline;
 };
 
 
