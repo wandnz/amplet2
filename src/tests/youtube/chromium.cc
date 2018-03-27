@@ -222,7 +222,7 @@ void HeadlessTest::OnEvaluateResult(
                     string_value,
                     base::Bind(&HeadlessTest::OnVideoItemFetched,
                         weak_factory_.GetWeakPtr()));
-                    ++outstanding_;
+            ++outstanding_;
         } else {
             printf("ignoring unknown response of type %s\n",classname.c_str());
         }
@@ -247,6 +247,10 @@ void HeadlessTest::OnTimelineFetched(
 
     if (result->HasExceptionDetails()) {
         printf("exception when fetching properties\n");
+        if ( --outstanding_ <= 0 ) {
+            delete g_example;
+            g_example = nullptr;
+        }
         return;
     }
 
@@ -326,6 +330,10 @@ void HeadlessTest::OnVideoItemFetched(
 
     if ( result->HasExceptionDetails() ) {
         printf("exception when fetching properties\n");
+        if ( --outstanding_ <= 0 ) {
+            delete g_example;
+            g_example = nullptr;
+        }
         return;
     }
 
