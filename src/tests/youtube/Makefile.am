@@ -40,5 +40,5 @@ youtube.pb-c.c: Makefile
 	protoc --python_out=../python/ampsave/tests/ youtube.proto
 
 install-exec-local:
-	mkdir -p $(libdir)/$(PACKAGE)/extra
-	cp yt.html $(libdir)/$(PACKAGE)/extra/
+	mkdir -p $(DESTDIR)/$(libdir)/$(PACKAGE)/extra
+	cp extra/yt.html $(DESTDIR)/$(libdir)/$(PACKAGE)/extra/
