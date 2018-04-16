@@ -393,7 +393,6 @@ amp_test_result_t* run_youtube(int argc, char *argv[],
     /* if it's not a zygote process then it must set the video id */
     if ( options.video == NULL ) {
         Log(LOG_WARNING, "Missing youtube video id!\n");
-        printf("-----2\n");
         usage();
         exit(-1);
     }
@@ -401,7 +400,6 @@ amp_test_result_t* run_youtube(int argc, char *argv[],
     /* check that the quality value is valid */
     if ( validate_quality(options.quality) < 0 ) {
         Log(LOG_WARNING, "Invalid quality value: %s\n", options.quality);
-        printf("-----3\n");
         usage();
         exit(-1);
     }
