@@ -3,6 +3,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <libgen.h>
 
 #include "base/bind.h"
 #include "base/memory/weak_ptr.h"
@@ -555,19 +556,40 @@ void *cpp_main(int argc, const char *argv[]) {
     base::CommandLine::Init(argc, argv);
     base::CommandLine *commandline = base::CommandLine::ForCurrentProcess();
 
+    /* XXX don't do any of this when doing standalone test? */
     if ( !commandline->HasSwitch("type") ) {
+        int fd;
+        char linkname[PATH_MAX+1];
+        char *binary;
+
         /*
          * if --type isn't set then this is the first process, clobber
          * /proc/self/exe with the standalone test binary so that when
          * chromium forks to run zygote processes they actually run
          * (rather than trying to run amplet2 and failing with bad arguments).
+         * Try to find the test binary in:
+         *  - the same location as the currently executing binary
+         *  - TODO the current directory?
+         *  - TODO anywhere else?
          */
-        int fd;
-        /* XXX where to load the binary from? try a few places? */
-        if ( (fd=open("/bin/amp-youtube", 0, "r")) < 0 ) {
-            printf("Failed XXX");
+
+        memset(linkname, 0, sizeof(linkname));
+
+        if ( readlink("/proc/self/exe", linkname, PATH_MAX) < 0 ) {
+            printf("Failed readlink: %s", strerror(errno));
             exit(-1);
         }
+
+        if ( asprintf(&binary, "%s/amp-youtube", dirname(linkname)) < 0 ) {
+            printf("asprintf failed: %s\n", strerror(errno));
+            exit(-1);
+        }
+
+        if ( (fd=open(binary, 0, "r")) < 0 ) {
+            printf("open failed: %s\n", strerror(errno));
+            exit(-1);
+        }
+
         if ( prctl(PR_SET_MM, PR_SET_MM_EXE_FILE, fd, 0, 0) < 0 ) {
             printf("prctl failed: %s\n", strerror(errno));
             exit(-1);
