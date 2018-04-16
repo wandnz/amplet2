@@ -556,6 +556,13 @@ void *cpp_main(int argc, const char *argv[]) {
     base::CommandLine::Init(argc, argv);
     base::CommandLine *commandline = base::CommandLine::ForCurrentProcess();
 
+    /* close stderr, as chromium is quite noisy and it is distracting */
+    if ( close(2) < 0 ) {
+        /* XXX log properly with Log(), cause stderr might be broken */
+        printf("Failed to close stderr: %s\n", strerror(errno));
+        exit(-1);
+    }
+
     /* XXX don't do any of this when doing standalone test? */
     if ( !commandline->HasSwitch("type") ) {
         int fd;
