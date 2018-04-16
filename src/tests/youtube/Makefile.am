@@ -1,4 +1,4 @@
-EXTRA_DIST=*.h youtube.proto extra/yt.html
+EXTRA_DIST=*.h youtube.proto extra/yt.html extra/args.gn
 #SUBDIRS= . test
 SUBDIRS= .
 BUILT_SOURCES=youtube.pb-c.c
