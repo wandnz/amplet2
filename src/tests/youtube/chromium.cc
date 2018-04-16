@@ -112,11 +112,23 @@ HeadlessTest::HeadlessTest(headless::HeadlessBrowser* browser,
           outstanding_(0) {
     web_contents_->AddObserver(this);
 
+    struct stat buf;
     base::CommandLine *commandline = base::CommandLine::ForCurrentProcess();
 
-    /* TODO load the page from a local file */
-    url_ = std::string("https://wand.net.nz/~brendonj/yt.html");
-    //url_ = std::string("file://" AMP_EXTRA_DIRECTORY "/yt.html") +
+    /*
+     * XXX I'd really like to load the page from a data:// URI but apparently
+     * they don't support query parameters. We'd have to remove the ability
+     * to choose the video, quality levels etc.
+     * TODO investigate using devtools SetDocumentContent() to load the page,
+     * will it run all the javascript etc? Instead of loading the page using
+     * Navigate(), set it directly.
+     */
+    if ( stat(AMP_EXTRA_DIRECTORY "/yt.html", &buf) == 0 && buf.st_size > 0 ) {
+        url_ = std::string("file://" AMP_EXTRA_DIRECTORY "/yt.html");
+    } else {
+        /* XXX temporary until a better solution is found */
+        url_ = std::string("https://wand.net.nz/~brendonj/yt.html");
+    }
 
     /*
      * TODO move this into an init() type function that gets explicitly
