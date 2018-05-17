@@ -575,7 +575,21 @@ void *cpp_main(int argc, const char *argv[]) {
         exit(-1);
     }
 
-    /* XXX don't do any of this when doing standalone test? */
+#if 0
+    /*
+     * XXX this works in a docker but not on a real computer? Seems to be
+     * because:
+     *
+     * "one needs to unmap all existing executable memory areas,
+     * including those created by the kernel itself (for example the
+     * kernel usually creates at least one executable memory area
+     * for the ELF .text section)."
+     *
+     * which is all well and good, but unhelpful without more information.
+     * My interpretation of that just leads to segfaults. Hopefully using
+     * a single process isn't too different to multiple processes.
+     */
+    /* don't do any of this when doing standalone test? */
     if ( !commandline->HasSwitch("type") ) {
         int fd;
         char linkname[PATH_MAX+1];
@@ -614,6 +628,7 @@ void *cpp_main(int argc, const char *argv[]) {
             exit(-1);
         }
     }
+#endif
 
     headless::RunChildProcessIfNeeded(argc, argv);
     headless::HeadlessBrowser::Options::Builder builder(argc, argv);

@@ -42,7 +42,6 @@
 #include <getopt.h>
 #include <string.h>
 #include <sys/time.h>
-#include <sys/prctl.h>
 #include <errno.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -359,7 +358,7 @@ amp_test_result_t* run_youtube(int argc, char *argv[],
     int opt;
     int cpp_argc = 0;
     char *urlstr = NULL, *qualitystr = NULL;
-    char *cpp_argv[5];
+    char *cpp_argv[9];
     struct YoutubeTiming *youtube;
     struct timeval start_time;
     struct opt_t options;
@@ -407,6 +406,10 @@ amp_test_result_t* run_youtube(int argc, char *argv[],
     /* pass in --disable-gpu, one less process to worry about */
     cpp_argv[cpp_argc++] = argv[0];
     cpp_argv[cpp_argc++] = "--disable-gpu";
+    /* get rid of all the extra processes */
+    cpp_argv[cpp_argc++] = "--single-process";
+    cpp_argv[cpp_argc++] = "--no-zygote";
+    cpp_argv[cpp_argc++] = "--no-sandbox";
 
     /* command line parsing tools in chromium expect --key=value */
     if ( asprintf(&urlstr, "--youtube=%s", options.video) < 0 ) {
