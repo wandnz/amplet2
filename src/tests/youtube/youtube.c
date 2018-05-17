@@ -94,10 +94,10 @@ static void usage(void) {
         "\n");
 
     fprintf(stderr, "Options:\n");
-    fprintf(stderr, "  -q, --quality       <quality>  "
+    fprintf(stderr, "  -q, --quality       <quality>   "
                 "Suggested video quality, not guaranteed\n"
-                "                      (small,medium,large,hd720,hd1080)\n");
-    fprintf(stderr, "  -y, --youtube       <video_id> "
+                "           (default,small,medium,large,hd720,hd1080,hd1440,hd2160,highres)\n");
+    fprintf(stderr, "  -y, --youtube       <video_id>  "
                 "Youtube video ID to fetch\n");
     print_generic_usage();
 }
