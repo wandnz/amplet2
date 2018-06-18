@@ -37,16 +37,37 @@
 # along with amplet2. If not, see <http://www.gnu.org/licenses/>.
 #
 
-"""
-Individual test save functions for each of the AMP tests.
-"""
-__all__ = [
-    "icmp",
-    "dns",
-    "traceroute",
-    "http",
-    "throughput",
-    "tcpping",
-    "udpstream",
-    "youtube",
-]
+import ampsave.tests.youtube_pb2
+from ampsave.common import getPrintableDscp
+
+def get_data(data):
+    """
+    Extract the YOUTUBE test results from the protocol buffer data.
+    """
+
+    msg = ampsave.tests.youtube_pb2.Report()
+    msg.ParseFromString(data)
+
+    timeline = []
+    for event in msg.item.timeline:
+        timeline.append({
+            "timestamp": event.timestamp,
+            "event": event.type,
+            "data": event.quality if event.quality else None,
+        })
+
+    return {
+        "video": msg.header.video,
+        "requested_quality": msg.header.quality,
+        "dscp": getPrintableDscp(msg.header.dscp),
+        "title": msg.item.title,
+        "actual_quality": msg.item.quality,
+        "initial_buffering": msg.item.initial_buffering,
+        "playing_time": msg.item.playing_time,
+        "stall_time": msg.item.stall_time,
+        "stall_count": msg.item.stall_count,
+        "total_time": msg.item.total_time,
+        "pre_time": msg.item.pre_time,
+        "reported_duration": msg.item.reported_duration,
+        "timeline": timeline,
+    }
