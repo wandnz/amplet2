@@ -364,10 +364,12 @@ int main(int argc, char *argv[]) {
             return -1;
         }
         if ( (fd = shm_open(filename, O_RDONLY, 0)) < 0 ) {
+            shm_unlink(filename);
             free(filename);
             Log(LOG_WARNING, "Failed to open shared file");
             return -1;
         }
+        shm_unlink(filename);
         free(filename);
         result = calloc(1, sizeof(amp_test_result_t));
         lseek(fd, 0, SEEK_SET);

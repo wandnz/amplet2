@@ -344,10 +344,14 @@ void run_test(const test_schedule_item_t * const item, BIO *ctrl) {
                 return;
             }
             if ( (fd = shm_open(filename, O_RDONLY, 0)) < 0 ) {
+                shm_unlink(filename);
                 free(filename);
                 Log(LOG_WARNING, "Failed to open shared file");
                 return;
             }
+
+            /* in theory this won't be removed till we close the fd */
+            shm_unlink(filename);
             free(filename);
             result = calloc(1, sizeof(amp_test_result_t));
             lseek(fd, 0, SEEK_SET);
