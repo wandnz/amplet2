@@ -195,6 +195,9 @@ void HeadlessTest::DevToolsTargetReady() {
  */
 void HeadlessTest::OnJavascriptDialogOpening(
         const headless::page::JavascriptDialogOpeningParams& params) {
+    /* acknowledge the alert popup */
+    devtools_client_->GetPage()->HandleJavaScriptDialog(1);
+
     /* query the javascript variable the youtube timing page creates */
     devtools_client_->GetRuntime()->Evaluate(
             "youtuberesults;",
