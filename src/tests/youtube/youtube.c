@@ -49,6 +49,7 @@
 #include <unistd.h>
 #include <sys/mman.h>
 #include <inttypes.h>
+#include <sys/wait.h>
 
 #include "config.h"
 #include "tests.h"
@@ -232,87 +233,13 @@ static void print_video(Amplet2__Youtube__Item *video) {
 
 
 
-static Amplet2__Youtube__Event* report_timeline_event(
-        struct TimelineEvent *info) {
-    Amplet2__Youtube__Event *event =
-        (Amplet2__Youtube__Event*)malloc(sizeof(Amplet2__Youtube__Event));
-
-    assert(info);
-    assert(event);
-
-    amplet2__youtube__event__init(event);
-    event->has_timestamp = 1;
-    event->timestamp = info->timestamp;
-    event->has_type = 1;
-    event->type = info->type;
-
-    if ( event->type == AMPLET2__YOUTUBE__EVENT_TYPE__QUALITY ) {
-        event->has_quality = 1;
-        event->quality = info->quality;
-    }
-
-    return event;
-}
-
-
-/*
- * Construct a protocol buffer message containing the results for a video.
- */
-static Amplet2__Youtube__Item* report_video_results(
-        struct YoutubeTiming *info) {
-
-    unsigned int i;
-    struct TimelineEvent *event;
-    Amplet2__Youtube__Item *video =
-        (Amplet2__Youtube__Item*)malloc(sizeof(Amplet2__Youtube__Item));
-
-    assert(video);
-    assert(info);
-
-    amplet2__youtube__item__init(video);
-
-    video->quality = info->quality;
-    video->has_quality = 1;
-    video->title = info->title;
-
-    video->has_pre_time = 1;
-    video->pre_time = info->pre_time;
-    video->has_initial_buffering = 1;
-    video->initial_buffering = info->initial_buffering;
-    video->has_playing_time = 1;
-    video->playing_time = info->playing_time;
-    video->has_stall_time = 1;
-    video->stall_time = info->stall_time;
-    video->has_stall_count = 1;
-    video->stall_count = info->stall_count;
-    video->has_total_time = 1;
-    video->total_time = info->total_time;
-    video->has_reported_duration = 1;
-    video->reported_duration = info->reported_duration;
-
-    /* build up the repeated timeline section */
-    video->n_timeline = info->event_count;
-    video->timeline =
-        malloc(sizeof(Amplet2__Youtube__Event*) * info->event_count);
-    for ( i = 0, event = info->timeline;
-            i < video->n_timeline && event != NULL;
-            i++, event = event->next ) {
-        video->timeline[i] = report_timeline_event(event);
-    }
-
-    return video;
-}
-
-
-
 /*
  * Construct a protocol buffer message containing all the test options and the
  * results for the youtube video
  */
 static amp_test_result_t* report_results(struct timeval *start_time,
-        struct YoutubeTiming *youtube, struct opt_t *opt) {
+        Amplet2__Youtube__Item *youtube, struct opt_t *opt) {
 
-    unsigned int i;
     amp_test_result_t *result = calloc(1, sizeof(amp_test_result_t));
 
     Amplet2__Youtube__Report msg = AMPLET2__YOUTUBE__REPORT__INIT;
@@ -324,7 +251,7 @@ static amp_test_result_t* report_results(struct timeval *start_time,
     header.dscp = opt->dscp;
     header.has_dscp = 1;
 
-    msg.item = report_video_results(youtube);
+    msg.item = youtube;
 
     /* populate the top level report object with the header and servers */
     msg.header = &header;
@@ -334,14 +261,6 @@ static amp_test_result_t* report_results(struct timeval *start_time,
     result->len = amplet2__youtube__report__get_packed_size(&msg);
     result->data = malloc(result->len);
     amplet2__youtube__report__pack(&msg, result->data);
-
-    /* free up all the memory we had to allocate to report items */
-    for ( i = 0; i < msg.item->n_timeline; i++ ) {
-        free(msg.item->timeline[i]);
-    }
-
-    free(msg.item->timeline);
-    free(msg.item);
 
     return result;
 }
@@ -358,10 +277,18 @@ amp_test_result_t* run_youtube(int argc, char *argv[],
     int opt;
     int cpp_argc = 0;
     char *urlstr = NULL, *qualitystr = NULL;
-    char *cpp_argv[9];
-    struct YoutubeTiming *youtube;
+    char *cpp_argv[10];
+    Amplet2__Youtube__Item *youtube;
     struct timeval start_time;
     struct opt_t options;
+    int pid;
+    int fd;
+    int status;
+    char *filename;
+    amp_test_result_t *result;
+    void *buffer;
+    int buflen;
+    extern char **environ;
 
     memset(&options, 0, sizeof(struct opt_t));
 
@@ -407,9 +334,10 @@ amp_test_result_t* run_youtube(int argc, char *argv[],
     cpp_argv[cpp_argc++] = argv[0];
     cpp_argv[cpp_argc++] = "--disable-gpu";
     /* get rid of all the extra processes */
-    cpp_argv[cpp_argc++] = "--single-process";
-    cpp_argv[cpp_argc++] = "--no-zygote";
+    //cpp_argv[cpp_argc++] = "--single-process";
+    //cpp_argv[cpp_argc++] = "--no-zygote";
     cpp_argv[cpp_argc++] = "--no-sandbox";
+    cpp_argv[cpp_argc++] = "--disable-audio-output";
 
     /* command line parsing tools in chromium expect --key=value */
     if ( asprintf(&urlstr, "--youtube=%s", options.video) < 0 ) {
@@ -433,56 +361,89 @@ amp_test_result_t* run_youtube(int argc, char *argv[],
         exit(-1);
     }
 
-    /* run the browser */
-    youtube = (struct YoutubeTiming*)cpp_main(cpp_argc,(const char**)cpp_argv);
+    /* fork and run wrapper, which will leave result in shared memory */
+    if ( (pid = fork()) < 0 ) {
+        perror("fork");
+        return NULL;
+    }
+
+    if ( pid == 0 ) {
+        /*
+         * Child process runs the youtube-wrapper, which can cleanly run the
+         * test without worrying about clobbering shared libraries.
+         * XXX We do however have to worry about the wrapper being in the path.
+         */
+        execve("youtube-wrapper", cpp_argv, environ);
+        Log(LOG_WARNING, "Failed to exec youtube-wrapper: %s", strerror(errno));
+        exit(EXIT_FAILURE);
+    }
+
+    /* parent process will just wait for the result to be ready */
+    waitpid(pid, &status, 0);
+
+    if ( !WIFEXITED(status) ) {
+        Log(LOG_WARNING, "youtube test exited unexpectedly");
+        return NULL;
+    }
+
+    /* the filename is /amp-testtype-pid */
+    if ( asprintf(&filename, "/amp-youtube-%d", pid) < 0 ) {
+        Log(LOG_WARNING, "Failed to create filename");
+        return NULL;
+    }
+
+    if ( (fd = shm_open(filename, O_RDONLY, 0)) < 0 ) {
+        shm_unlink(filename);
+        free(filename);
+        Log(LOG_WARNING, "Failed to open shared file");
+        return NULL;
+    }
+
+    /* in theory this won't be removed till we close the fd */
+    shm_unlink(filename);
+    free(filename);
+
+    lseek(fd, 0, SEEK_SET);
+
+    if ( read(fd, &buflen, sizeof(buflen)) != sizeof(buflen) ) {
+        close(fd);
+        Log(LOG_WARNING, "Failed to read length");
+        return NULL;
+    }
+
+    if ( buflen > 4096 ) {
+        Log(LOG_WARNING, "Ignoring too-large youtube test result");
+        close(fd);
+        return NULL;
+    }
+
+    buffer = calloc(1, buflen);
+    if ( read(fd, buffer, buflen) != buflen ) {
+        free(buffer);
+        close(fd);
+        Log(LOG_WARNING, "Failed to read data");
+        return NULL;
+    }
+
+    close(fd);
+
+    youtube = amplet2__youtube__item__unpack(NULL, buflen, buffer);
+    result = report_results(&start_time, youtube, &options);
+
+    free(buffer);
+    free(options.video);
+    amplet2__youtube__item__free_unpacked(youtube, NULL);
 
     if ( urlstr ) {
         free(urlstr);
     }
 
     if ( qualitystr ) {
+        free(options.quality);
         free(qualitystr);
     }
 
-    /* write the results to shared memory for the caller to read */
-    if ( youtube ) {
-        amp_test_result_t *result;
-        char *filename;
-        int fd;
-
-        if ( asprintf(&filename, "/amp-youtube-%d", getpid()) < 0 ) {
-            return NULL;
-        }
-
-        result = report_results(&start_time, youtube, &options);
-        if ( (fd = shm_open(filename, O_RDWR|O_CREAT|O_EXCL, S_IRWXU)) < 0 ) {
-            free(filename);
-            return NULL;
-        }
-
-        free(filename);
-
-        if ( write(fd, &result->timestamp, sizeof(result->timestamp)) !=
-                sizeof(result->timestamp) ) {
-            close(fd);
-            return NULL;
-        }
-        if ( write(fd, &result->len, sizeof(result->len)) !=
-                sizeof(result->len) ) {
-            close(fd);
-            return NULL;
-        }
-        if ( write(fd, result->data, result->len) != result->len ) {
-            close(fd);
-            return NULL;
-        }
-        close(fd);
-
-        free(result->data);
-        free(result);
-    }
-
-    return NULL;
+    return result;
 }
 
 

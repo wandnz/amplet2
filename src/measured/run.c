@@ -320,70 +320,13 @@ void run_test(const test_schedule_item_t * const item, BIO *ctrl) {
     if ( item->dest_count + total_resolve_count >= test->min_targets ) {
         amp_test_result_t *result;
 
-	for ( offset = 0; offset<argc; offset++ ) {
+        for ( offset = 0; offset<argc; offset++ ) {
 	    Log(LOG_DEBUG, "arg%d: %s\n", offset, argv[offset]);
 	}
 
-	/* actually run the test */
-	result = test->run_callback(argc, argv,
+        /* actually run the test */
+        result = test->run_callback(argc, argv,
                 item->dest_count + total_resolve_count, destinations);
-
-        /*
-         * XXX temporary: convert the youtube test result into a normal
-         * result structure by reading from shared memory. We can't use
-         * memory allocated inside the test as it is in a different link-map
-         * namespace.
-         */
-        if ( test->id == AMP_TEST_YOUTUBE ) {
-            char *filename;
-            int fd;
-
-            /* the filename is /amp-testtype-pid */
-            if ( asprintf(&filename, "/amp-youtube-%d", getpid()) < 0 ) {
-                Log(LOG_WARNING, "Failed to create filename");
-                return;
-            }
-            if ( (fd = shm_open(filename, O_RDONLY, 0)) < 0 ) {
-                shm_unlink(filename);
-                free(filename);
-                Log(LOG_WARNING, "Failed to open shared file");
-                return;
-            }
-
-            /* in theory this won't be removed till we close the fd */
-            shm_unlink(filename);
-            free(filename);
-            result = calloc(1, sizeof(amp_test_result_t));
-            lseek(fd, 0, SEEK_SET);
-            if ( read(fd, &result->timestamp, sizeof(result->timestamp)) !=
-                    sizeof(result->timestamp) ) {
-                free(result);
-                close(fd);
-                Log(LOG_WARNING, "Failed to read timestamp");
-                return;
-            }
-            if ( read(fd, &result->len, sizeof(result->len)) !=
-                    sizeof(result->len) ) {
-                free(result);
-                close(fd);
-                Log(LOG_WARNING, "Failed to read length");
-                return;
-            }
-            if ( result->len > 4096 ) {
-                Log(LOG_WARNING, "Ignoring too-large youtube test result");
-                free(result);
-                close(fd);
-                return;
-            }
-            result->data = malloc(result->len);
-            if ( read(fd, result->data, result->len) != result->len ) {
-                free(result);
-                close(fd);
-                Log(LOG_WARNING, "Failed to read data");
-                return;
-            }
-            close(fd);
-        }
 
         if ( result ) {
             /* report the results to the appropriate location */
@@ -439,12 +382,6 @@ void run_test(const test_schedule_item_t * const item, BIO *ctrl) {
 
     /* free the environment duped by set_proc_name() */
     free_duped_environ();
-
-    /* done running the test, exit */
-    if ( test->id == AMP_TEST_YOUTUBE ) {
-        /* XXX something is registering atexit() functions that crash? */
-        _exit(0);
-    }
 
     exit(0);
 }

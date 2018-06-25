@@ -83,17 +83,7 @@ int register_tests(char *location) {
 	    location, glob_buf.gl_pathc);
 
     for ( i=0; i<glob_buf.gl_pathc; i++ ) {
-        /*
-         * XXX temporarily load the new youtube test into its own link-map
-         * namespace to avoid conflicts with symbols in libboringssl and
-         * libssl. There should be more isolation between tests so that
-         * library symbols don't conflict.
-         */
-        if ( strcmp(basename(glob_buf.gl_pathv[i]), "youtube.so") == 0 ) {
-            hdl = dlmopen(LM_ID_NEWLM, glob_buf.gl_pathv[i], RTLD_LAZY);
-        } else {
-            hdl = dlopen(glob_buf.gl_pathv[i], RTLD_LAZY);
-        }
+        hdl = dlopen(glob_buf.gl_pathv[i], RTLD_LAZY);
 
 	if ( !hdl ) {
 	    Log(LOG_WARNING, "Failed to dlopen() file %s",
@@ -149,14 +139,6 @@ void unregister_tests() {
     for ( i=0; i<AMP_TEST_LAST; i++) {
 	if ( amp_tests[i] != NULL ) {
 	    dlclose(amp_tests[i]->dlhandle);
-            /*
-             * XXX temporary: youtube test allocations are in another
-             * link-map namespace, so we shouldn't really touch them.
-             */
-            if ( i != AMP_TEST_YOUTUBE ) {
-                free(amp_tests[i]->name);
-                free(amp_tests[i]);
-            }
 	}
     }
 }

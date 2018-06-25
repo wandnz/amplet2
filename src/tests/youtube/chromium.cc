@@ -312,7 +312,7 @@ void HeadlessTest::OnTimelineFetched(
     }
 
     /* check that the required fields are filled in */
-    if ( fields & 0x3 == 0x3 ) {
+    if ( (fields & 0x3) == 0x3 ) {
         /* append it to the list of events */
         if ( youtube->timeline == NULL ) {
             youtube->timeline = timeline;
@@ -568,13 +568,17 @@ void OnHeadlessBrowserStarted(headless::HeadlessBrowser* browser) {
  * Entry point for the test, exported as extern C for AMP to call into.
  */
 void *cpp_main(int argc, const char *argv[]) {
+    int nullfd;
     base::CommandLine::Init(argc, argv);
     base::CommandLine *commandline = base::CommandLine::ForCurrentProcess();
 
-    /* close stderr, as chromium is quite noisy and it is distracting */
-    if ( close(2) < 0 ) {
-        /* XXX log properly with Log(), cause stderr might be broken */
-        printf("Failed to close stderr: %s\n", strerror(errno));
+    /* redirect stderr, as chromium is quite noisy and it is distracting */
+    if ( (nullfd = open("/dev/null", O_WRONLY)) < 0 ) {
+        printf("Failed to open /dev/null for redirect: %s\n", strerror(errno));
+        exit(-1);
+    }
+    if ( dup2(nullfd, STDERR_FILENO) < 0 ) {
+        printf("Failed to redirect stderr: %s\n", strerror(errno));
         exit(-1);
     }
 

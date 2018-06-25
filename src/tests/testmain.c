@@ -354,55 +354,6 @@ int main(int argc, char *argv[]) {
     /* pass arguments and destinations through to the main test run function */
     result = test_info->run_callback(test_argc, test_argv, count, dests);
 
-    if ( test_info->id == AMP_TEST_YOUTUBE ) {
-        char *filename;
-        int fd;
-
-        /* the filename is /amp-testtype-pid */
-        if ( asprintf(&filename, "/amp-youtube-%d", getpid()) < 0 ) {
-            Log(LOG_WARNING, "Failed to create filename");
-            return -1;
-        }
-        if ( (fd = shm_open(filename, O_RDONLY, 0)) < 0 ) {
-            shm_unlink(filename);
-            free(filename);
-            Log(LOG_WARNING, "Failed to open shared file");
-            return -1;
-        }
-        shm_unlink(filename);
-        free(filename);
-        result = calloc(1, sizeof(amp_test_result_t));
-        lseek(fd, 0, SEEK_SET);
-        if ( read(fd, &result->timestamp, sizeof(result->timestamp)) !=
-                sizeof(result->timestamp) ) {
-            free(result);
-            close(fd);
-            Log(LOG_WARNING, "Failed to read timestamp");
-            return -1;
-        }
-        if ( read(fd, &result->len, sizeof(result->len)) !=
-                sizeof(result->len) ) {
-            free(result);
-            close(fd);
-            Log(LOG_WARNING, "Failed to read length");
-            return -1;
-        }
-        if ( result->len > 4096 ) {
-            Log(LOG_WARNING, "Ignoring too-large youtube test result");
-            free(result);
-            close(fd);
-            return -1;
-        }
-        result->data = malloc(result->len);
-        if ( read(fd, result->data, result->len) != result->len ) {
-            free(result);
-            close(fd);
-            Log(LOG_WARNING, "Failed to read data");
-            return -1;
-        }
-        close(fd);
-    }
-
     if ( result ) {
         test_info->print_callback(result);
         free(result->data);
