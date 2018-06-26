@@ -70,6 +70,7 @@ static struct option long_options[] = {
 
     /* actual test arguments that we need to deal with */
     {"quality", required_argument, 0, 'q'},
+    {"useragent", required_argument, 0, 'a'},
     {"youtube", required_argument, 0, 'y'},
     {"dscp", required_argument, 0, 'Q'},
     {"interpacketgap", required_argument, 0, 'Z'},
@@ -91,10 +92,12 @@ static void usage(void) {
     fprintf(stderr,
         "Usage: amp-youtube [-hx] [-Q codepoint] [-Z interpacketgap]\n"
         "                   [-I interface] [-4 [sourcev4]] [-6 [sourcev6]]\n"
-        "                   [-q quality] -y video_id\n"
+        "                   [-a useragent] [-q quality] -y video_id\n"
         "\n");
 
     fprintf(stderr, "Options:\n");
+    fprintf(stderr, "  -a, --useragent     <useragent> "
+                "Override browser User-Agent string\n");
     fprintf(stderr, "  -q, --quality       <quality>   "
                 "Suggested video quality, not guaranteed\n"
                 "           (default,small,medium,large,hd720,hd1080,hd1440,hd2160,highres)\n");
@@ -276,7 +279,7 @@ amp_test_result_t* run_youtube(int argc, char *argv[],
         __attribute__((unused))struct addrinfo **dests) {
     int opt;
     int cpp_argc = 0;
-    char *urlstr = NULL, *qualitystr = NULL;
+    char *urlstr = NULL, *qualitystr = NULL, *useragentstr = NULL;
     char *cpp_argv[10];
     Amplet2__Youtube__Item *youtube;
     struct timeval start_time;
@@ -292,7 +295,7 @@ amp_test_result_t* run_youtube(int argc, char *argv[],
 
     memset(&options, 0, sizeof(struct opt_t));
 
-    while ( (opt = getopt_long(argc, argv, "q:y:I:Q:Z:4::6::hvx",
+    while ( (opt = getopt_long(argc, argv, "a:q:y:I:Q:Z:4::6::hvx",
                     long_options, NULL)) != -1 ) {
         switch ( opt ) {
             case '4':
@@ -302,6 +305,7 @@ amp_test_result_t* run_youtube(int argc, char *argv[],
                 printf("UNIMPLEMENTED OPTION '-%c'\n", opt);
                 break;
             case 'Z': /* not used, but might be set globally */ break;
+            case 'a': options.useragent = strdup(optarg); break;
             case 'q': options.quality = strdup(optarg); break;
             case 'v': print_package_version(argv[0]); exit(0);
             case 'x': log_level = LOG_DEBUG;
@@ -352,6 +356,15 @@ amp_test_result_t* run_youtube(int argc, char *argv[],
             exit(-1);
         }
         cpp_argv[cpp_argc++] = qualitystr;
+    }
+
+    if ( options.useragent != NULL ) {
+        if ( asprintf(&useragentstr,
+                    "--useragent=%s", options.useragent) < 0 ) {
+            Log(LOG_WARNING, "Failed to build useragent string, aborting\n");
+            exit(-1);
+        }
+        cpp_argv[cpp_argc++] = useragentstr;
     }
 
     cpp_argv[cpp_argc] = NULL;
@@ -441,6 +454,11 @@ amp_test_result_t* run_youtube(int argc, char *argv[],
     if ( qualitystr ) {
         free(options.quality);
         free(qualitystr);
+    }
+
+    if ( useragentstr ) {
+        free(options.useragent);
+        free(useragentstr);
     }
 
     return result;

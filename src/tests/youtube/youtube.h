@@ -21,6 +21,7 @@ test_t *register_test(void);
 struct opt_t {
     char *video;
     char *quality;
+    char *useragent;
     int forcev4;                                /* force use of ipv4 */
     int forcev6;                                /* force use of ipv6 */
     char *device;                               /* source device name */

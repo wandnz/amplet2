@@ -536,6 +536,7 @@ int HeadlessTest::UpdateTimeline(
  * tab configuration. We only use a single tab.
  */
 void OnHeadlessBrowserStarted(headless::HeadlessBrowser* browser) {
+    base::CommandLine *commandline = base::CommandLine::ForCurrentProcess();
 
     /* create browser context (user profile, cookies, local storage etc */
     headless::HeadlessBrowserContext::Builder context_builder =
@@ -543,14 +544,12 @@ void OnHeadlessBrowserStarted(headless::HeadlessBrowser* browser) {
 
     /* set incognito so profile information isn't written to disk */
     context_builder.SetIncognitoMode(true);
-    context_builder.SetUserAgent(
-            "AMP YouTube test agent (Chromium commit c850f7a8cb92c402)");
+
     /* XXX SetHostResolverRules, etc */
 
     /* construct the context and set it as default */
     headless::HeadlessBrowserContext* browser_context = context_builder.Build();
     browser->SetDefaultBrowserContext(browser_context);
-
 
     /* open a tab in the newly created browser context */
     headless::HeadlessWebContents::Builder tab_builder(
@@ -640,6 +639,16 @@ void *cpp_main(int argc, const char *argv[]) {
     headless::RunChildProcessIfNeeded(argc, argv);
     headless::HeadlessBrowser::Options::Builder builder(argc, argv);
     builder.SetWindowSize(gfx::Size(1920, 1080));
+
+    if ( commandline->HasSwitch("useragent") ) {
+        /* TODO add a few pre-configured user agents? */
+        std::string agent = commandline->GetSwitchValueASCII("useragent");
+        builder.SetUserAgent(agent);
+    } else {
+        builder.SetUserAgent("AMP YouTube test agent (Chromium 63.0.3239.150)");
+    }
+    /* TODO see also: SetDisableSandbox(true) */
+
     headless::HeadlessBrowserMain(builder.Build(),
             base::Bind(&OnHeadlessBrowserStarted));
 
