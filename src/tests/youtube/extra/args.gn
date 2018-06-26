@@ -7,3 +7,4 @@ enable_nacl = false
 is_clang = false
 use_sysroot = false
 use_allocator = "none"
+treat_warnings_as_errors = false
