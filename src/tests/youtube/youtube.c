@@ -386,7 +386,7 @@ amp_test_result_t* run_youtube(int argc, char *argv[],
          * test without worrying about clobbering shared libraries.
          * XXX We do however have to worry about the wrapper being in the path.
          */
-        execve("youtube-wrapper", cpp_argv, environ);
+        execvpe("youtube-wrapper", cpp_argv, environ);
         Log(LOG_WARNING, "Failed to exec youtube-wrapper: %s", strerror(errno));
         exit(EXIT_FAILURE);
     }
