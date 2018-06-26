@@ -11,12 +11,12 @@ bin_PROGRAMS=amp-youtube youtube-wrapper
 amp_youtube_SOURCES=../testmain.c
 amp_youtube_CFLAGS=-I../../common/
 amp_youtube_LDADD=youtube.la
-amp_youtube_LDFLAGS=-R $(libdir)/$(PACKAGE)/chromium -Wl,-fuse-ld=gold -L../../common/.libs/ -rdynamic -Wl,--start-group,${CHROMIUM_LIBS} -Wl,--end-group -Wl,--no-as-needed -L@CHROMIUM_BUILD_DIR@ -lrt -lnss3 -lnssutil3 -lsmime3 -lplds4 -lplc4 -lnspr4 -lstdc++ -ldl -lprotobuf-c -lboringssl -lssl -lamp -lunbound
+amp_youtube_LDFLAGS=-Wl,--disable-new-dtags -R $(libdir)/$(PACKAGE)/chromium -Wl,-fuse-ld=gold -L../../common/.libs/ -rdynamic -Wl,--start-group,${CHROMIUM_LIBS} -Wl,--end-group -Wl,--no-as-needed -L@CHROMIUM_BUILD_DIR@ -lrt -lnss3 -lnssutil3 -lsmime3 -lplds4 -lplc4 -lnspr4 -lstdc++ -ldl -lprotobuf-c -lboringssl -lssl -lamp -lunbound
 
 youtube_wrapper_SOURCES=wrapper.c
 youtube_wrapper_CFLAGS=-I../../common/ -D_GNU_SOURCE
 youtube_wrapper_LDADD=youtube.la
-youtube_wrapper_LDFLAGS=-R $(libdir)/$(PACKAGE)/chromium -Wl,-fuse-ld=gold -L../../common/.libs/ -rdynamic -Wl,--start-group,${CHROMIUM_LIBS} -Wl,--end-group -Wl,--no-as-needed -L@CHROMIUM_BUILD_DIR@ -lrt -lnss3 -lnssutil3 -lsmime3 -lplds4 -lplc4 -lnspr4 -lstdc++ -ldl -lprotobuf-c -lboringssl -lssl -lamp -lunbound
+youtube_wrapper_LDFLAGS=-Wl,--disable-new-dtags -R $(libdir)/$(PACKAGE)/chromium -Wl,-fuse-ld=gold -L../../common/.libs/ -rdynamic -Wl,--start-group,${CHROMIUM_LIBS} -Wl,--end-group -Wl,--no-as-needed -L@CHROMIUM_BUILD_DIR@ -lrt -lnss3 -lnssutil3 -lsmime3 -lplds4 -lplc4 -lnspr4 -lstdc++ -ldl -lprotobuf-c -lboringssl -lssl -lamp -lunbound
 
 test_LTLIBRARIES=youtube.la
 youtube_la_SOURCES=youtube.c chromium.cc
@@ -25,7 +25,7 @@ youtube_la_CPPFLAGS=@CHROMIUM_INCLUDE_DIR@ -I../ -I../../common/  -fvisibility=h
 # XXX libboringssl is explicitly added before ssl, amp, unbound so its symbols
 # get added first - parts of chromium rely on the boringssl implementation and
 # crash otherwise
-youtube_la_LDFLAGS=-L@CHROMIUM_BUILD_DIR@ -Wl,-fuse-ld=gold -module -avoid-version -L../../common/.libs/ -fvisibility=hidden -fno-rtti -std=c++14 -fPIC -DUSE_SYMBOLIZE -DV8_DEPRECATION_WARNINGS -DUSE_AURA=1 -DUSE_NSS_CERTS=1 -DUSE_OZONE=1 -DNO_TCMALLOC -DFULL_SAFE_BROWSING -DSAFE_BROWSING_CSD -DSAFE_BROWSING_DB_LOCAL -DCHROMIUM_BUILD -DFIELDTRIAL_TESTING_ENABLED -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -D_LARGEFILE64_SOURCE -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -D_FORTIFY_SOURCE=2 -DCOMPONENT_BUILD -DNDEBUG -DNVALGRIND -DDYNAMIC_ANNOTATIONS_ENABLED=0 -DUSE_EGL -fno-strict-aliasing --param=ssp-buffer-size=4 -fstack-protector -Wno-builtin-macro-redefined -D__DATE__= -D__TIME__= -D__TIMESTAMP__= -funwind-tables -fPIC -pipe -pthread -m64 -march=x86-64 -Wall -Wno-unused-local-typedefs -Wno-maybe-uninitialized -Wno-missing-field-initializers -Wno-unused-parameter -fomit-frame-pointer -g0 -fvisibility=default -O2 -fno-ident -fdata-sections -ffunction-sections -std=gnu++14 -Wno-narrowing -fno-exceptions -fvisibility-inlines-hidden -Wl,--start-group,${CHROMIUM_LIBS} -Wl,--end-group -Wl,--no-as-needed -ldl -lrt -lnss3 -lnssutil3 -lsmime3 -lplds4 -lplc4 -lnspr4 -lstdc++ -lbase -shared -module -lboringssl -lssl -lamp -lunbound
+youtube_la_LDFLAGS=-Wl,--disable-new-dtags -R $(libdir)/$(PACKAGE)/chromium -L@CHROMIUM_BUILD_DIR@ -Wl,-fuse-ld=gold -module -avoid-version -L../../common/.libs/ -fvisibility=hidden -fno-rtti -std=c++14 -fPIC -DUSE_SYMBOLIZE -DV8_DEPRECATION_WARNINGS -DUSE_AURA=1 -DUSE_NSS_CERTS=1 -DUSE_OZONE=1 -DNO_TCMALLOC -DFULL_SAFE_BROWSING -DSAFE_BROWSING_CSD -DSAFE_BROWSING_DB_LOCAL -DCHROMIUM_BUILD -DFIELDTRIAL_TESTING_ENABLED -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -D_LARGEFILE64_SOURCE -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -D_FORTIFY_SOURCE=2 -DCOMPONENT_BUILD -DNDEBUG -DNVALGRIND -DDYNAMIC_ANNOTATIONS_ENABLED=0 -DUSE_EGL -fno-strict-aliasing --param=ssp-buffer-size=4 -fstack-protector -Wno-builtin-macro-redefined -D__DATE__= -D__TIME__= -D__TIMESTAMP__= -funwind-tables -fPIC -pipe -pthread -m64 -march=x86-64 -Wall -Wno-unused-local-typedefs -Wno-maybe-uninitialized -Wno-missing-field-initializers -Wno-unused-parameter -fomit-frame-pointer -g0 -fvisibility=default -O2 -fno-ident -fdata-sections -ffunction-sections -std=gnu++14 -Wno-narrowing -fno-exceptions -fvisibility-inlines-hidden -Wl,--start-group,${CHROMIUM_LIBS} -Wl,--end-group -Wl,--no-as-needed -ldl -lrt -lnss3 -lnssutil3 -lsmime3 -lplds4 -lplc4 -lnspr4 -lstdc++ -lbase -shared -module -lboringssl -lssl -lamp -lunbound
 
 youtube.pb-c.c: Makefile
 	protoc-c --c_out=. youtube.proto
