@@ -382,12 +382,13 @@ amp_test_result_t* run_youtube(int argc, char *argv[],
 
     if ( pid == 0 ) {
         /*
-         * Child process runs the youtube-wrapper, which can cleanly run the
-         * test without worrying about clobbering shared libraries.
+         * Child process runs the amp-youtube-wrapper, which can cleanly run
+         * the test without worrying about clobbering shared libraries.
          * XXX We do however have to worry about the wrapper being in the path.
          */
-        execvpe("youtube-wrapper", cpp_argv, environ);
-        Log(LOG_WARNING, "Failed to exec youtube-wrapper: %s", strerror(errno));
+        execvpe("amp-youtube-wrapper", cpp_argv, environ);
+        Log(LOG_WARNING, "Failed to exec amp-youtube-wrapper: %s",
+                strerror(errno));
         exit(EXIT_FAILURE);
     }
 
