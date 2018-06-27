@@ -536,8 +536,6 @@ int HeadlessTest::UpdateTimeline(
  * tab configuration. We only use a single tab.
  */
 void OnHeadlessBrowserStarted(headless::HeadlessBrowser* browser) {
-    base::CommandLine *commandline = base::CommandLine::ForCurrentProcess();
-
     /* create browser context (user profile, cookies, local storage etc */
     headless::HeadlessBrowserContext::Builder context_builder =
         browser->CreateBrowserContextBuilder();
@@ -571,14 +569,18 @@ void *cpp_main(int argc, const char *argv[]) {
     base::CommandLine::Init(argc, argv);
     base::CommandLine *commandline = base::CommandLine::ForCurrentProcess();
 
-    /* redirect stderr, as chromium is quite noisy and it is distracting */
-    if ( (nullfd = open("/dev/null", O_WRONLY)) < 0 ) {
-        printf("Failed to open /dev/null for redirect: %s\n", strerror(errno));
-        exit(-1);
-    }
-    if ( dup2(nullfd, STDERR_FILENO) < 0 ) {
-        printf("Failed to redirect stderr: %s\n", strerror(errno));
-        exit(-1);
+    if ( !commandline->HasSwitch("debug") ) {
+        /* redirect stderr, as chromium is quite noisy and it is distracting */
+        if ( (nullfd = open("/dev/null", O_WRONLY)) < 0 ) {
+            printf("Failed to open /dev/null for redirect: %s\n",
+                    strerror(errno));
+            exit(EXIT_FAILURE);
+        }
+
+        if ( dup2(nullfd, STDERR_FILENO) < 0 ) {
+            printf("Failed to redirect stderr: %s\n", strerror(errno));
+            exit(EXIT_FAILURE);
+        }
     }
 
 #if 0

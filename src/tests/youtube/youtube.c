@@ -343,6 +343,10 @@ amp_test_result_t* run_youtube(int argc, char *argv[],
     cpp_argv[cpp_argc++] = "--no-sandbox";
     cpp_argv[cpp_argc++] = "--disable-audio-output";
 
+    if ( log_level == LOG_DEBUG ) {
+        cpp_argv[cpp_argc++] = "--debug";
+    }
+
     /* command line parsing tools in chromium expect --key=value */
     if ( asprintf(&urlstr, "--youtube=%s", options.video) < 0 ) {
         Log(LOG_WARNING, "Failed to build youtube ID string, aborting\n");
