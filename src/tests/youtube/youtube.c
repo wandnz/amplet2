@@ -399,7 +399,7 @@ amp_test_result_t* run_youtube(int argc, char *argv[],
     /* parent process will just wait for the result to be ready */
     waitpid(pid, &status, 0);
 
-    if ( !WIFEXITED(status) ) {
+    if ( !WIFEXITED(status) || WEXITSTATUS(status) == EXIT_FAILURE ) {
         Log(LOG_WARNING, "youtube test exited unexpectedly");
         return NULL;
     }

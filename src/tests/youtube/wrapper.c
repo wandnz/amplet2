@@ -177,7 +177,9 @@ int main(int argc, char *argv[]) {
         close(fd);
 
         free(buffer);
+
+        exit(EXIT_SUCCESS);
     }
 
-    return 0;
+    exit(EXIT_FAILURE);
 }
