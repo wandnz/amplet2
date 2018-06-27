@@ -1,0 +1,87 @@
+.TH AMP-YOUTUBE 8 "2018-06-27" "amplet2-client" "The Active Measurement Project"
+
+.SH NAME
+amp-youtube \- AMP standalone YouTube video test
+
+
+.SH SYNOPSIS
+\fBamp-youtube\fR \fB[-hvx]\fR [\fB-a \fIuseragent\fR] [\fB-q \fIquality\fR] [\fB-I \fIiface\fR] [\fB-4 \fIaddress\fR] [\fB-6 \fIaddress\fR] [\fB-Q \fIcodepoint\fR] \fB-y \fIvideo_id\fR
+
+
+.SH DESCRIPTION
+\fBamp-youtube\fP is the standalone version of the \fBamplet2\fP(8)
+YouTube video test. Given a YouTube video ID it will fetch the video using a
+headless instance of the Chromium browser and report on the performance.
+
+
+.SH OPTIONS
+.TP
+\fB-a, --user-agent \fIuseragent\fR
+Override the browser User-Agent string. By default this is set to
+"AMP YouTube test agent (Chromium 63.0.3239.150)"
+
+.TP
+\fB-h, --help\fR
+Show summary of options.
+
+.TP
+\fB-I, --interface \fIiface\fR
+Specifies the interface (device) that tests should use when sending packets.
+By default the interface will be selected according to the routing table.
+
+.TP
+\fB-q, --quality \fIquality\fR
+Suggested video quality, though not guaranteed. YouTube will try not to send
+videos in quality levels that it doesn't think are sensible, and can also
+change video size on the fly during playback to try to create a better
+experience. Possible values are default, small, medium, large, hd720, hd1080,
+hd1440, hd2160, highres.
+
+.TP
+\fB-Q, --dscp \fIcodepoint\fR
+IP differentiated services codepoint to set. This should be a string
+representing a 6-bit value in binary, octal, decimal or hexadecimal, or the
+short name of a predefined, commonly used codepoint.
+
+.TP
+\fB-v, --version\fR
+Show version of program.
+
+.TP
+\fB-x, --debug\fR
+Enable extra debugging output.
+
+.TP
+\fB-y, --youtube \fIvideo_id\fR
+The YouTube video ID to use during testing.
+
+.TP
+\fB-4, --ipv6 \fIa.b.c.d\fR
+Specifies the source IPv4 address that tests should use when sending packets to
+IPv4 targets. This address must belong to one of the interfaces.
+By default the IPv4 address of the outgoing interface will be used.
+
+.TP
+\fB-6, --ipv6 \fIa:b:c:d:e:f:g:h\fR
+Specifies the source IPv6 address that tests should use when sending packets to
+IPv6 targets. This address must belong to one of the interfaces.
+By default the IPv6 address of the outgoing interface will be used.
+
+.SH BUGS
+Some options are not yet implemented (-4, -6, -I, -Q).
+
+.SH SEE ALSO
+.BR amplet2 (8),
+.BR amplet2-remote (8),
+.BR amp-icmp (8),
+.BR amp-trace (8),
+.BR amp-dns (8),
+.BR amp-throughput (8),
+.BR amp-tcpping (8),
+.BR amp-udpstream (8).
+
+.SH AUTHOR
+amp-youtube was written by Brendon Jones <brendonj@waikato.ac.nz>.
+
+.PP
+This manual page was written by Brendon Jones <brendonj@waikato.ac.nz>.
