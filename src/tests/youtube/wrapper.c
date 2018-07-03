@@ -134,6 +134,17 @@ static Amplet2__Youtube__Item* report_video_results(
  */
 int main(int argc, char *argv[]) {
     struct YoutubeTiming *youtube;
+    int i;
+
+    /* TODO allow setting the log level to other values */
+    /* need to reset log_level as it isn't carried over past the exec call */
+    for ( i = 0; argv[i] != NULL; i++ ) {
+        if ( strcmp(argv[i], "--debug") == 0 ) {
+            log_level = LOG_DEBUG;
+            log_level_override = 1;
+            break;
+        }
+    }
 
     /* pass arguments and destinations through to the main test run function */
     youtube = cpp_main(argc, (const char**)argv);
@@ -148,6 +159,7 @@ int main(int argc, char *argv[]) {
 
         /* results go into a file named after the test and pid */
         if ( asprintf(&filename, "/amp-youtube-%d", getpid()) < 0 ) {
+            Log(LOG_WARNING, "Failed to create filename");
             exit(EXIT_FAILURE);
         }
 
@@ -157,8 +169,11 @@ int main(int argc, char *argv[]) {
         buffer = calloc(1, buflen);
         amplet2__youtube__item__pack(result, buffer);
 
+        Log(LOG_DEBUG, "writing results to shared memory: %s", filename);
+
         if ( (fd = shm_open(filename, O_RDWR|O_CREAT|O_EXCL, S_IRWXU)) < 0 ) {
             free(filename);
+            Log(LOG_WARNING, "Failed to open shared file");
             exit(EXIT_FAILURE);
         }
 
@@ -166,11 +181,13 @@ int main(int argc, char *argv[]) {
 
         if ( write(fd, &buflen, sizeof(buflen)) != sizeof(buflen) ) {
             close(fd);
+            Log(LOG_WARNING, "Failed to write length");
             exit(EXIT_FAILURE);
         }
 
         if ( write(fd, buffer, buflen) != buflen ) {
             close(fd);
+            Log(LOG_WARNING, "Failed to write data");
             exit(EXIT_FAILURE);
         }
 
@@ -180,6 +197,8 @@ int main(int argc, char *argv[]) {
 
         exit(EXIT_SUCCESS);
     }
+
+    Log(LOG_DEBUG, "No data reported by chromium process");
 
     exit(EXIT_FAILURE);
 }

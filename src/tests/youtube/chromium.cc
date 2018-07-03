@@ -19,6 +19,7 @@
 #include "headless/public/headless_devtools_target.h"
 #include "headless/public/headless_web_contents.h"
 
+#include "debug.h"
 #include "youtube.h"
 #include "youtube.pb-c.h"
 
@@ -161,15 +162,15 @@ HeadlessTest::~HeadlessTest() {}
 
 /*
  * Remove observers and devtools targets before shutting the browser down.
+ * Note that we shut down the browser last, because it owns objects such
+ * as the web contents which can no longer be accessed after the browser
+ * is gone.
  */
 void HeadlessTest::Shutdown() {
-    /*
-     * Note that we shut down the browser last, because it owns objects such
-     * as the web contents which can no longer be accessed after the browser
-     * is gone.
-     */
+    Log(LOG_DEBUG, "Shutting down browser");
+
     if ( !web_contents_ ) {
-        printf("no web contents, skipping shutdown\n");
+        Log(LOG_WARNING, "No web contents, skipping browser shutdown");
         return;
     }
 
@@ -219,7 +220,7 @@ void HeadlessTest::DevToolsTargetReady() {
 void HeadlessTest::OnFrameStoppedLoading(
         const headless::page::FrameStoppedLoadingParams& params) {
     if ( !navigation_ok_ ) {
-        printf("Couldn't load YouTube iframe API, forcing reload\n");
+        Log(LOG_WARNING, "Couldn't load YouTube iframe API, retrying");
         devtools_client_->GetPage()->Reload(
             headless::page::ReloadParams::Builder().SetIgnoreCache(1).Build());
     }
@@ -234,6 +235,8 @@ void HeadlessTest::OnFrameStoppedLoading(
  */
 void HeadlessTest::OnFrameNavigated(
         const headless::page::FrameNavigatedParams& params) {
+    Log(LOG_DEBUG, "Navigating to %s", params.GetFrame()->GetUrl().c_str());
+
     /* XXX this perhaps isn't as robust as it should be */
     if ( strncmp("https://www.youtube.com", params.GetFrame()->GetUrl().c_str(),
                 strlen("https://www.youtube.com")) == 0 ) {
@@ -275,7 +278,7 @@ void HeadlessTest::OnEvaluateResult(
         std::unique_ptr<headless::runtime::EvaluateResult> result) {
 
     if ( result->HasExceptionDetails() ) {
-        printf("Failed to evaluate: %s\n",
+        Log(LOG_ERR, "Failed to evaluate: %s",
                 result->GetExceptionDetails()->GetText().c_str());
         return;
     }
@@ -298,10 +301,11 @@ void HeadlessTest::OnEvaluateResult(
                         weak_factory_.GetWeakPtr()));
             ++outstanding_;
         } else {
-            printf("ignoring unknown response of type %s\n",classname.c_str());
+            Log(LOG_DEBUG, "Ignoring unknown response of type %s",
+                    classname.c_str());
         }
     } else {
-        printf("failed to get objectid\n");
+        Log(LOG_WARNING, "Failed to get objectid");
     }
 }
 
@@ -320,7 +324,7 @@ void HeadlessTest::OnTimelineFetched(
     int fields = 0;
 
     if (result->HasExceptionDetails()) {
-        printf("exception when fetching properties\n");
+        Log(LOG_ERR, "Exception when fetching properties");
         if ( --outstanding_ <= 0 ) {
             Shutdown();
         }
@@ -401,7 +405,7 @@ void HeadlessTest::OnVideoItemFetched(
         std::unique_ptr<headless::runtime::GetPropertiesResult> result) {
 
     if ( result->HasExceptionDetails() ) {
-        printf("exception when fetching properties\n");
+        Log(LOG_ERR, "Exception when fetching properties\n");
         if ( --outstanding_ <= 0 ) {
             Shutdown();
         }
@@ -626,13 +630,13 @@ void *cpp_main(int argc, const char *argv[]) {
     if ( !commandline->HasSwitch("debug") ) {
         /* redirect stderr, as chromium is quite noisy and it is distracting */
         if ( (nullfd = open("/dev/null", O_WRONLY)) < 0 ) {
-            printf("Failed to open /dev/null for redirect: %s\n",
+            Log(LOG_ERR, "Failed to open /dev/null for redirect: %s",
                     strerror(errno));
             exit(EXIT_FAILURE);
         }
 
         if ( dup2(nullfd, STDERR_FILENO) < 0 ) {
-            printf("Failed to redirect stderr: %s\n", strerror(errno));
+            Log(LOG_ERR, "Failed to redirect stderr: %s", strerror(errno));
             exit(EXIT_FAILURE);
         }
     }
@@ -705,8 +709,12 @@ void *cpp_main(int argc, const char *argv[]) {
     }
     /* TODO see also: SetDisableSandbox(true) */
 
+    Log(LOG_DEBUG, "Starting headless chromium browser");
+
     headless::HeadlessBrowserMain(builder.Build(),
             base::Bind(&OnHeadlessBrowserStarted));
+
+    Log(LOG_DEBUG, "Finished with headless chromium browser");
 
     return youtube;
 }

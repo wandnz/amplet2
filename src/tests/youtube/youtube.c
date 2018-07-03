@@ -156,7 +156,7 @@ static Amplet2__Youtube__Quality parse_quality(char *quality) {
         return AMPLET2__YOUTUBE__QUALITY__HIGHRES;
     }
 
-    printf("unknown quality '%s'\n", quality);
+    Log(LOG_WARNING, "Unknown quality '%s'", quality);
     return AMPLET2__YOUTUBE__QUALITY__UNKNOWN;
 }
 
@@ -302,7 +302,7 @@ amp_test_result_t* run_youtube(int argc, char *argv[],
             case '6':
             case 'I': /* TODO --netifs-to-ignore works the opposite way */
             case 'Q':
-                printf("UNIMPLEMENTED OPTION '-%c'\n", opt);
+                Log(LOG_WARNING, "UNIMPLEMENTED OPTION '-%c'", opt);
                 break;
             case 'Z': /* not used, but might be set globally */ break;
             case 'a': options.useragent = strdup(optarg); break;
@@ -343,6 +343,7 @@ amp_test_result_t* run_youtube(int argc, char *argv[],
     cpp_argv[cpp_argc++] = "--no-sandbox";
     cpp_argv[cpp_argc++] = "--disable-audio-output";
 
+    /* TODO allow setting the log level to other values */
     if ( log_level == LOG_DEBUG ) {
         cpp_argv[cpp_argc++] = "--debug";
     }
@@ -378,6 +379,8 @@ amp_test_result_t* run_youtube(int argc, char *argv[],
         exit(-1);
     }
 
+    Log(LOG_DEBUG, "calling fork() to run test wrapper");
+
     /* fork and run wrapper, which will leave result in shared memory */
     if ( (pid = fork()) < 0 ) {
         perror("fork");
@@ -390,11 +393,14 @@ amp_test_result_t* run_youtube(int argc, char *argv[],
          * the test without worrying about clobbering shared libraries.
          * XXX We do however have to worry about the wrapper being in the path.
          */
+        Log(LOG_DEBUG, "child process ok, running test wrapper");
         execvpe("amp-youtube-wrapper", cpp_argv, environ);
         Log(LOG_WARNING, "Failed to exec amp-youtube-wrapper: %s",
                 strerror(errno));
         exit(EXIT_FAILURE);
     }
+
+    Log(LOG_DEBUG, "parent process ok, waiting for wrapper to complete");
 
     /* parent process will just wait for the result to be ready */
     waitpid(pid, &status, 0);
@@ -409,6 +415,8 @@ amp_test_result_t* run_youtube(int argc, char *argv[],
         Log(LOG_WARNING, "Failed to create filename");
         return NULL;
     }
+
+    Log(LOG_DEBUG, "reading results from shared memory: %s", filename);
 
     if ( (fd = shm_open(filename, O_RDONLY, 0)) < 0 ) {
         shm_unlink(filename);
@@ -444,6 +452,8 @@ amp_test_result_t* run_youtube(int argc, char *argv[],
     }
 
     close(fd);
+
+    Log(LOG_DEBUG, "reporting results");
 
     youtube = amplet2__youtube__item__unpack(NULL, buflen, buffer);
     result = report_results(&start_time, youtube, &options);
