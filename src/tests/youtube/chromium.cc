@@ -28,7 +28,7 @@
  *      chromium/src/headless/app/headless_example.cc
  */
 class HeadlessTest : public headless::HeadlessWebContents::Observer,
-                        public headless::page::Observer {
+                        public headless::page::ExperimentalObserver {
  public:
      HeadlessTest(headless::HeadlessBrowser* browser,
              headless::HeadlessWebContents* web_contents);
@@ -36,6 +36,10 @@ class HeadlessTest : public headless::HeadlessWebContents::Observer,
 
      void Shutdown();
      void DevToolsTargetReady() override;
+     void OnFrameStoppedLoading(
+             const headless::page::FrameStoppedLoadingParams& params) override;
+     void OnFrameNavigated(
+             const headless::page::FrameNavigatedParams& params) override;
      void OnJavascriptDialogOpening(
              const headless::page::JavascriptDialogOpeningParams& params) override;
 
@@ -43,12 +47,13 @@ class HeadlessTest : public headless::HeadlessWebContents::Observer,
              std::unique_ptr<headless::runtime::EvaluateResult> result);
      void OnVideoItemFetched(
              std::unique_ptr<headless::runtime::GetPropertiesResult> result);
+     void OnTimelineFetched(
+             std::unique_ptr<headless::runtime::GetPropertiesResult> result);
+
      void UpdateYoutubeTiming(struct YoutubeTiming *item,
              std::string name, const base::Value *value);
      int UpdateTimeline(struct TimelineEvent *item,
              std::string name, const base::Value *value);
-     void OnTimelineFetched(
-             std::unique_ptr<headless::runtime::GetPropertiesResult> result);
  private:
 
      /* The headless browser instance. Owned by the headless library */
@@ -60,6 +65,7 @@ class HeadlessTest : public headless::HeadlessWebContents::Observer,
      /* A helper for creating weak pointers to this class */
      base::WeakPtrFactory<HeadlessTest> weak_factory_;
 
+     int navigation_ok_;
      int outstanding_;
      std::string url_;
 };
@@ -110,6 +116,7 @@ HeadlessTest::HeadlessTest(headless::HeadlessBrowser* browser,
           web_contents_(web_contents),
           devtools_client_(headless::HeadlessDevToolsClient::Create()),
           weak_factory_(this),
+          navigation_ok_(0),
           outstanding_(0) {
     web_contents_->AddObserver(this);
 
@@ -167,7 +174,7 @@ void HeadlessTest::Shutdown() {
     }
 
     devtools_client_->GetPage()->Disable();
-    devtools_client_->GetPage()->RemoveObserver(this);
+    devtools_client_->GetPage()->GetExperimental()->RemoveObserver(this);
 
     if ( web_contents_->GetDevToolsTarget() ) {
         web_contents_->GetDevToolsTarget()->DetachClient(devtools_client_.get());
@@ -193,11 +200,45 @@ void HeadlessTest::DevToolsTargetReady() {
      * the page has already finished loading by now. See
      * HeadlessShell::DevToolTargetReady for how to handle that case correctly.
      */
-    devtools_client_->GetPage()->AddObserver(this);
+    devtools_client_->GetPage()->GetExperimental()->AddObserver(this);
     devtools_client_->GetPage()->Enable();
 
     /* load the actual page */
     devtools_client_->GetPage()->Navigate(url_);
+}
+
+
+
+/*
+ * Part of a speculative fix for hung connections. After loading the test URL
+ * it infrequently stalls rather than loading the youtube iframe API. On a
+ * successful test no frame should stop loading until after we observe a
+ * navigation to youtube. If this isn't the case, force a reload and try again.
+ * TODO: find the root cause (is it our fault or chromium?)
+ */
+void HeadlessTest::OnFrameStoppedLoading(
+        const headless::page::FrameStoppedLoadingParams& params) {
+    if ( !navigation_ok_ ) {
+        printf("Couldn't load YouTube iframe API, forcing reload\n");
+        devtools_client_->GetPage()->Reload(
+            headless::page::ReloadParams::Builder().SetIgnoreCache(1).Build());
+    }
+}
+
+
+
+/*
+ * Part of a speculative fix for hung connections. After loading the test URL
+ * it infrequently stalls rather than loading the youtube iframe API. Set a
+ * flag when we see navigation begin to a youtube URL.
+ */
+void HeadlessTest::OnFrameNavigated(
+        const headless::page::FrameNavigatedParams& params) {
+    /* XXX this perhaps isn't as robust as it should be */
+    if ( strncmp("https://www.youtube.com", params.GetFrame()->GetUrl().c_str(),
+                strlen("https://www.youtube.com")) == 0 ) {
+        navigation_ok_ = 1;
+    }
 }
 
 
