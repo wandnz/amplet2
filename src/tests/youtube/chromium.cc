@@ -34,6 +34,7 @@ class HeadlessTest : public headless::HeadlessWebContents::Observer,
              headless::HeadlessWebContents* web_contents);
      ~HeadlessTest() override;
 
+     void Shutdown();
      void DevToolsTargetReady() override;
      void OnJavascriptDialogOpening(
              const headless::page::JavascriptDialogOpeningParams& params) override;
@@ -147,18 +148,34 @@ HeadlessTest::HeadlessTest(headless::HeadlessBrowser* browser,
 
 
 
+HeadlessTest::~HeadlessTest() {}
+
+
+
 /*
  * Remove observers and devtools targets before shutting the browser down.
  */
-HeadlessTest::~HeadlessTest() {
+void HeadlessTest::Shutdown() {
     /*
      * Note that we shut down the browser last, because it owns objects such
      * as the web contents which can no longer be accessed after the browser
      * is gone.
      */
+    if ( !web_contents_ ) {
+        printf("no web contents, skipping shutdown\n");
+        return;
+    }
+
+    devtools_client_->GetPage()->Disable();
     devtools_client_->GetPage()->RemoveObserver(this);
-    web_contents_->GetDevToolsTarget()->DetachClient(devtools_client_.get());
+
+    if ( web_contents_->GetDevToolsTarget() ) {
+        web_contents_->GetDevToolsTarget()->DetachClient(devtools_client_.get());
+    }
+
     web_contents_->RemoveObserver(this);
+    web_contents_->Close();
+    web_contents_ = nullptr;
     browser_->Shutdown();
 }
 
@@ -264,8 +281,7 @@ void HeadlessTest::OnTimelineFetched(
     if (result->HasExceptionDetails()) {
         printf("exception when fetching properties\n");
         if ( --outstanding_ <= 0 ) {
-            delete g_example;
-            g_example = nullptr;
+            Shutdown();
         }
         return;
     }
@@ -328,8 +344,7 @@ void HeadlessTest::OnTimelineFetched(
     }
 
     if ( --outstanding_ <= 0 ) {
-        delete g_example;
-        g_example = nullptr;
+        Shutdown();
     }
 }
 
@@ -347,8 +362,7 @@ void HeadlessTest::OnVideoItemFetched(
     if ( result->HasExceptionDetails() ) {
         printf("exception when fetching properties\n");
         if ( --outstanding_ <= 0 ) {
-            delete g_example;
-            g_example = nullptr;
+            Shutdown();
         }
         return;
     }
@@ -391,8 +405,7 @@ void HeadlessTest::OnVideoItemFetched(
     }
 
     if ( --outstanding_ <= 0 ) {
-        delete g_example;
-        g_example = nullptr;
+        Shutdown();
     }
 }
 
