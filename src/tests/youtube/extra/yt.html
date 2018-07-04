@@ -149,6 +149,7 @@
       var playtime = 0;
       var pretime = 0;
       var firstbuffer = 0;
+      var bufferstart = 0;
       var buftime = 0;
       var bufcount = 0;
       var time = 0;
@@ -217,6 +218,7 @@
                 /* pre time ends once we start to buffer for the first time */
                 if ( pretime == 0 ) {
                     pretime = now - starttime;
+                    bufferstart = now;
                 }
                 timeline.push({
                         "timestamp": now - starttime,
@@ -231,12 +233,9 @@
                 }
                 /* initial buffering ends the first time we enter play state */
                 if ( firstbuffer == 0 ) {
-                    if ( time == 0 ) {
-                        firstbuffer = 0;
-                    } else {
-                        firstbuffer = (now - time);
-                    }
+                    firstbuffer = now - bufferstart;
                 }
+
                 state = YT.PlayerState.PLAYING;
                 timeline.push({
                         "timestamp": now - starttime,
