@@ -38,11 +38,12 @@
  */
 
 #include <assert.h>
+#include <stdio.h>
 
-#include "http.h"
 #include "output.h"
 #include "http.pb-c.h"
 #include "dscp.h"
+#include "tests.h"
 
 
 

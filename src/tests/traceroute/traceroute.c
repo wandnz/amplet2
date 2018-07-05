@@ -43,6 +43,7 @@
 #include <unistd.h>
 #include <netinet/in.h>
 #include <netinet/ip_icmp.h>
+#include <netinet/ip.h>
 #include <netinet/ip6.h>
 #include <netinet/icmp6.h>
 #include <netinet/udp.h>
@@ -53,9 +54,9 @@
 #include <errno.h>
 #include <assert.h>
 #include <arpa/inet.h>
-#include <malloc.h>
 #include <string.h>
 #include <signal.h>
+#include <inttypes.h>
 #include <libwandevent.h>
 
 #include "config.h"

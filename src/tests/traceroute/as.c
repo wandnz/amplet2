@@ -37,6 +37,9 @@
  * along with amplet2. If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <netdb.h>
+#include <netinet/in.h>
+#include <sys/socket.h>
 #include <string.h>
 #include <unistd.h>
 

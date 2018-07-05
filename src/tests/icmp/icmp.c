@@ -49,10 +49,8 @@
 #include <sys/types.h>
 #include <netdb.h>
 #include <sys/time.h>
-#include <errno.h>
 #include <assert.h>
 #include <arpa/inet.h>
-#include <malloc.h>
 #include <string.h>
 #include <signal.h>
 #include <libwandevent.h>

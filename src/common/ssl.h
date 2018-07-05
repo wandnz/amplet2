@@ -41,6 +41,7 @@
 #define _COMMON_SSL_H
 
 #include <openssl/ssl.h>
+#include <openssl/bio.h>
 
 /* man ERR_error_string says "buf must be at least 120 bytes long" */
 #define SSL_ERROR_BUFFER_LENGTH 120

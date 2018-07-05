@@ -39,6 +39,7 @@
 
 #include <netinet/ip_icmp.h>
 #include <netinet/icmp6.h>
+#include <sys/socket.h>
 
 #include "icmpcode.h"
 

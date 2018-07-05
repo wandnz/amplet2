@@ -42,6 +42,7 @@
 #include <getopt.h>
 #include <stdlib.h>
 #include <netinet/in.h>
+#include <netinet/ip.h>
 #include <netinet/ip6.h>
 #include <netinet/ip_icmp.h>
 #include <netinet/icmp6.h>
@@ -53,10 +54,10 @@
 #include <errno.h>
 #include <assert.h>
 #include <arpa/inet.h>
-#include <malloc.h>
 #include <string.h>
 #include <unistd.h>
 #include <signal.h>
+#include <libwandevent.h>
 
 #include "config.h"
 #include "testlib.h"

@@ -37,7 +37,6 @@
  * along with amplet2. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <stdlib.h>
 #include <signal.h>
 #include <time.h>
 #include <errno.h>
@@ -45,6 +44,7 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <string.h>
+#include <sys/time.h>
 
 #include "watchdog.h"
 #include "debug.h"

@@ -37,10 +37,8 @@
  * along with amplet2. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <stdlib.h>
 #include <sys/types.h>
 #include <unistd.h>
-#include <stdint.h>
 #include <amqp_ssl_socket.h>
 #include <amqp_tcp_socket.h>
 

@@ -38,6 +38,10 @@
  * along with amplet2. If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <getopt.h>
+#include <stdio.h>
+#include <string.h>
+
 #include "config.h"
 #include "throughput.h"
 #include "debug.h"

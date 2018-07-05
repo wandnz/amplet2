@@ -37,7 +37,7 @@
  * along with amplet2. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <malloc.h>
+#include <stdlib.h>
 #include <string.h>
 #include <assert.h>
 

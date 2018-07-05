@@ -37,16 +37,15 @@
  * along with amplet2. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netdb.h>
 #include <assert.h>
 #include <arpa/inet.h>
-#include <unistd.h>
 #include <errno.h>
 #include <glob.h>
+#include <netinet/in.h>
 
 #include "schedule.h"
 #include "nametable.h"

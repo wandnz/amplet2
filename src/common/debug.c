@@ -45,6 +45,7 @@
 #include <syslog.h>
 #include <unistd.h>
 #include <arpa/inet.h>
+#include <netdb.h>
 
 #include "config.h"
 #include "debug.h"

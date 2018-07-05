@@ -43,6 +43,11 @@
 #include <sys/time.h>
 #include <string.h>
 #include <math.h>
+#include <endian.h>
+#include <netdb.h>
+#include <stdint.h>
+#include <sys/socket.h>
+#include <errno.h>
 
 #include "serverlib.h"
 #include "udpstream.h"

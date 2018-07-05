@@ -43,6 +43,11 @@
 #include <stdlib.h>
 #include <netdb.h>
 #include <string.h>
+#include <netinet/in.h>
+#include <stdint.h>
+#include <sys/socket.h>
+#include <sys/time.h>
+#include <errno.h>
 
 #include "ssl.h"
 #include "tests.h"

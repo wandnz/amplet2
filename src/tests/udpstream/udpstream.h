@@ -40,12 +40,11 @@
 #ifndef _TESTS_UDPSTREAM_H
 #define _TESTS_UDPSTREAM_H
 
-#include <sys/types.h>
-#include <sys/socket.h>
+#include <stdint.h>
+#include <sys/time.h>
 #include <netinet/ip6.h>
 #include <netinet/udp.h>
 #include <netdb.h>
-#include <errno.h>
 
 #include "config.h"
 #include "tests.h"

@@ -50,6 +50,7 @@
 #include <sys/mman.h>
 #include <inttypes.h>
 #include <sys/wait.h>
+#include <assert.h>
 
 #include "config.h"
 #include "tests.h"

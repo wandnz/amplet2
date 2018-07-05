@@ -40,6 +40,8 @@
 #ifndef _TESTS_UDPSTREAM_MOS_H
 #define _TESTS_UDPSTREAM_MOS_H
 
+#include <stdint.h>
+
 /*
  * Recommended by section 7.7 of ITU-T G.107 (06/2015). This value was
  * previously set to 94.2

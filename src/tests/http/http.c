@@ -47,7 +47,6 @@
 #include <sys/time.h>
 #include <errno.h>
 #include <assert.h>
-#include <malloc.h>
 #include <string.h>
 #include <curl/curl.h>
 

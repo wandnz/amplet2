@@ -50,9 +50,7 @@
 #include <errno.h>
 #include <assert.h>
 #include <arpa/inet.h>
-#include <malloc.h>
 #include <string.h>
-#include <arpa/inet.h>
 #include <signal.h>
 #include <libwandevent.h>
 

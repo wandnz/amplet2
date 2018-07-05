@@ -49,6 +49,9 @@
 #include <amqp_ssl_socket.h>
 #include <curl/curl.h>
 #include <libwandevent.h>
+#include <confuse.h>
+#include <limits.h>
+#include <time.h>
 
 #include "config.h"
 #include "schedule.h"

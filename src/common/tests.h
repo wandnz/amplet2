@@ -41,8 +41,6 @@
 #define _COMMON_TESTS_H
 
 #include <stdint.h>
-#include <sys/types.h>
-#include <sys/socket.h>
 #include <netdb.h>
 #include <openssl/bio.h>
 

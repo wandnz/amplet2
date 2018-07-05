@@ -42,6 +42,7 @@
 #include <dlfcn.h>
 #include <string.h>
 #include <assert.h>
+#include <stdint.h>
 
 #include "debug.h"
 #include "modules.h"

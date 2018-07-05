@@ -45,8 +45,14 @@
  * Based upon the old AMP throughput test
  */
 
+#include <netinet/in.h>
+#include <stdint.h>
+#include <sys/socket.h>
 #include <getopt.h>
 #include <assert.h>
+#include <string.h>
+#include <errno.h>
+#include <unistd.h>
 
 #include "ssl.h"
 #include "serverlib.h"

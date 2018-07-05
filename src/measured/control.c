@@ -53,6 +53,9 @@
 #include <arpa/inet.h>
 #include <libwandevent.h>
 #include <net/if.h>
+#include <netinet/in.h>
+#include <stdint.h>
+#include <time.h>
 
 #include "global.h"
 #include "debug.h"

@@ -41,10 +41,15 @@
 #ifndef _TESTS_TCPPING_H_
 #define _TESTS_TCPPING_H_
 
+#include <netinet/ip6.h>
+#include <netinet/tcp.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <sys/time.h>
 #include <netdb.h>
+#include <stdint.h>
 #include <libwandevent.h>
+
 #include "tests.h"
 #include "testlib.h"
 

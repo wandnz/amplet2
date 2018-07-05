@@ -40,7 +40,10 @@
 #ifndef _TESTS_DNS_H
 #define _TESTS_DNS_H
 
+#include <endian.h>
 #include <stdint.h>
+#include <sys/time.h>
+
 #include "testlib.h"
 
 /* Minimum requestors UDP payload size in bytes (RFC 6891) */

@@ -46,9 +46,16 @@
  * Based upon the old AMP throughput test
  */
 #include <sys/types.h>
-#include <sys/stat.h>
 #include <fcntl.h>
 #include <netinet/tcp.h>
+#include <netinet/in.h>
+#include <sys/socket.h>
+#include <sys/time.h>
+#include <string.h>
+#include <errno.h>
+#include <unistd.h>
+#include <stdint.h>
+#include <inttypes.h>
 
 #include "config.h"
 #include "throughput.h"

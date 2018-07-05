@@ -40,6 +40,8 @@
 #ifndef _COMMON_CHECKSUM_H
 #define _COMMON_CHECKSUM_H
 
+#include <stdint.h>
+
 uint16_t checksum(uint16_t *data, int length);
 
 #endif

@@ -44,12 +44,14 @@
 #include <errno.h>
 #include <assert.h>
 #include <string.h>
+#include <netdb.h>
 
 #include "debug.h"
 #include "ssl.h"
 #include "serverlib.h"
 #include "controlmsg.h"
 #include "measured.pb-c.h"
+#include "testlib.h"
 
 
 

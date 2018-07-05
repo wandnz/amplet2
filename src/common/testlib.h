@@ -40,8 +40,9 @@
 #ifndef _COMMON_TESTLIB_H
 #define _COMMON_TESTLIB_H
 
+#include <stdint.h>
 #include <netdb.h>
-#include <openssl/bio.h>
+#include <sys/time.h>
 #include <google/protobuf-c/protobuf-c.h>
 
 

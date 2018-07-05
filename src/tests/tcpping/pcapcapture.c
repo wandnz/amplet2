@@ -40,20 +40,21 @@
 
 #include <net/ethernet.h>
 #include <netinet/in.h>
-#include <netinet/ip_icmp.h>
+#include <netinet/ip.h>
 #include <netinet/ip6.h>
-#include <netinet/icmp6.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <ifaddrs.h>
 #include <libwandevent.h>
 #include <arpa/inet.h>
-#include <malloc.h>
 #include <string.h>
 #include <pcap.h>
 #include <unistd.h>
 #include <errno.h>
 #include <pcap/sll.h>
+#include <netdb.h>
+#include <stdlib.h>
+#include <stdio.h>
 
 #include "config.h"
 #include "testlib.h"

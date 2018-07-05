@@ -41,7 +41,10 @@
 #define _MEASURED_SCHEDULE_H
 
 #include <stdint.h>
+#include <stdio.h>
+#include <sys/time.h>
 #include <libwandevent.h>
+
 #include "tests.h"
 #include "ampresolv.h"
 

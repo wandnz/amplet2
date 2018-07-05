@@ -41,9 +41,11 @@
 #define _TESTS_TRACEROUTE_H
 
 #include <sys/types.h>
-#include <sys/socket.h>
 #include <netdb.h>
+#include <sys/time.h>
+#include <netinet/udp.h>
 #include <netinet/ip6.h>
+#include <stdint.h>
 
 #include "tests.h"
 #include "testlib.h"

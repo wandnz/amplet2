@@ -39,7 +39,6 @@
 
 #include <stdio.h>
 #include <getopt.h>
-#include <malloc.h>
 #include <string.h>
 
 #include "config.h"

@@ -44,6 +44,11 @@
 #include <arpa/inet.h>
 #include <string.h>
 #include <sys/time.h>
+#include <inttypes.h>
+#include <netdb.h>
+#include <netinet/in.h>
+#include <stdint.h>
+#include <sys/socket.h>
 
 #include "ssl.h"
 #include "udpstream.h"

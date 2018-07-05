@@ -46,6 +46,13 @@
  */
 #include <getopt.h>
 #include <assert.h>
+#include <stdint.h>
+#include <netinet/in.h>
+#include <sys/socket.h>
+#include <string.h>
+#include <unistd.h>
+#include <arpa/inet.h>
+#include <inttypes.h>
 
 #include "ssl.h"
 #include "serverlib.h"

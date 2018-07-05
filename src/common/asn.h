@@ -40,6 +40,9 @@
 #ifndef _COMMON_ASN_H
 #define _COMMON_ASN_H
 
+#include <pthread.h>
+#include <time.h>
+
 #include "iptrie.h"
 
 #define WHOIS_UNAVAILABLE -2

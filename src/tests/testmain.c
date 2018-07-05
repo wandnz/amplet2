@@ -39,7 +39,6 @@
 
 #include <stdlib.h>
 #include <stdio.h>
-#include <malloc.h>
 #include <dlfcn.h>
 #include <getopt.h>
 #include <string.h>
@@ -47,9 +46,9 @@
 #include <arpa/inet.h>
 #include <sys/types.h>
 #include <unistd.h>
-#include <sys/mman.h>
-#include <sys/stat.h>
 #include <fcntl.h>
+#include <pthread.h>
+#include <sys/socket.h>
 
 #include "debug.h"
 #include "tests.h"

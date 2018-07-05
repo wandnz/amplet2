@@ -40,11 +40,13 @@
 #ifndef _TESTS_HTTP_H
 #define _TESTS_HTTP_H
 
+#include <sys/time.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netdb.h>
+#include <stdint.h>
+#include <curl/curl.h>
 #include "tests.h"
-#include "curl/curl.h"
 
 
 #define MAX_DNS_NAME_LEN 256

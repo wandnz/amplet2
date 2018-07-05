@@ -42,19 +42,7 @@
 #define _TESTS_THROUGHPUT_H
 
 #include <netdb.h>
-#include <inttypes.h>
-#include <string.h>
-#include <malloc.h>
-#include <stdio.h>
-#include <arpa/inet.h>
-#include <stdlib.h>
-#include <errno.h>
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <sys/time.h>
-#include <netinet/in.h>
-#include <getopt.h>
+#include <stdint.h>
 
 #include "tests.h"
 #include "throughput.pb-c.h"

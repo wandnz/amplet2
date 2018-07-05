@@ -41,7 +41,6 @@
  * Skeleton test to demonstrate how to write a test for amplet2.
  */
 #include <stdio.h>
-#include <malloc.h>
 #include <string.h>
 #include <arpa/inet.h>
 #include <getopt.h>

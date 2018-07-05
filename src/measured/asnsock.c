@@ -42,10 +42,11 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <pthread.h>
-#include <assert.h>
 #include <errno.h>
 #include <arpa/inet.h>
 #include <string.h>
+#include <netinet/in.h>
+#include <sys/time.h>
 
 #include "asn.h"
 #include "asnsock.h"

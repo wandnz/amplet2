@@ -40,7 +40,6 @@
 #include <openssl/ssl.h>
 #include <openssl/err.h>
 #include <openssl/rand.h>
-#include <assert.h>
 #include <sys/types.h>
 #include <unistd.h>
 #include <stdio.h>

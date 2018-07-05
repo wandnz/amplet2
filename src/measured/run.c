@@ -47,9 +47,9 @@
 #include <sys/types.h>
 #include <ifaddrs.h>
 #include <libwandevent.h>
-#include <sys/mman.h>
-#include <sys/stat.h>
 #include <fcntl.h>
+#include <stdint.h>
+#include <sys/socket.h>
 
 #include "config.h"
 #include "schedule.h"
