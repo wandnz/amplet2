@@ -1,7 +1,7 @@
 /*
  * This file is part of amplet2.
  *
- * Copyright (c) 2018 The University of Waikato, Hamilton, New Zealand.
+ * Copyright (c) 2013-2018 The University of Waikato, Hamilton, New Zealand.
  *
  * Author: Brendon Jones
  *
