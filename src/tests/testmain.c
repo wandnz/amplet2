@@ -272,8 +272,10 @@ int main(int argc, char *argv[]) {
                 family, -1, &remaining);
     }
 
-    /* wait for all the responses to come in */
-    amp_resolve_wait(vars.ctx, &addrlist_lock, &remaining);
+    if ( remaining > 0 ) {
+        /* wait for all the responses to come in */
+        amp_resolve_wait(vars.ctx, &addrlist_lock, &remaining);
+    }
 
     /* add all the results of to the list of destinations */
     for ( rp=addrlist; rp != NULL; rp=rp->ai_next ) {
