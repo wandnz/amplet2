@@ -36,9 +36,11 @@ if WANT_UDPSTREAM_TEST
 SUBDIRS+=udpstream
 endif
 
-if WANT_YOUTUBE_TEST
+# Always include the currently disabled youtube test, so that the python
+# scripts get built and included.
+# TODO: what is the best way to always build the server-side python scripts
+# while only building the rest of the test if it is enabled?
 SUBDIRS+=youtube
-endif
 
 if WANT_PYTHON
 SUBDIRS+=python
