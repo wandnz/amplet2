@@ -28,10 +28,6 @@ if WANT_TCPPING_TEST
 SUBDIRS+=tcpping
 endif
 
-if WANT_PYTHON
-SUBDIRS+=python
-endif
-
 if WANT_REMOTESKELETON_TEST
 SUBDIRS+=remoteskeleton
 endif
@@ -42,4 +38,8 @@ endif
 
 if WANT_YOUTUBE_TEST
 SUBDIRS+=youtube
+endif
+
+if WANT_PYTHON
+SUBDIRS+=python
 endif
