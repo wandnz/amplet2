@@ -48,6 +48,17 @@ The args.gn file used to build the Chromium libraries for use with AMP was:
     use_allocator = "none"
     treat_warnings_as_errors = false
 
+You don't need to build the entirety of Chromium, just enough to get the
+headless libraries and their dependencies built:
+
+    $ ninja -C out/Default headless_shell
+
+Once you have built the Chromium source you can then change to the directory
+containing the amplet2-client source and build the YouTube test:
+
+    $ ./configure --enable-youtube --with-chromium-build=/path/to/chromium/src/out/Default --with-chromium-includes=/path/to/chromium/src
+    $ make
+
 
 ### Chromium Zygote Processes
 
