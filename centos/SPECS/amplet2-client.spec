@@ -1,12 +1,12 @@
 Name: amplet2
-Version: 0.8.1
+Version: 0.8.2
 Release: 1%{?dist}
 Summary: AMP Network Performance Measurement Suite - Client Tools
 
 Group: Applications/Internet
 License: AMP
 URL: http://research.wand.net.nz/software/amp.php
-Source0: https://github.com/wanduow/amplet2/archive/v0.8.1.tar.gz
+Source0: https://github.com/wanduow/amplet2/archive/v0.8.2.tar.gz
 Patch0: amplet2-client-init.patch
 Patch1: amplet2-client-default.patch
 BuildRoot:	%(mktemp -ud %{_tmppath}/%{name}-%{version}-%{release}-XXXXXX)
@@ -98,6 +98,12 @@ fi
 
 
 %changelog
+* Mon Jul 23 2018 Brendon Jones <brendonj@waikato.ac.nz> 0.8.2-1
+- amplet2: Set shovel reconnect delay to random value between 60s and 180s.
+- amplet2: Add new YouTube video streaming quality test.
+- standalone tests: Don't wait for name resolution if there are no names.
+- build: Try to be more accurate regarding which headers are included.
+
 * Tue Nov  7 2017 Brendon Jones <brendonj@waikato.ac.nz> 0.8.1-1
 - amplet2: allow tests to be limited to a single address family.
 - throughput: replace web10g with newly available TCP_INFO stats.
