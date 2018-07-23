@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.67])
-AC_INIT([amplet2], [0.8.1], [amp@wand.net.nz])
+AC_INIT([amplet2], [0.8.2], [amp@wand.net.nz])
 #AC_CONFIG_SRCDIR([src/measured/measured.c])
 AM_INIT_AUTOMAKE([subdir-objects])
 AC_CONFIG_HEADERS([config.h])
@@ -113,11 +113,6 @@ if test "$protobuf_h_found" = 0; then
     AC_MSG_ERROR(Required headers for protobuf-c not found; use CFLAGS to specify header location)
 fi
 
-# check if we have the web10g library, it's ok for it to be missing
-#AC_CHECK_LIB([estats], [estats_nl_client_init],
-#        [AM_CONDITIONAL(HAVE_ESTATS, true)],
-#        [AM_CONDITIONAL(HAVE_ESTATS, false)])
-
 AC_ARG_ENABLE(python,
     AC_HELP_STRING([--enable-python],
 	[Enable the python data exporting (default: yes)]),
@@ -185,7 +180,7 @@ AC_ARG_ENABLE(remoteskeleton,
 AM_CONDITIONAL(WANT_REMOTESKELETON_TEST, [test x"$want_remoteskeleton_test" = xtrue])
 
 AC_ARG_ENABLE(icmp,
-    AC_HELP_STRING([--enable-icmp], 
+    AC_HELP_STRING([--enable-icmp],
 	[Enable the icmp test (default: yes)]),
     [case "${enableval}" in
     true) ;&

@@ -1,3 +1,12 @@
+amplet2 (0.8.2-1) unstable; urgency=low
+
+  * amplet2: Set shovel reconnect delay to random value between 60s and 180s.
+  * amplet2: Add new YouTube video streaming quality test.
+  * standalone tests: Don't wait for name resolution if there are no names.
+  * build: Try to be more accurate regarding which headers are included.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Mon, 23 Jul 2018 13:51:46 +1200
+
 amplet2 (0.8.1-1) unstable; urgency=low
 
   * amplet2: allow tests to be limited to a single address family.
