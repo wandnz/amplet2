@@ -82,6 +82,7 @@ static struct option long_options[] = {
     {"max-persistent-con", required_argument, 0, 'o'},
     {"max-persistent", required_argument, 0, 'o'},
     {"pipeline", no_argument, 0, 'p'},
+    {"proxy", required_argument, 0, 'P'},
     {"max-pipelined-requests", required_argument, 0, 'r'},
     {"max-pipelined", required_argument, 0, 'r'},
     {"max-con-per-server", required_argument, 0, 's'},
@@ -935,6 +936,15 @@ CURL *pipeline_next_object(CURLM *multi, struct server_stats_t *server) {
         curl_easy_setopt(object->handle, CURLOPT_WRITEFUNCTION, do_nothing);
     }
 
+    /*
+     * Use the given proxy if specified. Passed straight through to libcurl,
+     * expected format: [protocol://][user:password@]proxyhost[:port].
+     * See https://curl.haxx.se/libcurl/c/CURLOPT_PROXY.html
+     */
+    if ( options.proxy ) {
+        curl_easy_setopt(object->handle, CURLOPT_PROXY, options.proxy);
+    }
+
     /* get all the response headers to parse for anything interesting */
     curl_easy_setopt(object->handle, CURLOPT_HEADERFUNCTION, parse_headers);
     curl_easy_setopt(object->handle, CURLOPT_WRITEHEADER, object);
@@ -1345,6 +1355,8 @@ static void usage(void) {
             "Max persistent connections per server (def:2)\n");
     fprintf(stderr, "  -p, --pipeline                 "
             "Enable pipelining (def:disabled)\n");
+    fprintf(stderr, "  -P, --proxy          <proxy>   "
+            "[protocol://][user:password@]proxyhost[:port]\n");
     fprintf(stderr, "  -r, --max-pipelined  <max>     "
             "Maximum number of requests per pipeline (def:4)\n");
     fprintf(stderr, "  -s, --max-per-server <max>     "
@@ -1396,9 +1408,10 @@ amp_test_result_t* run_http(int argc, char *argv[],
     options.sslversion = CURL_SSLVERSION_DEFAULT;
     options.dscp = DEFAULT_DSCP_VALUE;
     options.useragent = "AMP HTTP test agent";
+    options.proxy = NULL;
 
     while ( (opt = getopt_long(argc, argv,
-                    "a:cdkm:o:pr:s:S:u:z:I:Q:Z:4::6::hvx",
+                    "a:cdkm:o:pP:r:s:S:u:z:I:Q:Z:4::6::hvx",
                     long_options, NULL)) != -1 ) {
 	switch ( opt ) {
             case '4': options.forcev4 = 1;
@@ -1431,6 +1444,7 @@ amp_test_result_t* run_http(int argc, char *argv[],
                               LIBCURL_VERSION);
 #endif
                       break;
+            case 'P': options.proxy = optarg; break;
             case 'r': options.pipelining_maxrequests = atoi(optarg); break;
 	    case 's': options.max_connections_per_server = atoi(optarg); break;
             case 'S': set_ssl_version(&options.sslversion, optarg); break;
