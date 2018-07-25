@@ -73,11 +73,16 @@ size_t do_nothing(__attribute__((unused))void *ptr, size_t size,
 size_t parse_headers(void *ptr, size_t size, size_t nmemb, void *data) {
     struct object_stats_t *object = (struct object_stats_t *)data;
     struct cache_headers_t *cache = &object->headers;
-    char *buf = (char *)ptr;
+    char *buf;
 
-    /* make sure the string is null terminated */
-    /* XXX can this clobber useful data? or there is always a newline/null? */
-    buf[size * nmemb] = '\0';
+    /*
+     * The header probably isn't null terminated, but probably does end with
+     * CRLF. Copy the whole thing into our own buffer and add an extra null
+     * byte on the end so we can be certain it's terminated without possibly
+     * clobbering useful data.
+     */
+    buf = calloc(size, nmemb + 1);
+    memcpy(buf, ptr, size * nmemb);
 
     /* check normal caching headers, they are usually all listed on one line */
     if ( strncasecmp(buf, "Cache-Control: ", strlen("Cache-Control: ")) == 0 ) {
@@ -92,6 +97,7 @@ size_t parse_headers(void *ptr, size_t size, size_t nmemb, void *data) {
          * http://www.w3.org/Protocols/rfc2616/rfc2616-sec2.html
          */
         if ( (token = strtok_r(directives, " \t,;", &dirptr)) == NULL ) {
+            free(buf);
             return size * nmemb;
         }
 
@@ -184,6 +190,7 @@ size_t parse_headers(void *ptr, size_t size, size_t nmemb, void *data) {
         Log(LOG_DEBUG, "ignored header: %s\n", buf);
     }
 
+    free(buf);
     return size * nmemb;
 }
 
