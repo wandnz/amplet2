@@ -77,6 +77,7 @@ struct opt_t {
     char *device;                               /* source device name */
     char *sourcev4;                             /* source v4 address */
     char *sourcev6;                             /* source v6 address */
+    char *useragent;                            /* User-Agent string */
     long sslversion;                            /* SSL version to use */
     uint8_t dscp;
 };

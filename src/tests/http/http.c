@@ -72,6 +72,8 @@ struct opt_t options;
 
 
 static struct option long_options[] = {
+    {"user-agent", required_argument, 0, 'a'},
+    {"useragent", required_argument, 0, 'a'},
     {"cached", no_argument, 0, 'c'},
     {"dontparse", no_argument, 0, 'd'},
     {"no-keep-alive", no_argument, 0, 'k'},
@@ -942,7 +944,7 @@ CURL *pipeline_next_object(CURLM *multi, struct server_stats_t *server) {
 
     curl_easy_setopt(object->handle, CURLOPT_ENCODING, "gzip");
     curl_easy_setopt(object->handle, CURLOPT_URL, object->url);
-    curl_easy_setopt(object->handle, CURLOPT_USERAGENT, "AMP HTTP test agent");
+    curl_easy_setopt(object->handle, CURLOPT_USERAGENT, options.useragent);
     curl_easy_setopt(object->handle, CURLOPT_SSLVERSION, options.sslversion);
 
     /* save the time that this server became active */
@@ -1321,14 +1323,16 @@ static void set_ssl_version(long *sslv, char *optarg) {
  */
 static void usage(void) {
     fprintf(stderr,
-            "Usage: amp-http [-cdhkpvx] -u <url> [-m max-con]\n"
+            "Usage: amp-http [-cdhkpvx] -u <url> [-a user-agent] [-m max-con]\n"
             "                [-o max-persistent] [-r max-pipelined-requests]\n"
-            "                [-s max-con-per-server] [-S sslversion]\n"
-            "                [-z pipe-size] [-Q codepoint]\n"
+            "                [-P proxy] [-s max-con-per-server]\n"
+            "                [-S sslversion][-z pipe-size] [-Q codepoint]\n"
             "                [-I interface] [-4 [sourcev4]] [-6 [sourcev6]]\n"
             "\n");
 
     fprintf(stderr, "Options:\n");
+    fprintf(stderr, "  -a, --user-agent     <agent>   "
+            "Specify User-Agent string\n");
     fprintf(stderr, "  -c, --cached                   "
             "Allow cached content (def:false)\n");
     fprintf(stderr, "  -d, --dontparse                "
@@ -1391,8 +1395,10 @@ amp_test_result_t* run_http(int argc, char *argv[],
     options.sourcev6 = NULL;
     options.sslversion = CURL_SSLVERSION_DEFAULT;
     options.dscp = DEFAULT_DSCP_VALUE;
+    options.useragent = "AMP HTTP test agent";
 
-    while ( (opt = getopt_long(argc, argv, "cdkm:o:pr:s:S:u:z:I:Q:Z:4::6::hvx",
+    while ( (opt = getopt_long(argc, argv,
+                    "a:cdkm:o:pr:s:S:u:z:I:Q:Z:4::6::hvx",
                     long_options, NULL)) != -1 ) {
 	switch ( opt ) {
             case '4': options.forcev4 = 1;
@@ -1408,6 +1414,7 @@ amp_test_result_t* run_http(int argc, char *argv[],
                       }
                       break;
             case 'Z': /* option does nothing for this test */ break;
+            case 'a': options.useragent = optarg; break;
             case 'c': options.caching = 1; break;
             case 'd': options.parse = 0; break;
 	    case 'k': options.keep_alive = 0; break;
