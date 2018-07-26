@@ -71,6 +71,10 @@ static void print_global_info(Amplet2__Http__Report *report) {
     printf("\tcaching:\t\t\t\t%d\n", report->header->caching);
     printf("\tdscp:\t\t\t\t\t%s (0x%x)\n", dscp_to_str(report->header->dscp),
             report->header->dscp);
+    printf("\tuseragent:\t\t\t\t\"%s\"\n", report->header->useragent);
+    printf("\tproxy:\t\t\t\t\t%s\n",
+            report->header->proxy ? report->header->proxy : "none");
+
 }
 
 

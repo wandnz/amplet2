@@ -62,6 +62,8 @@ def get_data(data):
         "pipelining_maxrequests": msg.header.pipelining_maxrequests,
         "caching": msg.header.caching,
         "dscp": getPrintableDscp(msg.header.dscp),
+        "useragent": msg.header.useragent,
+        "proxy": msg.header.proxy,
         "failed_object_count": 0,
         "servers": []
     }

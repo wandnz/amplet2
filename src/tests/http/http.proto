@@ -55,6 +55,10 @@ message Header {
     optional bool caching = 11 [default = false];
     /** Differentiated Services Code Point (DSCP) used */
     optional uint32 dscp = 12 [default = 0];
+    /** User-Agent string the test reported to the server */
+    optional string useragent = 13 [default = "AMP HTTP test agent"];
+    /** Proxy server used to fetch the URL */
+    optional string proxy = 14;
 }
 
 

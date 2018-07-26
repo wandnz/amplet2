@@ -139,6 +139,9 @@ static void report_header_results(Amplet2__Http__Header *header,
     header->caching = opt->caching;
     header->has_dscp = 1;
     header->dscp = opt->dscp;
+    header->useragent = opt->useragent;
+    /* TODO consider sanitising usernames and passwords used for the proxy */
+    header->proxy = opt->proxy;
 }
 
 
