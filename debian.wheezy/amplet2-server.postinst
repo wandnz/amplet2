@@ -20,6 +20,8 @@ set -e
 
 case "$1" in
     configure)
+        V=`dpkg -s rabbitmq-server | grep "Version:" | cut -d ' ' -f 2`
+
         # Enable the ssl authentication plugin for rabbitmq
         if ! /usr/sbin/rabbitmq-plugins list -e rabbitmq_auth_mechanism_ssl | \
                 cut -d ' ' -f 2 | grep -qx rabbitmq_auth_mechanism_ssl; then
@@ -27,7 +29,6 @@ case "$1" in
             rabbitmq-plugins enable rabbitmq_auth_mechanism_ssl || exit $?
 
             # restart rabbitmq-server if version is < 3.4.0
-            V=`dpkg -s rabbitmq-server | grep "Version:" | cut -d ' ' -f 2`
             if dpkg --compare-versions "$V" lt "3.4.0"; then
                 if [ -x "`which invoke-rc.d 2>/dev/null`" ]; then
                     invoke-rc.d rabbitmq-server restart || exit $?
@@ -48,16 +49,22 @@ case "$1" in
             # useful except users and vhosts. I don't want to have to enable the
             # management plugin and use rabbitmqadmin just to run a couple of
             # simple commands, so we will eval them directly and hope the API
-            # doesn't change:
+            # doesn't change...
+
+            # rabbitmq from 3.7.0 onwards requires an extra parameter to say
+            # which user is performing the action, set it to none
+            USER=
+            if dpkg --compare-versions "$V" ge "3.7.0"; then
+                USER=", none"
+            fi
 
             # create the exchange "amp_exchange" as direct, durable, extern
-            /usr/sbin/rabbitmqctl eval 'rabbit_exchange:declare(rabbit_misc:r(<<"/">>, exchange, <<"amp_exchange">>), direct, true, false, false, []).' > /dev/null
-
+            /usr/sbin/rabbitmqctl eval "rabbit_exchange:declare(rabbit_misc:r(<<\"/\">>, exchange, <<\"amp_exchange\">>), direct, true, false, false, []${USER})." > /dev/null
             # create the queue "ampqueue" as durable, persistant, no owner
-            /usr/sbin/rabbitmqctl eval 'rabbit_amqqueue:declare(rabbit_misc:r(<<"/">>, queue, <<"ampqueue">>), true, false, [], none).' > /dev/null
-
+            /usr/sbin/rabbitmqctl eval "rabbit_amqqueue:declare(rabbit_misc:r(<<\"/\">>, queue, <<\"ampqueue\">>), true, false, [], none${USER})." > /dev/null
             # bind the queue to the exchange with routing key "amp"
-            /usr/sbin/rabbitmqctl eval 'rabbit_binding:add({binding, Source = rabbit_misc:r(<<"/">>, exchange, <<"amp_exchange">>), Key = <<"amp">>, Destination = rabbit_misc:r(<<"/">>, queue, <<"ampqueue">>), Args = []}).' > /dev/null
+            /usr/sbin/rabbitmqctl eval "rabbit_binding:add({binding, Source = rabbit_misc:r(<<\"/\">>, exchange, <<\"amp_exchange\">>), Key = <<\"amp\">>, Destination = rabbit_misc:r(<<\"/\">>, queue, <<\"ampqueue\">>), Args = []}${USER})." > /dev/null
+
         fi
     ;;
 
