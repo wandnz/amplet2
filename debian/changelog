@@ -1,3 +1,12 @@
+amplet2 (0.8.3-1) unstable; urgency=low
+
+  * http: allow setting a proxy to use.
+  * http: allow setting the User-Agent string to use.
+  * http: correctly null terminate headers without clobbering the next one.
+  * server: fix postinst setup to work with rabbitmq-server >= 3.7.0.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Mon, 30 Jul 2018 15:33:08 +1200
+
 amplet2 (0.8.2-1) unstable; urgency=low
 
   * amplet2: Set shovel reconnect delay to random value between 60s and 180s.
