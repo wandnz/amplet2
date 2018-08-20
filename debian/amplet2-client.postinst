@@ -36,10 +36,14 @@ case "$1" in
         # TODO this doesn't help if the user later installs rabbitmq-server
         if dpkg -s rabbitmq-server 2>/dev/null | \
                 grep -qx "Status: .* installed"; then
-            if [ -d /etc/rabbitmq/ -a ! -f /etc/rabbitmq/rabbitmq.config ]; then
-                cp /usr/share/doc/amplet2-client/examples/client-rabbitmq.config \
-                        /etc/rabbitmq/rabbitmq.config
-                chown rabbitmq:rabbitmq /etc/rabbitmq/rabbitmq.config
+            ACTUAL="/etc/rabbitmq/rabbitmq.config"
+            EXAMPLE="/usr/share/doc/amplet2-client/examples/client-rabbitmq.config"
+
+            # Also need to check that the example config even exists - some
+            # docker images are stripping docs (/etc/dpkg/dpkg.cfg.d/excludes)
+            if [ -d /etc/rabbitmq/ -a ! -f ${ACTUAL} -a -f ${EXAMPLE} ]; then
+                cp ${EXAMPLE} ${ACTUAL}
+                chown rabbitmq:rabbitmq ${ACTUAL}
                 # restart rabbitmq-server so the new config takes effect
                 if [ -x "`which invoke-rc.d 2>/dev/null`" ]; then
                     invoke-rc.d rabbitmq-server restart || exit $?
