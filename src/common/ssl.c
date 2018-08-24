@@ -393,11 +393,15 @@ void ssl_cleanup(void) {
     if ( ssl_ctx != NULL ) {
         SSL_CTX_free(ssl_ctx);
     }
+
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
+    /* from 1.1.0 many cleanup routines are handled via auto-deinit */
     EVP_cleanup();
     ERR_free_strings();
-    /*
-     * XXX should be able to call SSL_COMP_free_compression_methods() but our
-     * libssl doesn't appear to be new enough?
-     */
+#if OPENSSL_VERSION_NUMBER >= 0x10002000L
+    SSL_COMP_free_compression_methods();
+#else
     sk_SSL_COMP_free(SSL_COMP_get_compression_methods());
+#endif
+#endif
 }
