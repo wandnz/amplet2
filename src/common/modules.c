@@ -139,7 +139,9 @@ void unregister_tests() {
 
     for ( i=0; i<AMP_TEST_LAST; i++) {
 	if ( amp_tests[i] != NULL ) {
-	    dlclose(amp_tests[i]->dlhandle);
+            free(amp_tests[i]->name);
+            dlclose(amp_tests[i]->dlhandle);
+            free(amp_tests[i]);
 	}
     }
 }
