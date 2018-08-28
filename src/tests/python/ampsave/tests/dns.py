@@ -80,6 +80,7 @@ def get_data(data):
                 # XXX create a new field to store the instance name returned
                 # by the NSID query so that we don't break nntsc
                 "nsid": i.instance if len(i.instance) > 0 else None,
+                "rrsig": i.rrsig,
                 }
             )
 

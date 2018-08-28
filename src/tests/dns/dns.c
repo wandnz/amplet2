@@ -368,7 +368,7 @@ static void process_packet(struct dnsglobals_t *globals, char *packet,
 		    break;
 
 		case 46: /* RRSIG */
-		    info[index].dnssec_response = 1;
+		    info[index].rrsig = 1;
 		    break;
 
 		default:
@@ -722,6 +722,8 @@ static Amplet2__Dns__Item* report_destination(struct info_t *info) {
         item->has_total_additional = 1;
         item->total_additional = info->total_additional;
         item->flags = report_flags(&info->flags);
+        item->has_rrsig = 1;
+        item->rrsig = info->rrsig;
 
         /* possible instance name from NSID OPT RR */
         if ( info->nsid_length > 0 ) {
@@ -741,6 +743,7 @@ static Amplet2__Dns__Item* report_destination(struct info_t *info) {
         item->has_total_additional = 0;
         item->flags = NULL;
         item->has_instance = 0;
+        item->has_rrsig = 0;
     }
 
     Log(LOG_DEBUG, "dns result: %dus\n", item->has_rtt ? (int)item->rtt : -1);
@@ -1336,10 +1339,19 @@ void print_dns(amp_test_result_t *result) {
             printf("; ");
         }
 
-	printf("QUERY: 1, ANSWER: %d, AUTHORITY: %d, ADDITIONAL: %d\n",
-		item->total_answer, item->total_authority,
-		item->total_additional);
-	printf("\n");
+        printf("QUERY:1, ANSWER:%d, AUTHORITY:%d, ADDITIONAL:%d",
+                item->total_answer, item->total_authority,
+                item->total_additional);
+
+        if ( msg->header->dnssec ) {
+            printf(", RRSIG:");
+            if ( item->rrsig ) {
+                printf("yes");
+            } else {
+                printf("no");
+            }
+        }
+        printf("\n\n");
     }
 
     amplet2__dns__report__free_unpacked(msg, NULL);

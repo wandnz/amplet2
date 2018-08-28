@@ -179,7 +179,7 @@ struct info_t {
     uint16_t nsid_length;               /* length of the NSID response */
     uint8_t reply;			/* set to 1 once we have a reply */
     uint8_t response_code;
-    uint8_t dnssec_response;
+    uint8_t rrsig;
     uint8_t addr_count;
     uint8_t ttl;
 };

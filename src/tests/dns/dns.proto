@@ -78,6 +78,8 @@ message Item {
     optional string name = 11;
     /** The name of the responding server as given by the NSID query */
     optional bytes instance = 12;
+    /** The response contains an RRSIG Resource Record */
+    optional bool rrsig = 13 [default = false];
 }
 
 
