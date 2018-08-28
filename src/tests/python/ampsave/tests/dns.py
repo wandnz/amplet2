@@ -50,19 +50,14 @@ def get_data(data):
     msg.ParseFromString(data)
 
     for i in msg.reports:
-        # should probably check this has sensible values
-        if len(i.instance) > 0:
-            instance = i.instance
-        elif len(i.name) > 0:
-            instance = i.name
-        else:
-            instance = "unknown"
-
         # build the result structure based on what fields were present
         results.append(
             {
                 "destination": i.name if len(i.name) > 0 else "unknown",
-                "instance": instance,
+                # XXX nntsc is trying to split streams based on the instance
+                # that responded, which I'm not 100% certain is the best idea.
+                # For now we'll keep putting the server hostname in this field
+                "instance": i.name if len(i.name) > 0 else "unknown",
                 "address": getPrintableAddress(i.family, i.address),
                 "rtt": i.rtt if i.HasField("rtt") else None,
                 "query_len": i.query_length,
@@ -82,6 +77,9 @@ def get_data(data):
                     "ra": i.flags.ra,
                 } if i.HasField("rtt") and i.HasField("flags") else {},
                 "ttl": i.ttl if i.HasField("ttl") else None,
+                # XXX create a new field to store the instance name returned
+                # by the NSID query so that we don't break nntsc
+                "nsid": i.instance if len(i.instance) > 0 else None,
                 }
             )
 

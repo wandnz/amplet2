@@ -52,6 +52,7 @@
 #include <arpa/inet.h>
 #include <string.h>
 #include <signal.h>
+#include <ctype.h>
 #include <libwandevent.h>
 
 #include "config.h"
@@ -232,24 +233,32 @@ static char *encode(char *query) {
  * Decode an OPT resource record. Currently the only one that we look for
  * is the NSID OPT RR.
  */
-static void process_opt_rr(char *rr, struct info_t *info) {
+static void process_opt_rr(void *rr, uint16_t rrlen, struct info_t *info) {
     char *option = rr;
     struct dns_opt_rdata_t *rdata;
 
     /* check every option record for ones that we understand */
     do {
-	rdata = (struct dns_opt_rdata_t*)option;
-	switch ( rdata->code ) {
-	    case 3: /* NSID */
-		/* TODO decode name (if we find out how) */
-		strncpy(info->response, "placeholder", 11);
-		break;
-	    default: break;
-	};
+        rdata = (struct dns_opt_rdata_t*)option;
+        switch ( ntohs(rdata->code) ) {
+            case 3: /* NSID */
+                info->nsid_length = ntohs(rdata->length);
+                info->nsid_payload = malloc(info->nsid_length);
+                Log(LOG_DEBUG, "Got NSID response of length %d",
+                        info->nsid_length);
+                memcpy(info->nsid_payload,
+                        option + sizeof(struct dns_opt_rdata_t),
+                        info->nsid_length);
+                break;
+            default: break;
+        };
 
-	option += rdata->length + sizeof(struct dns_opt_rdata_t);
+        option += ntohs(rdata->length) + sizeof(struct dns_opt_rdata_t);
+        rrlen -= sizeof(struct dns_opt_rdata_t);
+        rrlen -= ntohs(rdata->length);
 
-    } while ( rdata->length > 0 );
+    } while ( rrlen > 0 );
+    assert(rrlen == 0);
 }
 
 
@@ -353,7 +362,8 @@ static void process_packet(struct dnsglobals_t *globals, char *packet,
 		    if ( ntohs(rr_data->rdlen) >=
 			    sizeof(struct dns_opt_rdata_t) ) {
 			/* skip fixed part of RR header to variable rdata */
-			process_opt_rr((char*)(rr_data + 1), &info[index]);
+			process_opt_rr((void*)(rr_data + 1),
+                                ntohs(rr_data->rdlen), &info[index]);
 		    }
 		    break;
 
@@ -714,10 +724,12 @@ static Amplet2__Dns__Item* report_destination(struct info_t *info) {
         item->flags = report_flags(&info->flags);
 
         /* possible instance name from NSID OPT RR */
-        if ( strlen(info->response) > 0 ) {
-            item->instance = info->response;
+        if ( info->nsid_length > 0 ) {
+            item->has_instance = 1;
+            item->instance.len = info->nsid_length;
+            item->instance.data = info->nsid_payload;
         } else {
-            item->instance = NULL;
+            item->has_instance = 0;
         }
     } else {
         /* don't report any of these fields without a response to our query */
@@ -728,7 +740,7 @@ static Amplet2__Dns__Item* report_destination(struct info_t *info) {
         item->has_total_authority = 0;
         item->has_total_additional = 0;
         item->flags = NULL;
-        item->instance = NULL;
+        item->has_instance = 0;
     }
 
     Log(LOG_DEBUG, "dns result: %dus\n", item->has_rtt ? (int)item->rtt : -1);
@@ -791,6 +803,7 @@ static amp_test_result_t* report_results(struct timeval *start_time, int count,
 
     /* free up all the memory we had to allocate to report items */
     for ( i = 0; i < count; i++ ) {
+        free(info[i].nsid_payload);
         if ( reports[i]->flags ) {
             free(reports[i]->flags);
         }
@@ -1282,14 +1295,27 @@ void print_dns(amp_test_result_t *result) {
             continue;
         }
 
-        /* TODO Suppress instance name if it's the same as the ampname? */
-        if ( item->instance ) {
-            printf(" (%s,%s)", addrstr, item->instance);
-        } else {
-            printf(" (%s)", addrstr);
+        printf(" (%s) %dus\n", addrstr, item->rtt);
+
+        /* if present, print instance name / nsid payload like dig does */
+        if ( item->instance.len > 0 ) {
+            int j;
+            printf("NSID: ");
+            /* print nsid as hex string */
+            for ( j=0; j < (int)item->instance.len; j++ ) {
+                printf("%02x ", item->instance.data[j]);
+            }
+            /* print the printable characters in nsid */
+            printf("(\"");
+            for ( j=0; j < (int)item->instance.len; j++ ) {
+                if ( isprint(item->instance.data[j]) ) {
+                    printf("%c", item->instance.data[j]);
+                } else {
+                    printf(".");
+                }
+            }
+            printf("\")\n");
         }
-        printf(" %dus", item->rtt);
-	printf("\n");
 
         printf("MSG SIZE sent: %d, rcvd: %d, ", item->query_length,
                 item->response_size);

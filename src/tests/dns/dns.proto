@@ -76,8 +76,8 @@ message Item {
     optional uint32 ttl = 10;
     /** The name of the test target (as given in the schedule) */
     optional string name = 11;
-    /** The name of the responding server as given by the NSID query (XXX: currently not reported) */
-    optional string instance = 12;
+    /** The name of the responding server as given by the NSID query */
+    optional bytes instance = 12;
 }
 
 

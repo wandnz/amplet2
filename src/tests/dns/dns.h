@@ -165,7 +165,7 @@ struct dns_opt_rdata_t {
  * that is sent, and when the response is received.
  */
 struct info_t {
-    char response[MAX_DNS_NAME_LEN];	/* the raw query response */
+    void *nsid_payload;                 /* server instance (NSID) */
     struct addrinfo *addr;		/* address probe was sent to */
     struct timeval time_sent;		/* when the probe was sent */
     uint32_t delay;			/* delay in receiving response, usec */
@@ -176,6 +176,7 @@ struct info_t {
     uint16_t total_answer;
     uint16_t total_authority;
     uint16_t total_additional;
+    uint16_t nsid_length;               /* length of the NSID response */
     uint8_t reply;			/* set to 1 once we have a reply */
     uint8_t response_code;
     uint8_t dnssec_response;
