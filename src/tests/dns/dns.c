@@ -1042,7 +1042,7 @@ amp_test_result_t* run_dns(int argc, char *argv[], int count,
             case 'I': device = optarg; break;
             case 'Q': if ( parse_dscp_value(optarg, &options->dscp) < 0 ) {
                           Log(LOG_WARNING, "Invalid DSCP value, aborting");
-                          exit(-1);
+                          exit(EXIT_FAILURE);
                       }
                       break;
             case 'Z': options->inter_packet_delay = atoi(optarg); break;
@@ -1054,18 +1054,18 @@ amp_test_result_t* run_dns(int argc, char *argv[], int count,
             case 's': options->dnssec = 1; break;
             case 't': options->query_type = get_query_type(optarg); break;
             case 'z': options->udp_payload_size = atoi(optarg); break;
-            case 'v': print_package_version(argv[0]); exit(0);
+            case 'v': print_package_version(argv[0]); exit(EXIT_SUCCESS);
             case 'x': log_level = LOG_DEBUG;
                       log_level_override = 1;
                       break;
-            case 'h':
-            default: usage(); exit(0);
+            case 'h': usage(); exit(EXIT_SUCCESS);
+            default: usage(); exit(EXIT_FAILURE);
         };
     }
 
     if ( options->query_string == NULL ) {
         usage();
-        exit(-1);
+        exit(EXIT_FAILURE);
     }
 
     assert(strlen(options->query_string) < MAX_DNS_NAME_LEN);
@@ -1139,35 +1139,35 @@ amp_test_result_t* run_dns(int argc, char *argv[], int count,
     if ( !open_sockets(&globals->sockets) ) {
 	Log(LOG_ERR, "Unable to open sockets, aborting test");
 	free(options->query_string);
-	exit(-1);
+        exit(EXIT_FAILURE);
     }
 
     if ( set_default_socket_options(&globals->sockets) < 0 ) {
         Log(LOG_ERR, "Failed to set default socket options, aborting test");
-        exit(-1);
+        exit(EXIT_FAILURE);
     }
 
     if ( set_dscp_socket_options(&globals->sockets, options->dscp) < 0 ) {
         Log(LOG_ERR, "Failed to set DSCP socket options, aborting test");
-        exit(-1);
+        exit(EXIT_FAILURE);
     }
 
     if ( device && bind_sockets_to_device(&globals->sockets, device) < 0 ) {
         Log(LOG_ERR, "Unable to bind raw ICMP socket to device, aborting test");
-        exit(-1);
+        exit(EXIT_FAILURE);
     }
 
     if ( (sourcev4 || sourcev6) &&
             bind_sockets_to_address(
                 &globals->sockets, sourcev4, sourcev6) < 0 ) {
         Log(LOG_ERR,"Unable to bind raw ICMP socket to address, aborting test");
-        exit(-1);
+        exit(EXIT_FAILURE);
     }
 
     if ( gettimeofday(&start_time, NULL) != 0 ) {
 	Log(LOG_ERR, "Could not gettimeofday(), aborting test");
 	free(options->query_string);
-	exit(-1);
+        exit(EXIT_FAILURE);
     }
 
     /* use part of the current time as an identifier value */

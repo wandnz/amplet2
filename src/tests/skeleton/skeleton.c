@@ -112,14 +112,14 @@ amp_test_result_t* run_skeleton(int argc, char *argv[], int count,
     /* use getopt to check for -h first, then fall through to dump all args */
     while ( (opt = getopt(argc, argv, "h")) != -1 ) {
 	switch ( opt ) {
-	    case 'h': usage(argv[0]); exit(0);
+	    case 'h': usage(argv[0]); exit(EXIT_SUCCESS);
             default: /* pass through */ break;
 	};
     }
 
     if ( gettimeofday(&start_time, NULL) != 0 ) {
 	Log(LOG_ERR, "Could not gettimeofday(), aborting test");
-	exit(-1);
+	exit(EXIT_FAILURE);
     }
 
     /* print all the arguments that were passed in */

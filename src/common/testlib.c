@@ -394,7 +394,7 @@ int get_packet(struct socket_t *sockets, char *buf, int buflen,
     /* receive the packet that we know is ready on one of our sockets */
     if ( (bytes = recvmsg(sock, &msg, 0)) < 0 ) {
         Log(LOG_ERR, "Failed to recvmsg()");
-        exit(-1);
+        exit(EXIT_FAILURE);
     }
 
     /* populate the timestamp argument with the receive time of packet */

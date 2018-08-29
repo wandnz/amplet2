@@ -158,11 +158,11 @@ amp_test_result_t* run_throughput(int argc, char *argv[], int count,
                     long_options, NULL)) != -1 ) {
         switch ( opt ) {
             case 's': server_flag_index = optind - 1; break;
-            case 'v': print_package_version(argv[0]); exit(0);
+            case 'v': print_package_version(argv[0]); exit(EXIT_SUCCESS);
             case 'x': log_level = LOG_DEBUG;
                       log_level_override = 1;
                       break;
-            case 'h': usage(); exit(0);
+            case 'h': usage(); exit(EXIT_SUCCESS);
             default: /* pass all other options through */ break;
         };
     }

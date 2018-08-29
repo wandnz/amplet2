@@ -88,7 +88,7 @@ static int run_rabbitmqctl(char *args[]) {
             Log(LOG_ALERT, "Failed to run %s:%s", RABBITMQCTL, strerror(errno));
             exit(255);
         }
-        exit(0);
+        exit(EXIT_SUCCESS);
     }
 
     waitpid(pid, &status, 0);
@@ -254,7 +254,7 @@ int setup_rabbitmq_shovel(char *ampname, char *local, char *collector, int port,
                 "\"dest-exchange-key\":\"%s\"}",
                 ampname, ampname, local, ampname, collector, port, cacert,
                 cert, key, retry, exchange, routingkey) < 0 ) {
-        exit(-1);
+        exit(EXIT_FAILURE);
     }
 
     result = run_rabbitmqctl(args);

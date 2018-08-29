@@ -324,6 +324,11 @@ void run_test(const test_schedule_item_t * const item, BIO *ctrl) {
 	    Log(LOG_DEBUG, "arg%d: %s\n", offset, argv[offset]);
 	}
 
+        /*
+         * TODO tests can exit() in bad situations rather than returning data,
+         * which means none of this code will be run. Should all tests return
+         * something useful and never exit themselves?
+         */
         /* actually run the test */
         result = test->run_callback(argc, argv,
                 item->dest_count + total_resolve_count, destinations);
@@ -383,7 +388,7 @@ void run_test(const test_schedule_item_t * const item, BIO *ctrl) {
     /* free the environment duped by set_proc_name() */
     free_duped_environ();
 
-    exit(0);
+    exit(EXIT_SUCCESS);
 }
 
 
@@ -444,13 +449,13 @@ static int fork_test(test_schedule_item_t *item) {
         /* unblock signals and remove handlers that the parent process added */
         if ( unblock_signals() < 0 ) {
             Log(LOG_WARNING, "Failed to unblock signals, aborting");
-            exit(1);
+            exit(EXIT_FAILURE);
         }
 
 	run_test(item, NULL);
 
 	Log(LOG_WARNING, "%s test failed to run", test->name);
-	exit(1);
+	exit(EXIT_FAILURE);
     }
 
     return 1;

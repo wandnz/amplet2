@@ -83,7 +83,7 @@ static test_t *get_test_info(void) {
 
     if ( !hdl ) {
 	fprintf(stderr, "Failed to dlopen() self\n");
-	exit(1);
+	exit(EXIT_FAILURE);
     }
 
     test_reg_ptr r_func = (test_reg_ptr)dlsym(hdl, "register_test");
@@ -91,7 +91,7 @@ static test_t *get_test_info(void) {
 	/* it doesn't have this function, it's not one of ours, ignore */
 	fprintf(stderr, "Failed to find register_test function: %s\n", error);
 	dlclose(hdl);
-	exit(1);
+	exit(EXIT_FAILURE);
     }
 
     /* use the register_test function to determine what main function to run */
@@ -100,7 +100,7 @@ static test_t *get_test_info(void) {
     if ( test_info == NULL ) {
 	fprintf(stderr, "Got NULL response from register_test function\n");
 	dlclose(hdl);
-	exit(1);
+	exit(EXIT_FAILURE);
     }
 
     test_info->dlhandle = hdl;
@@ -222,7 +222,7 @@ int main(int argc, char *argv[]) {
         if ( !vars.amqp_ssl.cacert || !vars.amqp_ssl.cert ||
                 !vars.amqp_ssl.key ) {
             Log(LOG_WARNING, "SSL needs --cacert, --cert and --key to be set");
-            return -1;
+            exit(EXIT_FAILURE);
         }
         do_ssl = 1;
     } else {
@@ -239,7 +239,7 @@ int main(int argc, char *argv[]) {
 
     if ( vars.ctx == NULL ) {
         Log(LOG_ALERT, "Failed to configure resolver, aborting.");
-        return -1;
+        exit(EXIT_FAILURE);
     }
 
     dests = NULL;
@@ -333,11 +333,11 @@ int main(int argc, char *argv[]) {
          */
         if ( initialise_ssl(&vars.amqp_ssl, NULL) < 0 ) {
             Log(LOG_ALERT, "Failed to initialise SSL, aborting");
-            return -1;
+            exit(EXIT_FAILURE);
         }
         if ( (ssl_ctx = initialise_ssl_context(&vars.amqp_ssl)) == NULL ) {
             Log(LOG_ALERT, "Failed to initialise SSL context, aborting");
-            return -1;
+            exit(EXIT_FAILURE);
         }
     }
 
@@ -381,5 +381,5 @@ int main(int argc, char *argv[]) {
     free(test_info->name);
     free(test_info);
 
-    return 0;
+    return EXIT_SUCCESS;
 }

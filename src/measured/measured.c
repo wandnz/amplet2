@@ -229,7 +229,7 @@ static void reload(wand_event_handler_t *ev_hdl, int signum, void *data) {
     /* load all test modules again, they may have changed */
     if ( register_tests(AMP_TEST_DIRECTORY) == -1) {
 	Log(LOG_ALERT, "Failed to register tests, aborting.");
-	exit(1);
+	exit(EXIT_FAILURE);
     }
 
     /* re-read nametable files from the global and client specific dirs */
@@ -360,14 +360,14 @@ int main(int argc, char *argv[]) {
 		/* daemonise, detach, close stdin/out/err, etc */
 		if ( daemon(0, 0) < 0 ) {
 		    perror("daemon");
-		    return -1;
+		    exit(EXIT_FAILURE);
 		}
                 backgrounded = 1;
 		break;
 	    case 'v':
 		/* print version and build info */
                 print_measured_version(argv[0]);
-                exit(0);
+                exit(EXIT_SUCCESS);
 	    case 'x':
 		/* enable extra debug output, overriding config settings */
                 /* TODO allow the exact log level to be set? */
@@ -412,9 +412,11 @@ int main(int argc, char *argv[]) {
                 }
                 break;
 	    case 'h':
+                usage();
+                exit(EXIT_SUCCESS);
 	    default:
 		usage();
-		exit(0);
+		exit(EXIT_FAILURE);
 	};
     }
 
@@ -451,7 +453,7 @@ int main(int argc, char *argv[]) {
      * use. The rest will wait until we need them.
      */
     if ( (cfg = parse_config(config_file, &vars)) == NULL ) {
-	return -1;
+	exit(EXIT_FAILURE);
     }
 
     /* use the configured log level if it isn't set on the command line */
@@ -468,7 +470,7 @@ int main(int argc, char *argv[]) {
     if ( pidfile && create_pidfile(pidfile) < 0 ) {
         Log(LOG_WARNING, "Failed to create pidfile %s, aborting", pidfile);
         cfg_free(cfg);
-        return -1;
+        exit(EXIT_FAILURE);
     }
 
     /* update the iface structure with any interface config from config file */
@@ -479,7 +481,7 @@ int main(int argc, char *argv[]) {
     if ( (vars.ctx = get_dns_context_config(cfg, &meta)) == NULL ) {
         Log(LOG_ALERT, "Failed to configure resolver, aborting.");
 	cfg_free(cfg);
-        return -1;
+        exit(EXIT_FAILURE);
     }
 
     /* determine the directory that the ssl keys should be stored in */
@@ -487,7 +489,7 @@ int main(int argc, char *argv[]) {
                 vars.ampname) < 0 ) {
         Log(LOG_ALERT, "Failed to build custom keys directory path");
 	cfg_free(cfg);
-        return -1;
+        exit(EXIT_FAILURE);
     }
 
     /*
@@ -508,7 +510,7 @@ int main(int argc, char *argv[]) {
     if ( initialise_ssl(&vars.amqp_ssl, vars.collector) < 0 ) {
         Log(LOG_WARNING, "Failed to initialise SSL, aborting");
 	cfg_free(cfg);
-        return -1;
+        exit(EXIT_FAILURE);
     }
 
     /* set up curl while we are still the only measured process running */
@@ -523,7 +525,7 @@ int main(int argc, char *argv[]) {
                 (ssl_ctx = initialise_ssl_context(&vars.amqp_ssl)) == NULL) ) {
         Log(LOG_ALERT, "Failed to load SSL keys/certificates, aborting");
 	cfg_free(cfg);
-        return -1;
+        exit(EXIT_FAILURE);
     }
 
     /*
@@ -546,7 +548,7 @@ int main(int argc, char *argv[]) {
         if ( setup_rabbitmq_user(vars.ampname) < 0 ) {
             Log(LOG_ALERT, "Failed to create user, aborting");
             cfg_free(cfg);
-            return -1;
+            exit(EXIT_FAILURE);
         }
 
         /*
@@ -558,7 +560,7 @@ int main(int argc, char *argv[]) {
                     vars.amqp_ssl.key, vars.exchange, vars.routingkey) < 0 ) {
             Log(LOG_ALERT, "Failed to create shovel, aborting");
             cfg_free(cfg);
-            return -1;
+            exit(EXIT_FAILURE);
         }
         Log(LOG_DEBUG, "Done configuring rabbitmq");
     } else {
@@ -579,14 +581,14 @@ int main(int argc, char *argv[]) {
     if ( asprintf(&vars.nssock, "%s/%s.sock", AMP_RUN_DIR, vars.ampname) < 0 ) {
         Log(LOG_ALERT, "Failed to build local resolve socket path");
 	cfg_free(cfg);
-        return -1;
+        exit(EXIT_FAILURE);
     }
 
     /* construct our custom, per-client asn lookup socket */
     if ( asprintf(&vars.asnsock, "%s/%s.asn", AMP_RUN_DIR, vars.ampname) < 0 ) {
         Log(LOG_ALERT, "Failed to build local asn socket path");
 	cfg_free(cfg);
-        return -1;
+        exit(EXIT_FAILURE);
     }
 
     /* if remote fetching is enabled, try to get the config for it */
@@ -595,7 +597,7 @@ int main(int argc, char *argv[]) {
         if ( enable_remote_schedule_fetch(ev_hdl, fetch) < 0 ) {
             Log(LOG_ALERT, "Failed to enable remote schedule fetching");
             cfg_free(cfg);
-            return -1;
+            exit(EXIT_FAILURE);
         }
 
         /* SIGUSR2 should trigger a refetch of any remote schedule files */
@@ -616,7 +618,7 @@ int main(int argc, char *argv[]) {
     if ( (vars.nssock_fd = initialise_local_socket(vars.nssock)) < 0 ) {
         Log(LOG_ALERT, "Failed to initialise local resolver, aborting");
 	cfg_free(cfg);
-        return -1;
+        exit(EXIT_FAILURE);
     }
     wand_add_fd(ev_hdl, vars.nssock_fd, EV_READ, vars.ctx,
             resolver_socket_event_callback);
@@ -626,7 +628,7 @@ int main(int argc, char *argv[]) {
     if ( (vars.asnsock_fd = initialise_local_socket(vars.asnsock)) < 0 ) {
         Log(LOG_ALERT, "Failed to initialise local asn resolver, aborting");
 	cfg_free(cfg);
-        return -1;
+        exit(EXIT_FAILURE);
     }
 
     asn_info = initialise_asn_info();
@@ -722,5 +724,5 @@ int main(int argc, char *argv[]) {
 
     Log(LOG_DEBUG, "Shutdown complete");
 
-    return 0;
+    return EXIT_SUCCESS;
 }

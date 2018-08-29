@@ -397,7 +397,7 @@ amp_test_result_t* run_udpstream_client(int argc, char *argv[], int count,
             case 'I': sockopts.device = optarg; break;
             case 'Q': if ( parse_dscp_value(optarg, &test_options.dscp) < 0 ) {
                           Log(LOG_WARNING, "Invalid DSCP value, aborting");
-                          exit(-1);
+                          exit(EXIT_FAILURE);
                       }
                       break;
             case 'Z': /* not used, but might be set globally */ break;
@@ -412,8 +412,8 @@ amp_test_result_t* run_udpstream_client(int argc, char *argv[], int count,
             case 'x': log_level = LOG_DEBUG;
                       log_level_override = 1;
                       break;
-            case 'h':
-            default: usage(); exit(0);
+            case 'h': usage(); exit(EXIT_SUCCESS);
+            default: usage(); exit(EXIT_FAILURE);
 	};
     }
 
@@ -424,7 +424,7 @@ amp_test_result_t* run_udpstream_client(int argc, char *argv[], int count,
      */
     if ( dests && client ) {
         Log(LOG_WARNING, "Option -c not valid when target address already set");
-        exit(1);
+        exit(EXIT_FAILURE);
     }
 
     //XXX move into common/serverlib.c? use for throughput too
@@ -452,7 +452,7 @@ amp_test_result_t* run_udpstream_client(int argc, char *argv[], int count,
         if ( (res = getaddrinfo(client, NULL, &hints, &dests[0])) < 0 ) {
             Log(LOG_WARNING, "Failed to resolve '%s': %s", client,
                     gai_strerror(res));
-            exit(1);
+            exit(EXIT_FAILURE);
         }
 
         /* just take the first address we find */
@@ -479,7 +479,7 @@ amp_test_result_t* run_udpstream_client(int argc, char *argv[], int count,
      */
     if ( count < 1 || dests == NULL || dests[0] == NULL ) {
         Log(LOG_WARNING, "No destination specified for throughput test");
-        exit(1);
+        exit(EXIT_FAILURE);
     }
 
     /* make sure that we are sending enough packets to do something useful */

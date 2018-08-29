@@ -213,20 +213,20 @@ size_t parse_response(void *ptr, size_t size, size_t nmemb, void *data) {
 
     if ( pipe(pipefd) == -1 ) {
         Log(LOG_ERR, "error creating pipe\n");
-        exit(1);
+        exit(EXIT_FAILURE);
     }
 
     /* open a pipe for writing data to the lexer */
     fcntl(pipefd[1], F_SETFL, O_NONBLOCK);
     if ( (writer = fdopen(pipefd[1], "w")) == NULL ) {
         Log(LOG_ERR, "error opening pipe for writing: %d\n", errno);
-        exit(1);
+        exit(EXIT_FAILURE);
     }
 
     /* open pipe for reading data into the lexer */
     if ( (yyin = fdopen(pipefd[0], "r")) == NULL ) {
         Log(LOG_ERR, "error opening pipe for reading: %d\n", errno);
-        exit(1);
+        exit(EXIT_FAILURE);
     }
 
     /*

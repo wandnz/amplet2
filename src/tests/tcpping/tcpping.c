@@ -1066,7 +1066,7 @@ amp_test_result_t* run_tcpping(int argc, char *argv[], int count,
             case 'Q': if ( parse_dscp_value(optarg,
                                   &globals->options.dscp) < 0 ) {
                           Log(LOG_WARNING, "Invalid DSCP value, aborting");
-                          exit(-1);
+                          exit(EXIT_FAILURE);
                       }
                       break;
             case 'Z': globals->options.inter_packet_delay = atoi(optarg); break;
@@ -1074,18 +1074,18 @@ amp_test_result_t* run_tcpping(int argc, char *argv[], int count,
             case 'p': globals->options.perturbate = atoi(optarg); break;
             case 'r': globals->options.random = 1; break;
             case 's': globals->options.packet_size = atoi(optarg); break;
-            case 'v': print_package_version(argv[0]); exit(0);
+            case 'v': print_package_version(argv[0]); exit(EXIT_SUCCESS);
             case 'x': log_level = LOG_DEBUG;
                       log_level_override = 1;
                       break;
-            case 'h':
-            default: usage(); exit(0);
+            case 'h': usage(); exit(EXIT_SUCCESS);
+            default: usage(); exit(EXIT_FAILURE);
         };
     }
 
     if ( count < 1 ) {
         Log(LOG_WARNING, "No resolvable destinations were specified!");
-        exit(-1);
+        exit(EXIT_FAILURE);
     }
 
     /* Process and act upon the packet size and perturbation options */

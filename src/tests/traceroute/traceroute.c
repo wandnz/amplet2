@@ -1541,7 +1541,7 @@ amp_test_result_t* run_traceroute(int argc, char *argv[], int count,
             case 'I': device = optarg; break;
             case 'Q': if ( parse_dscp_value(optarg, &options.dscp) < 0 ) {
                           Log(LOG_WARNING, "Invalid DSCP value, aborting");
-                          exit(-1);
+                          exit(EXIT_FAILURE);
                       }
                       break;
             case 'Z': options.inter_packet_delay = atoi(optarg); break;
@@ -1552,18 +1552,18 @@ amp_test_result_t* run_traceroute(int argc, char *argv[], int count,
             case 'r': options.random = 1; break;
             case 's': options.packet_size = atoi(optarg); break;
             case 'w': window = atoi(optarg); break;
-            case 'v': print_package_version(argv[0]); exit(0);
+            case 'v': print_package_version(argv[0]); exit(EXIT_SUCCESS);
             case 'x': log_level = LOG_DEBUG;
                       log_level_override = 1;
                       break;
-            case 'h':
-            default: usage(); exit(0);
+            case 'h': usage(); exit(EXIT_SUCCESS);
+            default: usage(); exit(EXIT_FAILURE);
         };
     }
 
     if ( count < 1 ) {
         Log(LOG_WARNING, "No resolvable destinations were specified!");
-        exit(-1);
+        exit(EXIT_FAILURE);
     }
 
     /* pick a random packet size within allowable boundaries */
@@ -1593,12 +1593,12 @@ amp_test_result_t* run_traceroute(int argc, char *argv[], int count,
 
     if ( !open_sockets(&icmp_sockets, &ip_sockets) ) {
 	Log(LOG_ERR, "Unable to open sockets, aborting test");
-	exit(-1);
+        exit(EXIT_FAILURE);
     }
 
     if ( set_default_socket_options(&icmp_sockets) < 0 ) {
         Log(LOG_ERR, "Failed to set default socket options, aborting test");
-        exit(-1);
+        exit(EXIT_FAILURE);
     }
 
     /*
@@ -1607,23 +1607,23 @@ amp_test_result_t* run_traceroute(int argc, char *argv[], int count,
      */
     if ( set_dscp_socket_options(&ip_sockets, options.dscp) < 0 ) {
         Log(LOG_ERR, "Failed to set DSCP socket options, aborting test");
-        exit(-1);
+        exit(EXIT_FAILURE);
     }
 
     if ( device && bind_sockets_to_device(&ip_sockets, device) < 0 ) {
         Log(LOG_ERR, "Unable to bind raw ICMP socket to device, aborting test");
-        exit(-1);
+        exit(EXIT_FAILURE);
     }
 
     if ( (sourcev4 || sourcev6) &&
             bind_sockets_to_address(&ip_sockets, sourcev4, sourcev6) < 0 ) {
         Log(LOG_ERR,"Unable to bind raw ICMP socket to address, aborting test");
-        exit(-1);
+        exit(EXIT_FAILURE);
     }
 
     if ( gettimeofday(&start_time, NULL) != 0 ) {
 	Log(LOG_ERR, "Could not gettimeofday(), aborting test");
-	exit(-1);
+        exit(EXIT_FAILURE);
     }
 
     /*

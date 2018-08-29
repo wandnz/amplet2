@@ -325,7 +325,7 @@ static void process_control_message(int fd, struct acl_root *acl) {
     /* TODO CRL or OCSP to deal with revocation of certificates */
     if ( (ctrl = establish_control_socket(ssl_ctx, fd, 0)) == NULL ) {
         close(fd);
-        exit(0);
+        exit(EXIT_FAILURE);
     }
 
     /* We expect to be using SSL here, can't get the common name otherwise! */
@@ -333,7 +333,7 @@ static void process_control_message(int fd, struct acl_root *acl) {
     if ( ssl == NULL ) {
         Log(LOG_WARNING, "Failed to get SSL pointer from BIO");
         close_control_connection(ctrl);
-        exit(0);
+        exit(EXIT_FAILURE);
     }
 
     /* Get the peer certificate so we can check the common name */
@@ -341,14 +341,14 @@ static void process_control_message(int fd, struct acl_root *acl) {
     if ( client_cert == NULL ) {
         Log(LOG_WARNING, "Failed to get peer certificate");
         close_control_connection(ctrl);
-        exit(0);
+        exit(EXIT_FAILURE);
     }
 
     /* Get the common name, we'll use this with the ACL shortly */
     if ( (common_name = get_common_name(client_cert)) == NULL ) {
         Log(LOG_WARNING, "No common name, aborting");
         close_control_connection(ctrl);
-        exit(0);
+        exit(EXIT_FAILURE);
     }
 
     //Log(LOG_DEBUG, "Successfully validated peer cert");
@@ -406,7 +406,7 @@ static void process_control_message(int fd, struct acl_root *acl) {
     close_control_connection(ctrl);
     X509_free(client_cert);
 
-    exit(0);
+    exit(EXIT_SUCCESS);
 }
 
 
@@ -443,12 +443,12 @@ static void control_read_callback(wand_event_handler_t *ev_hdl, int fd,
         /* unblock signals and remove handlers that the parent process added */
         if ( unblock_signals() < 0 ) {
             Log(LOG_WARNING, "Failed to unblock signals, aborting");
-            exit(1);
+            exit(EXIT_FAILURE);
         }
 
         reseed_openssl_rng();
         process_control_message(fd, (struct acl_root*)data);
-        exit(0);
+        exit(EXIT_SUCCESS);
     }
 
     /* the parent process doesn't need the client file descriptor */

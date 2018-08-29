@@ -713,22 +713,22 @@ void *cpp_main(int argc, const char *argv[]) {
 
         if ( readlink("/proc/self/exe", linkname, PATH_MAX) < 0 ) {
             printf("Failed readlink: %s", strerror(errno));
-            exit(-1);
+            exit(EXIT_FAILURE);
         }
 
         if ( asprintf(&binary, "%s/amp-youtube", dirname(linkname)) < 0 ) {
             printf("asprintf failed: %s\n", strerror(errno));
-            exit(-1);
+            exit(EXIT_FAILURE);
         }
 
         if ( (fd=open(binary, 0, "r")) < 0 ) {
             printf("open failed: %s\n", strerror(errno));
-            exit(-1);
+            exit(EXIT_FAILURE);
         }
 
         if ( prctl(PR_SET_MM, PR_SET_MM_EXE_FILE, fd, 0, 0) < 0 ) {
             printf("prctl failed: %s\n", strerror(errno));
-            exit(-1);
+            exit(EXIT_FAILURE);
         }
     }
 #endif

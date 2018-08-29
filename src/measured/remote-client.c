@@ -170,8 +170,8 @@ int main(int argc, char *argv[]) {
                       break;
             case 'I': sockopts.device = optarg; break;
             case 'h':
-            case '?':
-            default: usage(argv[0]); exit(1);
+            case '?': usage(argv[0]); exit(EXIT_SUCCESS);
+            default: usage(argv[0]); exit(EXIT_FAILURE);
         };
     }
 
@@ -180,26 +180,26 @@ int main(int argc, char *argv[]) {
 
     if ( list ) {
         list_all_tests();
-        return 1;
+        exit(EXIT_SUCCESS);
     }
 
     if ( test_name == NULL ) {
         usage(argv[0]);
-        return 1;
+        exit(EXIT_FAILURE);
     }
 
     if ( (test_type = test_from_name(test_name)) == AMP_TEST_INVALID ) {
         printf("Invalid test: %s\n", test_name);
         list_all_tests();
-        return 1;
+        exit(EXIT_FAILURE);
     }
 
     if ( initialise_ssl(&sslopts, NULL) < 0 ) {
-        return -1;
+        exit(EXIT_FAILURE);
     }
 
     if ( (ssl_ctx = initialise_ssl_context(&sslopts)) == NULL ) {
-        return -1;
+        exit(EXIT_FAILURE);
     }
 
     /* build test schedule item */
@@ -232,13 +232,13 @@ int main(int argc, char *argv[]) {
     if ( (ctrl = connect_control_server(dest, atoi(port),
                     &sockopts)) == NULL ) {
         printf("failed to connect control server\n");
-        return -1;
+        exit(EXIT_FAILURE);
     }
 
     /* send the test and arguments to the server */
     if ( write_control_packet(ctrl, buffer, len) < 0 ) {
         printf("failed to write\n");
-        return -1;
+        exit(EXIT_FAILURE);
     }
 
     free(buffer);
@@ -246,7 +246,7 @@ int main(int argc, char *argv[]) {
     /* make sure the test was started properly */
     if ( read_measured_response(ctrl, &response) < 0 ) {
         printf("failed to read response\n");
-        return -1;
+        exit(EXIT_FAILURE);
     }
 
     if ( response.code == MEASURED_CONTROL_OK ) {
@@ -255,7 +255,7 @@ int main(int argc, char *argv[]) {
         /* test started ok, wait for the result */
         if ( (bytes = read_control_packet(ctrl, &buffer)) < 0 ) {
             printf("failed to read\n");
-            return -1;
+            exit(EXIT_FAILURE);
         }
 
         in_msg = amplet2__measured__control__unpack(NULL, bytes, buffer);
@@ -323,5 +323,5 @@ int main(int argc, char *argv[]) {
     freeaddrinfo(dest);
     unregister_tests();
 
-    return 0;
+    return EXIT_SUCCESS;
 }

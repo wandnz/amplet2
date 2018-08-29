@@ -390,7 +390,7 @@ static void split_url(char *orig_url, char *server, char *path, int set) {
         scheme = base_scheme ? base_scheme : "http";
         if ( asprintf(&url, "%s://%s", scheme, orig_url + 2) < 0 ) {
             Log(LOG_WARNING, "Failed to build full URL for %s", orig_url);
-            exit(1);
+            exit(EXIT_FAILURE);
         }
         start = url + strlen(scheme) + 3;
     } else if ( strncasecmp(url, "/", 1) == 0 ) {
@@ -436,7 +436,7 @@ static void split_url(char *orig_url, char *server, char *path, int set) {
         scheme = "http";
         if ( asprintf(&url, "%s://%s", scheme, orig_url) < 0 ) {
             Log(LOG_WARNING, "Failed to build full URL for %s", orig_url);
-            exit(1);
+            exit(EXIT_FAILURE);
         }
         start = url + strlen(scheme) + 3;
     }
@@ -969,7 +969,7 @@ CURL *pipeline_next_object(CURLM *multi, struct server_stats_t *server) {
 
     if ( curl_multi_add_handle(multi, object->handle) != 0 ) {
         Log(LOG_ERR, "Failed to add multi handle, aborting\n");
-        exit(1);
+        exit(EXIT_FAILURE);
     }
 
     return object->handle;
@@ -1149,7 +1149,7 @@ static void check_messages(CURLM *multi, int *running_handles) {
         get_server(host, server_list, &server);
         if ( server == NULL ) {
             Log(LOG_ERR, "getServer() failed for '%s'\n", host);
-            exit(1);
+            exit(EXIT_FAILURE);
         }
 
         /* queue the redirected item if it is from another server */
@@ -1178,7 +1178,7 @@ static long get_wait_timeout(CURLM *multi) {
 #if HAVE_CURL_MULTI_TIMEOUT
     if ( curl_multi_timeout(multi, &wait) ) {
         Log(LOG_ERR, "error calling curl_multi_timeout!\n");
-        exit(-1);
+        exit(EXIT_FAILURE);
     }
 
     /* it's polite to wait at least a short time */
@@ -1236,7 +1236,7 @@ static int fetch(char *url) {
                 if ( curl_multi_fdset(multi, &read_fdset, &write_fdset,
                             &except_fdset, &max_fd)) {
                     Log(LOG_ERR, "error calling curl_multi_fdset!\n");
-                    exit(-1);
+                    exit(EXIT_FAILURE);
                 }
 
                 /* check how long we should be waiting for before timing out */
@@ -1259,7 +1259,7 @@ static int fetch(char *url) {
 
             if ( result < 0 ) {
                 Log(LOG_ERR, "error calling select(): %s", strerror(errno));
-                exit(-1);
+                exit(EXIT_FAILURE);
             }
         }
 
@@ -1426,7 +1426,7 @@ amp_test_result_t* run_http(int argc, char *argv[],
             case 'I': options.device = optarg; break;
             case 'Q': if ( parse_dscp_value(optarg, &options.dscp) < 0 ) {
                           Log(LOG_WARNING, "Invalid DSCP value, aborting");
-                          exit(-1);
+                          exit(EXIT_FAILURE);
                       }
                       break;
             case 'Z': /* option does nothing for this test */ break;
@@ -1456,33 +1456,33 @@ amp_test_result_t* run_http(int argc, char *argv[],
                       strncat(options.url, options.path, MAX_PATH_LEN);
                       break;
             case 'z': options.pipe_size_before_skip = atoi(optarg); break;
-            case 'v': print_package_version(argv[0]); exit(0);
+            case 'v': print_package_version(argv[0]); exit(EXIT_SUCCESS);
             case 'x': log_level = LOG_DEBUG;
                       log_level_override = 1;
                       break;
-	    case 'h':
-	    default: usage(); exit(0);
+	    case 'h': usage(); exit(EXIT_SUCCESS);
+	    default: usage(); exit(EXIT_FAILURE);
 	};
     }
 
     if ( strlen(options.url) == 0 ||
             options.host == NULL || options.path == NULL ) {
         usage();
-        exit(-1);
+        exit(EXIT_FAILURE);
     }
 
     configure_global_max_requests(&options);
 
     if ( gettimeofday(&global.start, NULL) != 0 ) {
 	Log(LOG_ERR, "Could not gettimeofday(), aborting test");
-	exit(-1);
+        exit(EXIT_FAILURE);
     }
 
     curl_global_init(CURL_GLOBAL_ALL);
 
     if ( !(multi = curl_multi_init()) ) {
         Log(LOG_ERR, "Failed to initialise CURL multi handle, aborting\n");
-        exit(1);
+        exit(EXIT_FAILURE);
     }
 #if LIBCURL_VERSION_NUM >= 0x071000
     if ( options.pipelining ) {
@@ -1517,7 +1517,7 @@ amp_test_result_t* run_http(int argc, char *argv[],
     /*
     if ( gettimeofday(&global.end, NULL) != 0 ) {
         Log(LOG_ERR, "Could not gettimeofday(), aborting test");
-        exit(-1);
+        exit(EXIT_FAILURE);
     }
     */
 

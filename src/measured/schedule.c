@@ -1280,13 +1280,13 @@ static void fork_and_fetch(fetch_schedule_item_t *fetch, int clobber) {
         /* unblock signals and remove handlers that the parent process added */
         if ( unblock_signals() < 0 ) {
             Log(LOG_WARNING, "Failed to unblock signals, aborting");
-            exit(1);
+            exit(EXIT_FAILURE);
         }
 
         /* add a watchdog to make sure this doesn't sit around forever */
         if ( start_watchdog(SCHEDULE_FETCH_TIMEOUT, SIGKILL, &watchdog) < 0 ) {
             Log(LOG_WARNING, "Not fetching remote schedule file");
-            exit(-1);
+            exit(EXIT_FAILURE);
         }
 
         set_proc_name("schedule fetch");
@@ -1300,7 +1300,7 @@ static void fork_and_fetch(fetch_schedule_item_t *fetch, int clobber) {
         stop_watchdog(watchdog);
         free_duped_environ();
 
-        exit(0);
+        exit(EXIT_SUCCESS);
     }
 }
 

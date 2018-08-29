@@ -308,7 +308,7 @@ amp_test_result_t* run_youtube(int argc, char *argv[],
             case 'Z': /* not used, but might be set globally */ break;
             case 'a': options.useragent = strdup(optarg); break;
             case 'q': options.quality = strdup(optarg); break;
-            case 'v': print_package_version(argv[0]); exit(0);
+            case 'v': print_package_version(argv[0]); exit(EXIT_SUCCESS);
             case 'x': log_level = LOG_DEBUG;
                       log_level_override = 1;
                       break;
@@ -316,8 +316,8 @@ amp_test_result_t* run_youtube(int argc, char *argv[],
             case 'y': options.video = strdup(optarg); break;
             case 0: /* TODO close stdout/stderr to hide chromium warnings? */
                       cpp_main(argc, (const char **)argv); break;
-            case 'h':
-            default: usage(); exit(0);
+            case 'h': usage(); exit(EXIT_SUCCESS);
+            default: usage(); exit(EXIT_FAILURE);
         };
     }
 
@@ -325,14 +325,14 @@ amp_test_result_t* run_youtube(int argc, char *argv[],
     if ( options.video == NULL ) {
         Log(LOG_WARNING, "Missing youtube video id!\n");
         usage();
-        exit(-1);
+        exit(EXIT_FAILURE);
     }
 
     /* check that the quality value is valid */
     if ( validate_quality(options.quality) < 0 ) {
         Log(LOG_WARNING, "Invalid quality value: %s\n", options.quality);
         usage();
-        exit(-1);
+        exit(EXIT_FAILURE);
     }
 
     /* pass in --disable-gpu, one less process to worry about */
@@ -352,14 +352,14 @@ amp_test_result_t* run_youtube(int argc, char *argv[],
     /* command line parsing tools in chromium expect --key=value */
     if ( asprintf(&urlstr, "--youtube=%s", options.video) < 0 ) {
         Log(LOG_WARNING, "Failed to build youtube ID string, aborting\n");
-        exit(-1);
+        exit(EXIT_FAILURE);
     }
     cpp_argv[cpp_argc++] = urlstr;
 
     if ( options.quality != NULL ) {
         if ( asprintf(&qualitystr, "--quality=%s", options.quality) < 0 ) {
             Log(LOG_WARNING, "Failed to build quality string, aborting\n");
-            exit(-1);
+            exit(EXIT_FAILURE);
         }
         cpp_argv[cpp_argc++] = qualitystr;
     }
@@ -368,7 +368,7 @@ amp_test_result_t* run_youtube(int argc, char *argv[],
         if ( asprintf(&useragentstr,
                     "--useragent=%s", options.useragent) < 0 ) {
             Log(LOG_WARNING, "Failed to build useragent string, aborting\n");
-            exit(-1);
+            exit(EXIT_FAILURE);
         }
         cpp_argv[cpp_argc++] = useragentstr;
     }
@@ -377,7 +377,7 @@ amp_test_result_t* run_youtube(int argc, char *argv[],
 
     if ( gettimeofday(&start_time, NULL) != 0 ) {
         Log(LOG_ERR, "Could not gettimeofday(), aborting test");
-        exit(-1);
+        exit(EXIT_FAILURE);
     }
 
     Log(LOG_DEBUG, "calling fork() to run test wrapper");

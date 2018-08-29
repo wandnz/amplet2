@@ -124,7 +124,7 @@ amp_test_result_t* run_remoteskeleton(int argc, char *argv[], int count,
     /* use getopt to check for -h first, then fall through to dump all args */
     while ( (opt = getopt(argc, argv, "hI:4:6:")) != -1 ) {
 	switch ( opt ) {
-	    case 'h': usage(argv[0]); exit(0);
+	    case 'h': usage(argv[0]); exit(EXIT_SUCCESS);
             case 'I': sockopts.device = optarg; break;
             case '4': sockopts.sourcev4 = get_numeric_address(optarg, NULL);
                       break;
@@ -141,7 +141,7 @@ amp_test_result_t* run_remoteskeleton(int argc, char *argv[], int count,
 
     if ( gettimeofday(&start_time, NULL) != 0 ) {
 	Log(LOG_ERR, "Could not gettimeofday(), aborting test");
-	exit(-1);
+	exit(EXIT_FAILURE);
     }
 
     /* print all the arguments that were passed in */
