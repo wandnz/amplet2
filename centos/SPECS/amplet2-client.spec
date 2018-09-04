@@ -1,12 +1,12 @@
 Name: amplet2
-Version: 0.8.3
+Version: 0.8.4
 Release: 1%{?dist}
 Summary: AMP Network Performance Measurement Suite - Client Tools
 
 Group: Applications/Internet
 License: AMP
 URL: http://research.wand.net.nz/software/amp.php
-Source0: https://github.com/wanduow/amplet2/archive/v0.8.3.tar.gz
+Source0: https://github.com/wanduow/amplet2/archive/v0.8.4.tar.gz
 Patch0: amplet2-client-init.patch
 Patch1: amplet2-client-default.patch
 BuildRoot:	%(mktemp -ud %{_tmppath}/%{name}-%{version}-%{release}-XXXXXX)
@@ -98,6 +98,14 @@ fi
 
 
 %changelog
+* Mon Sep  3 2018 Brendon Jones <brendonj@waikato.ac.nz> 0.8.4-1
+- package: don't try to install sample rabbitmq.config if file doesn't exist.
+- amplet2: fix crash caused by incorrect/duplicated SSL cleanup.
+- amplet2: fix small memory leak when unregistering test modules.
+- amplet2: fix exit codes to be more consistent (#2).
+- dns: report on presence of RRSIG resource records if DNSSEC enabled (#23).
+- dns: fix result handing to correctly extract NSID responses (#24).
+
 * Mon Jul 30 2018 Brendon Jones <brendonj@waikato.ac.nz> 0.8.3-1
 - http: allow setting a proxy to use.
 - http: allow setting the User-Agent string to use.
