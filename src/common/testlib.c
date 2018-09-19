@@ -172,6 +172,7 @@ void free_duped_environ(void) {
     }
 
     free(environ);
+    environ = NULL;
 }
 
 
