@@ -315,14 +315,6 @@ int main(void) {
     build_info(&info[19], addr, 0xffff, 0xffff, 0xffff, 1, 0xff, 0xffff,
             0xffff, 0xffff, 1, 0xffff, "foo.bar.baz", 1);
 
-    build_info(&info[15], addr, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0x0, NULL, 1);
-    build_info(&info[16], addr, 10, 20, 100, 1, 1, 2, 3, 4, 0, 0xff, NULL, 1);
-    build_info(&info[17], addr, 100, 200, 123, 1, 1, 2, 3, 4, 1, 0xff, "foo",1);
-    build_info(&info[18], addr, 1000, 20000, 10000, 1, 1, 2, 3, 4, 1, 0xff,
-            "bar", 1);
-    build_info(&info[19], addr, 0xffff, 0xffff, 0xffff, 1, 0xff, 0xffff,
-            0xffff, 0xffff, 1, 0xffff, "foo.bar.baz", 1);
-
     /* check these results with a series of different test options */
     for ( i = 0; i < sizeof(full_options) / sizeof(struct opt_t); i++ ) {
         options = &full_options[i];
