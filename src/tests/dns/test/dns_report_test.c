@@ -162,12 +162,15 @@ static void verify_response(struct info_t *a, Amplet2__Dns__Item *b) {
         assert(a->flags.fields.rcode == b->flags->rcode);
 
         /* possible instance name from NSID OPT RR */
-        if ( strlen(a->response) > 0 ) {
-            assert(b->instance != NULL);
-            assert(strcmp(a->response, b->instance) == 0);
+        if ( a->nsid_length > 0 ) {
+            assert(a->nsid_length == b->instance.len);
+            assert(memcmp(a->nsid_payload, b->instance.data,
+                        a->nsid_length) == 0);
         } else {
-            assert(b->instance == NULL);
+            assert(b->instance.len == 0);
+            assert(b->instance.data == NULL);
         }
+
     } else {
         assert(!b->has_rtt);
         assert(!b->has_ttl);
@@ -175,9 +178,9 @@ static void verify_response(struct info_t *a, Amplet2__Dns__Item *b) {
         assert(!b->has_total_answer);
         assert(!b->has_total_authority);
         assert(!b->has_total_additional);
-        /* flags */
         assert(b->flags == NULL);
-        assert(b->instance == NULL);
+        assert(b->instance.len == 0);
+        assert(b->instance.data == NULL);
     }
 }
 
@@ -210,6 +213,8 @@ static void verify_message(amp_test_result_t *result) {
     }
 
     amplet2__dns__report__free_unpacked(msg, NULL);
+    free(result->data);
+    free(result);
 }
 
 
@@ -221,7 +226,7 @@ static void build_info(struct info_t *item, struct addrinfo *addr,
     uint32_t query_length, uint32_t bytes, uint32_t delay, uint8_t reply,
     uint8_t ttl, uint16_t total_answer, uint16_t total_authority,
     uint16_t total_additional, uint8_t dnssec_response, uint16_t flags,
-    char *response, uint32_t seconds) {
+    char *nsid, uint32_t seconds) {
 
     item->addr = addr;
     item->query_length = query_length;
@@ -232,12 +237,14 @@ static void build_info(struct info_t *item, struct addrinfo *addr,
     item->total_answer = total_answer;
     item->total_authority = total_authority;
     item->total_additional = total_additional;
-    item->dnssec_response = dnssec_response;
+    item->rrsig = dnssec_response;
     item->flags.bytes = flags;
-    if ( response != NULL ) {
-        strcpy(item->response, response);
+    if ( nsid != NULL ) {
+        item->nsid_payload = strdup(nsid);
+        item->nsid_length = strlen(nsid);
     } else {
-        memset(item->response, 0, sizeof(item->response));
+        item->nsid_payload = NULL;
+        item->nsid_length = 0;
     }
     item->time_sent.tv_sec = seconds;
     item->time_sent.tv_usec = 0;
@@ -322,6 +329,11 @@ int main(void) {
                     options));
     }
 
+    for ( i = 0; i < count; i++ ) {
+        if ( info[i].nsid_length > 0 ) {
+            free(info[i].nsid_payload);
+        }
+    }
     free(info);
     freeaddrinfo(addr);
     return 0;

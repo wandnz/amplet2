@@ -806,7 +806,8 @@ static amp_test_result_t* report_results(struct timeval *start_time, int count,
 
     /* free up all the memory we had to allocate to report items */
     for ( i = 0; i < count; i++ ) {
-        free(info[i].nsid_payload);
+        /* TODO can't free here or it breaks the unit test, move elsewhere  */
+        //free(info[i].nsid_payload);
         if ( reports[i]->flags ) {
             free(reports[i]->flags);
         }
