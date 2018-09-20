@@ -76,7 +76,7 @@
  * XXX these names are all very confusing when compared to the protobuf
  * names in common/servers.proto and the associated functions!
  */
-static int parse_server_start(void *data, uint32_t len, test_type_t *type) {
+static int parse_server_start(void *data, uint32_t len, uint64_t *type) {
 
     Amplet2__Measured__Control *msg;
 
@@ -140,7 +140,12 @@ static int parse_single_test(void *data, uint32_t len,
 
     /* parse schedule message into a schedule item we can run */
     memset(item, 0, sizeof(*item));
-    item->test_id = msg->test->test_type;
+    item->test = get_test_by_id(msg->test->test_type);
+    if ( item->test == NULL ) {
+        Log(LOG_WARNING, "Invalid test id, aborting");
+        amplet2__measured__control__free_unpacked(msg, NULL);
+        return -1;
+    }
     item->params = parse_param_string(msg->test->params);
     item->meta = calloc(1, sizeof(amp_test_meta_t));
     item->meta->inter_packet_delay = MIN_INTER_PACKET_DELAY;
@@ -176,7 +181,7 @@ static int parse_single_test(void *data, uint32_t len,
  */
 static void do_start_server(BIO *ctrl, void *data, uint32_t len) {
     timer_t watchdog;
-    test_type_t test_type;
+    uint64_t test_type;
     test_t *test;
     char *proc_name;
     struct sockaddr_storage addr;
@@ -196,16 +201,10 @@ static void do_start_server(BIO *ctrl, void *data, uint32_t len) {
 
     Log(LOG_DEBUG, "Read test id %d from control connection", test_type);
 
-    /* Make sure it is a valid test id we are being asked to start */
-    if ( test_type >= AMP_TEST_LAST || test_type <= AMP_TEST_INVALID ) {
-        Log(LOG_DEBUG, "Read invalid test id on control socket: %d", test_type);
-        return;
-    }
-
     /* TODO limit number of connections/servers running, weighted system */
 
     /* Make sure that the test has been built and loaded */
-    if ( (test = amp_tests[test_type]) == NULL ) {
+    if ( (test = get_test_by_id(test_type)) == NULL ) {
         Log(LOG_DEBUG, "No test module for test id: %d", test_type);
         return;
     }
@@ -298,7 +297,7 @@ static void do_single_test(BIO *ctrl, void *data, uint32_t len) {
         return;
     }
 
-    Log(LOG_DEBUG, "Manually starting %s test", amp_tests[item.test_id]->name);
+    Log(LOG_DEBUG, "Manually starting %s test", item.test->name);
 
     run_test(&item, ctrl);
 }

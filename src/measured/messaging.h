@@ -66,6 +66,6 @@
  */
 amqp_connection_state_t conn;
 
-int report_to_broker(test_type_t type, amp_test_result_t *result);
+int report_to_broker(test_t *test, amp_test_result_t *result);
 
 #endif

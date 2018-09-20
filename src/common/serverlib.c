@@ -383,7 +383,7 @@ int start_listening(struct socket_t *sockets, int port,
  * be started. The connection to the remote client should already be
  * established by this point.
  */
-static int send_server_start(BIO *ctrl, test_type_t type) {
+static int send_server_start(BIO *ctrl, uint64_t type) {
     int len;
     void *buffer;
     int result;
@@ -692,10 +692,9 @@ BIO* connect_control_server(struct addrinfo *dest, uint16_t port,
  * Ask that a remote amplet client that we are connected to start a server
  * for a particular test.
  */
-int start_remote_server(BIO *ctrl, test_type_t type) {
+int start_remote_server(BIO *ctrl, uint64_t type) {
 
     assert(ctrl);
-    assert(type > AMP_TEST_INVALID && type < AMP_TEST_LAST);
 
     /* Send the test type, so the other end knows which server to run */
     /* TODO send any test parameters? */
@@ -815,7 +814,7 @@ int send_measured_response(BIO *ctrl, uint32_t code, char *message) {
  * Send a RESULT message to a remote control client. Used for one-off tests
  * that were started remotely rather than scheduled by the local client.
  */
-int send_measured_result(BIO *ctrl, test_type_t test, amp_test_result_t *data) {
+int send_measured_result(BIO *ctrl, uint64_t type, amp_test_result_t *data) {
 
     int len;
     void *buffer;
@@ -826,7 +825,7 @@ int send_measured_result(BIO *ctrl, test_type_t test, amp_test_result_t *data) {
     Log(LOG_DEBUG, "Sending RESULT");
 
     resmsg.has_test_type = 1;
-    resmsg.test_type = test;
+    resmsg.test_type = type;
     resmsg.result.data = data->data;
     resmsg.result.len = data->len;
     resmsg.has_result = 1;

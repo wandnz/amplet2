@@ -157,7 +157,7 @@ static void close_broker_connection(void) {
  * https://groups.google.com/forum/?fromgroups=#!topic/rabbitmq-discuss/M_8I12gWxbQ
  * rabbitmq-c/tests/test_tables.c
  */
-int report_to_broker(test_type_t type, amp_test_result_t *result) {
+int report_to_broker(test_t *test, amp_test_result_t *result) {
 
     amqp_basic_properties_t props;
     amqp_bytes_t data;
@@ -165,12 +165,6 @@ int report_to_broker(test_type_t type, amp_test_result_t *result) {
     amqp_table_entry_t table_entries;
     char *exchange = vars.vialocal ? AMQP_LOCAL_EXCHANGE : vars.exchange;
     char *routingkey = vars.vialocal ? AMQP_LOCAL_ROUTING_KEY : vars.routingkey;
-
-    /* check the test id is valid */
-    if ( type >= AMP_TEST_LAST || type <= AMP_TEST_INVALID ) {
-	Log(LOG_WARNING, "Invalid test type %d, not reporting\n", type);
-	return -1;
-    }
 
     /*
      * Ideally this would only happen once and the same connection would be
@@ -202,7 +196,7 @@ int report_to_broker(test_type_t type, amp_test_result_t *result) {
     /* The name of the test data is being reported for */
     table_entries.key = amqp_cstring_bytes("x-amp-test-type");
     table_entries.value.kind = AMQP_FIELD_KIND_UTF8;
-    table_entries.value.value.bytes = amqp_cstring_bytes(amp_tests[type]->name);
+    table_entries.value.value.bytes = amqp_cstring_bytes(test->name);
 
     /* Add all the individual headers to the header table - only test type */
     headers.num_entries = 1;

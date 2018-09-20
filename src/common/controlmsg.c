@@ -262,9 +262,7 @@ int read_control_packet(BIO *ctrl, void **data) {
 /*
  * Construct and send a HELLO message to the control stream.
  */
-int send_control_hello(test_type_t test, BIO *ctrl,
-        ProtobufCBinaryData *options) {
-
+int send_control_hello(uint64_t test, BIO *ctrl, ProtobufCBinaryData *options) {
     int len;
     void *buffer;
     int result;
@@ -305,9 +303,7 @@ int send_control_hello(test_type_t test, BIO *ctrl,
 /*
  * Construct and send a READY message to the control stream.
  */
-int send_control_ready(test_type_t test, BIO *ctrl,
-        uint16_t port) {
-
+int send_control_ready(uint64_t test, BIO *ctrl, uint16_t port) {
     int len;
     void *buffer;
     int result;
@@ -340,7 +336,7 @@ int send_control_ready(test_type_t test, BIO *ctrl,
 /*
  * Construct and send a RECEIVE message to the control stream.
  */
-int send_control_receive(test_type_t test, BIO *ctrl,
+int send_control_receive(uint64_t test, BIO *ctrl,
         ProtobufCBinaryData *options){
 
     int len;
@@ -378,9 +374,7 @@ int send_control_receive(test_type_t test, BIO *ctrl,
 /*
  * Construct and send a SEND message to the control stream.
  */
-int send_control_send(test_type_t test, BIO *ctrl,
-        ProtobufCBinaryData *options) {
-
+int send_control_send(uint64_t test, BIO *ctrl, ProtobufCBinaryData *options) {
     int len;
     void *buffer;
     int result;
@@ -428,9 +422,7 @@ int send_control_send(test_type_t test, BIO *ctrl,
 /*
  * Construct and send a RESULT message to the control stream.
  */
-int send_control_result(test_type_t test, BIO *ctrl,
-        ProtobufCBinaryData *data) {
-
+int send_control_result(uint64_t test, BIO *ctrl, ProtobufCBinaryData *data) {
     int len;
     void *buffer;
     int result;
@@ -463,7 +455,7 @@ int send_control_result(test_type_t test, BIO *ctrl,
 /*
  * Construct and send a RENEW message to the control stream.
  */
-int send_control_renew(test_type_t test, BIO *ctrl) {
+int send_control_renew(uint64_t test, BIO *ctrl) {
     int len;
     void *buffer;
     int result;
@@ -495,7 +487,7 @@ int send_control_renew(test_type_t test, BIO *ctrl) {
  * Parse a HELLO message using the test specific parsing function, and update
  * the options structure using the values from the message.
  */
-static int parse_control_hello(test_type_t test, void *data, uint32_t len,
+static int parse_control_hello(uint64_t test, void *data, uint32_t len,
         void **options, void *(*parse_func)(ProtobufCBinaryData *data)) {
 
     Amplet2__Controlmsg__Control *msg;
@@ -543,7 +535,7 @@ static int parse_control_hello(test_type_t test, void *data, uint32_t len,
  * Parse a READY message and update the port number using the value from the
  * message.
  */
-static int parse_control_ready(test_type_t test, void *data, uint32_t len,
+static int parse_control_ready(uint64_t test, void *data, uint32_t len,
         uint16_t *port) {
 
     Amplet2__Controlmsg__Control *msg;
@@ -587,7 +579,7 @@ static int parse_control_ready(test_type_t test, void *data, uint32_t len,
  * Parse a RECEIVE message using the test specific parsing function, and update
  * the options structure using the values from the message.
  */
-int parse_control_receive(test_type_t test, void *data, uint32_t len,
+int parse_control_receive(uint64_t test, void *data, uint32_t len,
         void **options, void *(*parse_func)(ProtobufCBinaryData *data)) {
 
     Amplet2__Controlmsg__Control *msg;
@@ -635,7 +627,7 @@ int parse_control_receive(test_type_t test, void *data, uint32_t len,
  * Parse a SEND message using the test specific parsing function, and update
  * the options structure using the values from the message.
  */
-int parse_control_send(test_type_t test, void *data, uint32_t len,
+int parse_control_send(uint64_t test, void *data, uint32_t len,
         void **options, void *(*parse_func)(ProtobufCBinaryData *data)) {
 
     Amplet2__Controlmsg__Control *msg;
@@ -682,8 +674,9 @@ int parse_control_send(test_type_t test, void *data, uint32_t len,
 /*
  * Parse a RESULT message and extract the result buffer.
  */
-static int parse_control_result(test_type_t test, void *data, uint32_t len,
+static int parse_control_result(uint64_t test, void *data, uint32_t len,
         ProtobufCBinaryData *results ) {
+
     Amplet2__Controlmsg__Control *msg;
 
     assert(data);
@@ -727,8 +720,9 @@ static int parse_control_result(test_type_t test, void *data, uint32_t len,
  * Read and parse a HELLO message, updating the options structure using the
  * values from the message.
  */
-int read_control_hello(test_type_t test, BIO *ctrl,
+int read_control_hello(uint64_t test, BIO *ctrl,
         void **options, void *(*parse_func)(ProtobufCBinaryData *data)) {
+
     void *data;
     int len;
 
@@ -756,9 +750,7 @@ int read_control_hello(test_type_t test, BIO *ctrl,
  * Read and parse a READY message, updating the port number using the value
  * from the message.
  */
-int read_control_ready(test_type_t test, BIO *ctrl,
-        uint16_t *port) {
-
+int read_control_ready(uint64_t test, BIO *ctrl, uint16_t *port) {
     void *data;
     int len;
 
@@ -784,7 +776,7 @@ int read_control_ready(test_type_t test, BIO *ctrl,
  * Read and parse a RESULT message, extracting the result buffer for the test
  * to further process, print, report etc.
  */
-int read_control_result(test_type_t test, BIO *ctrl,
+int read_control_result(uint64_t test, BIO *ctrl,
         ProtobufCBinaryData *results) {
 
     void *data;

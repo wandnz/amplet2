@@ -60,27 +60,24 @@
 int write_control_packet(BIO *ctrl, void *data, uint32_t len);
 int read_control_packet(BIO *ctrl, void **data);
 
-int send_control_hello(test_type_t test, BIO *ctrl,
+int send_control_hello(uint64_t test, BIO *ctrl, ProtobufCBinaryData *options);
+int send_control_ready(uint64_t test, BIO *ctrl, uint16_t port);
+int send_control_receive(uint64_t test, BIO *ctrl,
         ProtobufCBinaryData *options);
-int send_control_ready(test_type_t test, BIO *ctrl, uint16_t port);
-int send_control_receive(test_type_t test, BIO *ctrl,
-        ProtobufCBinaryData *options);
-int send_control_send(test_type_t test, BIO *ctrl,
-        ProtobufCBinaryData *options);
-int send_control_result(test_type_t test, BIO *ctrl, ProtobufCBinaryData *data);
+int send_control_send(uint64_t test, BIO *ctrl, ProtobufCBinaryData *options);
+int send_control_result(uint64_t test, BIO *ctrl, ProtobufCBinaryData *data);
 //XXX throughput specific
-int send_control_renew(test_type_t test, BIO *ctrl);
+int send_control_renew(uint64_t test, BIO *ctrl);
 
-int read_control_hello(test_type_t test, BIO *ctrl, void **options,
+int read_control_hello(uint64_t test, BIO *ctrl, void **options,
         void *(*parse_func)(ProtobufCBinaryData *data));
-int read_control_ready(test_type_t test, BIO *ctrl, uint16_t *port);
-int read_control_result(test_type_t test, BIO *ctrl,
-        ProtobufCBinaryData *results);
+int read_control_ready(uint64_t test, BIO *ctrl, uint16_t *port);
+int read_control_result(uint64_t test, BIO *ctrl, ProtobufCBinaryData *results);
 
 /* extract data from send/receive for remote servers (udp, throughput) */
-int parse_control_receive(test_type_t test, void *data, uint32_t len,
+int parse_control_receive(uint64_t test, void *data, uint32_t len,
         void **options, void *(*parse_func)(ProtobufCBinaryData *data));
-int parse_control_send(test_type_t test, void *data, uint32_t len,
+int parse_control_send(uint64_t test, void *data, uint32_t len,
         void **options, void *(*parse_func)(ProtobufCBinaryData *data));
 
 #endif

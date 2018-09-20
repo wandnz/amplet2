@@ -47,20 +47,16 @@
 /* TODO move elsewhere to more global config file */
 #define MAX_PATH_LENGTH 10000
 
-typedef enum {
-    AMP_TEST_INVALID,
-    AMP_TEST_SKELETON,
-    AMP_TEST_ICMP,
-    AMP_TEST_DNS,
-    AMP_TEST_TRACEROUTE,
-    AMP_TEST_HTTP,
-    AMP_TEST_THROUGHPUT,
-    AMP_TEST_TCPPING,
-    AMP_TEST_REMOTE_SKELETON,
-    AMP_TEST_UDPSTREAM,
-    AMP_TEST_YOUTUBE,
-    AMP_TEST_LAST,
-} test_type_t;
+#define AMP_TEST_SKELETON           1
+#define AMP_TEST_ICMP               2
+#define AMP_TEST_DNS                3
+#define AMP_TEST_TRACEROUTE         4
+#define AMP_TEST_HTTP               5
+#define AMP_TEST_THROUGHPUT         6
+#define AMP_TEST_TCPPING            7
+#define AMP_TEST_REMOTE_SKELETON    8
+#define AMP_TEST_UDPSTREAM          9
+#define AMP_TEST_YOUTUBE            10
 
 typedef struct amp_test_result {
     uint64_t timestamp;
@@ -69,13 +65,32 @@ typedef struct amp_test_result {
 } amp_test_result_t;
 
 typedef struct test {
-    /* */
-    test_type_t id;
+    /*
+     * Unique test identifier for this test. Values 0 through 65535 are
+     * currently reserved for our own use, but values outside that range
+     * may be used for other tests. There is no control over what numbers
+     * tests use, but to help keep them vaguely unique you may want to
+     * include 32 bits of the current time in seconds as part of the id.
+     *
+     * If multiple tests are loaded with the same id then only the first
+     * will be used when performing test lookups (generally used in
+     * communication between AMP tools and processes).
+     *
+     * TODO better define the id format
+     */
+    uint64_t id;
 
     /*
      * Name of the test, used for schedule files and reporting. It is
      * traditionally fairly short though still descriptive, a single word
-     * with no spaces.
+     * with no spaces. There is no control over what names tests use, but
+     * again it should be vaguely unique to avoid collisions (if others are
+     * adding tests then it might be a good idea to prefix it with some sort
+     * of namespace).
+     *
+     * If multiple tests are loaded with the same name then only the first
+     * will be used when performing test lookups (generally used in schedule
+     * files or where the user enters a test name).
      */
     char *name;
 

@@ -12,7 +12,7 @@ message Control {
         }
 
         /* test could be an enum or something, also used in measured.proto */
-        optional uint32 test = 1;
+        optional uint64 test = 1;
         optional Type type = 2;
 
         optional Hello hello = 3;

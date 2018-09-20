@@ -85,38 +85,22 @@ static void usage(char *prog) {
 
 
 /*
- * Find the test info struct for the given test name string.
- */
-static test_type_t test_from_name(char *name) {
-    int i;
-
-    for ( i = 0; i < AMP_TEST_LAST; i++ ) {
-        if ( amp_tests[i] && amp_tests[i]->name ) {
-            if ( strcmp(name, amp_tests[i]->name) == 0 ) {
-                return i;
-            }
-        }
-    }
-
-    return AMP_TEST_INVALID;
-}
-
-
-
-/*
  * List all tests available to this (local) client. Not ideal because it
  * doesn't know what tests are available on the remote client, but it's a
  * start.
  */
 static void list_all_tests(void) {
-    int i;
+    test_t **test;
 
     printf("Available tests (%s)\n", AMP_TEST_DIRECTORY);
 
-    for ( i = 0; i < AMP_TEST_LAST; i++ ) {
-        if ( amp_tests[i] && amp_tests[i]->name ) {
-            printf("  %s\n", amp_tests[i]->name);
-        }
+    if ( amp_tests == NULL ) {
+        printf("  none\n");
+        return;
+    }
+
+    for ( test = amp_tests; *test != NULL; test++ ) {
+        printf("  %s\n", (*test)->name);
     }
 }
 
@@ -140,7 +124,7 @@ int main(int argc, char *argv[]) {
     int i;
     int opt;
     char *test_name = NULL;
-    test_type_t test_type;
+    test_t *test;
     char *host = "localhost";
     char *port = DEFAULT_AMPLET_CONTROL_PORT;
     char *args = NULL;
@@ -188,7 +172,7 @@ int main(int argc, char *argv[]) {
         exit(EXIT_FAILURE);
     }
 
-    if ( (test_type = test_from_name(test_name)) == AMP_TEST_INVALID ) {
+    if ( (test = get_test_by_name(test_name)) == NULL ) {
         printf("Invalid test: %s\n", test_name);
         list_all_tests();
         exit(EXIT_FAILURE);
@@ -204,7 +188,7 @@ int main(int argc, char *argv[]) {
 
     /* build test schedule item */
     test_msg.has_test_type = 1;
-    test_msg.test_type = test_type;
+    test_msg.test_type = test->id;
     test_msg.params = args;
     test_msg.n_targets = argc - optind;
     test_msg.targets = calloc(test_msg.n_targets, sizeof(char*));
@@ -273,9 +257,9 @@ int main(int argc, char *argv[]) {
                     break;
                 }
 
-                if ( test_type != in_msg->result->test_type ) {
-                    printf("Unexpected test type, got %d expected %d\n",
-                            in_msg->result->test_type, test_type);
+                if ( test->id != in_msg->result->test_type ) {
+                    printf("Unexpected test type, got %ld expected %ld\n",
+                            in_msg->result->test_type, test->id);
                     break;
                 }
 
@@ -283,7 +267,7 @@ int main(int argc, char *argv[]) {
                 result.len = in_msg->result->result.len;
 
                 /* print using the test print functions, as if run locally */
-                amp_tests[test_type]->print_callback(&result);
+                test->print_callback(&result);
                 break;
             }
 

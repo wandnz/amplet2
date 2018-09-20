@@ -115,7 +115,7 @@ typedef struct test_schedule_item {
     uint64_t start;		    /* first time in period test can run (ms) */
     uint64_t end;		    /* last time in period test can run (ms) */
     schedule_period_t period;	    /* repeat cycle: Hourly, Daily, Weekly */
-    test_type_t test_id;	    /* id of test to run */
+    test_t *test;	            /* test definition of test to run */
     uint32_t dest_count;	    /* number of current destinations */
     uint32_t resolve_count;	    /* max possible count of dests to resolve */
     struct addrinfo **dests;	    /* all current destinations */

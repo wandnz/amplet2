@@ -71,7 +71,7 @@ int start_listening(struct socket_t *sockets, int port,
         struct sockopt_t *sockopts);
 BIO* listen_control_server(uint16_t port, uint16_t portmax,
         struct sockopt_t *sockopts);
-int start_remote_server(BIO *ctrl, test_type_t type);
+int start_remote_server(BIO *ctrl, uint64_t type);
 BIO* connect_control_server(struct addrinfo *dest, uint16_t port,
         struct sockopt_t *sockopts);
 int connect_to_server(struct addrinfo *dest, uint16_t port,
@@ -81,7 +81,7 @@ void close_control_connection(BIO *ctrl);
 //XXX is this the correct location for this function? serverlib.c?
 int read_measured_response(BIO *ctrl, Amplet2__Measured__Response *response);
 int send_measured_response(BIO *ctrl, uint32_t code, char *message);
-int send_measured_result(BIO *ctrl, test_type_t test, amp_test_result_t *data);
+int send_measured_result(BIO *ctrl, uint64_t type, amp_test_result_t *data);
 int parse_measured_response(void *data, uint32_t len,
         Amplet2__Measured__Response *response);
 #endif

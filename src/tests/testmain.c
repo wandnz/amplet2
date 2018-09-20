@@ -73,43 +73,6 @@ struct option long_options[] = {
 
 
 
-/* FIXME? this is pretty much a copy and paste of code in test.c */
-static test_t *get_test_info(void) {
-    void *hdl;
-    test_t *test_info;
-    const char *error = NULL;
-
-    hdl = dlopen(NULL, RTLD_LAZY);
-
-    if ( !hdl ) {
-	fprintf(stderr, "Failed to dlopen() self\n");
-	exit(EXIT_FAILURE);
-    }
-
-    test_reg_ptr r_func = (test_reg_ptr)dlsym(hdl, "register_test");
-    if ( (error = dlerror()) != NULL ) {
-	/* it doesn't have this function, it's not one of ours, ignore */
-	fprintf(stderr, "Failed to find register_test function: %s\n", error);
-	dlclose(hdl);
-	exit(EXIT_FAILURE);
-    }
-
-    /* use the register_test function to determine what main function to run */
-    test_info = r_func();
-
-    if ( test_info == NULL ) {
-	fprintf(stderr, "Got NULL response from register_test function\n");
-	dlclose(hdl);
-	exit(EXIT_FAILURE);
-    }
-
-    test_info->dlhandle = hdl;
-
-    return test_info;
-}
-
-
-
 /*
  * Generic main function to allow all tests to be run as both normal binaries
  * and AMP libraries. This function will deal with converting command line
@@ -140,12 +103,8 @@ int main(int argc, char *argv[]) {
     char **test_argv;
     int do_ssl;
 
-
     /* load information about the test, including the callback functions */
-    test_info = get_test_info();
-
-    /* fill in just our test info, we don't need all the others */
-    amp_tests[test_info->id] = test_info;
+    test_info = register_one_test(NULL);
 
     /* suppress "invalid argument" errors from getopt */
     opterr = 0;

@@ -76,7 +76,6 @@ void run_test(const test_schedule_item_t * const item, BIO *ctrl) {
     char *argv[MAX_TEST_ARGS];
     uint32_t argc = 0;
     uint32_t offset;
-    test_t *test;
     resolve_dest_t *resolve;
     struct addrinfo *addrlist = NULL;
     struct addrinfo **destinations = NULL;
@@ -89,22 +88,18 @@ void run_test(const test_schedule_item_t * const item, BIO *ctrl) {
     int forcev6 = 0;
 
     assert(item);
-    assert(item->test_id < AMP_TEST_LAST);
-    assert(amp_tests[item->test_id]);
-    assert((item->dest_count + item->resolve_count) >=
-            amp_tests[item->test_id]->min_targets);
-
-    test = amp_tests[item->test_id];
+    assert(item->test);
+    assert((item->dest_count + item->resolve_count) >= item->test->min_targets);
 
     /* Start the timer so the test will be killed if it runs too long */
     /* XXX should this start before or after DNS resolution, maybe after? */
-    if ( start_test_watchdog(test, &watchdog) < 0 ) {
-        Log(LOG_WARNING, "Aborting %s test run", test->name);
+    if ( start_test_watchdog(item->test, &watchdog) < 0 ) {
+        Log(LOG_WARNING, "Aborting %s test run", item->test->name);
         return;
     }
 
     /* update process name so we can tell what is running */
-    set_proc_name(test->name);
+    set_proc_name(item->test->name);
 
     /*
      * seed the random number generator, has to be after the fork() or each
@@ -118,7 +113,7 @@ void run_test(const test_schedule_item_t * const item, BIO *ctrl) {
      * TODO should command line arguments clobber any per-test arguments?
      * Currently any arguments set in the schedule file will take precedence.
      */
-    argv[argc++] = test->name;
+    argv[argc++] = item->test->name;
 
     /* set the inter packet delay if configured at the global level */
     if ( item->meta->inter_packet_delay != MIN_INTER_PACKET_DELAY ) {
@@ -137,7 +132,7 @@ void run_test(const test_schedule_item_t * const item, BIO *ctrl) {
     /* TODO don't do these if the test options are already set? */
 
     /* set the control port if configured at the global level */
-    if ( test->server_callback &&
+    if ( item->test->server_callback &&
             vars.control_port != atol(DEFAULT_AMPLET_CONTROL_PORT) ) {
         argv[argc++] = "-p";
         if ( asprintf(&port_str, "%u", vars.control_port) < 0 ) {
@@ -203,8 +198,8 @@ void run_test(const test_schedule_item_t * const item, BIO *ctrl) {
     /* null terminate the list before we give it to the main test function */
     argv[argc] = NULL;
 
-    Log(LOG_DEBUG, "Running test: %s to %d/%d destinations:\n", test->name,
-	    item->dest_count, item->resolve_count);
+    Log(LOG_DEBUG, "Running test: %s to %d/%d destinations:\n",
+            item->test->name, item->dest_count, item->resolve_count);
 
     /* create the destination list for the test if there are fixed targets */
     if ( item->dest_count > 0 ) {
@@ -317,7 +312,7 @@ void run_test(const test_schedule_item_t * const item, BIO *ctrl) {
      * tests need at least 1 valid destination, others don't require that any
      * destinations are specified.
      */
-    if ( item->dest_count + total_resolve_count >= test->min_targets ) {
+    if ( item->dest_count + total_resolve_count >= item->test->min_targets ) {
         amp_test_result_t *result;
 
         for ( offset = 0; offset<argc; offset++ ) {
@@ -330,17 +325,17 @@ void run_test(const test_schedule_item_t * const item, BIO *ctrl) {
          * something useful and never exit themselves?
          */
         /* actually run the test */
-        result = test->run_callback(argc, argv,
+        result = item->test->run_callback(argc, argv,
                 item->dest_count + total_resolve_count, destinations);
 
         if ( result ) {
             /* report the results to the appropriate location */
             if ( ctrl ) {
                 /* SSL connection - single test run remotely, report remotely */
-                send_measured_result(ctrl, test->id, result);
+                send_measured_result(ctrl, item->test->id, result);
             } else {
                 /* scheduled test, report to the rabbitmq broker */
-                report_to_broker(test->id, result);
+                report_to_broker(item->test, result);
             }
 
             /* free the result structure once it has been reported */
@@ -401,13 +396,9 @@ void run_test(const test_schedule_item_t * const item, BIO *ctrl) {
 static int fork_test(test_schedule_item_t *item) {
     struct timeval now;
     pid_t pid;
-    test_t *test;
 
     assert(item);
-    assert(item->test_id < AMP_TEST_LAST);
-    assert(amp_tests[item->test_id]);
-
-    test = amp_tests[item->test_id];
+    assert(item->test);
 
     /*
      * Make sure this isn't being run too soon - the monotonic clock and
@@ -421,7 +412,7 @@ static int fork_test(test_schedule_item_t *item) {
         /* run too soon, don't run it now - let it get rescheduled */
         if ( now.tv_sec != 0 || now.tv_usec > SCHEDULE_CLOCK_FUDGE ) {
             Log(LOG_DEBUG, "%s test triggered early, will reschedule",
-                    test->name);
+                    item->test->name);
             return 0;
         }
     }
@@ -454,7 +445,7 @@ static int fork_test(test_schedule_item_t *item) {
 
 	run_test(item, NULL);
 
-	Log(LOG_WARNING, "%s test failed to run", test->name);
+	Log(LOG_WARNING, "%s test failed to run", item->test->name);
 	exit(EXIT_FAILURE);
     }
 
@@ -471,15 +462,13 @@ void run_scheduled_test(wand_event_handler_t *ev_hdl, void *data) {
     test_schedule_item_t *test_item;
     struct timeval next;
     int run;
-    char *name;
 
     assert(item->type == EVENT_RUN_TEST);
 
     test_item = (test_schedule_item_t *)item->data.test;
-    name = amp_tests[test_item->test_id]->name;
 
-    Log(LOG_DEBUG, "Running %s test", name);
-    printf("running %s test at %d\n", name, (int)time(NULL));
+    Log(LOG_DEBUG, "Running %s test", test_item->test->name);
+    printf("running %s test at %d\n", test_item->test->name, (int)time(NULL));
 
     /*
      * run the test as soon as we know what it is, so it happens as close to
@@ -495,6 +484,6 @@ void run_scheduled_test(wand_event_handler_t *ev_hdl, void *data) {
     if ( wand_add_timer(ev_hdl, next.tv_sec, next.tv_usec, data,
                 run_scheduled_test) == NULL ) {
         /* this should never happen if we properly check the next time */
-        Log(LOG_ALERT, "Failed to reschedule %s test", name);
+        Log(LOG_ALERT, "Failed to reschedule %s test", test_item->test->name);
     }
 }

@@ -48,17 +48,57 @@
 #include "modules.h"
 
 
+test_t *register_one_test(char *filename) {
+    void *hdl;
+    test_t *test_info;
+    const char *error = NULL;
+
+    hdl = dlopen(filename, RTLD_LAZY);
+
+    if ( !hdl ) {
+	Log(LOG_WARNING, "Failed to dlopen() file %s", filename);
+	return NULL;
+    }
+
+    test_reg_ptr r_func = (test_reg_ptr)dlsym(hdl, "register_test");
+    if ( (error = dlerror()) != NULL ) {
+        /* it doesn't have this function, it's not one of ours, ignore */
+        Log(LOG_WARNING, "Failed to find register_test function in %s",
+                filename);
+        dlclose(hdl);
+        return NULL;
+    }
+
+    /* use the register_test function to determine what main function to run */
+    test_info = r_func();
+
+    if ( test_info == NULL ) {
+        Log(LOG_WARNING,
+                "Got NULL response from register_test function in %s",
+                filename);
+        dlclose(hdl);
+        return NULL;
+    }
+
+    test_info->dlhandle = hdl;
+
+    assert(test_info->name);
+    assert(test_info->run_callback);
+    assert(test_info->print_callback);
+
+    return test_info;
+}
+
 
 /*
  * Register all the tests in the given directory as being available.
  */
 int register_tests(char *location) {
     glob_t glob_buf;
-    void *hdl;
     test_t *new_test;
-    const char *error = NULL;
     char full_loc[MAX_PATH_LENGTH];
     uint32_t i;
+    int count = 0;
 
     if ( location == NULL ) {
 	Log(LOG_ALERT, "Test directory not given.");
@@ -70,10 +110,7 @@ int register_tests(char *location) {
 	return -1;
     }
 
-    /* initialise all possible tests to NULL */
-    for ( i=0; i<AMP_TEST_LAST; i++ ) {
-	amp_tests[i] = NULL;
-    }
+    amp_tests = calloc(1, sizeof(test_t*));
 
     /* find all the .so files that exist in the directory */
     strcpy(full_loc, location);
@@ -84,42 +121,20 @@ int register_tests(char *location) {
 	    location, glob_buf.gl_pathc);
 
     for ( i=0; i<glob_buf.gl_pathc; i++ ) {
-        hdl = dlopen(glob_buf.gl_pathv[i], RTLD_LAZY);
-
-	if ( !hdl ) {
-	    Log(LOG_WARNING, "Failed to dlopen() file %s",
-		    glob_buf.gl_pathv[i]);
-	    continue;
-	}
-
-	test_reg_ptr r_func = (test_reg_ptr)dlsym(hdl, "register_test");
-	if ( (error = dlerror()) != NULL ) {
-	    /* it doesn't have this function, it's not one of ours, ignore */
-	    Log(LOG_WARNING, "Failed to find register_test function in %s",
-		    glob_buf.gl_pathv[i]);
-	    dlclose(hdl);
-	    continue;
-	}
-
-	new_test = r_func();
-
-	if ( new_test == NULL ) {
-	    Log(LOG_WARNING,
-		    "Got NULL response from register_test function in %s",
-		    glob_buf.gl_pathv[i]);
-	    dlclose(hdl);
-	    continue;
-	}
-
-	new_test->dlhandle = hdl;
-
-	assert(new_test->name);
-	assert(new_test->run_callback);
-	assert(new_test->print_callback);
-
+        new_test = register_one_test(glob_buf.gl_pathv[i]);
+        if ( new_test == NULL ) {
+            continue;
+        }
+        /* TODO walk the list and warn of collisions with names or ids? */
 	/* add the test to the list of all available tests */
-	amp_tests[new_test->id] = new_test;
-	Log(LOG_DEBUG, "Loaded test %s (id=%d)", new_test->name, new_test->id);
+        amp_tests[count++] = new_test;
+        amp_tests = realloc(amp_tests, sizeof(test_t*) * (count + 1));
+        if ( amp_tests == NULL ) {
+            Log(LOG_WARNING, "Error allocating memory for new test, aborting");
+            exit(EXIT_FAILURE);
+        }
+        amp_tests[count] = NULL;
+	Log(LOG_DEBUG, "Loaded test %s", new_test->name);
     }
 
     globfree(&glob_buf);
@@ -133,34 +148,61 @@ int register_tests(char *location) {
  * Close all the dlhandles pointing to test objects.
  */
 void unregister_tests() {
-    int i = 0;
+    test_t **test;
 
     Log(LOG_DEBUG, "Unregistering all tests");
 
-    for ( i=0; i<AMP_TEST_LAST; i++) {
-	if ( amp_tests[i] != NULL ) {
-            free(amp_tests[i]->name);
-            dlclose(amp_tests[i]->dlhandle);
-            free(amp_tests[i]);
-	}
+    if ( amp_tests == NULL ) {
+        return;
     }
+
+    for ( test = amp_tests; *test != NULL; test++ ) {
+        free((*test)->name);
+        dlclose((*test)->dlhandle);
+        free(*test);
+    }
+
+    free(amp_tests);
 }
 
 
 
 /*
- * Given a test name, return the test id.
+ * Lookup a test definition by the test id.
  */
-test_type_t get_test_id(const char *testname) {
-    int i;
+test_t *get_test_by_id(uint64_t id) {
+    test_t **test;
 
-    for ( i=0; i<AMP_TEST_LAST; i++ ) {
-	if ( amp_tests[i] != NULL ) {
-	    if ( strcmp(amp_tests[i]->name, testname) == 0 ) {
-		return i;
-	    }
-	}
+    if ( amp_tests == NULL ) {
+        return NULL;
     }
-    return AMP_TEST_INVALID;
+
+    for ( test = amp_tests; *test != NULL; test++ ) {
+        if ( (*test)->id == id ) {
+            return *test;
+        }
+    }
+
+    return NULL;
 }
 
+
+
+/*
+ * Lookup a test definition by the test name.
+ */
+test_t *get_test_by_name(char *name) {
+    test_t **test;
+
+    if ( amp_tests == NULL ) {
+        return NULL;
+    }
+
+    for ( test = amp_tests; *test != NULL; test++ ) {
+        if ( strcmp((*test)->name, name) == 0 ) {
+            return *test;
+        }
+    }
+
+    return NULL;
+}

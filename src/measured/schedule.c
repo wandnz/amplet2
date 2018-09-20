@@ -75,7 +75,7 @@ static void dump_event_run_test(test_schedule_item_t *item, FILE *out) {
     assert(item);
 
     fprintf(out, "EVENT_RUN_TEST ");
-    fprintf(out, "%s %d.%.6d", amp_tests[item->test_id]->name,
+    fprintf(out, "%s %d.%.6d", item->test->name,
 	    (int)item->interval.tv_sec, (int)item->interval.tv_usec);
 
     if ( item->params == NULL ) {
@@ -525,7 +525,7 @@ struct timeval get_next_schedule_time(wand_event_handler_t *ev_hdl,
  */
 static int compare_test_items(test_schedule_item_t *a, test_schedule_item_t *b){
 
-    if ( a->test_id != b->test_id )
+    if ( a->test != b->test )
 	return 0;
 
     if ( timercmp(&(a->interval), &(b->interval), !=) )
@@ -609,9 +609,9 @@ static int merge_scheduled_tests(struct wand_event_handler_t *ev_hdl,
 	if ( compare_test_items(sched_test, item) ) {
 
 	    /* check if there is room for more destinations */
-	    if ( amp_tests[item->test_id]->max_targets == 0 ||
+	    if ( item->test->max_targets == 0 ||
 		    (sched_test->dest_count + sched_test->resolve_count) <
-		    amp_tests[item->test_id]->max_targets ) {
+                    item->test->max_targets ) {
 
 		/*
 	 	 * resize the dests pointers to make room for the new dest
@@ -695,7 +695,7 @@ char **populate_target_lists(test_schedule_item_t *test, char **targets) {
     uint16_t count;
     uint16_t max_targets;
 
-    max_targets = amp_tests[test->test_id]->max_targets;
+    max_targets = test->test->max_targets;
     test->dests = NULL;
     test->resolve = NULL;
     test->resolve_count = 0;
@@ -786,7 +786,7 @@ static test_schedule_item_t *create_and_schedule_test(
     schedule_item_t *sched;
     yaml_node_t *node, *key, *value;
     yaml_node_pair_t *pair;
-    test_type_t test_id;
+    test_t *test_definition;
     int64_t start = 0, end = -1, frequency = -1;
     char *period_str = NULL, *testname = NULL, **params = NULL;
     schedule_period_t period;
@@ -847,7 +847,7 @@ static test_schedule_item_t *create_and_schedule_test(
 
     /* confirm the test name is valid */
     if ( testname == NULL ||
-            (test_id = get_test_id(testname)) == AMP_TEST_INVALID ) {
+            (test_definition = get_test_by_name(testname)) == NULL ) {
         Log(LOG_WARNING, "Unknown test '%s'", testname);
         goto end;
     }
@@ -900,7 +900,7 @@ static test_schedule_item_t *create_and_schedule_test(
         test->period = period;
         test->start = start;
         test->end = end;
-        test->test_id = test_id;
+        test->test = test_definition;
         test->params = params;
         test->meta = meta;
         /*
@@ -912,7 +912,7 @@ static test_schedule_item_t *create_and_schedule_test(
 
         /* don't bother scheduling any tests without valid destinations */
         if ( (test->dest_count + test->resolve_count) <
-                amp_tests[test->test_id]->min_targets ) {
+                test_definition->min_targets ) {
             Log(LOG_WARNING, "%s test scheduled with too few targets, ignoring",
                     testname);
             free_test_schedule_item(test);
@@ -925,7 +925,7 @@ static test_schedule_item_t *create_and_schedule_test(
          * there is no room for more destinations.
          */
         if ( remaining != NULL && *remaining == NULL &&
-                amp_tests[test->test_id]->max_targets != 1 ) {
+                test_definition->max_targets != 1 ) {
             /* check if this test at this time already exists */
             if ( merge_scheduled_tests(ev_hdl, test) ) {
                 /* remove pointer to names, merged test owns it */

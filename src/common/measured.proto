@@ -19,7 +19,7 @@ message Control {
 }
 
 message Server {
-        optional uint32 test_type = 1;
+        optional uint64 test_type = 1;
         /* TODO easier to pass in a string and parse it later on, or an array
          * of strings ready to go?
          */
@@ -27,7 +27,7 @@ message Server {
 }
 
 message Test {
-        optional uint32 test_type = 1;
+        optional uint64 test_type = 1;
         repeated string targets = 2;
         optional string params = 3;
 }
@@ -39,7 +39,7 @@ message Schedule {
             SCHEDULE_PERIOD_WEEKLY = 3;
         }
 
-        optional uint32 test_type = 1;
+        optional uint64 test_type = 1;
         repeated string targets = 2;
         optional int64 start = 3 [default = 0];
         optional int64 end = 4 [default = -1];
@@ -56,6 +56,6 @@ message Response {
 }
 
 message Result {
-        optional uint32 test_type = 1;
+        optional uint64 test_type = 1;
         optional bytes result = 2;
 }
