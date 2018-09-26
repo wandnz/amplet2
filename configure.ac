@@ -11,6 +11,20 @@ AC_CONFIG_MACRO_DIR([m4])
 
 m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES([yes])])
 
+
+# libtool will do what it wants with the values given for CURRENT:REVISION:AGE
+# but it should all work out ok even if it looks wrong. See:
+#   https://autotools.io/libtool/version.html
+#
+# How to update version:
+#   https://www.gnu.org/software/libtool/manual/html_node/Updating-version-info.html
+#
+# Versions:
+#   amplet2-0.8.4 and earlier: no versioning
+#   amplet2-0.9.0: 1:0:0 (ABI version 1)
+LIBAMP_LIBTOOL_VERSION=1:0:0
+AC_SUBST(LIBAMP_LIBTOOL_VERSION)
+
 # Checks for programs.
 AC_PROG_CC
 AC_PROG_CXX
