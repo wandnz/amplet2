@@ -1,6 +1,6 @@
 usr/bin/* usr/sbin
-usr/lib/x86_64-linux-gnu/libamp.*so*
-usr/lib/x86_64-linux-gnu/amplet2/tests/*so
+usr/lib/*/libamp.*so*
+usr/lib/*/amplet2/tests/*so
 #usr/lib/amplet2/extra/yt.html
 etc/amplet2/clients/*
 etc/amplet2/nametables/*
