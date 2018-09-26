@@ -1,0 +1,129 @@
+stages:
+ - build
+ - deploy
+
+# multiarch images only include the main component, and equivs is in universe
+.fix_ubuntu_multiarch_apt_template: &fix_ubuntu_multiarch_apt
+  /bin/sed -i 's/main$/main restricted universe/' /etc/apt/sources.list
+
+.generic_apt_build_template: &generic_apt_build
+  echo 'APT::Install-Recommends "0";' > /etc/apt/apt.conf.d/10no-recommends &&
+  echo 'APT::Install-Suggests "0";' > /etc/apt/apt.conf.d/10no-suggests &&
+  apt-get update && apt-get -y upgrade &&
+  apt-get install -y ca-certificates devscripts dpkg-dev equivs lsb-release wget gnupg &&
+  echo "deb http://amp.wand.net.nz/debian/ `lsb_release -c -s` main" > /etc/apt/sources.list.d/amplet2.list &&
+  wget -O- http://amp.wand.net.nz/debian/pubkey.gpg | apt-key add - &&
+  apt-get update &&
+  export DEBEMAIL='brendonj@waikato.ac.nz' &&
+  export DEBFULLNAME='Brendon Jones' &&
+  export CODENAME=`lsb_release -c -s` &&
+  mk-build-deps -i -r -t 'apt-get -f -y --force-yes' &&
+  dpkg-buildpackage -b -us -uc -rfakeroot &&
+  mkdir -p built-packages/$CODENAME/ || true &&
+  mv ../*.deb built-packages/$CODENAME/
+
+.build_template: &build_template
+  stage: build
+  script:
+    - *generic_apt_build
+  artifacts:
+    paths:
+      - built-packages/*
+    expire_in: 1 day
+  only:
+    - tags
+
+build-bionic-amd64:
+  <<: *build_template
+  image: ubuntu:bionic
+
+build-bionic-i386:
+  <<: *build_template
+  image: multiarch/ubuntu-debootstrap:i386-bionic
+  script:
+    - *fix_ubuntu_multiarch_apt
+    - *generic_apt_build
+
+build-bionic-armhf:
+  <<: *build_template
+  image: multiarch/ubuntu-debootstrap:armhf-bionic
+  script:
+    - *fix_ubuntu_multiarch_apt
+    - *generic_apt_build
+
+#build-bionic-arm64:
+#  <<: *build_template
+#  image: multiarch/ubuntu-debootstrap:arm64-bionic
+#  script:
+#    - *fix_ubuntu_multiarch_apt
+#    - *generic_apt_build
+
+
+build-xenial-amd64:
+  <<: *build_template
+  image: ubuntu:xenial
+
+build-xenial-i386:
+  <<: *build_template
+  image: multiarch/ubuntu-debootstrap:i386-xenial
+  script:
+    - *fix_ubuntu_multiarch_apt
+    - *generic_apt_build
+
+build-xenial-armhf:
+  <<: *build_template
+  image: multiarch/ubuntu-debootstrap:armhf-xenial
+  script:
+    - *fix_ubuntu_multiarch_apt
+    - *generic_apt_build
+
+#build-xenial-arm64:
+#  <<: *build_template
+#  image: multiarch/ubuntu-debootstrap:arm64-xenial
+#  script:
+#    - *fix_ubuntu_multiarch_apt
+#    - *generic_apt_build
+
+build-stretch-amd64:
+  <<: *build_template
+  image: debian:stretch
+
+build-stretch-i386:
+  <<: *build_template
+  image: multiarch/debian-debootstrap:i386-stretch
+
+build-stretch-armhf:
+  <<: *build_template
+  image: multiarch/debian-debootstrap:armhf-stretch
+
+#build-stretch-arm64:
+#  <<: *build_template
+#  image: multiarch/debian-debootstrap:arm64-stretch
+
+build-jessie-amd64:
+  <<: *build_template
+  image: debian:jessie
+
+build-jessie-i386:
+  <<: *build_template
+  image: multiarch/debian-debootstrap:i386-jessie
+
+build-jessie-armhf:
+  <<: *build_template
+  image: multiarch/debian-debootstrap:armhf-jessie
+
+#build-jessie-arm64:
+#  <<: *build_template
+#  image: multiarch/debian-debootstrap:arm64-jessie
+
+deploy-packages:
+  stage: deploy
+  image: ubuntu:bionic
+  script:
+    - ls built-packages/
+  artifacts:
+    paths:
+      - built-packages/*
+    expire_in: 1 month
+  only:
+    - tags
