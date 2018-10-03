@@ -41,6 +41,7 @@ endif
 # TODO: what is the best way to always build the server-side python scripts
 # while only building the rest of the test if it is enabled?
 SUBDIRS+=youtube
+SUBDIRS+=fastping
 
 if WANT_PYTHON
 SUBDIRS+=python

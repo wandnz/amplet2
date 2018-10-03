@@ -1,0 +1,94 @@
+.TH AMP-UDPSTREAM 8 "2018-10-03" "amplet2-client" "The Active Measurement Project"
+
+.SH NAME
+amp-fastping \- AMP standalone ICMP jitter test
+
+
+.SH SYNOPSIS
+\fBamp-fastping\fR [\fB-hpvx\fR] [\fB-c \fIcount\fR] [\fB-r \fIrate\fR] [\fB-s \fIsize\fR] [\fB-I \fIiface\fR] [\fB-4 \fIaddress\fR] [\fB-6 \fIaddress\fR] [\fB-Q \fIcodepoint\fR] -- \fIdestination\fR
+
+
+.SH DESCRIPTION
+\fBamp-fastping\fP is the standalone version of the \fBamplet2\fP(8)
+ICMP jitter test. It sends streams of ICMP packets between two endpoints and
+reports on the jitter, latency and loss observed.
+
+
+.SH OPTIONS
+
+.TP
+\fB-h, --help\fR
+Show summary of options.
+
+.TP
+\fB-c, --count \fIcount\fR
+Number of packets to send in the stream. The default is 60.
+
+.TP
+\fB-I, --interface \fIiface\fR
+Specifies the interface (device) that tests should use when sending packets.
+By default the interface will be selected according to the routing table.
+
+.TP
+\fB-p, --preemptive\fR
+If set the test will send three packets and then sleep briefly before the test
+starts, with the aim of priming any stateful devices in the path (looking up
+routes, creating firewall rules, etc).
+
+.TP
+\fB-Q, --dscp \fIcodepoint\fR
+IP differentiated services codepoint to set. This should be a string
+representing a 6-bit value in binary, octal, decimal or hexadecimal, or the
+short name of a predefined, commonly used codepoint.
+
+.TP
+\fB-r, --rate \fIpackets per second\fR
+Specifies the number of packets to try to send per second. The default is 1.
+
+.TP
+\fB-s, --size \fIbytes\fR
+Specifies the total number of bytes to be sent per packet (including headers).
+The default is 64 bytes.
+
+.TP
+\fB-v, --version\fR
+Show version of program.
+
+.TP
+\fB-x, --debug\fR
+Enable extra debugging output.
+
+.TP
+\fB-4, --ipv4 \fIa.b.c.d\fR
+Specifies the source IPv4 address that tests should use when sending packets to
+IPv4 targets. This address must belong to one of the interfaces.
+By default the IPv4 address of the outgoing interface will be used.
+
+.TP
+\fB-6, --ipv6 \fIa:b:c:d:e:f:g:h\fR
+Specifies the source IPv6 address that tests should use when sending packets to
+IPv6 targets. This address must belong to one of the interfaces.
+By default the IPv6 address of the outgoing interface will be used.
+
+
+.SH SEE ALSO
+.BR amplet2 (8),
+.BR amplet2-remote (8),
+.BR amp-dns (8),
+.BR amp-http (8),
+.BR amp-icmp (8),
+.BR amp-tcpping (8),
+.BR amp-throughput (8),
+.BR amp-trace (8),
+.BR amp-udpstream (8).
+.BR amp-youtube (8).
+
+.SH SECURITY
+\fBamp-fastping\fR requires raw socket access to run.
+
+.SH AUTHOR
+amp-fastping was written by Jayden Hewer <jayden.hewer@gmail.com> with
+modifications by Brendon Jones <brendonj@waikato.ac.nz>.
+
+.PP
+This manual page was written by Brendon Jones <brendonj@waikato.ac.nz>.

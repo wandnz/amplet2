@@ -49,4 +49,5 @@ __all__ = [
     "tcpping",
     "udpstream",
     "youtube",
+    "fastping",
 ]

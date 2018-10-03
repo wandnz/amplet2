@@ -1,0 +1,73 @@
+/**
+ * Data reporting messages for the AMP FASTPING test.
+ *
+ */
+package amplet2.fastping;
+
+
+/**
+ * An instance of the test will generate one Report message.
+ */
+message Report {
+    /** Describes the test settings used in this test instance */
+    optional Header header = 1;
+    /** Results for all test targets */
+    repeated Item reports = 2;
+}
+
+
+/**
+ * The test header describes all of the settings that the test was configured
+ * to run with. These settings are the same for every result contained within
+ * the Report message.
+ */
+message Header {
+    /** The address that was tested to */
+    optional bytes address = 1;
+    /** The family the tested address belongs to (AF_INET/AF_INET6) */
+    optional int32 family = 2;
+    /** The name of the test target (as given in the schedule file) */
+    optional string name = 3;
+    /** The number of packets to send in the stream */
+    optional uint64 count = 4 [default = 60];
+    /** The requested packet rate in packets per second */
+    optional uint64 rate = 5 [default = 1];
+    /** Size of the ICMP packets in bytes (including IP and ICMP headers) */
+    optional uint32 size = 6 [default = 64];
+    /** Send probes before the test starts to prime stateful devices? */
+    optional bool preprobe = 7 [default = false];
+    /** Differentiated Services Code Point (DSCP) used */
+    optional uint32 dscp = 8 [default = 0];
+}
+
+
+/**
+ *
+ */
+message Item {
+    /** how long the test takes to run */
+    optional uint64 runtime = 1;
+    /** Summary statistics about the round trip time observed */
+    optional SummaryStats rtt = 2;
+    /** Summary statistics about the inter packet delay variation observed */
+    optional SummaryStats jitter = 3;
+}
+
+
+/**
+ * Simple summary statistics.
+ */
+message SummaryStats {
+    /** Maximum value observed */
+    optional int32 maximum = 1;
+    /** Minimum value observed */
+    optional int32 minimum = 2;
+    /** Mean value observed */
+    optional int32 mean = 3;
+    /** Number of samples observed */
+    optional uint64 samples = 4;
+    /** Standard deviation of all samples */
+    optional uint32 sd = 5;
+    /** Percentile data about the delays observed */
+    repeated int32 percentiles = 6;
+}

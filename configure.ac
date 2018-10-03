@@ -337,10 +337,22 @@ AC_ARG_WITH(chromium-includes,
         [CHROMIUM_INCLUDE_DIR+=" -I${withval}" want_youtube_test=true])
 AC_SUBST(CHROMIUM_INCLUDE_DIR)
 
-
 # using AM_CONDITIONAL propagates this value through to all Makefile.am files
 AM_CONDITIONAL(WANT_YOUTUBE_TEST, [test x"$want_youtube_test" = xtrue])
 
+AC_ARG_ENABLE(fastping,
+    AC_HELP_STRING([--enable-fastping],
+        [Enable the fastping test (default: no)]),
+    [case "${enableval}" in
+    true) ;&
+    yes) want_fastping_test=true ;;
+    false) ;&
+    no)  want_fastping_test=false ;;
+    *) AC_MSG_ERROR(bad value ${enableval} for --enable-fastping) ;;
+    esac],
+    [want_fastping_test=false])
+# using AM_CONDITIONAL propagates this value through to all Makefile.am files
+AM_CONDITIONAL(WANT_FASTPING_TEST, [test x"$want_fastping_test" = xtrue])
 
 
 # Set default CFLAGS including the AMP_CONFIG_DIR and AMP_TEST_DIR
@@ -372,8 +384,10 @@ AC_CONFIG_FILES([Makefile
                  src/tests/remoteskeleton/Makefile
                  src/tests/udpstream/Makefile
                  src/tests/udpstream/test/Makefile
-                 src/tests/youtube/Makefile])
-                 #src/tests/youtube/test/Makefile])
+                 src/tests/youtube/Makefile
+                 src/tests/fastping/Makefile])
+                 #src/tests/youtube/test/Makefile
+                 #src/tests/fastping/test/Makefile])
 AC_OUTPUT
 
 reportopt() {
@@ -396,3 +410,4 @@ reportopt "Compiled with throughput test support" $want_throughput_test
 reportopt "Compiled with tcpping test support" $want_tcpping_test
 reportopt "Compiled with udpstream test support" $want_udpstream_test
 reportopt "Compiled with youtube test support" $want_youtube_test
+reportopt "Compiled with fastping test support" $want_fastping_test
