@@ -352,32 +352,151 @@ static time_t get_period_start(schedule_period_t period, time_t *now) {
 
 
 /*
+ * Peek ahead a character to make sure it isn't the null terminator.
+ */
+static int check_more_data(char *stream) {
+    return ( *(stream + 1) != '\0' );
+}
+
+
+
+/*
+ * Copy the current token and then zero the token ready for the next one.
+ */
+static void save_token(char *token, char **destination) {
+    *destination = strdup(token);
+    memset(token, 0, MAX_ARGUMENT_LENGTH);
+}
+
+
+
+/*
  * TODO do we need to check the parameters here, given they are going to be
  * used as part of the parameter array given to execv?
  */
+/*
+ * Ideally we would use some sort of command line parsing functions from the
+ * standard library, but nothing seems to do what we want:
+ *
+ *   getopt():  operates on strings that have already been split.
+ *   wordexp(): does too much work (variable substitution, path expansion) and
+ *              possibly exposes parts of the system we'd rather not expose.
+ *   flex:      seemed like it would be overkill for such a simple situation.
+ *
+ * So, instead we have this simple state machine. It accumulates valid
+ * characters into a buffer as it reads through the string, ignoring escape
+ * characters but adding the character that was escaped. Whitespace outside
+ * of a pair of quotes creates a token from the accumulated buffer.
+ */
 char **parse_param_string(char *param_string) {
-    int i;
-    char *tmp, *arg;
+    int state = WHITESPACE;
+    int count = 0;
     char **result;
+    char *p;
+    char token[MAX_ARGUMENT_LENGTH + 1] = {'\0'};
+    int offset = 0;
+    int i;
 
-    if ( param_string == NULL ) {
-        return NULL;
+    if ( param_string == NULL || *param_string == '\0' ) {
+        /* return a null element to show parsing was successful, but empty */
+        result = calloc(1, sizeof(char*));
+        return result;
     }
 
     /* TODO we can realloc this as we go */
     result = (char**)malloc(sizeof(char*) * MAX_TEST_ARGS);
 
-    /* splitting on space, grab each part of the parameter string into array */
-    for ( i = 0, tmp = param_string; ; i++, tmp = NULL ) {
-	arg = strtok(tmp, " \n");
-	if ( arg == NULL )
-	    break;
-	result[i] = strdup(arg);
+    for ( p = param_string; *p != '\0'; p++ ) {
+        switch ( state ) {
+            /* keep consuming whitespace until we see a useful character */
+            case WHITESPACE: {
+                switch ( *p ) {
+                    case '\\': {
+                        /* ensure a character follows the escaping slash */
+                        if ( !check_more_data(p) ) {
+                            goto parse_param_error;
+                        }
+                        /* skip the slash character */
+                        p++;
+                        /* store the next character but don't inspect it */
+                        token[offset++] = *p;
+                        state = CHARACTER;
+                    } break;
+                    case '\n':
+                    case ' ':
+                    case '\t': break;
+                    case '"': state = DQUOTE; break;
+                    case '\'': state = SQUOTE; break;
+                    default:
+                        token[offset++] = *p;
+                        state = CHARACTER;
+                        break;
+                };
+            } break;
+
+            /* keep consuming characters until we see the matching end quote */
+            case DQUOTE:
+            case SQUOTE: {
+                if ( (state == DQUOTE && *p == '"') ||
+                        (state == SQUOTE && *p == '\'') ) {
+                    state = CHARACTER;
+                    break;
+                }
+
+                if ( *p == '\\' ) {
+                    if ( !check_more_data(p) ) {
+                        goto parse_param_error;
+                    }
+                    p++;
+                }
+
+                token[offset++] = *p;
+            } break;
+
+            /* keep consuming characters until we see a quote or whitespace */
+            case CHARACTER: {
+                switch ( *p ) {
+                    case '\\': {
+                        if ( !check_more_data(p) ) {
+                            goto parse_param_error;
+                        }
+                        p++;
+                        token[offset++] = *p;
+                    } break;
+                    case '"': state = DQUOTE; break;
+                    case '\'': state = SQUOTE; break;
+                    case '\n':
+                    case ' ':
+                    case '\t': {
+                        save_token(token, &result[count++]);
+                        offset = 0;
+                        state = WHITESPACE;
+                    } break;
+                    default: token[offset++] = *p; break;
+                };
+            } break;
+        };
     }
 
+    /* it's an error to have an open set of quotes when we run out of input */
+    if ( state == DQUOTE || state == SQUOTE ) {
+        goto parse_param_error;
+    }
+
+    /* otherwise finish up the last token that was built when input ran out */
+    save_token(token, &result[count++]);
+
     /* param list should be null terminated */
-    result[i] = NULL;
+    result[count] = NULL;
+
     return result;
+
+parse_param_error:
+    for ( i = 0; i < count; i++ ) {
+        free(result[i]);
+    }
+    free(result);
+    return NULL;
 }
 
 
@@ -793,6 +912,7 @@ static test_schedule_item_t *create_and_schedule_test(
     char **targets = NULL, **remaining = NULL;
     int target_len;
     struct timeval next;
+    int params_present = 0;
 
     /* make sure the node exists and is of the right type */
     if ( (node = yaml_document_get_node(document, index)) == NULL ||
@@ -834,6 +954,7 @@ static test_schedule_item_t *create_and_schedule_test(
         } else if ( strcmp((char*)key->data.scalar.value, "args") == 0 ) {
             assert(value->type == YAML_SCALAR_NODE);
             params = parse_param_string((char*)value->data.scalar.value);
+            params_present = 1;
         } else if ( strcmp((char*)key->data.scalar.value, "target") == 0 ) {
             /* it's possible "target" could be defined multiple times */
             if ( targets == NULL ) {
@@ -883,6 +1004,12 @@ static test_schedule_item_t *create_and_schedule_test(
     } else if ( check_time_range(frequency, period) < 0 ) {
         Log(LOG_WARNING, "Invalid frequency value %d for period %s\n",
                 frequency, period_str);
+        goto end;
+    }
+
+    if ( params_present && params == NULL ) {
+        Log(LOG_WARNING, "Incorrectly formed argument string for %s test\n",
+                testname);
         goto end;
     }
 

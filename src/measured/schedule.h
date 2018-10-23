@@ -63,6 +63,7 @@
 #define SCHEDULE_FETCH_FREQUENCY 3600
 #define SCHEDULE_FETCH_TIMEOUT 30
 #define MAX_TEST_ARGS 128
+#define MAX_ARGUMENT_LENGTH 1024
 
 /* tests can start at most 100ms (in usec) early, otherwise reschedule them */
 #define SCHEDULE_CLOCK_FUDGE ( 100 * 1000 )
@@ -83,6 +84,14 @@
 	(res).tv_sec  += 1; \
     } \
 }
+
+
+enum parse_state {
+    WHITESPACE = 0,
+    DQUOTE,
+    SQUOTE,
+    CHARACTER
+};
 
 
 typedef enum schedule_period {
