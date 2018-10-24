@@ -913,12 +913,21 @@ static test_schedule_item_t *create_and_schedule_test(
     int target_len;
     struct timeval next;
     int params_present = 0;
+    int lineno = 0;
 
     /* make sure the node exists and is of the right type */
     if ( (node = yaml_document_get_node(document, index)) == NULL ||
             node->type != YAML_MAPPING_NODE ) {
         return NULL;
     }
+
+    /*
+     * Save the line number for the start of the test definition, rather
+     * than keeping line numbers for every attribute. The yaml mark seems
+     * to point to the line before, so increment by one.
+     */
+    lineno = node->start_mark.line + 1;
+
 
     for ( pair = node->data.mapping.pairs.start;
             pair < node->data.mapping.pairs.top; pair++ ) {
@@ -969,7 +978,7 @@ static test_schedule_item_t *create_and_schedule_test(
     /* confirm the test name is valid */
     if ( testname == NULL ||
             (test_definition = get_test_by_name(testname)) == NULL ) {
-        Log(LOG_WARNING, "Unknown test '%s'", testname);
+        Log(LOG_WARNING, "Unknown test '%s' (from line %d)", testname, lineno);
         goto end;
     }
 
@@ -978,14 +987,16 @@ static test_schedule_item_t *create_and_schedule_test(
         period = SCHEDULE_PERIOD_DAILY;
     } else if ( (period =
                 get_period_label(period_str)) == SCHEDULE_PERIOD_INVALID ) {
-        Log(LOG_WARNING, "Invalid period: '%s'", period_str);
+        Log(LOG_WARNING, "Invalid period: '%s' (from line %d)",
+                period_str, lineno);
         goto end;
     }
 
     /* now that the period is determined, we can validate the other values */
     if ( check_time_range(start, period) < 0 ) {
-        Log(LOG_WARNING, "Invalid start value %" PRId64 " for period %s\n",
-                start, period_str);
+        Log(LOG_WARNING,
+                "Invalid start value %" PRId64 " for period %s (from line %d)",
+                start, period_str, lineno);
         goto end;
     }
 
@@ -993,8 +1004,9 @@ static test_schedule_item_t *create_and_schedule_test(
     if ( end < 0 ) {
         end = ((int64_t)get_period_max_value(period)) * 1000000;
     } else if ( check_time_range(end, period) < 0 ) {
-        Log(LOG_WARNING, "Invalid end value %" PRId64 " for period %s\n",
-                end, period_str);
+        Log(LOG_WARNING,
+                "Invalid end value %" PRId64 " for period %s (from line %d)",
+                end, period_str, lineno);
         goto end;
     }
 
@@ -1002,14 +1014,15 @@ static test_schedule_item_t *create_and_schedule_test(
     if ( frequency < 0 ) {
         frequency = get_period_default_frequency(period) * 1000000;
     } else if ( check_time_range(frequency, period) < 0 ) {
-        Log(LOG_WARNING, "Invalid frequency value %d for period %s\n",
-                frequency, period_str);
+        Log(LOG_WARNING,
+                "Invalid frequency value %d for period %s (from line %d)",
+                frequency, period_str, lineno);
         goto end;
     }
 
     if ( params_present && params == NULL ) {
-        Log(LOG_WARNING, "Incorrectly formed argument string for %s test\n",
-                testname);
+        Log(LOG_WARNING, "Incorrectly formed argument string (from line %d)",
+                lineno);
         goto end;
     }
 
