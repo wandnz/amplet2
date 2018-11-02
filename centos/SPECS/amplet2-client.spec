@@ -1,12 +1,12 @@
 Name: amplet2
-Version: 0.8.4
+Version: 0.9.0
 Release: 1%{?dist}
 Summary: AMP Network Performance Measurement Suite - Client Tools
 
 Group: Applications/Internet
 License: AMP
 URL: http://research.wand.net.nz/software/amp.php
-Source0: https://github.com/wanduow/amplet2/archive/v0.8.4.tar.gz
+Source0: https://github.com/wanduow/amplet2/archive/v0.9.0.tar.gz
 Patch0: amplet2-client-init.patch
 Patch1: amplet2-client-default.patch
 BuildRoot:	%(mktemp -ud %{_tmppath}/%{name}-%{version}-%{release}-XXXXXX)
@@ -98,6 +98,16 @@ fi
 
 
 %changelog
+* Fri Nov  2 2018 Brendon Jones <brendonj@waikato.ac.nz> 0.9.0-1
+- build: libamp.so is now versioned (#15).
+- amplet2: remove bounds checking for test IDs so all values are valid. This
+  allows others to write tests without needing to recompile amplet2 (#15).
+- amplet2: Fix argument parsing by scheduler to deal with quotes (#19).
+- dns: update unit tests for new rrsig and nsid fields (#23, #24).
+- amplet2: add new high frequency ICMP stream test "fastping" (#26).
+- amplet2: set environ to NULL after free, so cleanup functions don't use it.
+- amplet2: Print line number of config block when reporting schedule errors.
+
 * Mon Sep  3 2018 Brendon Jones <brendonj@waikato.ac.nz> 0.8.4-1
 - package: don't try to install sample rabbitmq.config if file doesn't exist.
 - amplet2: fix crash caused by incorrect/duplicated SSL cleanup.
