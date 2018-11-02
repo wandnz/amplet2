@@ -1,3 +1,17 @@
+amplet2 (0.9.0-1) unstable; urgency=low
+
+  * build: libamp.so is now versioned (#15).
+  * amplet2: remove bounds checking for test IDs so all values are valid. This
+    allows others to write tests without needing to recompile amplet2 (#15).
+  * amplet2: Fix argument parsing by scheduler to deal with quotes (#19).
+  * dns: update unit tests for new rrsig and nsid fields (#23, #24).
+  * amplet2: add new high frequency ICMP stream test "fastping" (#26).
+  * amplet2: set environ to NULL after free, so cleanup functions don't use it.
+  * amplet2: Print line number of config block when reporting schedule errors.
+  * package: update to debhelper compat level 9.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Fri,  2 Nov 2018 15:41:15 +1300
+
 amplet2 (0.8.4-1) unstable; urgency=low
 
   * package: don't try to install sample rabbitmq.config if file doesn't exist.
