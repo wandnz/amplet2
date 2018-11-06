@@ -72,6 +72,7 @@ static struct option long_options[] = {
     /* actual test arguments that we need to deal with */
     {"quality", required_argument, 0, 'q'},
     {"useragent", required_argument, 0, 'a'},
+    {"user-agent", required_argument, 0, 'a'},
     {"youtube", required_argument, 0, 'y'},
     {"dscp", required_argument, 0, 'Q'},
     {"interpacketgap", required_argument, 0, 'Z'},
