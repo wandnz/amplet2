@@ -306,14 +306,14 @@ amp_test_result_t* run_youtube(int argc, char *argv[],
                 Log(LOG_WARNING, "UNIMPLEMENTED OPTION '-%c'", opt);
                 break;
             case 'Z': /* not used, but might be set globally */ break;
-            case 'a': options.useragent = strdup(optarg); break;
-            case 'q': options.quality = strdup(optarg); break;
+            case 'a': options.useragent = optarg; break;
+            case 'q': options.quality = optarg; break;
             case 'v': print_package_version(argv[0]); exit(EXIT_SUCCESS);
             case 'x': log_level = LOG_DEBUG;
                       log_level_override = 1;
                       break;
             /* TODO there is also player.loadVideoByUrl() function, useful? */
-            case 'y': options.video = strdup(optarg); break;
+            case 'y': options.video = optarg; break;
             case 0: /* TODO close stdout/stderr to hide chromium warnings? */
                       cpp_main(argc, (const char **)argv); break;
             case 'h': usage(); exit(EXIT_SUCCESS);
@@ -460,7 +460,6 @@ amp_test_result_t* run_youtube(int argc, char *argv[],
     result = report_results(&start_time, youtube, &options);
 
     free(buffer);
-    free(options.video);
     amplet2__youtube__item__free_unpacked(youtube, NULL);
 
     if ( urlstr ) {
@@ -468,12 +467,10 @@ amp_test_result_t* run_youtube(int argc, char *argv[],
     }
 
     if ( qualitystr ) {
-        free(options.quality);
         free(qualitystr);
     }
 
     if ( useragentstr ) {
-        free(options.useragent);
         free(useragentstr);
     }
 
