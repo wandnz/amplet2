@@ -741,8 +741,6 @@ void *cpp_main(int argc, const char *argv[]) {
         /* TODO add a few pre-configured user agents? */
         std::string agent = commandline->GetSwitchValueASCII("useragent");
         builder.SetUserAgent(agent);
-    } else {
-        builder.SetUserAgent("AMP YouTube test agent (Chromium 63.0.3239.150)");
     }
     /* TODO see also: SetDisableSandbox(true) */
 

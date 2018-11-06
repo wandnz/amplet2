@@ -255,6 +255,7 @@ static amp_test_result_t* report_results(struct timeval *start_time,
     header.has_quality = 1;
     header.dscp = opt->dscp;
     header.has_dscp = 1;
+    header.useragent = opt->useragent;
 
     msg.item = youtube;
 
@@ -296,6 +297,9 @@ amp_test_result_t* run_youtube(int argc, char *argv[],
     extern char **environ;
 
     memset(&options, 0, sizeof(struct opt_t));
+
+    /* TODO get chromium version from chromium libraries */
+    options.useragent = "AMP YouTube test agent (Chromium 63.0.3239.150)";
 
     while ( (opt = getopt_long(argc, argv, "a:q:y:I:Q:Z:4::6::hvx",
                     long_options, NULL)) != -1 ) {
@@ -495,8 +499,13 @@ void print_youtube(amp_test_result_t *result) {
     assert(msg);
     assert(msg->header);
 
-    printf("AMP YouTube test, video: %s, desired quality: %s\n",
-            msg->header->video, get_quality_string(msg->header->quality));
+    printf("\n");
+    printf("AMP YouTube test, video: %s\n", msg->header->video);
+    printf("Desired quality: %s\n", get_quality_string(msg->header->quality));
+    if ( msg->header->useragent ) {
+        printf("User Agent: \"%s\"\n", msg->header->useragent);
+    }
+
     print_video(msg->item);
 
     amplet2__youtube__report__free_unpacked(msg, NULL);

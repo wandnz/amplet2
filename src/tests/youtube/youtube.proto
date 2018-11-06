@@ -51,6 +51,7 @@ message Header {
     optional Quality quality = 2;
     /** Differentiated Services Code Point (DSCP) used */
     optional uint32 dscp = 3 [default = 0];
+    optional string useragent = 4;
 }
 
 message Item {
