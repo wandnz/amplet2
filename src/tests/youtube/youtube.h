@@ -68,6 +68,7 @@ struct opt_t {
     char *sourcev6;                             /* source v6 address */
     long sslversion;                            /* SSL version to use */
     uint8_t dscp;
+    uint16_t maxruntime;                        /* max video duration */
 };
 
 struct TimelineEvent {

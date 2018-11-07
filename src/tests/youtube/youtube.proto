@@ -52,6 +52,7 @@ message Header {
     /** Differentiated Services Code Point (DSCP) used */
     optional uint32 dscp = 3 [default = 0];
     optional string useragent = 4;
+    optional uint32 maxruntime = 5 [default = 0];
 }
 
 message Item {

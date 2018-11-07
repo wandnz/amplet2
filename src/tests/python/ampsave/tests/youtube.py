@@ -61,6 +61,7 @@ def get_data(data):
         "requested_quality": msg.header.quality,
         "dscp": getPrintableDscp(msg.header.dscp),
         "useragent": msg.header.useragent,
+        "max_runtime": msg.header.maxruntime,
         "title": msg.item.title,
         "actual_quality": msg.item.quality,
         "initial_buffering": msg.item.initial_buffering,

@@ -23,6 +23,13 @@
           quality = "default";
       }
 
+      if ( urlParams.has("runtime") ) {
+          /* convert from seconds to milliseconds for javascript timers */
+          runtime = urlParams.get("runtime") * 1000;
+      } else {
+          runtime = 0;
+      }
+
       if ( urlParams.has("debug") ) {
           debug = urlParams.get("debug");
       } else {
@@ -55,6 +62,16 @@
        */
       var player;
       var timeline = []
+
+      function terminateEarly() {
+          if ( player.getPlayerState() != YT.PlayerState.ENDED ) {
+              if ( debug ) {
+                console.log("Stopping video due to time constraint");
+              }
+              /* pause rather than stopping so we can access video metadata */
+              player.pauseVideo();
+          }
+      }
 
       function getQualityHeight(quality) {
           var heights = {
@@ -134,6 +151,10 @@
                   "timestamp": 0,
                   "event": "ready",
                   });
+          /* start counting runtime from now (the player ready time) */
+          if ( runtime > 0 ) {
+              setTimeout(terminateEarly, runtime);
+          }
       }
 
       function onPlayerError(event) {
@@ -243,11 +264,13 @@
                         });
                 break;
 
+            case YT.PlayerState.PAUSED:
             case YT.PlayerState.ENDED:
                 timeline.push({
                         "timestamp": now - starttime,
                         "event": "ended",
                         });
+
                 youtuberesults = {
                     "video": video_id,
                     /* TODO getVideoData() is undocumented, not official */

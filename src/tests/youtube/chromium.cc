@@ -188,6 +188,11 @@ HeadlessTest::HeadlessTest(headless::HeadlessBrowser* browser,
             url_ += std::string("&quality=") +
                 commandline->GetSwitchValueASCII("quality");
         }
+
+        if ( commandline->HasSwitch("runtime") ) {
+            url_ += std::string("&runtime=") +
+                commandline->GetSwitchValueASCII("runtime");
+        }
     }
 }
 

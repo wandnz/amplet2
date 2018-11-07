@@ -74,6 +74,7 @@ static struct option long_options[] = {
     {"useragent", required_argument, 0, 'a'},
     {"user-agent", required_argument, 0, 'a'},
     {"youtube", required_argument, 0, 'y'},
+    {"max-runtime", required_argument, 0, 't'},
     {"dscp", required_argument, 0, 'Q'},
     {"interpacketgap", required_argument, 0, 'Z'},
     {"interface", required_argument, 0, 'I'},
@@ -94,7 +95,8 @@ static void usage(void) {
     fprintf(stderr,
         "Usage: amp-youtube [-hx] [-Q codepoint] [-Z interpacketgap]\n"
         "                   [-I interface] [-4 [sourcev4]] [-6 [sourcev6]]\n"
-        "                   [-a useragent] [-q quality] -y video_id\n"
+        "                   [-a useragent] [-t max-runtime] [-q quality]\n"
+        "                   -y video_id\n"
         "\n");
 
     fprintf(stderr, "Options:\n");
@@ -103,7 +105,9 @@ static void usage(void) {
     fprintf(stderr, "  -q, --quality       <quality>   "
                 "Suggested video quality, not guaranteed\n"
                 "           (default,small,medium,large,hd720,hd1080,hd1440,hd2160,highres)\n");
-    fprintf(stderr, "  -y, --youtube       <video_id>  "
+    fprintf(stderr, "  -t, --max-runtime   <seconds>  "
+                "Maximum duration of video playback\n");
+    fprintf(stderr, "  -y, --youtube       <video_id> "
                 "Youtube video ID to fetch\n");
     print_generic_usage();
 }
@@ -256,6 +260,8 @@ static amp_test_result_t* report_results(struct timeval *start_time,
     header.dscp = opt->dscp;
     header.has_dscp = 1;
     header.useragent = opt->useragent;
+    header.has_maxruntime = 1;
+    header.maxruntime = opt->maxruntime;
 
     msg.item = youtube;
 
@@ -282,7 +288,10 @@ amp_test_result_t* run_youtube(int argc, char *argv[],
         __attribute__((unused))struct addrinfo **dests) {
     int opt;
     int cpp_argc = 0;
-    char *urlstr = NULL, *qualitystr = NULL, *useragentstr = NULL;
+    char *urlstr = NULL;
+    char *qualitystr = NULL;
+    char *useragentstr = NULL;
+    char *runtimestr = NULL;
     char *cpp_argv[10];
     Amplet2__Youtube__Item *youtube;
     struct timeval start_time;
@@ -301,7 +310,7 @@ amp_test_result_t* run_youtube(int argc, char *argv[],
     /* TODO get chromium version from chromium libraries */
     options.useragent = "AMP YouTube test agent (Chromium 63.0.3239.150)";
 
-    while ( (opt = getopt_long(argc, argv, "a:q:y:I:Q:Z:4::6::hvx",
+    while ( (opt = getopt_long(argc, argv, "a:q:t:y:I:Q:Z:4::6::hvx",
                     long_options, NULL)) != -1 ) {
         switch ( opt ) {
             case '4':
@@ -313,6 +322,7 @@ amp_test_result_t* run_youtube(int argc, char *argv[],
             case 'Z': /* not used, but might be set globally */ break;
             case 'a': options.useragent = optarg; break;
             case 'q': options.quality = optarg; break;
+            case 't': options.maxruntime = atoi(optarg); break;
             case 'v': print_package_version(argv[0]); exit(EXIT_SUCCESS);
             case 'x': log_level = LOG_DEBUG;
                       log_level_override = 1;
@@ -376,6 +386,14 @@ amp_test_result_t* run_youtube(int argc, char *argv[],
             exit(EXIT_FAILURE);
         }
         cpp_argv[cpp_argc++] = useragentstr;
+    }
+
+    if ( options.maxruntime > 0 ) {
+        if ( asprintf(&runtimestr, "--runtime=%u", options.maxruntime) < 0 ) {
+            Log(LOG_WARNING, "Failed to build runtime string, aborting\n");
+            exit(EXIT_FAILURE);
+        }
+        cpp_argv[cpp_argc++] = runtimestr;
     }
 
     cpp_argv[cpp_argc] = NULL;
@@ -479,6 +497,10 @@ amp_test_result_t* run_youtube(int argc, char *argv[],
         free(useragentstr);
     }
 
+    if ( runtimestr ) {
+        free(runtimestr);
+    }
+
     return result;
 }
 
@@ -504,6 +526,9 @@ void print_youtube(amp_test_result_t *result) {
     printf("Desired quality: %s\n", get_quality_string(msg->header->quality));
     if ( msg->header->useragent ) {
         printf("User Agent: \"%s\"\n", msg->header->useragent);
+    }
+    if ( msg->header->maxruntime > 0 ) {
+        printf("Maximum Runtime: %u seconds\n", msg->header->maxruntime);
     }
 
     print_video(msg->item);
