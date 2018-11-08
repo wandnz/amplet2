@@ -45,8 +45,8 @@
       if ( debug ) {
           /* TODO do something sensible if the browser can't? */
           /* can this browser actually play videos? */
-          console.log("video: " +
-                  !!document.createElement("video").canPlayType);
+          //console.log("video: " +
+          //        !!document.createElement("video").canPlayType);
       }
 
       /* 2. This code loads the IFrame Player API code asynchronously. */
@@ -71,6 +71,18 @@
               /* pause rather than stopping so we can access video metadata */
               player.pauseVideo();
           }
+      }
+
+      function getStateName(state) {
+          switch ( state ) {
+              case YT.PlayerState.UNSTARTED: return "unstarted";
+              case YT.PlayerState.ENDED: return "ended";
+              case YT.PlayerState.PLAYING: return "playing";
+              case YT.PlayerState.PAUSED: return "paused";
+              case YT.PlayerState.BUFFERING: return "buffering";
+              case YT.PlayerState.CUED: return "cued";
+              default: return "unknown";
+          };
       }
 
       function getQualityHeight(quality) {
@@ -116,7 +128,7 @@
 
       function onYouTubeIframeAPIReady() {
           if ( debug ) {
-              console.log("onYouTubeIframeAPIReady");
+              console.log("onYouTubeIframeAPIReady() triggered");
           }
           player = new YT.Player('player', {
           height: getQualityHeight(quality),
@@ -142,7 +154,7 @@
       function onPlayerReady(event) {
           starttime = Date.now();
           if ( debug ) {
-              console.log("onPlayerReady");
+              console.log("video state change: ready (t=0ms)");
           }
           /* XXX no guarantee, look for onPlaybackQualityChange event? */
           event.target.setPlaybackQuality(quality);
@@ -159,7 +171,7 @@
 
       function onPlayerError(event) {
           console.log("onPlayerError");
-          console.log(event);
+          console.log(event.data);
       }
 
       /*
@@ -178,11 +190,15 @@
 
       function onQualityChange(event) {
           var now = Date.now();
+          var timestamp = now - starttime;
+
           if ( debug ) {
-              console.log("quality change: " + event.data);
+              console.log("video quality change: " + event.data +
+                      " (t=" + timestamp + "ms)");
           }
+
           timeline.push({
-                  "timestamp": now - starttime,
+                  "timestamp": timestamp,
                   "event": "quality",
                   "quality": event.data
                   });
@@ -190,16 +206,11 @@
 
       function onPlayerStateChange(event) {
           var now = Date.now();
+          var timestamp = now - starttime;
+
           if ( debug ) {
-              console.log("state change at " + now);
-
-              if ( time > 0 ) {
-                  console.log("time since last event:" + (now - time));
-              }
-
-              console.log("quality options: " +
-                      event.target.getPlaybackQuality() + " (" +
-                      event.target.getAvailableQualityLevels() + ")");
+              console.log("video state change: " + getStateName(event.data) +
+                      " (t=" + timestamp + "ms)");
           }
 
           /*
@@ -219,22 +230,14 @@
 
           switch ( event.data ) {
             case YT.PlayerState.UNSTARTED:
-                if ( debug ) {
-                    console.log("unstarted");
-                    console.log((now - time) + " from previous to this point");
-                }
                 state = YT.PlayerState.UNSTARTED;
                 timeline.push({
-                        "timestamp": now - starttime,
+                        "timestamp": timestamp,
                         "event": "unstarted",
                         });
                 break;
 
             case YT.PlayerState.BUFFERING:
-                if ( debug ) {
-                    console.log("buffering");
-                    console.log((now - time) + " from previous to this point");
-                }
                 state = YT.PlayerState.BUFFERING;
                 /* pre time ends once we start to buffer for the first time */
                 if ( pretime == 0 ) {
@@ -242,16 +245,12 @@
                     bufferstart = now;
                 }
                 timeline.push({
-                        "timestamp": now - starttime,
+                        "timestamp": timestamp,
                         "event": "buffering",
                         });
                 break;
 
             case YT.PlayerState.PLAYING:
-                if ( debug ) {
-                    console.log("playing");
-                    console.log((now - time) + " from previous to this point");
-                }
                 /* initial buffering ends the first time we enter play state */
                 if ( firstbuffer == 0 ) {
                     firstbuffer = now - bufferstart;
@@ -259,7 +258,7 @@
 
                 state = YT.PlayerState.PLAYING;
                 timeline.push({
-                        "timestamp": now - starttime,
+                        "timestamp": timestamp,
                         "event": "playing",
                         });
                 break;
@@ -267,7 +266,7 @@
             case YT.PlayerState.PAUSED:
             case YT.PlayerState.ENDED:
                 timeline.push({
-                        "timestamp": now - starttime,
+                        "timestamp": timestamp,
                         "event": "ended",
                         });
 
@@ -291,9 +290,6 @@
                 break;
 
             default:
-                if ( debug ) {
-                    console.log("new state: " + event.data);
-                }
                 state = event.data;
                 return; /* so the time doesn't get updated */
         };

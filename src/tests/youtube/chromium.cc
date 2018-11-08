@@ -66,7 +66,8 @@
  *      chromium/src/headless/app/headless_example.cc
  */
 class HeadlessTest : public headless::HeadlessWebContents::Observer,
-                        public headless::page::ExperimentalObserver {
+                        public headless::page::ExperimentalObserver,
+                        public headless::runtime::Observer {
  public:
      HeadlessTest(headless::HeadlessBrowser* browser,
              headless::HeadlessWebContents* web_contents);
@@ -74,6 +75,10 @@ class HeadlessTest : public headless::HeadlessWebContents::Observer,
 
      void Shutdown();
      void DevToolsTargetReady() override;
+
+     void OnConsoleAPICalled(
+             const headless::runtime::ConsoleAPICalledParams& params) override;
+
      void OnFrameStoppedLoading(
              const headless::page::FrameStoppedLoadingParams& params) override;
      void OnFrameNavigated(
@@ -193,7 +198,13 @@ HeadlessTest::HeadlessTest(headless::HeadlessBrowser* browser,
             url_ += std::string("&runtime=") +
                 commandline->GetSwitchValueASCII("runtime");
         }
+
+        if ( commandline->HasSwitch("debug") ) {
+            url_ += std::string("&debug=true");
+        }
     }
+
+    Log(LOG_DEBUG, "URL: %s", url_.c_str());
 }
 
 
@@ -235,6 +246,8 @@ void HeadlessTest::Shutdown() {
  * Browser tab is ready, attach a devtools client to it and trigger navigation.
  */
 void HeadlessTest::DevToolsTargetReady() {
+    base::CommandLine *commandline = base::CommandLine::ForCurrentProcess();
+
     web_contents_->GetDevToolsTarget()->AttachClient(devtools_client_.get());
 
     /*
@@ -246,8 +259,47 @@ void HeadlessTest::DevToolsTargetReady() {
     devtools_client_->GetPage()->GetExperimental()->AddObserver(this);
     devtools_client_->GetPage()->Enable();
 
+    /* observe console events so they can be logged if in debug mode */
+    if ( commandline->HasSwitch("debug") ) {
+        devtools_client_->GetRuntime()->GetExperimental()->AddObserver(this);
+        devtools_client_->GetRuntime()->Enable();
+    }
+
     /* load the actual page */
     devtools_client_->GetPage()->Navigate(url_);
+}
+
+
+
+/*
+ * Pass any console messages logged by the youtube-fetching javascript on
+ * to the user.
+ */
+void HeadlessTest::OnConsoleAPICalled(
+    const headless::runtime::ConsoleAPICalledParams& params) {
+
+    const std::vector<std::unique_ptr<headless::runtime::RemoteObject>> *args;
+
+    args = params.GetArgs();
+
+    for ( std::vector<std::unique_ptr<headless::runtime::RemoteObject>>::const_iterator it = args->begin(); it != args->end(); ++it ) {
+
+        switch ( (*it)->GetType() ) {
+            case headless::runtime::RemoteObjectType::STRING:
+                Log(LOG_DEBUG, "%s", GetString((*it)->GetValue()).c_str());
+                break;
+
+            case headless::runtime::RemoteObjectType::NUMBER:
+                Log(LOG_DEBUG, "%d", GetInteger((*it)->GetValue()));
+                break;
+
+            default:
+                /*
+                Log(LOG_DEBUG, "Non string/number (type=%d)", (*it)->GetType());
+                */
+                break;
+        };
+    }
 }
 
 
