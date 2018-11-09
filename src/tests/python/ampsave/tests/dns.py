@@ -79,7 +79,7 @@ def get_data(data):
                 "ttl": i.ttl if i.HasField("ttl") else None,
                 # XXX create a new field to store the instance name returned
                 # by the NSID query so that we don't break nntsc
-                "nsid": i.instance if len(i.instance) > 0 else None,
+                "nsid_bytes": i.instance if len(i.instance) > 0 else None,
                 "rrsig": i.rrsig,
                 }
             )
