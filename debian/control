@@ -21,7 +21,7 @@ Description: AMP Network Performance Measurement Suite - Client Tools
  Software to run an AMP collector is found in the amp-server package.
 
 Package: amplet2-server
-Architecture: any
+Architecture: all
 Depends: ${shlibs:Depends}, ${misc:Depends}, rabbitmq-server (>= 3.1.5), python-protobuf
 Conflicts: amp-server
 Description: AMP Network Performance Measurement Suite - Collector Server
