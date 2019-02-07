@@ -47,7 +47,6 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-void *cpp_main(int argc, const char *argv[]);
 amp_test_result_t* run_youtube(int argc, char *argv[], int count,
         struct addrinfo **dests);
 void print_youtube(amp_test_result_t *result);
@@ -56,6 +55,7 @@ test_t *register_test(void);
 #ifdef __cplusplus
 }
 #endif
+void *cpp_main(int argc, const char *argv[]);
 
 struct opt_t {
     char *video;

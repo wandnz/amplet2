@@ -324,17 +324,17 @@ AC_ARG_ENABLE(youtube,
     esac],
     [want_youtube_test=false])
 
-CHROMIUM_INCLUDE_DIR=""
 AC_ARG_WITH(chromium-build,
     AC_HELP_STRING([--with-chromium-build=DIR],
         [Specify the base location of the built chromium libraries]),
-        [CHROMIUM_BUILD_DIR="${withval}" CHROMIUM_INCLUDE_DIR="-I${withval}/gen" want_youtube_test=true])
+        [CHROMIUM_BUILD_DIR="${withval}" CHROMIUM_INCLUDES="-I${withval}/gen" want_youtube_test=true])
 AC_SUBST(CHROMIUM_BUILD_DIR)
 
 AC_ARG_WITH(chromium-includes,
     AC_HELP_STRING([--with-chromium-includes=DIR],
         [Specify the location of the chromium headers]),
-        [CHROMIUM_INCLUDE_DIR+=" -I${withval}" want_youtube_test=true])
+        [CHROMIUM_INCLUDES+=" -I${withval}" CHROMIUM_INCLUDE_DIR=${withval} want_youtube_test=true])
+AC_SUBST(CHROMIUM_INCLUDES)
 AC_SUBST(CHROMIUM_INCLUDE_DIR)
 
 # using AM_CONDITIONAL propagates this value through to all Makefile.am files

@@ -116,7 +116,7 @@ static Amplet2__Youtube__Item* report_video_results(
 
     /* build up the repeated timeline section */
     video->n_timeline = info->event_count;
-    video->timeline =
+    video->timeline = (Amplet2__Youtube__Event **)
         malloc(sizeof(Amplet2__Youtube__Event*) * info->event_count);
     for ( i = 0, event = info->timeline;
             i < video->n_timeline && event != NULL;
@@ -147,7 +147,7 @@ int main(int argc, char *argv[]) {
     }
 
     /* pass arguments and destinations through to the main test run function */
-    youtube = cpp_main(argc, (const char**)argv);
+    youtube = (struct YoutubeTiming *)cpp_main(argc, (const char**)argv);
 
     /* write the results to shared memory for the parent to examine */
     if ( youtube ) {
@@ -167,7 +167,7 @@ int main(int argc, char *argv[]) {
         result = report_video_results(youtube);
         buflen = amplet2__youtube__item__get_packed_size(result);
         buffer = calloc(1, buflen);
-        amplet2__youtube__item__pack(result, buffer);
+        amplet2__youtube__item__pack(result, (uint8_t*)buffer);
 
         Log(LOG_DEBUG, "writing results to shared memory: %s", filename);
 
