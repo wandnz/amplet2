@@ -131,7 +131,7 @@ static void print_measured_version(char *prog) {
  */
 static int create_pidfile(char *pidfile) {
     int fd;
-    char buf[128];
+    char buf[128] = {0};
 
     assert(pidfile);
 
@@ -174,7 +174,6 @@ static int create_pidfile(char *pidfile) {
     }
 
     snprintf(buf, sizeof(buf) - 1, "%d\n", getpid());
-    buf[sizeof(buf) - 1] = '\0';
 
     if ( write(fd, buf, strlen(buf)) < 0 ) {
         Log(LOG_WARNING, "Failed to write to pidfile '%s': %s", pidfile,
