@@ -183,6 +183,8 @@ static int create_pidfile(char *pidfile) {
         return -1;
     }
 
+    close(fd);
+
     return 0;
 }
 
