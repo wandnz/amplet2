@@ -1,12 +1,12 @@
 Name: amplet2
-Version: 0.9.0
+Version: 0.9.1
 Release: 1%{?dist}
 Summary: AMP Network Performance Measurement Suite - Client Tools
 
 Group: Applications/Internet
 License: AMP
 URL: http://research.wand.net.nz/software/amp.php
-Source0: https://github.com/wanduow/amplet2/archive/v0.9.0.tar.gz
+Source0: https://github.com/wanduow/amplet2/archive/v0.9.1.tar.gz
 Patch0: amplet2-client-init.patch
 Patch1: amplet2-client-default.patch
 BuildRoot:	%(mktemp -ud %{_tmppath}/%{name}-%{version}-%{release}-XXXXXX)
@@ -98,6 +98,17 @@ fi
 
 
 %changelog
+* Wed Feb 13 2019 Brendon Jones <brendonj@waikato.ac.nz> 0.9.1-1
+- amplet2: close the pidfile after writing the PID.
+- dns: change nsid result field name so it doesn't shadow header variable.
+- package: change amplet2-server package architecture from "any" to "all".
+- youtube: always set and report the YouTube test user agent.
+- youtube: add flag to specify maximum run time of a YouTube video.
+- youtube: print console.log() messages in the YouTube test to the debug log.
+- youtube: fix horizontal resolution for "large" quality.
+- youtube: rework Makefile to build more sensibly.
+- youtube: mute video by default so it will autoplay.
+
 * Fri Nov  2 2018 Brendon Jones <brendonj@waikato.ac.nz> 0.9.0-1
 - build: libamp.so is now versioned (#15).
 - amplet2: remove bounds checking for test IDs so all values are valid. This

@@ -1,3 +1,17 @@
+amplet2 (0.9.1-1) unstable; urgency=low
+
+  * amplet2: close the pidfile after writing the PID.
+  * dns: change nsid result field name so it doesn't shadow header variable.
+  * package: change amplet2-server package architecture from "any" to "all".
+  * youtube: always set and report the YouTube test user agent.
+  * youtube: add flag to specify maximum run time of a YouTube video.
+  * youtube: print console.log() messages in the YouTube test to the debug log.
+  * youtube: fix horizontal resolution for "large" quality.
+  * youtube: rework Makefile to build more sensibly.
+  * youtube: mute video by default so it will autoplay.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Wed, 13 Feb 2019 13:31:16 +1300
+
 amplet2 (0.9.0-1) unstable; urgency=low
 
   * build: libamp.so is now versioned (#15).
