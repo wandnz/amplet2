@@ -19,7 +19,9 @@ CC=clang
 amp_youtube_wrapper_SOURCES=wrapper.cc chromium.cc
 amp_youtube_wrapper_LDADD=youtube.la
 amp_youtube_wrapper_CPPFLAGS=@CHROMIUM_INCLUDES@ -I../ -I../../common/ -DV8_DEPRECATION_WARNINGS -DUSE_AURA=1 -DUSE_NSS_CERTS=1 -DUSE_OZONE=1 -DNO_TCMALLOC -DFULL_SAFE_BROWSING -DSAFE_BROWSING_CSD -DSAFE_BROWSING_DB_LOCAL -DCHROMIUM_BUILD -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -D_LARGEFILE64_SOURCE -DCR_CLANG_REVISION=\"313786-1\" -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -DCOMPONENT_BUILD -DNDEBUG -DNVALGRIND -DDYNAMIC_ANNOTATIONS_ENABLED=0 -DUSE_EGL -std=gnu++14 -fno-rtti -nostdinc++ -isystem@CHROMIUM_INCLUDE_DIR@/buildtools/third_party/libc++/trunk/include -isystem@CHROMIUM_INCLUDE_DIR@/buildtools/third_party/libc++abi/trunk/include -fno-exceptions -fvisibility-inlines-hidden -D_GNU_SOURCE -DAMP_EXTRA_DIRECTORY=\"\$(libdir)/\$(PACKAGE)/extra\" -DAMP_INSTALL_SBINDIR=\"$(sbindir)\"
-amp_youtube_wrapper_LDFLAGS=-L../../common/.libs/ -Wl,--start-group,${CHROMIUM_LIBS} -Wl,--end-group -L@CHROMIUM_BUILD_DIR@ -fPIC -Wl,-z,noexecstack -Wl,-z,now -Wl,-z,relro -Wl,-z,defs -Wl,--no-as-needed -lpthread -Wl,--as-needed -fuse-ld=lld -Wl,--icf=all -m64 -Werror -Wl,--gdb-index -Wl,-rpath-link=. -Wl,--disable-new-dtags -Wl,--export-dynamic -ldl -lpthread -lrt -lgmodule-2.0 -lgobject-2.0 -lgthread-2.0 -lglib-2.0 -lnss3 -lnssutil3 -lsmime3 -lplds4 -lplc4 -lnspr4 -lamp
+# /usr/lib/chromium-browser/ is where libffmpeg.so gets installed by the
+# chromium-codecs-ffmpeg-extra package, so try to use it if available
+amp_youtube_wrapper_LDFLAGS=-R /usr/lib/chromium-browser/ -R $(libdir)/$(PACKAGE)/chromium/ -L../../common/.libs/ -Wl,--start-group,${CHROMIUM_LIBS} -Wl,--end-group -L@CHROMIUM_BUILD_DIR@ -fPIC -Wl,-z,noexecstack -Wl,-z,now -Wl,-z,relro -Wl,-z,defs -Wl,--no-as-needed -lpthread -Wl,--as-needed -fuse-ld=lld -Wl,--icf=all -m64 -Werror -Wl,--gdb-index -Wl,-rpath-link=. -Wl,--disable-new-dtags -Wl,--export-dynamic -ldl -lpthread -lrt -lgmodule-2.0 -lgobject-2.0 -lgthread-2.0 -lglib-2.0 -lnss3 -lnssutil3 -lsmime3 -lplds4 -lplc4 -lnspr4 -lamp
 
 test_LTLIBRARIES=youtube.la
 youtube_la_SOURCES=youtube.c
