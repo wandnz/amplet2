@@ -333,7 +333,7 @@ AC_SUBST(CHROMIUM_BUILD_DIR)
 AC_ARG_WITH(chromium-includes,
     AC_HELP_STRING([--with-chromium-includes=DIR],
         [Specify the location of the chromium headers]),
-        [CHROMIUM_INCLUDES+=" -I${withval}" CHROMIUM_INCLUDE_DIR=${withval} want_youtube_test=true])
+        [CHROMIUM_INCLUDES+=" -I${withval} -I${withval}/third_party/skia/include/config/" CHROMIUM_INCLUDE_DIR=${withval} want_youtube_test=true])
 AC_SUBST(CHROMIUM_INCLUDES)
 AC_SUBST(CHROMIUM_INCLUDE_DIR)
 

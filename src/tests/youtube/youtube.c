@@ -308,7 +308,7 @@ amp_test_result_t* run_youtube(int argc, char *argv[],
     memset(&options, 0, sizeof(struct opt_t));
 
     /* TODO get chromium version from chromium libraries */
-    options.useragent = "AMP YouTube test agent (Chromium 63.0.3239.150)";
+    options.useragent = "AMP YouTube test agent (Chromium 71.0.3578.98)";
 
     while ( (opt = getopt_long(argc, argv, "a:q:t:y:I:Q:Z:4::6::hvx",
                     long_options, NULL)) != -1 ) {
