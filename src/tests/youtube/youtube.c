@@ -63,13 +63,6 @@
 
 
 static struct option long_options[] = {
-    /* chromium arguments that we should pass through silently */
-    {"headless", no_argument, 0, 0},
-    {"type", required_argument, 0, 0},
-    //{"no-zygote", no_argument, 0, 0},
-    //{"no-sandbox", no_argument, 0, 0},
-
-    /* actual test arguments that we need to deal with */
     {"quality", required_argument, 0, 'q'},
     {"useragent", required_argument, 0, 'a'},
     {"user-agent", required_argument, 0, 'a'},
@@ -329,8 +322,6 @@ amp_test_result_t* run_youtube(int argc, char *argv[],
                       break;
             /* TODO there is also player.loadVideoByUrl() function, useful? */
             case 'y': options.video = optarg; break;
-            case 0: /* TODO close stdout/stderr to hide chromium warnings? */
-                      cpp_main(argc, (const char **)argv); break;
             case 'h': usage(); exit(EXIT_SUCCESS);
             default: usage(); exit(EXIT_FAILURE);
         };
