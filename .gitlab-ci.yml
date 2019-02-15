@@ -1,6 +1,6 @@
 stages:
  - build
- - deploy
+ - upload
 
 # multiarch images only include the main component, and equivs is in universe
 .fix_ubuntu_multiarch_apt_template: &fix_ubuntu_multiarch_apt
@@ -116,14 +116,10 @@ build-jessie-armhf:
 #  <<: *build_template
 #  image: multiarch/debian-debootstrap:arm64-jessie
 
-deploy-packages:
-  stage: deploy
+upload-packages:
+  stage: upload
   image: ubuntu:bionic
   script:
-    - ls built-packages/
-  artifacts:
-    paths:
-      - built-packages/*
-    expire_in: 1 month
+    - ./bintray-upload.sh
   only:
     - tags
