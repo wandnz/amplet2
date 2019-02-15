@@ -3,14 +3,17 @@ amplet2 (0.9.1-1) unstable; urgency=low
   * amplet2: close the pidfile after writing the PID.
   * dns: change nsid result field name so it doesn't shadow header variable.
   * package: change amplet2-server package architecture from "any" to "all".
+  * package: use GitLab CI/CD to upload built packages to bintray.
   * youtube: always set and report the YouTube test user agent.
   * youtube: add flag to specify maximum run time of a YouTube video.
   * youtube: print console.log() messages in the YouTube test to the debug log.
   * youtube: fix horizontal resolution for "large" quality.
   * youtube: rework Makefile to build more sensibly.
   * youtube: mute video by default so it will autoplay.
+  * youtube: update to use Chromium version 71.0.3578.98.
+  * youtube: add /usr/lib/chromium-brower to RPATH for libffmpeg.
 
- -- Brendon Jones <brendonj@waikato.ac.nz>  Wed, 13 Feb 2019 13:31:16 +1300
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Fri, 15 Feb 2019 16:19:12 +1300
 
 amplet2 (0.9.0-1) unstable; urgency=low
 
