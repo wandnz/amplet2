@@ -25,39 +25,53 @@ Chrome added headless operation in version 59.
 
 ### Building Libraries
 
-Chromium tag 63.0.3239.150 was used to build the libraries that we link
-against, plus the following patches to fix bugs and make it work with g++:
- - https://chromium.googlesource.com/chromium/src.git/+/7a9777223774930b2cb8158dc669051298ea277e%5E%21/
- - https://chromium.googlesource.com/chromium/src/+/5a9c3a34781b010bc2e4b29c3867159756339317%5E%21/
- - https://groups.google.com/a/chromium.org/d/msg/chromium-dev/OOTWBusBqGQ/2udlu6zhBwAJ
- - https://github.com/wanduow/amplet2/tree/develop/src/tests/youtube/extra/render_process_host_impl.patch
+Chromium 71.0.3578.98 was used to build the Ubuntu libraries that we link
+against, specifically because it is the current version available in Ubuntu
+Xenial and Bionic. The same patches to the source used by the Ubuntu packages
+were also applied. Brief build instructions follow, based on the package build.
 
-The official [Linux build instructions](https://chromium.googlesource.com/chromium/src/+/lkcr/docs/linux_build_instructions.md)
-should cover everything required.
+Install build dependencies:
 
-The args.gn file used to build the Chromium libraries for use with AMP was:
+    apt-get install debhelper dh-buildinfo ninja-build pkg-config lsb-release quilt python bison clang-6.0 llvm-6.0 gperf libpulse-dev libnss3-dev mesa-common-dev libpci-dev libxtst-dev libxss-dev libgtk-3-dev libglib2.0-dev libgnome-keyring-dev libudev-dev libdrm-dev libcap-dev libgcrypt-dev libkrb5-dev libxkbcommon-dev libpam0g-dev libffi-dev uuid-dev chrpath yasm
 
-    import("//build/args/headless.gn")
-    is_debug = false
-    symbol_level = 0
-    is_component_build = true
-    remove_webcore_debug_symbols = true
-    enable_nacl = false
-    is_clang = false
-    use_sysroot = false
-    use_allocator = "none"
-    treat_warnings_as_errors = false
+Download source:
 
-You don't need to build the entirety of Chromium, just enough to get the
-headless libraries and their dependencies built:
+    wget http://archive.ubuntu.com/ubuntu/pool/universe/c/chromium-browser/chromium-browser_71.0.3578.98.orig.tar.xz
+    tar xJvf chromium-browser_71.0.3578.98.orig.tar.xz
+    cd chromium-71.0.3578.98/
+    wget http://archive.ubuntu.com/ubuntu/pool/universe/c/chromium-browser/chromium-browser_71.0.3578.98-0ubuntu0.16.04.1.debian.tar.xz
+    tar xJvf chromium-browser_71.0.3578.98-0ubuntu0.16.04.1.debian.tar.xz
 
-    $ ninja -C out/Default headless_shell
+Apply patches:
+
+    for i in `cat debian/patches/series`; do patch -p1 <debian/patches/$i; done
+
+Build headless libraries (with the option to use a full featured libffmpeg.so):
+
+    mkdir -p out/Release
+    CC=clang-6.0 CXX=clang++-6.0 AR=llvm-ar-6.0 tools/gn/bootstrap/bootstrap.py --verbose --no-rebuild --build-path=out/Release --gn-gen-args 'import("//build/args/headless.gn") enable_hangout_services_extension=true enable_mdns=true enable_nacl=false enable_wayland_server=false enable_widevine=true fieldtrial_testing_like_official_build=true is_component_build=true is_component_ffmpeg=true is_debug=false is_desktop_linux=true is_official_build=false remove_webcore_debug_symbols=true symbol_level=0 treat_warnings_as_errors=false use_allocator="none" use_aura=true use_gio=true use_glib=true use_gold=false use_libpci=true use_pulseaudio=true use_sysroot=false use_system_harfbuzz=false use_system_libjpeg=false rtc_enable_protobuf=false rtc_use_h264=true is_clang=true clang_base_path="/usr" clang_use_chrome_plugins=false use_lld=false is_cfi=false use_thin_lto=false fatal_linker_warnings=false target_os="linux" current_os="linux" optimize_webui=false proprietary_codecs=true ffmpeg_branding="Chrome" target_cpu="x64"'
+    ninja -j 2 -C out/Release headless_shell
+
+Build libffmpeg.so (without h264, so we can distribute it):
+
+    mkdir -p out/ffmpeg-std
+    out/Release/gn gen out/ffmpeg-std/ --args='import("//build/args/headless.gn") enable_hangout_services_extension=true enable_mdns=true enable_nacl=false enable_wayland_server=false enable_widevine=true fieldtrial_testing_like_official_build=true is_component_build=true is_component_ffmpeg=true is_debug=false is_desktop_linux=true is_official_build=false remove_webcore_debug_symbols=true symbol_level=0 treat_warnings_as_errors=false use_allocator="none" use_aura=true use_gio=true use_glib=true use_gold=false use_libpci=true use_pulseaudio=true use_sysroot=false use_system_harfbuzz=false use_system_libjpeg=false rtc_enable_protobuf=false rtc_use_h264=true is_clang=true clang_base_path="/usr" clang_use_chrome_plugins=false use_lld=false is_cfi=false use_thin_lto=false fatal_linker_warnings=false target_os="linux" current_os="linux" optimize_webui=false target_cpu="x64"'
+    ninja -j 2 -C out/ffmpeg-std libffmpeg.so
 
 Once you have built the Chromium source you can then change to the directory
 containing the amplet2-client source and build the YouTube test:
 
-    $ ./configure --enable-youtube --with-chromium-build=/path/to/chromium/src/out/Default --with-chromium-includes=/path/to/chromium/src
-    $ make
+    echo "deb http://amp.wand.net.nz/debian/ `lsb_release -c -s` main" |
+            sudo tee /etc/apt/sources.list.d/amplet2.list
+    wget -O- http://amp.wand.net.nz/debian/pubkey.gpg | sudo apt-key add -
+    apt-get update
+    apt-get install autotools-dev python libunbound-dev libssl-dev libpcap-dev libyaml-dev libprotobuf-c-dev protobuf-c-compiler protobuf-compiler dh-systemd libconfuse-dev libcurl4-openssl-dev librabbitmq-dev python-setuptools flex automake libtool libwandevent-dev clang-6.0 libexpat1-dev zlib1g-dev pkg-config libnss3-dev python lsb-release libnspr4-dev lld-6.0 libglib2.0-dev
+    ln -s /usr/bin/clang-6.0 /usr/bin/clang # TODO fix clang location
+    ln -s /usr/bin/clang++-6.0 /usr/bin/clang++ # TODO fix clang location
+    tar xzvf amplet2-X.Y.Z
+    cd amplet2-X.Y.Z
+    ./configure --enable-youtube --with-chromium-build=/path/to/chromium/src/out/Default --with-chromium-includes=/path/to/chromium/src
+    make
 
 
 ### Chromium Zygote Processes
