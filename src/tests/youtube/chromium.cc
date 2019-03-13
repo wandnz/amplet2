@@ -793,6 +793,7 @@ void *cpp_main(int argc, const char *argv[]) {
     headless::RunChildProcessIfNeeded(argc, argv);
     headless::HeadlessBrowser::Options::Builder builder(argc, argv);
     builder.SetWindowSize(gfx::Size(1920, 1080));
+    builder.SetUserDataDir(base::FilePath("/tmp/.amplet2/chromium/"));
 
     if ( commandline->HasSwitch("useragent") ) {
         /* TODO add a few pre-configured user agents? */
