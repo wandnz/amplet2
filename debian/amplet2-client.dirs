@@ -4,5 +4,4 @@ etc/amplet2/keys
 etc/amplet2/clients
 etc/amplet2/schedules
 etc/amplet2/nametables
-usr/lib/amplet2/tests
 etc/rsyslog.d
