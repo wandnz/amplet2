@@ -641,6 +641,8 @@ int HeadlessTest::UpdateTimeline(
             item->type = AMPLET2__YOUTUBE__EVENT_TYPE__PLAYING;
         } else if ( event == "ended" ) {
             item->type = AMPLET2__YOUTUBE__EVENT_TYPE__ENDED;
+        } else if ( event == "error" ) {
+            item->type = AMPLET2__YOUTUBE__EVENT_TYPE__ERROR;
         } else {
             item->type = AMPLET2__YOUTUBE__EVENT_TYPE__UNKNOWN_EVENT;
         }

@@ -189,6 +189,7 @@ static char* get_event_string(Amplet2__Youtube__EventType event) {
         case AMPLET2__YOUTUBE__EVENT_TYPE__QUALITY: return "quality change";
         case AMPLET2__YOUTUBE__EVENT_TYPE__PLAYING: return "playing";
         case AMPLET2__YOUTUBE__EVENT_TYPE__ENDED: return "ended";
+        case AMPLET2__YOUTUBE__EVENT_TYPE__ERROR: return "error";
         default: return "unknown";
     };
 }

@@ -126,6 +126,23 @@
           return widths["default"];
       }
 
+      function buildFinalStatistics(timestamp) {
+          return {
+              "video": video_id,
+              /* TODO getVideoData() is undocumented, not official */
+              "title": player.getVideoData().title,
+              "quality": player.getPlaybackQuality(),
+              "initial_buffering": firstbuffer,
+              "playing_time": playtime,
+              "stall_time": buftime,
+              "stall_count": bufcount,
+              "total_time": timestamp,
+              "pre_time": pretime,
+              "reported_duration": player.getDuration() * 1000,
+              "timeline": timeline,
+          }
+      }
+
       function onYouTubeIframeAPIReady() {
           if ( debug ) {
               console.log("onYouTubeIframeAPIReady() triggered");
@@ -172,8 +189,24 @@
       }
 
       function onPlayerError(event) {
+          var now = Date.now();
+          var timestamp = now - starttime;
+          timeline.push({
+                  "timestamp": timestamp,
+                  "event": "error",
+                  });
+
           console.log("onPlayerError");
           console.log(event.data);
+
+          if ( event.data == 5 ) {
+              console.log("Error: Content can't be played in HTML 5 player.");
+              console.log("Usually means the chromium h264 codec is missing.");
+          }
+
+          youtuberesults = buildFinalStatistics(timestamp);
+          console.log(youtuberesults);
+          alert("error");
       }
 
       /*
@@ -272,20 +305,7 @@
                         "event": "ended",
                         });
 
-                youtuberesults = {
-                    "video": video_id,
-                    /* TODO getVideoData() is undocumented, not official */
-                    "title": player.getVideoData().title,
-                    "quality": event.target.getPlaybackQuality(),
-                    "initial_buffering": firstbuffer,
-                    "playing_time": playtime,
-                    "stall_time": buftime,
-                    "stall_count": bufcount,
-                    "total_time": now - starttime,
-                    "pre_time": pretime,
-                    "reported_duration": event.target.getDuration() * 1000,
-                    "timeline": timeline,
-                };
+                youtuberesults = buildFinalStatistics(timestamp);
                 console.log(youtuberesults);
 
                 alert("done");

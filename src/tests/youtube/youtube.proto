@@ -30,6 +30,7 @@ enum EventType {
     QUALITY = 4;
     PLAYING = 5;
     ENDED = 6;
+    ERROR = 7;
 }
 
 /**
