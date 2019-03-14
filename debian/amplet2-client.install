@@ -1,6 +1,7 @@
 usr/bin/* usr/sbin
 usr/lib/*/libamp.*so*
 usr/lib/*/amplet2/tests/*so
+usr/lib/*/amplet2/chromium/*
 #usr/lib/amplet2/extra/yt.html
 etc/amplet2/clients/*
 etc/amplet2/nametables/*

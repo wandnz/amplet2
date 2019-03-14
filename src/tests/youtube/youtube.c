@@ -408,7 +408,22 @@ amp_test_result_t* run_youtube(int argc, char *argv[],
          * the test without worrying about clobbering shared libraries.
          * XXX We do however have to worry about the wrapper being in the path.
          */
+        char *path = getenv("PATH");
+        char *newpath;
+
+        /*
+         * Append the expected location of the binary to the path, rather than
+         * calling exec with the full path so we can change it at runtime if
+         * we need to.
+         */
+        if ( asprintf(&newpath, "%s:%s", path, AMP_YOUTUBE_WRAPPER_PATH) < 0 ) {
+            Log(LOG_WARNING, "Failed to build path string, aborting\n");
+            exit(EXIT_FAILURE);
+        }
+
+        setenv("PATH", newpath, 1);
         Log(LOG_DEBUG, "child process ok, running test wrapper");
+        Log(LOG_DEBUG, "Using $PATH=%s\n", newpath);
         execvpe("amp-youtube-wrapper", cpp_argv, environ);
         Log(LOG_WARNING, "Failed to exec amp-youtube-wrapper: %s",
                 strerror(errno));
