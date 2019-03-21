@@ -7,7 +7,7 @@ probes. Each client independently schedules and runs tests, acts as a
 cooperative endpoint for tests run by other probes, and reports test results to
 a central collector for analysis and display.
 
-Prebuilt .deb packages are available at http://amp.wand.net.nz/debian/. The
+Prebuilt .deb packages are available at https://dl.bintray.com/wand/amp/. The
 [amplet2 wiki](https://github.com/wanduow/amplet2/wiki) contains instructions
 on [installing the amplet2 client](https://github.com/wanduow/amplet2/wiki/Installing-the-Amplet2-Client) using these packages.
 
