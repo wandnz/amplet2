@@ -10,9 +10,9 @@ stages:
   echo 'APT::Install-Recommends "0";' > /etc/apt/apt.conf.d/10no-recommends &&
   echo 'APT::Install-Suggests "0";' > /etc/apt/apt.conf.d/10no-suggests &&
   apt-get update && apt-get -y upgrade &&
-  apt-get install -y ca-certificates devscripts dpkg-dev equivs lsb-release wget gnupg &&
-  echo "deb http://amp.wand.net.nz/debian/ `lsb_release -c -s` main" > /etc/apt/sources.list.d/amplet2.list &&
-  wget -O- http://amp.wand.net.nz/debian/pubkey.gpg | apt-key add - &&
+  apt-get install -y ca-certificates devscripts dpkg-dev equivs lsb-release wget gnupg apt-transport-https &&
+  echo "deb https://dl.bintray.com/wand/amp `lsb_release -c -s` main" > /etc/apt/sources.list.d/amplet2.list &&
+  wget -O- https://bintray.com/user/downloadSubjectPublicKey?username=wand | apt-key add - &&
   apt-get update &&
   export DEBEMAIL='brendonj@waikato.ac.nz' &&
   export DEBFULLNAME='Brendon Jones' &&
