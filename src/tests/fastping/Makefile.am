@@ -1,4 +1,4 @@
-EXTRA_DIST=fastping.proto
+EXTRA_DIST=*.h fastping.proto
 
 BUILT_SOURCES=fastping.pb-c.c
 CLEANFILES=fastping.pb-c.c fastping.pb-c.h
