@@ -53,7 +53,7 @@ def _build_summary(data):
         "mean": data.mean,
         "sd": data.sd,
         "samples": data.samples,
-        "percentiles": data.percentiles,
+        "percentiles": list(data.percentiles),
     }
 
 def get_data(data):
@@ -75,11 +75,11 @@ def get_data(data):
         )
 
     return {
-        "target": msg.header.name if len(msg.header.name) > 0 else "unknown",
+        "destination": msg.header.name if len(msg.header.name) > 0 else "unknown",
         "address": getPrintableAddress(msg.header.family, msg.header.address),
-        "rate": msg.header.rate,
-        "size": msg.header.size,
-        "count": msg.header.count,
+        "packet_rate": msg.header.rate,
+        "packet_size": msg.header.size,
+        "packet_count": msg.header.count,
         "dscp": getPrintableDscp(msg.header.dscp),
         "preprobe": msg.header.preprobe,
         "results": results,
