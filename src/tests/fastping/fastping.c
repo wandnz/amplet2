@@ -421,6 +421,7 @@ static int64_t extract_data(struct addrinfo *dest, char *packet,
     int64_t magic = 0;
     uint16_t sequence = 0;
     size_t sockaddrlen;
+    uint8_t offset;
 
     ident = ntohs(ident);
 
@@ -434,6 +435,7 @@ static int64_t extract_data(struct addrinfo *dest, char *packet,
 
         sequence = icmp->un.echo.sequence;
         sockaddrlen = sizeof(struct sockaddr_in);
+        offset = sizeof(struct iphdr) + sizeof(struct icmphdr);
     } else {
         struct icmp6_hdr *icmp = (struct icmp6_hdr*)packet;
 
@@ -443,6 +445,7 @@ static int64_t extract_data(struct addrinfo *dest, char *packet,
 
         sequence = icmp->icmp6_seq;
         sockaddrlen = sizeof(struct sockaddr_in6);
+        offset = sizeof(struct icmphdr);
     }
 
     /* doesn't hurt to check that the address matches what we expect */
@@ -451,7 +454,7 @@ static int64_t extract_data(struct addrinfo *dest, char *packet,
     }
 
     /* extract the full 64 bit sequence value from the packet payload */
-    magic = *(int64_t*)(((char *)packet) + sizeof(struct icmphdr));
+    magic = *(int64_t*)(((char *)packet) + offset);
 
     /* the last 16 bits should match the ICMP sequence number */
     if ( ( (uint16_t) magic) != ntohs(sequence)) {
