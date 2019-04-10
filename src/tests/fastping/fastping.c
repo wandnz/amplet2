@@ -225,19 +225,17 @@ static Amplet2__Fastping__Item* report_destination(struct info_t *timing,
         qsort(ipv, rtt.samples, sizeof(int32_t), cmp);
         rtt.maximum = ipv[rtt.samples - 1];
         rtt.minimum = ipv[0];
+        rtt.sd = sqrt(rtt_squares / rtt.samples);
+        item->rtt = report_summary(&rtt, ipv);
     }
 
     if ( jitter.samples > 0 ) {
         qsort(ipdv, jitter.samples, sizeof(int32_t), cmp);
         jitter.maximum = ipdv[jitter.samples - 1];
         jitter.minimum = ipdv[0];
+        jitter.sd = sqrt(jitter_squares / jitter.samples);
+        item->jitter = report_summary(&jitter, ipdv);
     }
-
-    rtt.sd = sqrt(rtt_squares / rtt.samples);
-    jitter.sd = sqrt(jitter_squares / jitter.samples);
-
-    item->rtt = report_summary(&rtt, ipv);
-    item->jitter = report_summary(&jitter, ipdv);
 
     item->has_runtime = 1;
     item->runtime = runtime->tv_sec * 1000000 + runtime->tv_usec;
@@ -783,6 +781,7 @@ void print_fastping(amp_test_result_t *result) {
     Amplet2__Fastping__Header *header;
 
     char addrstr[INET6_ADDRSTRLEN];
+    uint64_t samples;
     double percent;
     double pps;
 
@@ -800,7 +799,8 @@ void print_fastping(amp_test_result_t *result) {
     item = msg->reports[0];
     header = msg->header;
 
-    percent = ((double) item->rtt->samples / (double) header->count) * 100;
+    samples = item->rtt ? item->rtt->samples : 0;
+    percent = ((double) samples / (double) header->count) * 100;
     inet_ntop(header->family, header->address.data, addrstr, INET6_ADDRSTRLEN);
 
     /* print basic stats */
@@ -813,17 +813,23 @@ void print_fastping(amp_test_result_t *result) {
 
     printf("  %" PRIu64 " packets transmitted, %" PRIu64
             " received, %.02f%% packet loss\n",
-            header->count, item->rtt->samples, 100 - percent);
-    printf("  %" PRIu64 " rtt samples min/mean/max/sdev = "
-            "%.03f/%.03f/%.03f/%.03f ms\n",
-            item->rtt->samples, item->rtt->minimum / 1000.0,
-            item->rtt->mean / 1000.0, item->rtt->maximum / 1000.0,
-            item->rtt->sd / 1000.0);
-    printf("  %" PRIu64 " jitter samples min/mean/max/sdev = "
-            "%.03f/%.03f/%.03f/%.03f ms\n",
-            item->jitter->samples, item->jitter->minimum / 1000.0,
-            item->jitter->mean / 1000.0, item->jitter->maximum / 1000.0,
-            item->jitter->sd / 1000.0);
+            header->count, samples, 100 - percent);
+
+    if ( item->rtt ) {
+        printf("  %" PRIu64 " rtt samples min/mean/max/sdev = "
+                "%.03f/%.03f/%.03f/%.03f ms\n",
+                item->rtt->samples, item->rtt->minimum / 1000.0,
+                item->rtt->mean / 1000.0, item->rtt->maximum / 1000.0,
+                item->rtt->sd / 1000.0);
+    }
+
+    if ( item->jitter ) {
+        printf("  %" PRIu64 " jitter samples min/mean/max/sdev = "
+                "%.03f/%.03f/%.03f/%.03f ms\n",
+                item->jitter->samples, item->jitter->minimum / 1000.0,
+                item->jitter->mean / 1000.0, item->jitter->maximum / 1000.0,
+                item->jitter->sd / 1000.0);
+    }
 
     pps = header->count / (item->runtime/1000000.0);
     printf("  Test ran for %.03lf seconds at %.03f packets per second ",
@@ -831,7 +837,8 @@ void print_fastping(amp_test_result_t *result) {
 
     print_datarate(pps, header->size);
 
-    if ( item->rtt->percentiles && item->jitter->percentiles ) {
+    if ( item->rtt && item->rtt->percentiles &&
+            item->jitter && item->jitter->percentiles ) {
         print_percentiles(item->rtt->percentiles, item->jitter->percentiles);
     }
 
