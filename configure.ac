@@ -344,7 +344,7 @@ AM_CONDITIONAL(WANT_YOUTUBE_TEST, [test x"$want_youtube_test" = xtrue])
 
 AC_ARG_ENABLE(fastping,
     AC_HELP_STRING([--enable-fastping],
-        [Enable the fastping test (default: no)]),
+        [Enable the fastping test (default: yes)]),
     [case "${enableval}" in
     true) ;&
     yes) want_fastping_test=true ;;
@@ -352,7 +352,7 @@ AC_ARG_ENABLE(fastping,
     no)  want_fastping_test=false ;;
     *) AC_MSG_ERROR(bad value ${enableval} for --enable-fastping) ;;
     esac],
-    [want_fastping_test=false])
+    [want_fastping_test=true])
 # using AM_CONDITIONAL propagates this value through to all Makefile.am files
 AM_CONDITIONAL(WANT_FASTPING_TEST, [test x"$want_fastping_test" = xtrue])
 
