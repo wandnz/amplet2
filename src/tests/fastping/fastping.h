@@ -68,6 +68,8 @@ const float PERCENTILES[] = {0.0, 0.1, 1.0, 5.0, 10.0, 20.0, 30.0, 40.0, 50.0,
     60.0, 70.0, 80.0, 90.0, 95.0, 99.0, 99.9, 100};
 #define PERCENTILE_COUNT ((int)(sizeof(PERCENTILES) / sizeof(float)))
 
+/* time till next packet after which select will sleep rather than spin */
+const struct timeval THRESHOLD = {0, 1000};
 
 /* TODO investigate the time vs space tradeoff of writing the timestamp to
  * the outgoing packet and only keeping the RTT value once it returns

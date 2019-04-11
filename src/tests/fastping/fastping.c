@@ -541,14 +541,23 @@ static amp_test_result_t* send_icmp_stream(struct addrinfo *dest,
     timeradd(&start_time, &interpacket_gap, &next_packet);
 
     while ( sent < options->count || received < options->count ) {
-        struct timeval timeout;
+        struct timeval timeout = {0, 0};
         struct timeval now;
         fd_set readfds, writefds;
 
         if ( sent < options->count ) {
-            /* don't let select sleep while we have packets still to send */
-            timeout.tv_sec = 0;
-            timeout.tv_usec = 0;
+            struct timeval foo;
+            /*
+             * Still sending data, but it seems wasteful to spin on this loop
+             * if we know there is a long time to wait till the next packet.
+             * Sleep for some portion of the time till the next packet if it
+             * is further away than the threshold.
+             */
+            gettimeofday(&now, NULL);
+            timersub(&next_packet, &now, &foo);
+            if ( timercmp(&foo, &THRESHOLD, >) ) {
+                usleep(foo.tv_usec * 0.95);
+            }
         } else {
             /* otherwise we'll wait for a bit after the last packet we saw */
             timeout.tv_sec = FASTPING_PACKET_LOSS_TIMEOUT;
