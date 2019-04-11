@@ -1,12 +1,12 @@
 Name: amplet2
-Version: 0.9.2
+Version: 0.9.3
 Release: 1%{?dist}
 Summary: AMP Network Performance Measurement Suite - Client Tools
 
 Group: Applications/Internet
 License: AMP
 URL: http://research.wand.net.nz/software/amp.php
-Source0: https://github.com/wanduow/amplet2/archive/v0.9.2.tar.gz
+Source0: https://github.com/wanduow/amplet2/archive/v0.9.3.tar.gz
 Patch0: amplet2-client-init.patch
 Patch1: amplet2-client-default.patch
 BuildRoot:	%(mktemp -ud %{_tmppath}/%{name}-%{version}-%{release}-XXXXXX)
@@ -98,6 +98,13 @@ fi
 
 
 %changelog
+* Thu Apr 11 2019 Brendon Jones <brendonj@waikato.ac.nz> 0.9.3-1
+- fastping: enable test by default (#26).
+- fastping: add missing header to the distribution tarball.
+- fastping: change result fields to better match backend expectations.
+- fastping: change offset into fastping packet depending on address family.
+- fastping: sleep at low packet rates when possible.
+
 * Thu Mar 28 2019 Brendon Jones <brendonj@waikato.ac.nz> 0.9.2-1
 - youtube: set chromium UserDataDir to /tmp/.amplet2/chromium/ (#29).
 - youtube: move wrapper from /usr/sbin/ to avoid creating dirs there (#29).

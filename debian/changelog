@@ -1,3 +1,13 @@
+amplet2 (0.9.3-1) unstable; urgency=low
+
+  * fastping: enable test by default (#26).
+  * fastping: add missing header to the distribution tarball.
+  * fastping: change result fields to better match backend expectations.
+  * fastping: change offset into fastping packet depending on address family.
+  * fastping: sleep at low packet rates when possible.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Thu, 11 Apr 2019 14:51:27 +1200
+
 amplet2 (0.9.2-1) unstable; urgency=low
 
   * youtube: set chromium UserDataDir to /tmp/.amplet2/chromium/ (#29).
