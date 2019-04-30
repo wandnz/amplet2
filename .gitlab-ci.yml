@@ -2,6 +2,10 @@ stages:
  - build
  - upload
 
+# multiarch images for jessie are no longer updated and were left in a bad state
+.fix_jessie_multiarch_apt_sources: &fix_jessie_multiarch_apt
+  /bin/sed -i 's/^\(.*jessie-updates main\)$/# \1/' /etc/apt/sources.list
+
 # multiarch images only include the main component, and equivs is in universe
 .fix_ubuntu_multiarch_apt_template: &fix_ubuntu_multiarch_apt
   /bin/sed -i 's/main$/main restricted universe/' /etc/apt/sources.list
@@ -107,10 +111,14 @@ build-jessie-amd64:
 build-jessie-i386:
   <<: *build_template
   image: multiarch/debian-debootstrap:i386-jessie
+  before_script:
+    - *fix_jessie_multiarch_apt
 
 build-jessie-armhf:
   <<: *build_template
   image: multiarch/debian-debootstrap:armhf-jessie
+  before_script:
+    - *fix_jessie_multiarch_apt
 
 #build-jessie-arm64:
 #  <<: *build_template
