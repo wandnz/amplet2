@@ -34,22 +34,6 @@ if [ ! -x $DAEMON ]; then
     exit 5
 fi
 
-# Read configuration variable file if it is present (sysvinit or similar)
-if [ -r /etc/default/$PKG_NAME ]; then
-    START_DAEMON=1
-    . /etc/default/$PKG_NAME
-
-    # Don't start the daemon unless it has been manually enabled in
-    # /etc/default/amplet2. There is too much configuration required
-    # to assume it can be started initially.
-    if [ $START_DAEMON -le 0 ]; then
-        echo "$PKG_NAME is disabled in /etc/default/$PKG_NAME, not starting."
-        echo "Ensure config in /etc/amplet2/ is up to date before enabling."
-        # Return 0 so package installation doesn't error
-        exit 0
-    fi
-fi
-
 
 # Define LSB log_* functions.
 # Depend on lsb-base (>= 3.0-6) to ensure that this file is present.
@@ -136,15 +120,6 @@ do_start()
 {
     SUCCESS=0
     FAILED=0
-
-    # Try to deal with network manager and friends taking too long to start
-    # so that we don't always have a useful network configuration when
-    # amplet2-client starts. Would be nice to be able to use the
-    # init_is_upstart function, but then this delay always triggers rather
-    # than only triggering on boot.
-    if [ -n "$UPSTART_JOB" ]; then
-        sleep 30
-    fi
 
     do_local_config
 
