@@ -86,7 +86,7 @@ esac
 
 # If this is an upgrade and amplet2-client is enabled, then start the client
 # (which was stopped by the prerm). Debhelper won't do this for us, because
-# --no-start is set. It's fine to try to start the client under wheezy though
+# --no-start is set. It's fine to try to start the client under sysvinit though
 # because failure doesn't get recorded anywhere.
 if [ -x "/usr/bin/deb-systemd-helper" ]; then
 	if deb-systemd-helper debian-installed amplet2-client.service; then

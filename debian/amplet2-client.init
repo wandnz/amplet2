@@ -34,7 +34,7 @@ if [ ! -x $DAEMON ]; then
     exit 5
 fi
 
-# Read configuration variable file if it is present (wheezy or similar)
+# Read configuration variable file if it is present (sysvinit or similar)
 if [ -r /etc/default/$PKG_NAME ]; then
     START_DAEMON=1
     . /etc/default/$PKG_NAME
