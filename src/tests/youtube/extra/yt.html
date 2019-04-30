@@ -171,7 +171,7 @@
 
       /* 4. The API will call this function when the video player is ready. */
       function onPlayerReady(event) {
-          starttime = Date.now();
+          starttime = performance.now();
           if ( debug ) {
               console.log("video state change: ready (t=0ms)");
           }
@@ -189,7 +189,7 @@
       }
 
       function onPlayerError(event) {
-          var now = Date.now();
+          var now = performance.now();
           var timestamp = now - starttime;
           timeline.push({
                   "timestamp": timestamp,
@@ -224,7 +224,7 @@
       var state = -1;
 
       function onQualityChange(event) {
-          var now = Date.now();
+          var now = performance.now();
           var timestamp = now - starttime;
 
           if ( debug ) {
@@ -240,7 +240,7 @@
       }
 
       function onPlayerStateChange(event) {
-          var now = Date.now();
+          var now = performance.now();
           var timestamp = now - starttime;
 
           if ( debug ) {
