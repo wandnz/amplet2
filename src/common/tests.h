@@ -58,6 +58,7 @@
 #define AMP_TEST_UDPSTREAM          9
 #define AMP_TEST_YOUTUBE            10
 #define AMP_TEST_FASTPING           11
+#define AMP_TEST_EXTERNAL           12
 
 typedef struct amp_test_result {
     uint64_t timestamp;

@@ -357,9 +357,23 @@ AC_ARG_ENABLE(fastping,
 # using AM_CONDITIONAL propagates this value through to all Makefile.am files
 AM_CONDITIONAL(WANT_FASTPING_TEST, [test x"$want_fastping_test" = xtrue])
 
+AC_ARG_ENABLE(external,
+    AC_HELP_STRING([--enable-external],
+        [Enable the external test (default: yes)]),
+    [case "${enableval}" in
+    true) ;&
+    yes) want_external_test=true ;;
+    false) ;&
+    no)  want_external_test=false ;;
+    *) AC_MSG_ERROR(bad value ${enableval} for --enable-external) ;;
+    esac],
+    [want_external_test=false])
+# using AM_CONDITIONAL propagates this value through to all Makefile.am files
+AM_CONDITIONAL(WANT_EXTERNAL_TEST, [test x"$want_external_test" = xtrue])
+
 
 # Set default CFLAGS including the AMP_CONFIG_DIR and AMP_TEST_DIR
-AC_SUBST([AM_CFLAGS], ["-rdynamic -g -Wall -W -D_GNU_SOURCE -DAMP_CONFIG_DIR=\\\"\$(sysconfdir)/\$(PACKAGE)\\\" -DAMP_TEST_DIRECTORY=\\\"\$(libdir)/\$(PACKAGE)/tests\\\" -DAMP_LOG_DIR=\\\"\$(localstatedir)/log/\\\""])
+AC_SUBST([AM_CFLAGS], ["-rdynamic -g -Wall -W -D_GNU_SOURCE -DAMP_CONFIG_DIR=\\\"\$(sysconfdir)/\$(PACKAGE)\\\" -DAMP_TEST_DIRECTORY=\\\"\$(libdir)/\$(PACKAGE)/tests\\\" -DAMP_LOG_DIR=\\\"\$(localstatedir)/log/\\\" -DAMP_EXTERNAL_BIN_DIRECTORY=\\\"\$(libdir)/\$(PACKAGE)/external\\\""])
 
 
 AC_CONFIG_FILES([Makefile
@@ -388,7 +402,9 @@ AC_CONFIG_FILES([Makefile
                  src/tests/udpstream/Makefile
                  src/tests/udpstream/test/Makefile
                  src/tests/youtube/Makefile
-                 src/tests/fastping/Makefile])
+                 src/tests/fastping/Makefile
+                 src/tests/external/Makefile
+                 src/tests/external/test/Makefile])
                  #src/tests/youtube/test/Makefile
                  #src/tests/fastping/test/Makefile])
 AC_OUTPUT
@@ -414,3 +430,4 @@ reportopt "Compiled with tcpping test support" $want_tcpping_test
 reportopt "Compiled with udpstream test support" $want_udpstream_test
 reportopt "Compiled with youtube test support" $want_youtube_test
 reportopt "Compiled with fastping test support" $want_fastping_test
+reportopt "Compiled with external test support" $want_external_test

@@ -1,7 +1,7 @@
 #
 # This file is part of amplet2.
 #
-# Copyright (c) 2013-2016 The University of Waikato, Hamilton, New Zealand.
+# Copyright (c) 2013-2019 The University of Waikato, Hamilton, New Zealand.
 #
 # Author: Brendon Jones
 #
@@ -37,18 +37,27 @@
 # along with amplet2. If not, see <http://www.gnu.org/licenses/>.
 #
 
-"""
-Individual test save functions for each of the AMP tests.
-"""
-__all__ = [
-    "icmp",
-    "dns",
-    "traceroute",
-    "http",
-    "throughput",
-    "tcpping",
-    "udpstream",
-    "youtube",
-    "fastping",
-    "external",
-]
+import ampsave.tests.external_pb2
+
+def get_data(data):
+    """
+    Extract the EXTERNAL test results from the protocol buffer data
+    """
+
+    results = []
+    msg = ampsave.tests.external_pb2.Report()
+    msg.ParseFromString(data)
+
+    for i in msg.reports:
+        results.append(
+            {
+                "destination": i.name if len(i.name) > 0 else None,
+                #"address": getPrintableAddress(i.family, i.address),
+                "value": i.value,
+            }
+        )
+
+    return {
+        "command": msg.header.command,
+        "results": results,
+    }

@@ -42,6 +42,7 @@ endif
 # while only building the rest of the test if it is enabled?
 SUBDIRS+=youtube
 SUBDIRS+=fastping
+SUBDIRS+=external
 
 if WANT_PYTHON
 SUBDIRS+=python

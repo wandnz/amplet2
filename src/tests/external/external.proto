@@ -1,0 +1,47 @@
+/**
+ * Data reporting messages for the AMP EXTERNAL test.
+ *
+ * This test runs an external program that reports a single integer.
+ *
+ * Each message contains one Report.
+ * Each Report contains one Header and one Item per result.
+ * Each Item contains information on a test result.
+ */
+package amplet2.external;
+
+
+/**
+ * An instance of the test will generate one Report message.
+ */
+message Report {
+    /** Describes the test settings used in this test instance */
+    optional Header header = 1;
+    /** Results for all test targets */
+    repeated Item reports = 2;
+}
+
+
+/**
+ * The test header describes all of the settings that the test was configured
+ * to run with. These settings are the same for every result contained within
+ * the Report message.
+ */
+message Header {
+    optional string command = 1;
+}
+
+
+/**
+ * A report will be generated for each test target, describing the target
+ * itself, what sort of response was received.
+ */
+message Item {
+    /** The value that the external program reported */
+    optional int64 value = 1;
+    /** The name of the test target (as given in the schedule) */
+    optional string name = 2;
+    /** The address that responded to the probe packet */
+    //optional bytes address = 1;
+    /** The family the responding address belongs to (AF_INET/AF_INET6) */
+    //optional int32 family = 2;
+}

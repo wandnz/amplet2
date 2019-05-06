@@ -1,0 +1,72 @@
+.TH AMP-EXTERNAL 8 "2019-04-16" "amplet2-client" "The Active Measurement Project"
+
+.SH NAME
+amp-external \- AMP standalone External software test
+
+
+.SH SYNOPSIS
+\fBamp-external\fR [\fB-hpvx\fR] \fB-c \fIcommand\fR [-- \fIdestination\fR]
+
+
+.SH DESCRIPTION
+\fBamp-external\fP is the standalone version of the \fBamplet2\fP(8)
+external software test. It runs a program that is not part of \fBamplet2\fP
+and reports the output. The output from this program must be a single signed
+integer up to 64 bits in size, that optionally takes a destination hostname.
+
+
+.SH OPTIONS
+
+.TP
+\fB-h, --help\fR
+Show summary of options.
+
+.TP
+\fB-c, --command\fR
+The command to run. The command must:
+.RS
+.IP \[bu] 2
+exist in \fI/usr/lib/{arch}/amplet2/external/\fR
+.IP \[bu]
+contain only alphanumeric characters in the filename
+.IP \[bu]
+accept zero arguments, or a single destination argument
+.IP \[bu]
+finish running in under 2 minutes
+.IP \[bu]
+output a single signed integer that can be represented in 64 or fewer bits
+.RE
+
+.TP
+\fB-v, --version\fR
+Show version of program.
+
+.TP
+\fB-x, --debug\fR
+Enable extra debugging output.
+
+
+.SH SEE ALSO
+.BR amplet2 (8),
+.BR amplet2-remote (8),
+.BR amp-dns (8),
+.BR amp-http (8),
+.BR amp-icmp (8),
+.BR amp-tcpping (8),
+.BR amp-throughput (8),
+.BR amp-trace (8),
+.BR amp-udpstream (8).
+.BR amp-youtube (8).
+.BR amp-fastping (8).
+
+.SH SECURITY
+\fBamp-external\fR is running arbitrary programs on the host, with all the
+dangers that implies. It does try to restrict the programs to those explicitly
+made available by the host administrator and tries to do so with minimal
+permissions.
+
+.SH AUTHOR
+amp-external was written by Brendon Jones <brendonj@waikato.ac.nz>.
+
+.PP
+This manual page was written by Brendon Jones <brendonj@waikato.ac.nz>.
