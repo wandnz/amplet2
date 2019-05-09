@@ -1,12 +1,12 @@
 Name: amplet2
-Version: 0.9.3
+Version: 0.9.4
 Release: 1%{?dist}
 Summary: AMP Network Performance Measurement Suite - Client Tools
 
 Group: Applications/Internet
 License: AMP
 URL: http://research.wand.net.nz/software/amp.php
-Source0: https://github.com/wanduow/amplet2/archive/v0.9.3.tar.gz
+Source0: https://github.com/wanduow/amplet2/archive/v0.9.4.tar.gz
 Patch0: amplet2-client-init.patch
 Patch1: amplet2-client-default.patch
 BuildRoot:	%(mktemp -ud %{_tmppath}/%{name}-%{version}-%{release}-XXXXXX)
@@ -98,6 +98,11 @@ fi
 
 
 %changelog
+* Thu May  9 2019 Brendon Jones <brendonj@waikato.ac.nz> 0.9.4-1
+- amplet2: add new test to run external programs (temporarily disabled) (#33).
+- fastping: fix incorrect test name on man page.
+- youtube: use strictly incrementing javascript timer.
+
 * Thu Apr 11 2019 Brendon Jones <brendonj@waikato.ac.nz> 0.9.3-1
 - fastping: enable test by default (#26).
 - fastping: add missing header to the distribution tarball.

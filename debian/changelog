@@ -1,3 +1,12 @@
+amplet2 (0.9.4-1) unstable; urgency=low
+
+  * amplet2: add new test to run external programs (temporarily disabled) (#33).
+  * package: remove Debian Wheezy build scripts and sysvinit/upstart (#31).
+  * fastping: fix incorrect test name on man page.
+  * youtube: use strictly incrementing javascript timer.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Thu,  9 May 2019 11:55:59 +1200
+
 amplet2 (0.9.3-1) unstable; urgency=low
 
   * fastping: enable test by default (#26).
