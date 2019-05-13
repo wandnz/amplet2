@@ -127,17 +127,26 @@
       }
 
       function buildFinalStatistics(timestamp) {
+          /*
+           * Round the times to the nearest integer as that is what the rest
+           * of the test processing code expects. With the change to using
+           * performance.now() we get access to sub-millisecond accuracy,
+           * but it's also purposefully fudged in some browsers as a security
+           * measure so might not be very helpful:
+           *
+           * https://developer.mozilla.org/en-US/docs/Web/API/Performance/now
+          */
           return {
               "video": video_id,
               /* TODO getVideoData() is undocumented, not official */
               "title": player.getVideoData().title,
               "quality": player.getPlaybackQuality(),
-              "initial_buffering": firstbuffer,
-              "playing_time": playtime,
-              "stall_time": buftime,
+              "initial_buffering": Math.round(firstbuffer),
+              "playing_time": Math.round(playtime),
+              "stall_time": Math.round(buftime),
               "stall_count": bufcount,
-              "total_time": timestamp,
-              "pre_time": pretime,
+              "total_time": Math.round(timestamp),
+              "pre_time": Math.round(pretime),
               "reported_duration": player.getDuration() * 1000,
               "timeline": timeline,
           }
@@ -190,7 +199,7 @@
 
       function onPlayerError(event) {
           var now = performance.now();
-          var timestamp = now - starttime;
+          var timestamp = Math.round(now - starttime);
           timeline.push({
                   "timestamp": timestamp,
                   "event": "error",
@@ -225,7 +234,7 @@
 
       function onQualityChange(event) {
           var now = performance.now();
-          var timestamp = now - starttime;
+          var timestamp = Math.round(now - starttime);
 
           if ( debug ) {
               console.log("video quality change: " + event.data +
@@ -241,7 +250,7 @@
 
       function onPlayerStateChange(event) {
           var now = performance.now();
-          var timestamp = now - starttime;
+          var timestamp = Math.round(now - starttime);
 
           if ( debug ) {
               console.log("video state change: " + getStateName(event.data) +
