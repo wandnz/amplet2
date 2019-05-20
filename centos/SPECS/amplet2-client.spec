@@ -4,15 +4,15 @@ Release: 1%{?dist}
 Summary: AMP Network Performance Measurement Suite - Client Tools
 
 Group: Applications/Internet
-License: AMP
-URL: http://research.wand.net.nz/software/amp.php
-Source0: https://github.com/wanduow/amplet2/archive/v0.9.4.tar.gz
+License: GPLv2
+URL: https://github.com/wanduow/amplet2
+Source0: https://github.com/wanduow/amplet2/archive/%{version}.tar.gz
 Patch0: amplet2-client-init.patch
 Patch1: amplet2-client-default.patch
 BuildRoot:	%(mktemp -ud %{_tmppath}/%{name}-%{version}-%{release}-XXXXXX)
 
-BuildRequires: openssl-devel libconfuse-devel libwandevent-devel >= 3.0.1 libcurl-devel unbound-devel libpcap-devel protobuf-c-devel librabbitmq4-devel >= 0.7.1
-Requires: librabbitmq4 >= 0.7.1 libwandevent >= 3.0.1 libcurl unbound-libs libpcap rsyslog protobuf-c
+BuildRequires: automake libtool openssl-devel libconfuse-devel libwandevent-devel >= 3.0.1 libcurl-devel unbound-devel libpcap-devel protobuf-c-devel librabbitmq-devel >= 0.7.1 flex libyaml-devel
+Requires: librabbitmq >= 0.7.1 libwandevent >= 3.0.1 libcurl unbound-libs libpcap rsyslog protobuf-c
 
 %description
 This package contains the client tools for the AMP Measurement Suite.
@@ -56,14 +56,18 @@ rm -rf %{buildroot}
 %doc
 %{_bindir}/*
 %attr(4755, root, root) %{_sbindir}/amplet2
-%{_libdir}/*so
+%{_libdir}/*.so
+%{_libdir}/*.so.*
 %{_libdir}/amplet2/tests/*so
-%{_sysconfdir}/%{name}/*
-%{_sysconfdir}/rsyslog.d/10-amplet2.conf
+%config(noreplace) %{_sysconfdir}/%{name}/*
+%config %{_sysconfdir}/rsyslog.d/10-amplet2.conf
 %config %{_initrddir}/*
-%config %{_sysconfdir}/default/*
+%config(noreplace) %{_sysconfdir}/default/*
 %dir %{_localstatedir}/run/%{name}/
 %doc %{_datarootdir}/%{name}/rabbitmq/*
+%{python2_sitelib}/ampsave-*.egg-info
+%{python2_sitelib}/ampsave/*
+%license COPYING
 
 
 %post
@@ -194,7 +198,7 @@ fi
 - amplet2: remove default collector address and make it mandatory to be set.
 - Update documentation.
 
-* Mon Sep 22 2016 Brendon Jones <brendonj@waikato.ac.nz> 0.7.0-1
+* Thu Sep 22 2016 Brendon Jones <brendonj@waikato.ac.nz> 0.7.0-1
 - Add access control list for access to starting test servers, running tests.
 - Remove standard Diffie-Hellman ciphers from list of allowable choices.
 - Use libwandevent to run packet probing in icmp and dns tests.
