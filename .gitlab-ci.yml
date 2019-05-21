@@ -124,6 +124,12 @@ build-jessie-armhf:
 #  <<: *build_template
 #  image: multiarch/debian-debootstrap:arm64-jessie
 
+build-centos7-amd64:
+  <<: *build_template
+  image: centos:7
+  script:
+    - ./gitlab-build-rpm.sh
+
 upload-packages:
   stage: upload
   image: ubuntu:bionic
