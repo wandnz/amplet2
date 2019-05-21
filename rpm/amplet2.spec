@@ -1,7 +1,7 @@
 Name: amplet2
 Version: 0.9.4
 Release: 1%{?dist}
-Summary: AMP Network Performance Measurement Suite - Client Tools
+Summary: AMP Network Performance Measurement Suite
 
 Group: Applications/Internet
 License: GPLv2
@@ -15,6 +15,15 @@ BuildRequires: automake libtool openssl-devel libconfuse-devel libwandevent-deve
 Requires: librabbitmq >= 0.7.1 libwandevent >= 3.0.1 libcurl unbound-libs libpcap rsyslog protobuf-c
 
 %description
+AMP measures network performance from distributed nodes, according
+to a configured schedule. The resulting data is transferred back to
+one or more rabbitmq brokers via the AMQP protocol.
+
+
+%package client
+Summary: AMP Network Performance Measurement Suite - Client Tools
+
+%description client
 This package contains the client tools for the AMP Measurement Suite.
 These measure the network performance to specified targets according
 to a configured schedule. The resulting data is transferred back to
@@ -51,7 +60,7 @@ rm -rf %{buildroot}/usr/share/amplet2/rsyslog/
 rm -rf %{buildroot}
 
 
-%files
+%files client
 %defattr(-,root,root,-)
 %doc
 %{_bindir}/*
@@ -70,7 +79,7 @@ rm -rf %{buildroot}
 %license COPYING
 
 
-%post
+%post client
 if [ -x "`which invoke-rc.d 2>/dev/null`" ]; then
 	invoke-rc.d rsyslog restart || exit $?
 else
@@ -90,7 +99,7 @@ else
 fi
 
 
-%preun
+%preun client
 if [ $1 -eq 0 ]; then
 	/etc/init.d/amplet2-client stop > /dev/null 2>&1
 	if [ -x /sbin/chkconfig ]; then
