@@ -368,7 +368,7 @@ AC_ARG_ENABLE(external,
     no)  want_external_test=false ;;
     *) AC_MSG_ERROR(bad value ${enableval} for --enable-external) ;;
     esac],
-    [want_external_test=false])
+    [want_external_test=true])
 # using AM_CONDITIONAL propagates this value through to all Makefile.am files
 AM_CONDITIONAL(WANT_EXTERNAL_TEST, [test x"$want_external_test" = xtrue])
 
