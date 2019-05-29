@@ -8,11 +8,11 @@ License: GPLv2
 URL: https://github.com/wanduow/amplet2
 Source0: https://github.com/wanduow/amplet2/archive/%{version}.tar.gz
 Patch0: amplet2-client-init.patch
-Patch1: amplet2-client-default.patch
+Patch1: amplet2-client-service.patch
 BuildRoot:	%(mktemp -ud %{_tmppath}/%{name}-%{version}-%{release}-XXXXXX)
 
-BuildRequires: automake libtool openssl-devel libconfuse-devel libwandevent-devel >= 3.0.1 libcurl-devel unbound-devel libpcap-devel protobuf-c-devel librabbitmq-devel >= 0.7.1 flex libyaml-devel
-Requires: librabbitmq >= 0.7.1 libwandevent >= 3.0.1 libcurl unbound-libs libpcap rsyslog protobuf-c
+BuildRequires: automake libtool openssl-devel libconfuse-devel libwandevent-devel >= 3.0.1 libcurl-devel unbound-devel libpcap-devel protobuf-c-devel librabbitmq-devel >= 0.7.1 flex libyaml-devel systemd
+Requires: librabbitmq >= 0.7.1 libwandevent >= 3.0.1 libcurl unbound-libs libpcap rsyslog protobuf-c systemd initscripts
 
 %description
 AMP measures network performance from distributed nodes, according
@@ -45,16 +45,18 @@ make %{?_smp_mflags}
 %install
 rm -rf %{buildroot}
 make install DESTDIR=%{buildroot}
-install -D amplet2-client.init %{buildroot}%{_initrddir}/%{name}-client
-install -D amplet2-client.default %{buildroot}%{_sysconfdir}/default/%{name}-client
-install -D src/measured/rsyslog/10-amplet2.conf %{buildroot}%{_sysconfdir}/rsyslog.d/10-amplet2.conf
+install -D amplet2-client.init %{buildroot}%{_initrddir}/amplet2-client
+install -m 644 -D src/measured/rsyslog/10-amplet2.conf %{buildroot}%{_sysconfdir}/rsyslog.d/10-amplet2.conf
 # XXX this is hax, should amplet2 be in sbin or bin?
 mkdir %{buildroot}%{_sbindir}/
 mv %{buildroot}%{_bindir}/amplet2 %{buildroot}%{_sbindir}/
+install -m 644 -D amplet2-client.service %{buildroot}%{_unitdir}/amplet2-client.service
+install -m 644 -D src/measured/rabbitmq/client-rabbitmq.config %{buildroot}%{_docdir}/amplet2-client/examples/rabbitmq/client-rabbitmq.config
 rm -rf %{buildroot}/usr/lib/python2.6/
 rm -rf %{buildroot}%{_libdir}/*a
 rm -rf %{buildroot}%{_libdir}/%{name}/tests/*a
-rm -rf %{buildroot}/usr/share/amplet2/rsyslog/
+rm -rf %{buildroot}/usr/share/%{name}/rsyslog/
+rm -rf %{buildroot}/usr/share/%{name}/rabbitmq/
 
 %clean
 rm -rf %{buildroot}
@@ -71,43 +73,48 @@ rm -rf %{buildroot}
 %config(noreplace) %{_sysconfdir}/%{name}/*
 %config %{_sysconfdir}/rsyslog.d/10-amplet2.conf
 %config %{_initrddir}/*
-%config(noreplace) %{_sysconfdir}/default/*
 %dir %{_localstatedir}/run/%{name}/
-%doc %{_datarootdir}/%{name}/rabbitmq/*
+%doc %{_docdir}/amplet2-client/examples/rabbitmq/*
 %{python2_sitelib}/ampsave-*.egg-info
 %{python2_sitelib}/ampsave/*
 %license COPYING
+%{_unitdir}/amplet2-client.service
 
 
 %post client
-if [ -x "`which invoke-rc.d 2>/dev/null`" ]; then
-	invoke-rc.d rsyslog restart || exit $?
-else
-	/etc/init.d/rsyslog restart || exit $?
+CLIENTDIR=%{_sysconfdir}/%{name}/clients
+if [ `ls -lah ${CLIENTDIR} | grep -c "\.conf$"` -eq 0 ]; then
+    cp ${CLIENTDIR}/client.example ${CLIENTDIR}/default.conf
 fi
 
-# update init scripts
-if [ -x /sbin/chkconfig ]; then
-	/sbin/chkconfig --add amplet2-client
-else
-	for i in 2 3 4 5; do
-		ln -sf /etc/init.d/amplet2-client /etc/rc.d/rc${i}.d/S60amplet2-client
-	done
-	for i in 1 6; do
-		ln -sf /etc/init.d/amplet2-client /etc/rc.d/rc${i}.d/K20amplet2-client
-	done
+# Copy a default rabbitmq configuration file into place if there
+# isn't already one there. We'll assume if there is one then the
+# user knows what they are doing.
+# TODO this doesn't help if the user later installs rabbitmq-server
+# TODO looks like rabbitmq-server RPMs ship with a sample file already in place?
+if rpm -q rabbitmq-server >/dev/null; then
+    ACTUAL="/etc/rabbitmq/rabbitmq.config"
+    EXAMPLE="/usr/share/doc/amplet2-client/examples/client-rabbitmq.config"
+
+    # Also need to check that the example config even exists - some
+    # docker images are stripping docs (see /etc/yum.conf)
+    if [ -d /etc/rabbitmq/ -a ! -f ${ACTUAL} -a -f ${EXAMPLE} ]; then
+        cp ${EXAMPLE} ${ACTUAL}
+        chown rabbitmq:rabbitmq ${ACTUAL}
+        # restart rabbitmq-server so the new config takes effect
+        systemctl restart rabbitmq.service
+    fi
 fi
+
+# only restart rsyslog during install, not upgrade
+if [ $1 -eq 1 ]; then
+    systemctl restart rsyslog.service
+fi
+%systemd_post amplet2-client.service
 
 
 %preun client
-if [ $1 -eq 0 ]; then
-	/etc/init.d/amplet2-client stop > /dev/null 2>&1
-	if [ -x /sbin/chkconfig ]; then
-		/sbin/chkconfig --del amplet2-client
-	else
-		rm -f /etc/rc.d/rc?.d/???amplet2-client
-	fi
-fi
+%systemd_preun amplet2-client.service
 
 
 %changelog

@@ -1,6 +1,6 @@
 --- a/amplet2-client.init      1970-01-01 00:00:00.000000000 +0000
-+++ b/amplet2-client.init      2017-07-19 11:06:50.000000000 +0000
-@@ -0,0 +1,319 @@
++++ b/amplet2-client.init      2019-05-28 03:59:40.000000000 +0000
+@@ -0,0 +1,293 @@
 +#!/bin/sh
 +### BEGIN INIT INFO
 +# Provides:          amplet2
@@ -38,23 +38,6 @@
 +    echo "Cannot find $DAEMON, aborting"
 +    exit 5
 +fi
-+
-+# Read configuration variable file if it is present (wheezy or similar)
-+if [ -r /etc/default/$PKG_NAME ]; then
-+    START_DAEMON=1
-+    . /etc/default/$PKG_NAME
-+
-+    # Don't start the daemon unless it has been manually enabled in
-+    # /etc/default/amplet2. There is too much configuration required
-+    # to assume it can be started initially.
-+    if [ $START_DAEMON -le 0 ]; then
-+        echo "$PKG_NAME is disabled in /etc/default/$PKG_NAME, not starting."
-+        echo "Ensure config in /etc/amplet2/ is up to date before enabling."
-+        # Return 0 so package installation doesn't error
-+        exit 0
-+    fi
-+fi
-+
 +
 +#
 +# Wait for the pidfile to be populated and to contain a running pid
@@ -136,15 +119,6 @@
 +{
 +    SUCCESS=0
 +    FAILED=0
-+
-+    # Try to deal with network manager and friends taking too long to start
-+    # so that we don't always have a useful network configuration when
-+    # amplet2-client starts. Would be nice to be able to use the
-+    # init_is_upstart function, but then this delay always triggers rather
-+    # than only triggering on boot.
-+    if [ -n "$UPSTART_JOB" ]; then
-+        sleep 30
-+    fi
 +
 +    do_local_config
 +

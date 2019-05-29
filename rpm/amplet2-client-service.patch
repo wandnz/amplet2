@@ -1,0 +1,20 @@
+--- a/amplet2-client.service      1970-01-01 00:00:00.000000000 +0000
++++ b/amplet2-client.service      2019-05-28 04:00:32.000000000 +0000
+@@ -0,0 +1,17 @@
++[Unit]
++Description=AMP measurement daemon
++After=network.target rabbitmq-server.service
++Wants=rabbitmq-server.service
++
++[Service]
++Type=forking
++ExecStart=/etc/init.d/amplet2-client start
++ExecStop=/etc/init.d/amplet2-client stop
++ExecReload=/etc/init.d/amplet2-client reload
++PrivateTmp=yes
++PrivateDevices=yes
++ProtectSystem=yes
++ProtectHome=yes
++
++[Install]
++WantedBy=multi-user.target
