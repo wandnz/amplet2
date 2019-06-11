@@ -1,5 +1,5 @@
 Name: amplet2
-Version: 0.9.4
+Version: 0.9.5
 Release: 1%{?dist}
 Summary: AMP Network Performance Measurement Suite
 
@@ -118,6 +118,10 @@ fi
 
 
 %changelog
+* Tue Jun 11 2019 Brendon Jones <brendonj@waikato.ac.nz> 0.9.5-1
+- package: bring RPM packaging up to date (#32).
+- external: enable test by default (#33).
+
 * Thu May  9 2019 Brendon Jones <brendonj@waikato.ac.nz> 0.9.4-1
 - amplet2: add new test to run external programs (temporarily disabled) (#33).
 - fastping: fix incorrect test name on man page.

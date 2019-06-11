@@ -1,3 +1,9 @@
+amplet2 (0.9.5-1) unstable; urgency=low
+
+  * external: enable test by default (#33).
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Tue, 11 Jun 2019 17:18:35 +1200
+
 amplet2 (0.9.4-1) unstable; urgency=low
 
   * amplet2: add new test to run external programs (temporarily disabled) (#33).
