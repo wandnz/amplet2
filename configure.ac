@@ -379,6 +379,7 @@ AC_SUBST([AM_CFLAGS], ["-rdynamic -g -Wall -W -D_GNU_SOURCE -DAMP_CONFIG_DIR=\\\
 
 
 AC_CONFIG_FILES([Makefile
+                 doc/Makefile
                  src/Makefile
                  src/measured/Makefile
                  src/measured/test/Makefile

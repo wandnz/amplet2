@@ -64,6 +64,7 @@ rm -rf %{buildroot}
 %files client
 %defattr(-,root,root,-)
 %doc
+%{_mandir}/man8/amp*.8.gz
 %{_bindir}/*
 %{_sbindir}/amplet2
 %{_libdir}/*.so
