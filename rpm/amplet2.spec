@@ -65,13 +65,13 @@ rm -rf %{buildroot}
 %defattr(-,root,root,-)
 %doc
 %{_bindir}/*
-%attr(4755, root, root) %{_sbindir}/amplet2
+%{_sbindir}/amplet2
 %{_libdir}/*.so
 %{_libdir}/*.so.*
 %{_libdir}/amplet2/tests/*so
 %config(noreplace) %{_sysconfdir}/%{name}/*
 %config %{_sysconfdir}/rsyslog.d/10-amplet2.conf
-%config %{_initrddir}/*
+%{_initrddir}/*
 %dir %{_localstatedir}/run/%{name}/
 %doc %{_docdir}/amplet2-client/examples/rabbitmq/*
 %{python2_sitelib}/ampsave-*.egg-info
