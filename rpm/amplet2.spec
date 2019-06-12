@@ -81,6 +81,8 @@ rm -rf %{buildroot}
 
 
 %post client
+/sbin/ldconfig
+
 CLIENTDIR=%{_sysconfdir}/%{name}/clients
 if [ `ls -lah ${CLIENTDIR} | grep -c "\.conf$"` -eq 0 ]; then
     cp ${CLIENTDIR}/client.example ${CLIENTDIR}/default.conf
@@ -114,6 +116,9 @@ fi
 
 %preun client
 %systemd_preun amplet2-client.service
+
+
+%postun client -p /sbin/ldconfig
 
 
 %changelog
