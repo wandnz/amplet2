@@ -2,6 +2,11 @@
 
 set -x -e -o pipefail
 
+# libtool apparently doesn't set rpaths for standard directories since version
+# 1.5.2 (released in 2004), why are they still being included? It seems to do
+# the right thing on Debian but still has the old behaviour on CentOS.
+export QA_RPATHS=$[ 0x0001 ]
+
 . /etc/os-release
 CODENAME=${ID}_${VERSION_ID}
 TAGNAME=`echo ${CI_COMMIT_REF_NAME} | cut -d '-' -f 1`
