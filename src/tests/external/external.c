@@ -161,6 +161,11 @@ static int drop_root(void) {
         return -1;
     }
 
+    /* drop any ancillary groups */
+    if ( setgroups(0, NULL) != 0 ) {
+        return -1;
+    }
+
     /* set the group and user to "nobody" */
     if ( setgid(nobody->pw_gid) != 0 ) {
         return -1;
