@@ -1,5 +1,5 @@
 Name: amplet2
-Version: 0.9.5
+Version: 0.9.6
 Release: 1%{?dist}
 Summary: AMP Network Performance Measurement Suite
 
@@ -123,6 +123,13 @@ fi
 
 
 %changelog
+* Thu Jun 13 2019 Brendon Jones <brendonj@waikato.ac.nz> 0.9.6-1
+- package: fix RPATH in RPM packaging so test libraries can be found (#32).
+- package: flag man pages so they get installed by automake and RPMs (#32).
+- package: various minor file attribute fixes (#32).
+- external: drop all groups before setting user/group to "nobody" (#33).
+- fastping: link libm correctly with the test library.
+
 * Tue Jun 11 2019 Brendon Jones <brendonj@waikato.ac.nz> 0.9.5-1
 - package: bring RPM packaging up to date (#32).
 - external: enable test by default (#33).

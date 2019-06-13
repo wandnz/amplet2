@@ -1,3 +1,12 @@
+amplet2 (0.9.6-1) unstable; urgency=low
+
+  * external: drop all groups before setting user/group to "nobody" (#33).
+  * external: add missing man page to package.
+  * fastping: add missing man page to package.
+  * fastping: link libm correctly with the test library.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Thu, 13 Jun 2019 17:21:15 +1200
+
 amplet2 (0.9.5-1) unstable; urgency=low
 
   * external: enable test by default (#33).
