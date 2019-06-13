@@ -7,3 +7,5 @@ doc/amp-dns.8
 doc/amp-http.8
 doc/amp-tcpping.8
 doc/amp-udpstream.8
+doc/amp-external.8
+doc/amp-fastping.8
