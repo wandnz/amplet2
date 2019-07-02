@@ -1,4 +1,4 @@
-.TH AMP-TCPPING 8 "2016-09-20" "amplet2-client" "The Active Measurement Project"
+.TH AMP-TCPPING 8 "2019-07-02" "amplet2-client" "The Active Measurement Project"
 
 .SH NAME
 amp-tcpping \- AMP standalone TCP SYN latency test
@@ -105,13 +105,12 @@ By default the IPv6 address of the outgoing interface will be used.
 .BR amp-throughput (8),
 .BR amp-http (8),
 .BR amp-udpstream (8),
-.BR amp-youtube (8).
-
+.BR amp-youtube (8),
+.BR amp-fastping (8),
+.BR amp-external (8).
 
 .SH SECURITY
-\fBamp-tcpping\fR requires raw socket access to run.
-.\" CAP_NET_RAWIO, see man ping
-
+\fBamp-tcpping\fR requires CAP_NET_RAW capability to run.
 
 .SH AUTHOR
 amp-tcpping was written by Shane Alcock <salcock@waikato.ac.nz> with

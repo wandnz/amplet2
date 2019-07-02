@@ -1,4 +1,4 @@
-.TH AMP-FASTPING 8 "2019-04-16" "amplet2-client" "The Active Measurement Project"
+.TH AMP-FASTPING 8 "2019-07-02" "amplet2-client" "The Active Measurement Project"
 
 .SH NAME
 amp-fastping \- AMP standalone ICMP jitter test
@@ -10,8 +10,8 @@ amp-fastping \- AMP standalone ICMP jitter test
 
 .SH DESCRIPTION
 \fBamp-fastping\fP is the standalone version of the \fBamplet2\fP(8)
-ICMP jitter test. It sends streams of ICMP packets between two endpoints and
-reports on the jitter, latency and loss observed.
+ICMP jitter stream test. It sends streams of ICMP packets between two
+endpoints and reports on the jitter, latency and loss observed.
 
 
 .SH OPTIONS
@@ -80,11 +80,12 @@ By default the IPv6 address of the outgoing interface will be used.
 .BR amp-tcpping (8),
 .BR amp-throughput (8),
 .BR amp-trace (8),
-.BR amp-udpstream (8).
-.BR amp-youtube (8).
+.BR amp-udpstream (8),
+.BR amp-youtube (8),
+.BR amp-external (8).
 
 .SH SECURITY
-\fBamp-fastping\fR requires raw socket access to run.
+\fBamp-fastping\fR requires CAP_NET_RAW capability to run.
 
 .SH AUTHOR
 amp-fastping was written by Jayden Hewer <jayden.hewer@gmail.com> with

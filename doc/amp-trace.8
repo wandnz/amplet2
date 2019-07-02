@@ -1,4 +1,4 @@
-.TH AMP-TRACE 8 "2016-09-20" "amplet2-client" "The Active Measurement Project"
+.TH AMP-TRACE 8 "2019-07-02" "amplet2-client" "The Active Measurement Project"
 
 .SH NAME
 amp-trace \- AMP standalone UDP traceroute test
@@ -109,11 +109,12 @@ By default the IPv6 address of the outgoing interface will be used.
 .BR amp-http (8),
 .BR amp-tcpping (8),
 .BR amp-udpstream (8),
-.BR amp-youtube (8).
+.BR amp-youtube (8),
+.BR amp-fastping (8),
+.BR amp-external (8).
 
 .SH SECURITY
-\fBamp-trace\fR requires raw socket access to run.
-.\" CAP_NET_RAWIO, see man ping
+\fBamp-trace\fR requires CAP_NET_RAW capability to run.
 
 .SH AUTHOR
 amp-trace was written by Brendon Jones <brendonj@waikato.ac.nz>.
