@@ -22,6 +22,7 @@ PKG_NAME=amplet2-client
 DAEMON_NAME=amplet2             # Introduce the short server's name here
 DAEMON=/usr/sbin/$DAEMON_NAME   # Introduce the server's location here
 DAEMON_OPTS="-d"
+USER=amplet
 SCRIPTNAME=/etc/init.d/$PKG_NAME
 CONFDIR=/etc/amplet2/clients
 KEYDIR=/etc/amplet2/keys
@@ -71,8 +72,8 @@ do_local_config()
 {
     # Make sure that the pid dir exists
     if [ ! -d $PIDDIR ]; then
-        mkdir -p $PIDDIR
-        #chown
+        mkdir -p ${PIDDIR}
+        chown ${USER}: ${PIDDIR}
         #chgrp
     fi
 
@@ -87,16 +88,17 @@ do_local_config()
 
     # Make sure the keys directory exists and has the appropriate permissions
     if [ ! -d $KEYDIR ]; then
-        mkdir -p $KEYDIR
+        mkdir -p ${KEYDIR}
+        chown ${USER}: ${KEYDIR}
+        chmod 750 ${KEYDIR}
     fi
 
     # If using a local rabbitmq broker then check that it is configured. For
     # now we'll make the assumption that if the user and control program exist
     # then we should probably be using rabbitmq.
     if getent passwd rabbitmq > /dev/null && [ -x /usr/sbin/rabbitmqctl ]; then
-        # grant access to the keys directory
-        chown root:rabbitmq $KEYDIR
-        chmod 2750 $KEYDIR
+        # add the rabbitmq user to the amplet group to access keys
+        adduser --quiet rabbitmq amplet
 
         # make sure the shovel plugin is enabled
         if ! rabbitmq-plugins list -e rabbitmq_shovel | \
@@ -105,11 +107,7 @@ do_local_config()
             rabbitmq-plugins enable rabbitmq_shovel >/dev/null || exit $?
             log_action_end_msg 0
         fi
-    else
-        chown root:root $KEYDIR
-        chmod 700 $KEYDIR
     fi
-
 }
 
 
@@ -132,7 +130,7 @@ do_start()
         # TODO return appropriate thing if already running
         log_daemon_msg "Starting ${DESC}" $NAME
         # use start-stop-daemon --test?
-        start-stop-daemon --start --quiet --exec $DAEMON \
+        start-stop-daemon --start --quiet --chuid $USER --exec $DAEMON \
                 --pidfile $PIDFILE -- $DAEMON_OPTS -c $client -p $PIDFILE
 
         # if the client was started right now then wait for the pidfile

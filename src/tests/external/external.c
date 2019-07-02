@@ -146,52 +146,6 @@ static void usage(void) {
 
 
 /*
- * Drop root permissions before running the external command, just in case.
- */
-static int drop_root(void) {
-    struct passwd *nobody;
-
-    /* not root, nothing to drop */
-    if ( getuid() != 0 ) {
-        Log(LOG_WARNING, "not root anyway\n");
-        return 0;
-    }
-
-    if ( (nobody = getpwnam("nobody")) == NULL ) {
-        return -1;
-    }
-
-    /* drop any ancillary groups */
-    if ( setgroups(0, NULL) != 0 ) {
-        return -1;
-    }
-
-    /* set the group and user to "nobody" */
-    if ( setgid(nobody->pw_gid) != 0 ) {
-        return -1;
-    }
-
-    if ( setuid(nobody->pw_uid) != 0 ) {
-        return -1;
-    }
-
-    /* change to a non-root owned directory just to be tidy */
-    if ( chdir("/") != 0 ) {
-        return -1;
-    }
-
-    /* double check we can't regain root */
-    if ( setuid(0) == 0 || seteuid(0) == 0 ) {
-        Log(LOG_WARNING, "could not drop root privileges!\n");
-        return -1;
-    }
-
-    return 0;
-}
-
-
-
-/*
  *
  */
 static int is_valid_command(char *command) {
@@ -231,11 +185,6 @@ amp_test_result_t* run_external(int argc, char *argv[], int count,
     char *target = NULL;
 
     Log(LOG_DEBUG, "Starting EXTERNAL test");
-
-    if ( drop_root() < 0 ) {
-        Log(LOG_WARNING, "Failed to drop root privileges, aborting test");
-        exit(EXIT_FAILURE);
-    }
 
     /*
      * TODO any extra information to add about the test? Are big numbers

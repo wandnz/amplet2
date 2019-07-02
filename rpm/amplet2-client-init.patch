@@ -1,6 +1,6 @@
 --- a/amplet2-client.init      1970-01-01 00:00:00.000000000 +0000
-+++ b/amplet2-client.init      2019-05-28 03:59:40.000000000 +0000
-@@ -0,0 +1,293 @@
++++ b/amplet2-client.init      2019-07-01 02:54:56.000000000 +0000
+@@ -0,0 +1,292 @@
 +#!/bin/sh
 +### BEGIN INIT INFO
 +# Provides:          amplet2
@@ -27,6 +27,7 @@
 +DAEMON_NAME=amplet2             # Introduce the short server's name here
 +DAEMON=/usr/sbin/$DAEMON_NAME   # Introduce the server's location here
 +DAEMON_OPTS="-d"
++USER=amplet
 +SCRIPTNAME=/etc/init.d/$PKG_NAME
 +CONFDIR=/etc/amplet2/clients
 +KEYDIR=/etc/amplet2/keys
@@ -71,7 +72,7 @@
 +    # Make sure that the pid dir exists
 +    if [ ! -d $PIDDIR ]; then
 +        mkdir -p $PIDDIR
-+        #chown
++        chown ${USER}: ${PIDDIR}
 +        #chgrp
 +    fi
 +
@@ -86,16 +87,17 @@
 +
 +    # Make sure the keys directory exists and has the appropriate permissions
 +    if [ ! -d $KEYDIR ]; then
-+        mkdir -p $KEYDIR
++        mkdir -p ${KEYDIR}
++        chown ${USER}: ${KEYDIR}
++        chmod 750 ${KEYDIR}
 +    fi
 +
 +    # If using a local rabbitmq broker then check that it is configured. For
 +    # now we'll make the assumption that if the user and control program exist
 +    # then we should probably be using rabbitmq.
 +    if getent passwd rabbitmq > /dev/null && [ -x /usr/sbin/rabbitmqctl ]; then
-+        # grant access to the keys directory
-+        chown root:rabbitmq $KEYDIR
-+        chmod 2750 $KEYDIR
++        # add the rabbitmq user to the amplet group to access keys
++        usermod -a -G amplet rabbitmq
 +
 +        # make sure the shovel plugin is enabled
 +        if ! rabbitmq-plugins list -e rabbitmq_shovel | \
@@ -104,9 +106,6 @@
 +            rabbitmq-plugins enable rabbitmq_shovel >/dev/null || exit $?
 +            echo
 +        fi
-+    else
-+        chown root:root $KEYDIR
-+        chmod 700 $KEYDIR
 +    fi
 +
 +}
@@ -131,7 +130,7 @@
 +        # TODO return appropriate thing if already running
 +        echo -n "Starting ${DESC}" $NAME
 +        # use start-stop-daemon --test?
-+        daemon --pidfile $PIDFILE $DAEMON $DAEMON_OPTS -c $client -p $PIDFILE
++        daemon --pidfile $PIDFILE --user $USER $DAEMON $DAEMON_OPTS -c $client -p $PIDFILE
 +
 +        # if the client was started right now then wait for the pidfile
 +        # to be correct before continuing (makes sure puppet doesn't try

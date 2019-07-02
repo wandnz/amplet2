@@ -17,6 +17,9 @@ icmp_la_LDFLAGS=-module -avoid-version -L../../common/ -lamp -lprotobuf-c -lwand
 
 INCLUDES=-I../ -I../../common/
 
+install-exec-local:
+	setcap 'CAP_NET_RAW=ep' $(DESTDIR)/$(bindir)/amp-icmp
+
 icmp.pb-c.c: Makefile
 	protoc-c --c_out=. icmp.proto
 	protoc --python_out=../python/ampsave/tests/ icmp.proto

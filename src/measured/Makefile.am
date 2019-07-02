@@ -17,5 +17,8 @@ dist_syslog_DATA=rsyslog/*
 rabbitdir=$(pkgdatadir)/rabbitmq
 dist_rabbit_DATA=rabbitmq/*
 
+install-exec-local:
+	setcap 'CAP_NET_RAW=ep' $(DESTDIR)/$(bindir)/amplet2
+
 install-data-local:
 	$(MKDIR_P) $(DESTDIR)$(localstatedir)/run/$(PACKAGE)

@@ -22,6 +22,19 @@ CLIENTDIR="$CONFDIR/clients"
 
 case "$1" in
     configure)
+        # create the system user that will run the amp tests
+        adduser --quiet --system --group --no-create-home \
+                --home ${CONFDIR} amplet
+
+        chown -R amplet: ${CONFDIR}
+
+        # some tests need special capabilities to run
+        setcap 'CAP_NET_RAW=ep' /usr/sbin/amplet2
+        setcap 'CAP_NET_RAW=ep' /usr/sbin/amp-fastping
+        setcap 'CAP_NET_RAW=ep' /usr/sbin/amp-icmp
+        setcap 'CAP_NET_RAW=ep' /usr/sbin/amp-tcpping
+        setcap 'CAP_NET_RAW=ep' /usr/sbin/amp-trace
+
         # Copy the example client configuration file into place if there
         # isn't already one there. Trying to make it so everything is
         # ready to go for new users without breaking anything that might

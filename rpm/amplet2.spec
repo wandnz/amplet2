@@ -66,7 +66,11 @@ rm -rf %{buildroot}
 %doc
 %{_mandir}/man8/amp*.8.gz
 %{_bindir}/*
-%{_sbindir}/amplet2
+%caps(cap_net_raw=pe) %{_bindir}/amp-fastping
+%caps(cap_net_raw=pe) %{_bindir}/amp-icmp
+%caps(cap_net_raw=pe) %{_bindir}/amp-tcpping
+%caps(cap_net_raw=pe) %{_bindir}/amp-trace
+%caps(cap_net_raw=pe) %{_sbindir}/amplet2
 %{_libdir}/*.so
 %{_libdir}/*.so.*
 %{_libdir}/amplet2/tests/*so
@@ -83,6 +87,10 @@ rm -rf %{buildroot}
 
 %post client
 /sbin/ldconfig
+
+# create the system user that will run the amp tests
+adduser -r --home ${CONFDIR} amplet
+chown -R amplet: %{_sysconfdir}/%{name}/
 
 CLIENTDIR=%{_sysconfdir}/%{name}/clients
 if [ `ls -lah ${CLIENTDIR} | grep -c "\.conf$"` -eq 0 ]; then
