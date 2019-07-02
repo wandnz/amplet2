@@ -478,7 +478,7 @@ amp_test_result_t* run_udpstream_client(int argc, char *argv[], int count,
      * or the -c command line argument
      */
     if ( count < 1 || dests == NULL || dests[0] == NULL ) {
-        Log(LOG_WARNING, "No destination specified for throughput test");
+        Log(LOG_WARNING, "No destination specified for udpstream test");
         exit(EXIT_FAILURE);
     }
 
