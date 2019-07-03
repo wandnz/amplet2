@@ -1,5 +1,5 @@
 Name: amplet2
-Version: 0.9.6
+Version: 0.9.7
 Release: 1%{?dist}
 Summary: AMP Network Performance Measurement Suite
 
@@ -131,6 +131,11 @@ fi
 
 
 %changelog
+* Wed Jul  3 2019 Brendon Jones <brendonj@waikato.ac.nz> 0.9.7-1
+- amplet2: run all test processes as a non-privileged user.
+- amplet2: update man pages with capabilities and links to other programs.
+- udpstream: fix incorrect test name in error message.
+
 * Thu Jun 13 2019 Brendon Jones <brendonj@waikato.ac.nz> 0.9.6-1
 - package: fix RPATH in RPM packaging so test libraries can be found (#32).
 - package: flag man pages so they get installed by automake and RPMs (#32).

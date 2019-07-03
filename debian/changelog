@@ -1,3 +1,11 @@
+amplet2 (0.9.7-1) unstable; urgency=low
+
+  * amplet2: run all test processes as a non-privileged user.
+  * amplet2: update man pages with capabilities and links to other programs.
+  * udpstream: fix incorrect test name in error message.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Wed,  3 Jul 2019 13:42:19 +1200
+
 amplet2 (0.9.6-1) unstable; urgency=low
 
   * external: drop all groups before setting user/group to "nobody" (#33).
