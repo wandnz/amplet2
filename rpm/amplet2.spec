@@ -22,7 +22,7 @@ one or more rabbitmq brokers via the AMQP protocol.
 
 %package client
 Summary: AMP Network Performance Measurement Suite - Client Tools
-Requires: librabbitmq >= 0.7.1 libwandevent >= 3.0.1 libcurl unbound-libs libpcap rsyslog protobuf-c systemd initscripts
+Requires: librabbitmq >= 0.7.1 libwandevent >= 3.0.1 rsyslog protobuf-c systemd initscripts
 
 
 %description client
