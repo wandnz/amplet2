@@ -91,7 +91,7 @@ rm -rf %{buildroot}
 /sbin/ldconfig
 
 # create the system user that will run the amp tests
-adduser -r --home ${CONFDIR} amplet
+adduser -r --home %{_sysconfdir} amplet
 chown -R amplet: %{_sysconfdir}/%{name}/
 
 CLIENTDIR=%{_sysconfdir}/%{name}/clients
