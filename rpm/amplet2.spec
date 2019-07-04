@@ -91,8 +91,16 @@ rm -rf %{buildroot}
 /sbin/ldconfig
 
 # create the system user that will run the amp tests
-adduser -r --home %{_sysconfdir} amplet
+adduser -r --home %{_sysconfdir}/%{name} amplet
+
+# Make sure keys directory exists and has the appropriate permissions
+mkdir -p %{_sysconfdir}/%{name}/keys
+chmod 2750 %{_sysconfdir}/%{name}/keys
+
+# the amplet user should own everything in the config directory
 chown -R amplet: %{_sysconfdir}/%{name}/
+
+mkdir -p /var/log/amplet2
 
 CLIENTDIR=%{_sysconfdir}/%{name}/clients
 if [ `ls -lah ${CLIENTDIR} | grep -c "\.conf$"` -eq 0 ]; then

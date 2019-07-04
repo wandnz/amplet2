@@ -19,14 +19,28 @@ set -e
 
 CONFDIR="/etc/amplet2"
 CLIENTDIR="$CONFDIR/clients"
+KEYDIR="$CONFDIR/keys"
+LOGDIR="/var/log/amplet2"
+USER="amplet"
 
 case "$1" in
     configure)
         # create the system user that will run the amp tests
         adduser --quiet --system --group --no-create-home \
-                --home ${CONFDIR} amplet
+                --home ${CONFDIR} ${USER}
 
-        chown -R amplet: ${CONFDIR}
+        # Make sure keys directory exists and has the appropriate permissions
+        mkdir -p ${KEYDIR}
+        chmod 2750 ${KEYDIR}
+
+        # the amplet user should own everything in the config directory
+        chown -R ${USER}: ${CONFDIR}
+
+        # some systems expect syslog to own the log files/directories
+        mkdir -p ${LOGDIR}
+        if getent passwd syslog > /dev/null; then
+            chown syslog:adm ${LOGDIR}
+        fi
 
         # some tests need special capabilities to run
         setcap 'CAP_NET_RAW=ep' /usr/sbin/amplet2

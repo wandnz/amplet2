@@ -25,9 +25,7 @@ DAEMON_OPTS="-d"
 USER=amplet
 SCRIPTNAME=/etc/init.d/$PKG_NAME
 CONFDIR=/etc/amplet2/clients
-KEYDIR=/etc/amplet2/keys
 PIDDIR=/var/run/amplet2
-LOGDIR=/var/log/amplet2
 
 # Exit if the package is not installed
 if [ ! -x $DAEMON ]; then
@@ -71,27 +69,8 @@ do_wait()
 do_local_config()
 {
     # Make sure that the pid dir exists
-    if [ ! -d $PIDDIR ]; then
-        mkdir -p ${PIDDIR}
-        chown ${USER}: ${PIDDIR}
-        #chgrp
-    fi
-
-    # Make sure that the log dir exists
-    if [ ! -d $LOGDIR ]; then
-        mkdir -p $LOGDIR
-        # some systems expect syslog to own the log files/directories
-        if getent passwd syslog > /dev/null; then
-            chown syslog:adm $LOGDIR
-        fi
-    fi
-
-    # Make sure the keys directory exists and has the appropriate permissions
-    if [ ! -d $KEYDIR ]; then
-        mkdir -p ${KEYDIR}
-        chown ${USER}: ${KEYDIR}
-        chmod 750 ${KEYDIR}
-    fi
+    mkdir -p ${PIDDIR}
+    chown ${USER}: ${PIDDIR}
 
     # If using a local rabbitmq broker then check that it is configured. For
     # now we'll make the assumption that if the user and control program exist
