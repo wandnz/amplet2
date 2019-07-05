@@ -1,5 +1,5 @@
 Name: amplet2
-Version: 0.9.7
+Version: 0.9.8
 Release: 1%{?dist}
 Summary: AMP Network Performance Measurement Suite
 
@@ -141,6 +141,12 @@ fi
 
 
 %changelog
+* Fri Jul  5 2019 Brendon Jones <brendonj@waikato.ac.nz> 0.9.8-1
+- package: specify dependencies correctly for the client subpackage.
+- package: fix the reference in postinst to the config directory to be correct.
+- package: create directories during postinst rather than in init scripts.
+- amplet2: start as root to run rabbitmqctl before switching to amplet user.
+
 * Wed Jul  3 2019 Brendon Jones <brendonj@waikato.ac.nz> 0.9.7-1
 - amplet2: run all test processes as a non-privileged user.
 - amplet2: update man pages with capabilities and links to other programs.

@@ -1,3 +1,10 @@
+amplet2 (0.9.8-1) unstable; urgency=low
+
+  * package: create directories during postinst rather than in init scripts.
+  * amplet2: start as root to run rabbitmqctl before switching to amplet user.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Fri,  5 Jul 2019 16:43:18 +1200
+
 amplet2 (0.9.7-1) unstable; urgency=low
 
   * amplet2: run all test processes as a non-privileged user.
