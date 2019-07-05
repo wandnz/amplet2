@@ -134,6 +134,15 @@ if test "$protobuf_h_found" = 0; then
     AC_MSG_ERROR(Required headers for protobuf-c not found; use CFLAGS to specify header location)
 fi
 
+AC_CHECK_LIB(cap, cap_set_proc, libcap_found=1, libcap_found=0)
+if test "$libcap_found" = 0; then
+    AC_MSG_ERROR(Required library libcap not found; use LDFLAGS to specify library location)
+fi
+AC_CHECK_HEADER(sys/capability.h, capability_h_found=1, capability_h_found=0)
+if test "$capability_h_found" = 0; then
+    AC_MSG_ERROR(Required headers for libcap not found; use CFLAGS to specify header location)
+fi
+
 AC_ARG_ENABLE(python,
     AC_HELP_STRING([--enable-python],
 	[Enable the python data exporting (default: yes)]),

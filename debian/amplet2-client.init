@@ -109,7 +109,7 @@ do_start()
         # TODO return appropriate thing if already running
         log_daemon_msg "Starting ${DESC}" $NAME
         # use start-stop-daemon --test?
-        start-stop-daemon --start --quiet --chuid $USER --exec $DAEMON \
+        start-stop-daemon --start --quiet --exec $DAEMON \
                 --pidfile $PIDFILE -- $DAEMON_OPTS -c $client -p $PIDFILE
 
         # if the client was started right now then wait for the pidfile

@@ -109,7 +109,7 @@
 +        # TODO return appropriate thing if already running
 +        echo -n "Starting ${DESC}" $NAME
 +        # use start-stop-daemon --test?
-+        daemon --pidfile $PIDFILE --user $USER $DAEMON $DAEMON_OPTS -c $client -p $PIDFILE
++        daemon --pidfile $PIDFILE $DAEMON $DAEMON_OPTS -c $client -p $PIDFILE
 +
 +        # if the client was started right now then wait for the pidfile
 +        # to be correct before continuing (makes sure puppet doesn't try

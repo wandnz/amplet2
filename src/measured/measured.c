@@ -69,6 +69,7 @@
 #include "localsock.h"
 #include "certs.h"
 #include "parseconfig.h"
+#include "users.h"
 
 #define AMP_CLIENT_CONFIG_DIR AMP_CONFIG_DIR "/clients"
 
@@ -537,6 +538,8 @@ int main(int argc, char *argv[]) {
      * certs now, and exiting after configuring rabbit isn't helpful).
      * XXX rethink this again? is it worth having a standalone program that
      * can read the config file just to do this?
+     * XXX running rabbitmqctl is the only reason that amplet2 needs to run
+     * as root, can we avoid it by using the HTTP management interface?
      */
     if ( should_config_rabbit(cfg) ) {
         Log(LOG_DEBUG, "Configuring rabbitmq for amplet2 client %s",
@@ -571,6 +574,14 @@ int main(int argc, char *argv[]) {
          * we can't really configure from here.
          */
         Log(LOG_DEBUG, "vialocal = false, no local configuration");
+    }
+
+    /* TODO allow username to be configured */
+    /* drop root permissions now that we no longer need them to set up rabbit */
+    if ( change_user("amplet") < 0 ) {
+        Log(LOG_ALERT, "Failed to change to user 'amplet', aborting");
+        cfg_free(cfg);
+        exit(EXIT_FAILURE);
     }
 
     /* set up event handlers */
