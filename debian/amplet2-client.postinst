@@ -43,11 +43,14 @@ case "$1" in
         fi
 
         # some tests need special capabilities to run
-        setcap 'CAP_NET_RAW=ep' /usr/sbin/amplet2
+        setcap 'CAP_NET_RAW=ep CAP_NET_ADMIN=ep CAP_NET_BIND_SERVICE=ep' /usr/sbin/amplet2
+
         setcap 'CAP_NET_RAW=ep' /usr/sbin/amp-fastping
         setcap 'CAP_NET_RAW=ep' /usr/sbin/amp-icmp
-        setcap 'CAP_NET_RAW=ep' /usr/sbin/amp-tcpping
+        setcap 'CAP_NET_RAW=ep CAP_NET_ADMIN=ep' /usr/sbin/amp-tcpping
+        setcap 'CAP_NET_BIND_SERVICE=ep' /usr/sbin/amp-throughput
         setcap 'CAP_NET_RAW=ep' /usr/sbin/amp-trace
+        setcap 'CAP_NET_BIND_SERVICE=ep' /usr/sbin/amp-udpstream
 
         # Copy the example client configuration file into place if there
         # isn't already one there. Trying to make it so everything is

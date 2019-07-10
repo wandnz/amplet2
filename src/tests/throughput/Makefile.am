@@ -17,6 +17,9 @@ throughput_la_LDFLAGS=-module -avoid-version -L../../common/ -lamp -lprotobuf-c
 
 INCLUDES=-I../ -I../../common/
 
+install-exec-local:
+	setcap 'CAP_NET_BIND_SERVICE=ep' $(DESTDIR)/$(bindir)/amp-throughput
+
 throughput.pb-c.c: Makefile
 	protoc-c --c_out=. throughput.proto
 	protoc --python_out=../python/ampsave/tests/ throughput.proto

@@ -59,6 +59,7 @@ rm -rf %{buildroot}%{_libdir}/%{name}/tests/*a
 rm -rf %{buildroot}/usr/share/%{name}/rsyslog/
 rm -rf %{buildroot}/usr/share/%{name}/rabbitmq/
 
+
 %clean
 rm -rf %{buildroot}
 
@@ -68,11 +69,13 @@ rm -rf %{buildroot}
 %doc
 %{_mandir}/man8/amp*.8.gz
 %{_bindir}/*
+%caps(cap_net_raw=pe cap_net_admin=pe cap_net_bind_service=pe) %{_sbindir}/amplet2
 %caps(cap_net_raw=pe) %{_bindir}/amp-fastping
 %caps(cap_net_raw=pe) %{_bindir}/amp-icmp
-%caps(cap_net_raw=pe) %{_bindir}/amp-tcpping
+%caps(cap_net_raw=pe cap_net_admin=pe) %{_bindir}/amp-tcpping
+%caps(cap_net_bind_service=pe) %{_bindir}/amp-throughput
 %caps(cap_net_raw=pe) %{_bindir}/amp-trace
-%caps(cap_net_raw=pe) %{_sbindir}/amplet2
+%caps(cap_net_bind_service=pe) %{_bindir}/amp-udpstream
 %{_libdir}/*.so
 %{_libdir}/*.so.*
 %{_libdir}/amplet2/tests/*so

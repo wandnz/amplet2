@@ -19,7 +19,7 @@ tcpping_la_LDFLAGS=-module -avoid-version -L../../common/ -lamp -lwandevent \
 INCLUDES=-I../ -I../../common/
 
 install-exec-local:
-	setcap 'CAP_NET_RAW=ep' $(DESTDIR)/$(bindir)/amp-tcpping
+	setcap 'CAP_NET_ADMIN=ep CAP_NET_RAW=ep' $(DESTDIR)/$(bindir)/amp-tcpping
 
 tcpping.pb-c.c: Makefile
 	protoc-c --c_out=. tcpping.proto

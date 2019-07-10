@@ -51,12 +51,20 @@
 
 /*
  * Change from the root user to a specified non-privileged user, making sure
- * to keep CAP_NET_RAW capabilities so that tests can still run.
+ * to keep CAP_NET_RAW and CAP_NET_BIND_SERVICE capabilities so that tests
+ * can still run. In theory we also need CAP_NET_ADMIN to change
+ * type-of-service bits, but that doesn't appear to be correct. We do however
+ * need CAP_NET_ADMIN to avoid a bug, so we'll set it anyway:
+ * https://github.com/the-tcpdump-group/libpcap/issues/689
  */
 int change_user(char *username) {
     struct passwd *pwd;
     cap_t caps;
-    cap_value_t cap_list[1] = { CAP_NET_RAW };
+    cap_value_t cap_list[3] = {
+        CAP_NET_RAW,
+        CAP_NET_ADMIN,
+        CAP_NET_BIND_SERVICE
+    };
 
     Log(LOG_INFO, "Dropping permissions from root to %s", username);
 
@@ -64,7 +72,10 @@ int change_user(char *username) {
         return -1;
     }
 
-    if ( !CAP_IS_SUPPORTED(CAP_SETFCAP) || !CAP_IS_SUPPORTED(CAP_NET_RAW) ) {
+    if ( !CAP_IS_SUPPORTED(CAP_SETFCAP) ||
+            !CAP_IS_SUPPORTED(CAP_NET_RAW) ||
+            !CAP_IS_SUPPORTED(CAP_NET_ADMIN) ||
+            !CAP_IS_SUPPORTED(CAP_NET_BIND_SERVICE) ) {
         return -1;
     }
 
@@ -106,7 +117,7 @@ int change_user(char *username) {
         return -1;
     }
 
-    if ( cap_set_flag(caps, CAP_EFFECTIVE, 1, cap_list, CAP_SET) == -1 ) {
+    if ( cap_set_flag(caps, CAP_EFFECTIVE, 3, cap_list, CAP_SET) == -1 ) {
         return -1;
     }
 
