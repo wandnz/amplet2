@@ -1,5 +1,5 @@
 Name: amplet2
-Version: 0.9.8
+Version: 0.9.9
 Release: 1%{?dist}
 Summary: AMP Network Performance Measurement Suite
 
@@ -144,6 +144,13 @@ fi
 
 
 %changelog
+* Thu Jul 11 2019 Brendon Jones <brendonj@waikato.ac.nz> 0.9.9-1
+- amplet2: set CAP_NET_ADMIN to run tcpping test.
+- amplet2: set CAP_NET_BIND_SERVICE to run throughput and udpstream tests.
+- tcpping: set CAP_NET_ADMIN to allow pcap capture.
+- throughput: set CAP_NET_BIND_SERVICE to allow binding to low ports.
+- udpstream: set CAP_NET_BIND_SERVICE to allow binding to low ports.
+
 * Fri Jul  5 2019 Brendon Jones <brendonj@waikato.ac.nz> 0.9.8-1
 - package: specify dependencies correctly for the client subpackage.
 - package: fix the reference in postinst to the config directory to be correct.
