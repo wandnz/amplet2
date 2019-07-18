@@ -60,6 +60,10 @@ rm -rf %{buildroot}/usr/share/%{name}/rsyslog/
 rm -rf %{buildroot}/usr/share/%{name}/rabbitmq/
 
 
+%check
+make check
+
+
 %clean
 rm -rf %{buildroot}
 
