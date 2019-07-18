@@ -9,7 +9,7 @@ export QA_RPATHS=$[ 0x0001 ]
 
 . /etc/os-release
 CODENAME=${ID}_${VERSION_ID}
-TAGNAME=`echo ${CI_COMMIT_REF_NAME} | cut -d '-' -f 1`
+TAGNAME=`grep -m 1 Version rpm/${CI_PROJECT_NAME}.spec | awk '{print $2}'`
 
 # add the repository that has our dependencies
 cat << EOF > /etc/yum.repos.d/bintray-wand-amp-rpm.repo
