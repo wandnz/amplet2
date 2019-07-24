@@ -109,7 +109,7 @@ static void interrupt_test(wand_event_handler_t *ev_hdl,
 static void halt_test(wand_event_handler_t *ev_hdl, void *data) {
     struct dnsglobals_t *globals = (struct dnsglobals_t *)data;
 
-    Log(LOG_DEBUG, "Halting ICMP test due to timeout");
+    Log(LOG_DEBUG, "Halting DNS test due to timeout");
     globals->losstimer = NULL;
     ev_hdl->running = false;
 }
