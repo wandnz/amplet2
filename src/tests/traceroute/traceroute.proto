@@ -11,6 +11,7 @@
  * hop in the path that responded.
  * Each Hop contains information about response from the host at that TTL.
  */
+syntax = "proto2";
 package amplet2.traceroute;
 
 

@@ -4,6 +4,7 @@
  * This test is a very basic example of how a test can be written.
  *
  */
+syntax = "proto2";
 package amplet2.skeleton;
 
 

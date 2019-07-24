@@ -1,3 +1,4 @@
+syntax = "proto2";
 package amplet2.measured;
 
 message Control {

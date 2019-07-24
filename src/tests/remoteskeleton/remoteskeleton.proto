@@ -5,6 +5,7 @@
  * be written.
  *
  */
+syntax = "proto2";
 package amplet2.remoteskeleton;
 
 

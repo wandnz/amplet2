@@ -2,6 +2,7 @@
  * Data reporting messages for the AMP FASTPING test.
  *
  */
+syntax = "proto2";
 package amplet2.fastping;
 
 

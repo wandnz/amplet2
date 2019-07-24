@@ -8,6 +8,7 @@
  * Each Report contains one Header and one Item per result.
  * Each Item contains information on a test result.
  */
+syntax = "proto2";
 package amplet2.throughput;
 
 enum Protocol {

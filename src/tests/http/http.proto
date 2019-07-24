@@ -12,6 +12,7 @@
  * Each Object contains info about that object, including one CacheHeaders.
  * Each CacheHeaders contains information about the cache headers that were set.
  */
+syntax = "proto2";
 package amplet2.http;
 
 

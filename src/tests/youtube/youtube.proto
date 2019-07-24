@@ -3,6 +3,7 @@
  *
  * Each message contains one Report.
  */
+syntax = "proto2";
 package amplet2.youtube;
 
 /**
