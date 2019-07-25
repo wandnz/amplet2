@@ -1,5 +1,6 @@
 stages:
  - build
+ - test
  - upload
 
 # multiarch images for jessie are no longer updated and were left in a bad state
@@ -10,7 +11,7 @@ stages:
 .fix_ubuntu_multiarch_apt_template: &fix_ubuntu_multiarch_apt
   /bin/sed -i 's/main$/main restricted universe/' /etc/apt/sources.list
 
-.generic_apt_build_template: &generic_apt_build
+.generic_apt_setup_template: &generic_apt_setup
   echo 'APT::Install-Recommends "0";' > /etc/apt/apt.conf.d/10no-recommends &&
   echo 'APT::Install-Suggests "0";' > /etc/apt/apt.conf.d/10no-suggests &&
   apt-get update && apt-get -y upgrade &&
@@ -21,7 +22,9 @@ stages:
   export DEBEMAIL='brendonj@waikato.ac.nz' &&
   export DEBFULLNAME='Brendon Jones' &&
   export CODENAME=`lsb_release -c -s` &&
-  mk-build-deps -i -r -t 'apt-get -f -y --force-yes' &&
+  mk-build-deps -i -r -t 'apt-get -f -y --force-yes'
+
+.generic_apt_build_template: &generic_apt_build
   dpkg-buildpackage -b -us -uc -rfakeroot &&
   mkdir -p built-packages/$CODENAME/ || true &&
   mv ../*.deb built-packages/$CODENAME/
@@ -29,6 +32,7 @@ stages:
 .build_template: &build_template
   stage: build
   script:
+    - *generic_apt_setup
     - *generic_apt_build
   artifacts:
     paths:
@@ -40,12 +44,16 @@ stages:
 build-bionic-amd64:
   <<: *build_template
   image: ubuntu:bionic
+  only:
+    - tags
+    - web
 
 build-bionic-i386:
   <<: *build_template
   image: multiarch/ubuntu-debootstrap:i386-bionic
   script:
     - *fix_ubuntu_multiarch_apt
+    - *generic_apt_setup
     - *generic_apt_build
 
 build-bionic-armhf:
@@ -53,6 +61,7 @@ build-bionic-armhf:
   image: multiarch/ubuntu-debootstrap:armhf-bionic
   script:
     - *fix_ubuntu_multiarch_apt
+    - *generic_apt_setup
     - *generic_apt_build
 
 #build-bionic-arm64:
@@ -60,6 +69,7 @@ build-bionic-armhf:
 #  image: multiarch/ubuntu-debootstrap:arm64-bionic
 #  script:
 #    - *fix_ubuntu_multiarch_apt
+#    - *generic_apt_setup
 #    - *generic_apt_build
 
 
@@ -72,6 +82,7 @@ build-xenial-i386:
   image: multiarch/ubuntu-debootstrap:i386-xenial
   script:
     - *fix_ubuntu_multiarch_apt
+    - *generic_apt_setup
     - *generic_apt_build
 
 build-xenial-armhf:
@@ -79,6 +90,7 @@ build-xenial-armhf:
   image: multiarch/ubuntu-debootstrap:armhf-xenial
   script:
     - *fix_ubuntu_multiarch_apt
+    - *generic_apt_setup
     - *generic_apt_build
 
 #build-xenial-arm64:
@@ -86,11 +98,15 @@ build-xenial-armhf:
 #  image: multiarch/ubuntu-debootstrap:arm64-xenial
 #  script:
 #    - *fix_ubuntu_multiarch_apt
+#    - *generic_apt_setup
 #    - *generic_apt_build
 
 build-stretch-amd64:
   <<: *build_template
   image: debian:stretch
+  only:
+    - tags
+    - web
 
 build-stretch-i386:
   <<: *build_template
@@ -129,6 +145,39 @@ build-centos7-amd64:
   image: centos:7
   script:
     - ./gitlab-build-rpm.sh
+  only:
+    - tags
+    - web
+
+test-bionic-packages:
+  stage: test
+  image: ubuntu:bionic
+  script:
+    - *fix_ubuntu_multiarch_apt
+    - *generic_apt_setup
+    - ./gitlab-test-deb.sh
+  only:
+    - web
+    - tags
+
+test-stretch-packages:
+  stage: test
+  image: debian:stretch
+  script:
+    - *generic_apt_setup
+    - ./gitlab-test-deb.sh
+  only:
+    - web
+    - tags
+
+test-centos7-packages:
+  stage: test
+  image: centos:7
+  script:
+    - ./gitlab-test-rpm.sh
+  only:
+    - web
+    - tags
 
 upload-packages:
   stage: upload

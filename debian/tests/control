@@ -1,0 +1,7 @@
+Tests: test_user.sh test_config.sh test_binaries.sh
+Depends: amplet2-client, shunit2
+Tests-Directory: tests/
+
+Tests: test_lint.sh
+Depends: lintian, shunit2
+Tests-Directory: tests/
