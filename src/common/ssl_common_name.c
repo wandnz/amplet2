@@ -62,7 +62,11 @@ char* get_common_name(const X509 *cert) {
         Log(LOG_WARNING, "Error converting Common Name");
         return NULL;
     }
+#if OPENSSL_VERSION_NUMBER < 0x10100000
     common_name_str = (char *) ASN1_STRING_data(common_name_asn1);
+#else
+    common_name_str = (char *) ASN1_STRING_get0_data(common_name_asn1);
+#endif
 
     /* Make sure there isn't an embedded NUL character in the CN */
     if ((size_t)ASN1_STRING_length(common_name_asn1) !=
