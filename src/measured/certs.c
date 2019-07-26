@@ -168,14 +168,22 @@ static RSA *load_existing_key_file(char *filename) {
 static RSA *create_new_key_file(char *filename) {
     FILE *privfile;
     RSA *key;
+    BIGNUM *e;
     mode_t oldmask;
 
     Log(LOG_INFO, "Private key doesn't exist, creating %s", filename);
 
-    if ( (key = RSA_generate_key(2048, RSA_F4, NULL, NULL)) == NULL ) {
+    key = RSA_new();
+    e = BN_new();
+    BN_set_word(e, RSA_F4);
+
+    if ( RSA_generate_key_ex(key, 2048, e, NULL) == 0 ) {
         Log(LOG_WARNING, "Failed to generate RSA key");
+        BN_free(e);
         return NULL;
     }
+
+    BN_free(e);
 
     /* restrict access outside user and group (either root or rabbitmq) */
     oldmask = umask(0027);
