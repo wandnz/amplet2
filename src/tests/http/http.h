@@ -55,6 +55,8 @@
 
 #define MAX_URL_LEN (MAX_PATH_LEN + MAX_DNS_NAME_LEN + 1)
 
+#define DEFAULT_HTTP_USERAGENT "AMP HTTP test agent"
+
 
 /*
  * User defined test options that control packet size and timing.

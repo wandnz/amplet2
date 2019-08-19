@@ -1410,7 +1410,7 @@ amp_test_result_t* run_http(int argc, char *argv[],
     options.sourcev6 = NULL;
     options.sslversion = CURL_SSLVERSION_DEFAULT;
     options.dscp = DEFAULT_DSCP_VALUE;
-    options.useragent = "AMP HTTP test agent";
+    options.useragent = DEFAULT_HTTP_USERAGENT;
     options.proxy = NULL;
 
     while ( (opt = getopt_long(argc, argv,
