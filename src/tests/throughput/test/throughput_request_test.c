@@ -51,15 +51,15 @@
 int main(void) {
     int pipefd[2];
     BIO *sendctrl, *recvctrl;
-    /* type bytes duration write_size X X X X X X */
+    /* type X bytes duration write_size X X X */
     struct test_request_t *request;
     struct test_request_t requests[] = {
-        { TPUT_PKT_SEND, 0, 0, 0, 0,0,0,0,0,0 },
-        { TPUT_PKT_SEND, 1024, 0, 128, 0,0,0,0,0,0 },
-        { TPUT_PKT_SEND, 10*1024*1024, 0, 1024, 0,0,0,0,0,0 },
-        { TPUT_PKT_SEND, 0, 10, 4096, 0,0,0,0,0,0 },
-        { TPUT_PKT_SEND, 0, 60, 4096, 0,0,0,0,0,0 },
-        { TPUT_PKT_SEND, 0, 300, 12345, 0,0,0,0,0,0 },
+        { TPUT_PKT_SEND, 0, 0, 0, 0, 0, 0, 0 },
+        { TPUT_PKT_SEND, 0, 1024, 0, 128, 0, 0, 0 },
+        { TPUT_PKT_SEND, 0, 10*1024*1024, 0, 1024, 0, 0, 0 },
+        { TPUT_PKT_SEND, 0, 0, 10, 4096, 0, 0, 0 },
+        { TPUT_PKT_SEND, 0, 0, 60, 4096, 0, 0, 0 },
+        { TPUT_PKT_SEND, 0, 0, 300, 12345, 0, 0, 0 },
     };
     void *data;
     int bytes;
