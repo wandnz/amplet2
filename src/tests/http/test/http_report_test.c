@@ -61,47 +61,65 @@
 #define MAX_PATH_PARTS 20
 #define MAX_PATH_PART_LEN 127
 #define EPSILON 0.000001
+#define LONG_PROXY_STRING "https://user:password@example.com:8080"
+#define LONG_USERAGENT_STRING "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:67.0) Gecko/20100101 Firefox/67.0"
 
 /* these are globals as we need to get them into the print callback */
 int option_count = 0;
 struct server_stats_t *servers = NULL;
 struct opt_t options[] = {
+    // XXX should host and path be formed based on url?
     {{"http://example.org"},
-        {0}, {0}, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+        {0}, {0}, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        NULL, NULL, NULL, NULL, NULL, 0, 0},
     {{"http://example.com/"},
-        {0}, {0}, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 8},
+        {0}, {0}, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        NULL, NULL, NULL, NULL, NULL, 0, 8},
     {{"http://foo.bar.baz.example.org"},
-        {0}, {0}, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 10},
+        {0}, {0}, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        NULL, NULL, NULL, NULL, NULL, 0, 10},
     {{"http://foo.bar.baz.wand.net.nz/a/b/c/d/e.fgh"},
-        {0}, {0}, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 12},
+        {0}, {0}, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        NULL, NULL, NULL, NULL, NULL, 0, 12},
 
     {{"http://example.org"},
-        {0}, {0}, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 16},
+        {0}, {0}, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0,
+        NULL, NULL, NULL, "", "", 0, 16},
     {{"http://example.com/"},
-        {0}, {0}, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 20},
+        {0}, {0}, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0,
+        NULL, NULL, NULL, "useragent", "proxy", 0, 20},
     {{"http://foo.bar.baz.example.org"},
-        {0}, {0}, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 24},
+        {0}, {0}, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0,
+        NULL, NULL, NULL, DEFAULT_HTTP_USERAGENT, "example.com", 0, 24},
     {{"http://foo.bar.baz.wand.net.nz/a/b/c/d/e.fgh"},
-        {0}, {0}, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 26},
+        {0}, {0}, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0,
+        NULL, NULL, NULL, LONG_USERAGENT_STRING, LONG_PROXY_STRING, 0, 26},
 
     {{"http://example.org"},
-        {0}, {0}, 1, 24, 8, 2, 1, 4, 1, 0, 0, 0, 0, 0, 0, 28},
+        {0}, {0}, 1, 24, 8, 2, 1, 4, 1, 0, 0, 0, 0,
+        NULL, NULL, NULL, "", "", 0, 28},
     {{"http://example.com/"},
-        {0}, {0}, 1, 24, 8, 2, 1, 4, 1, 0, 0, 0, 0, 0, 0, 30},
+        {0}, {0}, 1, 24, 8, 2, 1, 4, 1, 0, 0, 0, 0,
+        NULL, NULL, NULL, "useragent", "proxy", 0, 30},
     {{"http://foo.bar.baz.example.org"},
-        {0}, {0}, 1, 24, 8, 2, 1, 4, 1, 0, 0, 0, 0, 0, 0, 34},
+        {0}, {0}, 1, 24, 8, 2, 1, 4, 1, 0, 0, 0, 0,
+        NULL, NULL, NULL, DEFAULT_HTTP_USERAGENT, "example.com", 0, 34},
     {{"http://foo.bar.baz.wand.net.nz/a/b/c/d/e.fgh"},
-        {0}, {0}, 1, 24, 8, 2, 1, 4, 1, 0, 0, 0, 0, 0, 0, 36},
+        {0}, {0}, 1, 24, 8, 2, 1, 4, 1, 0, 0, 0, 0,
+        NULL, NULL, NULL, LONG_USERAGENT_STRING, LONG_PROXY_STRING, 0, 36},
 
     {{"http://example.org"},
-        {0}, {0}, 1, 512, 256, 128, 1, 64, 1, 0, 0, 0, 0, 0, 0, 46},
+        {0}, {0}, 1, 512, 256, 128, 1, 64, 1, 0, 0, 0, 0,
+        NULL, NULL, NULL, "", "proxy", 0, 46},
     {{"http://example.com/"},
-        {0}, {0}, 1, 1024, 512, 256, 1, 128, 1, 0, 0, 0, 0, 0, 0, 48},
+        {0}, {0}, 1, 1024, 512, 256, 1, 128, 1, 0, 0, 0, 0,
+        NULL, NULL, NULL, "useragent", "proxy", 0, 48},
     {{"http://foo.bar.baz.example.org"},
-        {0}, {0}, 1, 2048, 1024, 512, 1, 256, 1, 0, 0, 0, 0, 0, 0, 56},
+        {0}, {0}, 1, 2048, 1024, 512, 1, 256, 1, 0, 0, 0, 0,
+        NULL, NULL, NULL, DEFAULT_HTTP_USERAGENT, "example.com", 0, 56},
     {{"http://foo.bar.baz.wand.net.nz/a/b/c/d/e.fgh"},
         {0}, {0}, 1, 2147483647, 2147483647, 2147483647, 1, 2147483647,
-        1, 0, 0, 0, 0, 0, 0, 63},
+        1, 0, 0, 0, 0, NULL, NULL, NULL, LONG_USERAGENT_STRING, LONG_PROXY_STRING, 0, 63},
 };
 
 
@@ -246,6 +264,18 @@ static void verify_header(struct opt_t *a, Amplet2__Http__Header *b) {
     assert(a->pipelining == b->pipelining);
     assert(b->has_caching);
     assert(a->caching == b->caching);
+
+    if ( a->useragent == NULL ) {
+        assert(strcmp(b->useragent, DEFAULT_HTTP_USERAGENT) == 0);
+    } else {
+        assert(strcmp(a->useragent, b->useragent) == 0);
+    }
+
+    if ( a->proxy == NULL ) {
+        assert(b->proxy == NULL);
+    } else {
+        assert(strcmp(a->proxy, b->proxy) == 0);
+    }
 }
 
 
