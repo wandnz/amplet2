@@ -424,6 +424,8 @@ static void verify_message(amp_test_result_t *result) {
     assert(i == msg->n_servers);
 
     amplet2__http__report__free_unpacked(msg, NULL);
+    free(result->data);
+    free(result);
 }
 
 
