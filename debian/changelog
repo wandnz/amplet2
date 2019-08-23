@@ -1,3 +1,12 @@
+amplet2 (0.9.10-1) unstable; urgency=low
+
+  * dns: fix incorrect test name in error message.
+  * amplet2: explicitly set protocol buffer version 2 in .proto files.
+  * amplet2: replace deprecated ASN1_STRING_data() with ASN1_STRING_get0_data().
+  * amplet2: replace deprecated RSA_generate_key() with RSA_generate_key_ex().
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Mon, 19 Aug 2019 16:10:24 +1200
+
 amplet2 (0.9.9-1) unstable; urgency=low
 
   * package: version the init-system-helpers dependency to appease lintian.

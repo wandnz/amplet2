@@ -1,5 +1,5 @@
 Name: amplet2
-Version: 0.9.9
+Version: 0.9.10
 Release: 1%{?dist}
 Summary: AMP Network Performance Measurement Suite
 
@@ -148,6 +148,14 @@ fi
 
 
 %changelog
+* Mon Aug 19 2019 Brendon Jones <brendonj@waikato.ac.nz> 0.9.10-1
+- package: put binaries in the same location they are in Debian packages.
+- package: run unit tests after building package.
+- dns: fix incorrect test name in error message.
+- amplet2: explicitly set protocol buffer version 2 in .proto files.
+- amplet2: replace deprecated ASN1_STRING_data() with ASN1_STRING_get0_data().
+- amplet2: replace deprecated RSA_generate_key() with RSA_generate_key_ex().
+
 * Thu Jul 11 2019 Brendon Jones <brendonj@waikato.ac.nz> 0.9.9-1
 - amplet2: set CAP_NET_ADMIN to run tcpping test.
 - amplet2: set CAP_NET_BIND_SERVICE to run throughput and udpstream tests.
