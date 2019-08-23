@@ -1,5 +1,5 @@
 EXTRA_DIST=*.h fastping.proto
-
+SUBDIRS= . test
 BUILT_SOURCES=fastping.pb-c.c
 CLEANFILES=fastping.pb-c.c fastping.pb-c.h
 

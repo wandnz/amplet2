@@ -69,6 +69,12 @@
 #include "checksum.h"
 
 
+/* time till next packet after which select will sleep rather than spin */
+const struct timeval THRESHOLD = {0, 1000};
+/* percentile values of interest */
+const float PERCENTILES[] = {0.0, 0.1, 1.0, 5.0, 10.0, 20.0, 30.0, 40.0, 50.0,
+    60.0, 70.0, 80.0, 90.0, 95.0, 99.0, 99.9, 100};
+#define PERCENTILE_COUNT ((int)(sizeof(PERCENTILES) / sizeof(float)))
 
 static struct option long_options[] = {
     {"count", required_argument, 0, 'c'},
