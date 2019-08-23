@@ -707,9 +707,13 @@ static Amplet2__Dns__Item* report_destination(struct info_t *info) {
     item->has_family = 1;
     item->family = info->addr->ai_family;
     item->name = address_to_name(info->addr);
-    item->has_query_length = 1;
-    item->query_length = info->query_length;
     item->has_address = copy_address_to_protobuf(&item->address, info->addr);
+
+    /* only count query length if we actually sent the query */
+    if ( info->time_sent.tv_sec > 0 ) {
+        item->has_query_length = 1;
+        item->query_length = info->query_length;
+    }
 
     /* TODO check response code too? */
     if ( info->reply && info->time_sent.tv_sec > 0 ) {
