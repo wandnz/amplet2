@@ -831,7 +831,12 @@ nextdest:
     if ( tp->destindex == tp->destcount ) {
         Log(LOG_DEBUG, "Reached final target: %d", tp->destindex);
         tp->nextpackettimer = NULL;
-        tp->losstimer = wand_add_timer(ev_hdl, LOSS_TIMEOUT, 0, tp, halt_test);
+        if ( tp->outstanding == 0 ) {
+            ev_hdl->running = false;
+        } else {
+            tp->losstimer = wand_add_timer(ev_hdl, LOSS_TIMEOUT, 0, tp,
+                    halt_test);
+        }
     } else {
         tp->nextpackettimer = wand_add_timer(ev_hdl,
                 (int) (tp->options.inter_packet_delay / 1000000),

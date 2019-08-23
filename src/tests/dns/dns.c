@@ -615,8 +615,12 @@ next:
     if ( globals->index == globals->count ) {
         Log(LOG_DEBUG, "Reached final target: %d", globals->index);
         globals->nextpackettimer = NULL;
-        globals->losstimer = wand_add_timer(ev_hdl, LOSS_TIMEOUT, 0, globals,
-                halt_test);
+        if ( globals->outstanding == 0 ) {
+            ev_hdl->running = false;
+        } else {
+            globals->losstimer = wand_add_timer(ev_hdl, LOSS_TIMEOUT, 0,
+                    globals, halt_test);
+        }
     } else {
         globals->nextpackettimer = wand_add_timer(ev_hdl,
                 (int) (globals->options.inter_packet_delay / 1000000),
