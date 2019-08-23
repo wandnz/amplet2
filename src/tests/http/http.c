@@ -119,7 +119,7 @@ static void report_header_results(Amplet2__Http__Header *header,
     header->has_total_bytes = 1;
     header->total_bytes = global.bytes;
     header->has_total_objects = 1;
-    header->total_objects = global.objects;
+    header->total_objects = global.objects + global.failed_objects;
 
     header->has_max_connections = 1;
     header->max_connections = opt->max_connections;
