@@ -51,6 +51,7 @@
 #include <sys/stat.h>
 #include <signal.h>
 #include <getopt.h>
+#include <linux/net_tstamp.h>
 
 #include <google/protobuf-c/protobuf-c.h>
 
@@ -211,34 +212,89 @@ int unblock_signals(void) {
     return 0;
 }
 
+/*
+ * Try to obtain SO_TIMESTAMPING timestamp within the msghdr in order of 
+ * preference, Hardware then software.
+ * Does not modify `sent` if no timestamp found.
+ * Used to timestamp Tx as SO_TIMESTAMPING is the only method avaliable for Tx.
+ */
+inline static void get_timestamping(struct msghdr *msg, struct timeval *sent) {
+    struct timestamping_t *ts = NULL; 
 
+    assert(msg);
+    assert(sent);
+
+#ifdef SO_TIMESTAMPING   
+    for ( struct cmsghdr *c = CMSG_FIRSTHDR(msg); c; c = CMSG_NXTHDR(msg, c) ) {
+        if ( c->cmsg_level == SOL_SOCKET && 
+                c->cmsg_type == SO_TIMESTAMPING &&
+                c->cmsg_len >= CMSG_LEN(sizeof(struct timespec)) ) {
+
+            ts = ((struct timestamping_t*)CMSG_DATA(c));
+
+            if ( ts->hardware.tv_sec != 0 ) {
+                sent->tv_sec  = ts->hardware.tv_sec;
+                sent->tv_usec = ts->hardware.tv_nsec / 1000; 
+                /* NOTE, converting timespec to timeval here */
+            } else {
+                sent->tv_sec  = ts->software.tv_sec;
+                sent->tv_usec = ts->software.tv_nsec / 1000;
+            }
+            return;
+        }
+    }
+#endif
+}
 
 /*
- * Try to get the best timestamp that is available to us, in order of
- * preference: SO_TIMESTAMP, SIOCGSTAMP, gettimeofday().
+ * Try to get the best timestamp that is available to us, 
+ * in order of preference: 
+ * SO_TIMESTAMPING (HW then SW), SO_TIMESTAMP, SIOCGSTAMP and gettimeofday().
  */
 static void get_timestamp(int sock, struct msghdr *msg, struct timeval *now) {
-    struct cmsghdr *c;
-    struct timeval *tv;
+
+    struct timestamping_t *ts = NULL;
+    struct timeval *tv = NULL;
 
     assert(msg);
     assert(now);
 
-#ifdef SO_TIMESTAMP
-    /* try getting the timestamp using SO_TIMESTAMP if available */
-    for ( c = CMSG_FIRSTHDR(msg); c; c = CMSG_NXTHDR(msg, c) ) {
-        if ( c->cmsg_level != SOL_SOCKET || c->cmsg_type != SO_TIMESTAMP ) {
-            continue;
+    /* 
+     * Try getting the timestamp using SO_TIMESTAMPING if available 
+     * Only one of SO_TIMESTAMPING or SO_TIMESTAMP will be enabled
+     * so it is safe to just return the first we find
+    */
+    for ( struct cmsghdr *c = CMSG_FIRSTHDR(msg); c; c = CMSG_NXTHDR(msg, c) ) {
+#ifdef SO_TIMESTAMPING
+        if ( c->cmsg_level == SOL_SOCKET && 
+                c->cmsg_type == SO_TIMESTAMPING &&
+                c->cmsg_len >= CMSG_LEN(sizeof(struct timespec)) ) {
+
+            ts = ((struct timestamping_t*)CMSG_DATA(c));
+
+            if ( ts->hardware.tv_sec != 0 ) {
+                now->tv_sec  = ts->hardware.tv_sec;
+                now->tv_usec = (ts->hardware.tv_nsec / 1000); 
+                /* NOTE, converting timespec to timeval here */
+            } else {
+                now->tv_sec  = ts->software.tv_sec;
+                now->tv_usec = (ts->software.tv_nsec / 1000);
+            }
+            return;
         }
-        if ( c->cmsg_len < CMSG_LEN(sizeof(struct timeval)) ) {
-            continue;
-        }
-        tv = ((struct timeval*)CMSG_DATA(c));
-        now->tv_sec = tv->tv_sec;
-        now->tv_usec = tv->tv_usec;
-        return;
-    }
 #endif
+#ifdef SO_TIMESTAMP
+        if ( c->cmsg_level == SOL_SOCKET &&
+                c->cmsg_type == SO_TIMESTAMP &&
+                c->cmsg_len >= CMSG_LEN(sizeof(struct timeval)) ) {
+
+            tv = ((struct timeval*)CMSG_DATA(c));
+            now->tv_sec = tv->tv_sec;
+            now->tv_usec = tv->tv_usec;
+            return;
+        }
+#endif
+    }
 
     /* next try using SIOCGSTAMP to get a timestamp */
     if ( ioctl(sock, SIOCGSTAMP, now) < 0 ) {
@@ -435,11 +491,11 @@ int delay_send_packet(int sock, char *packet, int size, struct addrinfo *dest,
 
     /* determine how much time is left to wait until the minimum delay */
     if ( last.tv_sec != 0 && diff < (int)inter_packet_delay ) {
-	delay = inter_packet_delay - diff;
+        delay = inter_packet_delay - diff;
     } else {
-	delay = 0;
-	last.tv_sec = now.tv_sec;
-	last.tv_usec = now.tv_usec;
+        delay = 0;
+        last.tv_sec = now.tv_sec;
+        last.tv_usec = now.tv_usec;
 
         /* populate sent timestamp as well, if not null */
         if ( sent ) {
@@ -453,10 +509,53 @@ int delay_send_packet(int sock, char *packet, int size, struct addrinfo *dest,
      * control to the caller, in case they want to do more work while waiting
      */
     if ( delay != 0 ) {
-	return delay;
+        return delay;
     }
 
     bytes_sent = sendto(sock, packet, size, 0, dest->ai_addr, dest->ai_addrlen);
+
+#ifdef SO_TIMESTAMPING
+    /*
+     * Tx SO_TIMESTAMPING values are read in the from MSG_ERRQUEUE of the 
+     * sending socket, and need a msghdr to be copied into
+     */
+    struct msghdr   msghTime;
+
+    char TxTime[CMSG_SPACE(sizeof(struct timespec) * 10)];
+    msghTime.msg_control     = (char *) TxTime;
+    msghTime.msg_controllen  = sizeof TxTime;
+
+    msghTime.msg_name        = NULL;
+    msghTime.msg_namelen     = 0;
+    msghTime.msg_iov         = NULL;
+    msghTime.msg_iovlen      = 0;
+
+    struct cmsghdr *cmsgTime = CMSG_FIRSTHDR(&msghTime);
+    cmsgTime->cmsg_level     = SOL_SOCKET;
+    cmsgTime->cmsg_type	     = SO_TIMESTAMPING;
+    cmsgTime->cmsg_len	     = CMSG_LEN(sizeof(int32_t));
+    
+    uint32_t timestampingCMSG = 
+            SOF_TIMESTAMPING_TX_SCHED |
+            SOF_TIMESTAMPING_TX_SOFTWARE |
+            SOF_TIMESTAMPING_TX_ACK;
+
+    memcpy(CMSG_DATA(cmsgTime), &timestampingCMSG, sizeof timestampingCMSG);
+
+    int rc;
+    int check = 0;
+    do {
+        rc = recvmsg(sock, &msghTime, MSG_ERRQUEUE);
+        if ( rc >= 0 ) {
+            get_timestamping(&msghTime, sent);
+            /* 
+             *if this is not called, sent is not updated and instead 
+             * uses the value from the previous call to gettimeofday() 
+             */
+        }
+    } while ( rc < 0 && errno == EAGAIN && check++ < 100 );
+    /* check 100 times max */
+#endif
 
     /* TODO determine error and/or send any unsent bytes */
     if ( bytes_sent != size ) {
@@ -697,16 +796,56 @@ int bind_sockets_to_address(struct socket_t *sockets,
  * Enable socket timestamping if it is available.
  */
 static void set_timestamp_socket_option(int sock) {
+
     assert(sock >= 0);
+
+/* first check driver capibility */
+#ifdef SO_TIMESTAMPING
+    /*
+    int timeStampingOnHW = 
+                SOF_TIMESTAMPING_RX_HARDWARE | 
+                SOF_TIMESTAMPING_TX_HARDWARE |
+                SOF_TIMESTAMPING_RAW_HARDWARE;
+
+    if ( setsockopt(sock, 
+            SOL_SOCKET, 
+            SO_TIMESTAMPING, 
+            &timeStampingOnHW, 
+            sizeof timeStampingOnHW) >= 0 ) {
+        Log(LOG_DEBUG, "Using SOF_TIMESTAMPING_RAW_HARDWARE.");
+        return;
+    }
+    Log(LOG_DEBUG, "No HW SO_TIMESTAMPING support, "
+            "falling back to SW SO_TIMESTAMPING.");
+    */
+
+
+    int timeStampingOnSW = 
+                SOF_TIMESTAMPING_RX_SOFTWARE |
+                SOF_TIMESTAMPING_TX_SOFTWARE |
+                SOF_TIMESTAMPING_SOFTWARE;
+
+    if ( setsockopt(sock, 
+            SOL_SOCKET, 
+            SO_TIMESTAMPING, 
+            &timeStampingOnSW, 
+            sizeof timeStampingOnSW) >= 0 ) {
+        Log(LOG_DEBUG, "Using SOF_TIMESTAMPING_SOFTWARE.");
+        return;
+    }
+#endif
+
+    Log(LOG_DEBUG, "No SO_TIMESTAMPING support, "
+            "falling back to SO_TIMESTAMP.");
+
 #ifdef SO_TIMESTAMP
     int one = 1;
     /* try to enable socket timestamping using SO_TIMESTAMP */
-    if ( setsockopt(sock, SOL_SOCKET, SO_TIMESTAMP, &one, sizeof(one)) < 0 ) {
-        Log(LOG_DEBUG, "No SO_TIMESTAMP support, using SIOCGSTAMP");
+    if ( setsockopt(sock, SOL_SOCKET, SO_TIMESTAMP, &one, sizeof one) >= 0 ) {
+        return;
     }
-#else
-    Log(LOG_DEBUG, "No SO_TIMESTAMP support, using SIOCGSTAMP");
 #endif
+    Log(LOG_DEBUG, "No SO_TIMESTAMP support, using SIOCGSTAMP");
 }
 
 
