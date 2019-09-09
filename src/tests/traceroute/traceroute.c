@@ -325,6 +325,10 @@ static int inc_probe_ttl(struct dest_info_t *item) {
         item->ttl++;
         while ( item->hop[item->ttl - 1].reply == REPLY_TIMED_OUT ) {
             item->no_reply_count++;
+            /* stop if we see too many failed responses while skipping */
+            if ( item->no_reply_count >= TRACEROUTE_NO_REPLY_LIMIT ) {
+                break;
+            }
             item->ttl++;
         }
     } else {
@@ -359,6 +363,11 @@ static int inc_attempt_counter(struct dest_info_t *info) {
         info->no_reply_count++;
     }
 
+    /* if we haven't missed too many replies, update TTL to the next value */
+    if ( info->no_reply_count < TRACEROUTE_NO_REPLY_LIMIT ) {
+        inc_probe_ttl(info);
+    }
+
     if ( !info->done_forward &&
             (info->no_reply_count >= TRACEROUTE_NO_REPLY_LIMIT ||
             info->ttl >= MAX_HOPS_IN_PATH) ) {
@@ -368,10 +377,9 @@ static int inc_attempt_counter(struct dest_info_t *info) {
         info->ttl = info->first_response - 1;
         info->attempts = 0;
         info->no_reply_count = 0;
-        return info->ttl;
     }
 
-    return inc_probe_ttl(info);
+    return info->ttl;
 }
 
 
