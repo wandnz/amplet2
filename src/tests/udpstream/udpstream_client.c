@@ -591,11 +591,17 @@ static void print_item(Amplet2__Udpstream__Item *item, uint32_t packet_count) {
         return;
     }
 
+    /* if no packets were received but none were lost, we didn't send any */
+    if ( !item->has_packets_received ) {
+        printf("      0 packets transmitted, 0 received\n");
+        return;
+    }
+
     printf("      %d packets transmitted, %d received, %.02f%% packet loss\n",
             packet_count, item->packets_received,
             100 - ((double)item->packets_received / (double)packet_count*100));
 
-    if ( item->rtt ) {
+    if ( item->rtt && item->rtt->samples > 0 ) {
         printf("      %d rtt samples min/mean/max = %.03f/%.03f/%.03f ms\n",
                 item->rtt->samples, item->rtt->minimum/1000.0,
                 item->rtt->mean/1000.0, item->rtt->maximum/1000.0);
@@ -603,7 +609,7 @@ static void print_item(Amplet2__Udpstream__Item *item, uint32_t packet_count) {
         printf("      no rtt information available\n");
     }
 
-    if ( item->jitter ) {
+    if ( item->jitter && item->jitter->samples > 0 ) {
         printf("      %d jitter samples min/mean/max = %.03f/%.03f/%.03f ms\n",
                 item->jitter->samples, item->jitter->minimum/1000.0,
                 item->jitter->mean/1000.0, item->jitter->maximum/1000.0);
