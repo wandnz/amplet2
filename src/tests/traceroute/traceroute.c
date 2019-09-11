@@ -160,6 +160,12 @@ static int send_probe(struct socket_t *ip_sockets, uint16_t ident,
     assert(ip_sockets);
     assert(info);
 
+    if ( info->addr->ai_addr == NULL ) {
+        Log(LOG_INFO, "No address for target %s, skipping",
+                info->addr->ai_canonname);
+        return -1;
+    }
+
     memset(packet, 0, sizeof(packet));
     id = (info->ttl << 10) + info->id;
 
@@ -1789,7 +1795,15 @@ void print_traceroute(amp_test_result_t *result) {
         item = msg->reports[i];
 
         printf("%s", item->name);
-        inet_ntop(item->family, item->address.data, addrstr, INET6_ADDRSTRLEN);
+
+        if ( item->has_address ) {
+            inet_ntop(item->family, item->address.data, addrstr,
+                    INET6_ADDRSTRLEN);
+        } else {
+            snprintf(addrstr, INET6_ADDRSTRLEN, "unresolved %s",
+                    family_to_string(item->family));
+        }
+
         printf(" (%s)", addrstr);
 
         if ( item->has_err_type && item->has_err_code ) {

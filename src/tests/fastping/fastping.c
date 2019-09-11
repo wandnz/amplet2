@@ -510,6 +510,15 @@ static amp_test_result_t* send_icmp_stream(struct addrinfo *dest,
     memset(&stop_time, 0, sizeof(struct timeval));
     memset(&loss_timeout, 0, sizeof(struct timeval));
 
+    if ( dest->ai_addr == NULL ) {
+        if ( gettimeofday(&start_time, NULL) != 0 ) {
+            Log(LOG_ERR, "Could not gettimeofday(), aborting test");
+            exit(EXIT_FAILURE);
+        }
+
+        return report_result(&start_time, dest, options, NULL, NULL);
+    }
+
     /* extract the socket depending on the address family */
     switch ( dest->ai_family ) {
         case AF_INET: sock = sockets->socket; break;
@@ -641,7 +650,7 @@ static amp_test_result_t* send_icmp_stream(struct addrinfo *dest,
             if ( bytes > 0 ) {
                 /* extract the sequence number from the icmp packet */
                 int64_t sequence = extract_data(dest, response, pid, &from);
-                if ( sequence >= 0 && sequence < options->count) {
+                if ( sequence >= 0 && sequence < (int64_t)options->count ) {
                     memcpy(&(timing[sequence].time_received),
                             &receive_time, sizeof(struct timeval));
                     received++;
@@ -825,7 +834,14 @@ void print_fastping(amp_test_result_t *result) {
 
     samples = item->rtt ? item->rtt->samples : 0;
     percent = ((double) samples / (double) header->count) * 100;
-    inet_ntop(header->family, header->address.data, addrstr, INET6_ADDRSTRLEN);
+
+    if ( header->has_address ) {
+        inet_ntop(header->family, header->address.data, addrstr,
+                INET6_ADDRSTRLEN);
+    } else {
+        snprintf(addrstr, INET6_ADDRSTRLEN, "unresolved %s",
+                family_to_string(header->family));
+    }
 
     /* print basic stats */
     printf("\n");

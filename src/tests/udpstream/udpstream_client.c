@@ -356,7 +356,7 @@ amp_test_result_t* run_udpstream_client(int argc, char *argv[], int count,
     struct sockopt_t sockopts;
     char *client;
     extern struct option long_options[];
-    amp_test_result_t *result;
+    amp_test_result_t *result = NULL;
     BIO *ctrl;
     char *address_string;
     int forcev4 = 0;
@@ -521,39 +521,56 @@ amp_test_result_t* run_udpstream_client(int argc, char *argv[], int count,
     }
 #endif
 
-    /* connect to the control server to start/configure the test */
-    if ( (ctrl=connect_control_server(
-                    dests[0], test_options.cport, &sockopts)) == NULL ) {
-        Log(LOG_WARNING, "Failed to connect control server");
-        return NULL;
+    if ( dests[0]->ai_addr != NULL ) {
+        /* connect to the control server to start/configure the test */
+        if ( (ctrl=connect_control_server(
+                        dests[0], test_options.cport, &sockopts)) == NULL ) {
+            Log(LOG_WARNING, "Failed to connect control server");
+            goto end;
+        }
+
+        /* start the server if required (connected to an amplet) */
+        if ( ssl_ctx && client == NULL ) {
+            Amplet2__Measured__Response response;
+
+            if ( start_remote_server(ctrl, AMP_TEST_UDPSTREAM) < 0 ) {
+                Log(LOG_WARNING, "Failed to start remote server");
+                goto end;
+            }
+
+            /* make sure the server was started properly */
+            if ( read_measured_response(ctrl, &response) < 0 ) {
+                Log(LOG_WARNING, "Failed to read server control response");
+                goto end;
+            }
+
+            /* TODO return something useful if this was remotely triggered? */
+            if ( response.code != MEASURED_CONTROL_OK ) {
+                Log(LOG_WARNING, "Failed to start server: %d %s", response.code,
+                        response.message);
+                goto end;
+            }
+        }
+
+        result = run_test(dests[0], &test_options, ctrl);
+end:
+        if ( ctrl ) {
+            close_control_connection(ctrl);
+        }
     }
 
-    /* start the server if required (connected to an amplet) */
-    if ( ssl_ctx && client == NULL ) {
-        Amplet2__Measured__Response response;
-
-        if ( start_remote_server(ctrl, AMP_TEST_UDPSTREAM) < 0 ) {
-            Log(LOG_WARNING, "Failed to start remote server");
-            return NULL;
-        }
-
-        /* make sure the server was started properly */
-        if ( read_measured_response(ctrl, &response) < 0 ) {
-            Log(LOG_WARNING, "Failed to read server control response");
-            return NULL;
-        }
-
-        /* TODO return something useful if this was remotely triggered? */
-        if ( response.code != MEASURED_CONTROL_OK ) {
-            Log(LOG_WARNING, "Failed to start server: %d %s", response.code,
-                    response.message);
-            return NULL;
-        }
+    if ( result == NULL ) {
+        Amplet2__Udpstream__Item *remote_results = NULL, *local_results = NULL;
+        struct timeval start_time;
+        gettimeofday(&start_time, NULL);
+        /* no valid destination, report an empty result */
+        local_results = report_stream(UDPSTREAM_TO_CLIENT, NULL, NULL,
+                &test_options);
+        remote_results = report_stream(UDPSTREAM_TO_SERVER, NULL, NULL,
+                &test_options);
+        result = report_results(&start_time, dests[0], &test_options,
+                local_results, remote_results);
     }
-
-    result = run_test(dests[0], &test_options, ctrl);
-
-    close_control_connection(ctrl);
 
     if ( client != NULL ) {
         freeaddrinfo(dests[0]);
@@ -597,6 +614,7 @@ static void print_item(Amplet2__Udpstream__Item *item, uint32_t packet_count) {
         return;
     }
 
+    /* TODO actually report number of packets sent not the expected value */
     printf("      %d packets transmitted, %d received, %.02f%% packet loss\n",
             packet_count, item->packets_received,
             100 - ((double)item->packets_received / (double)packet_count*100));
@@ -664,8 +682,13 @@ void print_udpstream(amp_test_result_t *result) {
 
     /* print global configuration options */
     printf("\n");
-    inet_ntop(msg->header->family, msg->header->address.data, addrstr,
-            INET6_ADDRSTRLEN);
+    if ( msg->header->has_address ) {
+        inet_ntop(msg->header->family, msg->header->address.data, addrstr,
+                INET6_ADDRSTRLEN);
+    } else {
+        snprintf(addrstr, INET6_ADDRSTRLEN, "unresolved %s",
+                family_to_string(msg->header->family));
+    }
     printf("AMP udpstream test to %s (%s)\n", msg->header->name, addrstr);
     printf("packet count:%" PRIu32 ", size:%" PRIu32 " bytes, spacing:%" PRIu32
             "us, DSCP:%s(0x%x)\n",

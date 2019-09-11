@@ -570,6 +570,11 @@ static void send_packet(wand_event_handler_t *ev_hdl, void *data) {
      */
     info[seq].addr = dest;
 
+    if ( !dest->ai_addr ) {
+        Log(LOG_INFO, "No address for target %s, skipping", dest->ai_canonname);
+        goto next;
+    }
+
     /* determine the appropriate socket to use and port field to set */
     switch ( dest->ai_family ) {
 	case AF_INET:
@@ -1298,16 +1303,26 @@ void print_dns(amp_test_result_t *result) {
     for ( i=0; i < msg->n_reports; i++ ) {
         item = msg->reports[i];
 
-	printf("SERVER: %s", item->name);
-	inet_ntop(item->family, item->address.data, addrstr, INET6_ADDRSTRLEN);
+        printf("SERVER: %s", item->name);
 
-        /* nothing further we can do if there is no rtt - no good response */
-        if ( !item->has_rtt ) {
-            printf(" (%s) no response\n\n", addrstr);
+        if ( !item->has_address ) {
+            /* couldn't resolve the target, didn't test to it */
+            snprintf(addrstr, INET6_ADDRSTRLEN, "unresolved %s",
+                    family_to_string(item->family));
+            printf(" (%s) not tested\n\n", addrstr);
             continue;
         }
 
-        printf(" (%s) %dus\n", addrstr, item->rtt);
+        inet_ntop(item->family, item->address.data, addrstr, INET6_ADDRSTRLEN);
+        printf(" (%s)", addrstr);
+
+        /* nothing further we can do if there is no rtt - no good response */
+        if ( !item->has_rtt ) {
+            printf(" no response\n\n");
+            continue;
+        }
+
+        printf(" %dus\n", item->rtt);
 
         /* if present, print instance name / nsid payload like dig does */
         if ( item->instance.len > 0 ) {

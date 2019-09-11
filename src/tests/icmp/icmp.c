@@ -435,6 +435,12 @@ static void send_packet(wand_event_handler_t *ev_hdl, void *data) {
     info[seq].addr = dest;
     info[seq].magic = rand();
 
+    /* TODO should we try to send the next packet in this time slot? */
+    if ( !dest->ai_addr ) {
+        Log(LOG_INFO, "No address for target %s, skipping", dest->ai_canonname);
+        goto next;
+    }
+
     /* determine which socket we should use, ipv4 or ipv6 */
     switch ( dest->ai_family ) {
 	case AF_INET: sock = globals->sockets.socket; break;
@@ -890,6 +896,15 @@ void print_icmp(amp_test_result_t *result) {
         item = msg->reports[i];
 
         printf("%s", item->name);
+
+        if ( !item->has_address ) {
+            /* couldn't resolve the target, didn't test to it */
+            snprintf(addrstr, INET6_ADDRSTRLEN, "unresolved %s",
+                    family_to_string(item->family));
+            printf(" (%s) not tested\n", addrstr);
+            continue;
+        }
+
         inet_ntop(item->family, item->address.data, addrstr, INET6_ADDRSTRLEN);
         printf(" (%s)", addrstr);
 

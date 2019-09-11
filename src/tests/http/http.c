@@ -1117,19 +1117,19 @@ static void check_messages(CURLM *multi, int *running_handles) {
         curl_easy_getinfo(msg->easy_handle, CURLINFO_SIZE_DOWNLOAD, &bytes);
 
         if ( msg->data.result != 0 ) {
-            Log(LOG_WARNING, "R: %d - %s <%s> (%fb)\n", msg->data.result,
+            Log(LOG_WARNING, "%s <%s> (%fb)\n",
                     curl_easy_strerror(msg->data.result), url, bytes);
-            //TODO should we break out of loop or anything here?
             /*
-             * If we fail to resolve the first host then don't record an
-             * object. Any test with one server and zero objects won't be
-             * reported (similar to other tests when they fail to resolve
-             * a destination).
+             * If we fail to resolve or connect to the first host then stop
+             * the test and don't record an object.
              */
-            if ( msg->data.result == CURLE_COULDNT_RESOLVE_HOST &&
+            if ( (msg->data.result == CURLE_COULDNT_RESOLVE_HOST ||
+                        msg->data.result == CURLE_COULDNT_RESOLVE_PROXY ||
+                        msg->data.result == CURLE_COULDNT_CONNECT ||
+                        msg->data.result == CURLE_SSL_CONNECT_ERROR) &&
                     server_list && server_list->next == NULL &&
                     server_list->finished == NULL ) {
-                continue;
+                break;
             }
         }
 
@@ -1507,12 +1507,7 @@ amp_test_result_t* run_http(int argc, char *argv[],
     curl_global_cleanup();
 
     /* send report */
-    if ( global.servers > 0 && global.objects > 0 ) {
-        result = report_results(&global.start, server_list, &options);
-    } else {
-        Log(LOG_DEBUG, "Didn't attempt to fetch any objects, no results");
-        result = NULL;
-    }
+    result = report_results(&global.start, server_list, &options);
 
     /* TODO, free everything */
     //free(server_list);
