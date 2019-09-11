@@ -191,6 +191,10 @@ static Amplet2__Fastping__Item* report_destination(struct info_t *timing,
 
     amplet2__fastping__item__init(item);
 
+    if ( timing == NULL ) {
+        return item;
+    }
+
     memset(&rtt, 0, sizeof(rtt));
     memset(&jitter, 0, sizeof(jitter));
 
@@ -243,8 +247,10 @@ static Amplet2__Fastping__Item* report_destination(struct info_t *timing,
         item->jitter = report_summary(&jitter, ipdv);
     }
 
-    item->has_runtime = 1;
-    item->runtime = runtime->tv_sec * 1000000 + runtime->tv_usec;
+    if ( runtime ) {
+        item->has_runtime = 1;
+        item->runtime = runtime->tv_sec * 1000000 + runtime->tv_usec;
+    }
 
     free(ipv);
     free(ipdv);
@@ -828,6 +834,12 @@ void print_fastping(amp_test_result_t *result) {
             "pps preprobe:%d DSCP:%s(0x%x)\n",
             header->count, header->size, header->rate, header->preprobe,
             dscp_to_str(header->dscp), header->dscp);
+
+    /* if the test didn't run then there isn't much to print */
+    if ( samples == 0 && item->runtime == 0 ) {
+        printf("  0 packets transmitted, 0 received\n");
+        return;
+    }
 
     printf("  %" PRIu64 " packets transmitted, %" PRIu64
             " received, %.02f%% packet loss\n",
