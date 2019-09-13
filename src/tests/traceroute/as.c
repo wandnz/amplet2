@@ -110,15 +110,6 @@ int set_as_numbers(struct dest_info_t *donelist) {
     int asn_fd;
     int i;
 
-    /* connect to the local amp ASN cache if it is available */
-    if ( (asn_fd = amp_resolver_connect(vars.asnsock)) < 0 ) {
-        Log(LOG_DEBUG, "No central ASN resolver, using standalone");
-        if ( (asn_fd = connect_to_whois_server()) < 0 ) {
-            Log(LOG_DEBUG, "No ability to resolve ASNs, skipping");
-            return -1;
-        }
-    }
-
     /*
      * Build a trie of all the networks we need to check. There are possibly
      * lots of duplicate /24s and /64s in the doneset, this will filter out
@@ -146,6 +137,22 @@ int set_as_numbers(struct dest_info_t *donelist) {
 
                 iptrie_add(&trie, item->hop[i].addr->ai_addr, masklen, 0);
             }
+        }
+    }
+
+    /* maybe there weren't any valid addresses to lookup */
+    if ( iptrie_is_empty(&trie) ) {
+        Log(LOG_DEBUG, "No addresses to look up ASNs for");
+        return 0;
+    }
+
+    /* connect to the local amp ASN cache if it is available */
+    if ( (asn_fd = amp_resolver_connect(vars.asnsock)) < 0 ) {
+        Log(LOG_DEBUG, "No central ASN resolver, using standalone");
+        if ( (asn_fd = connect_to_whois_server()) < 0 ) {
+            Log(LOG_DEBUG, "No ability to resolve ASNs, skipping");
+            iptrie_clear(&trie);
+            return -1;
         }
     }
 

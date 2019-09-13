@@ -428,3 +428,16 @@ iplist_t *iptrie_to_list(struct iptrie *root) {
     iptrie_on_all_leaves(root, iptrie_to_list_internal, &list);
     return list;
 }
+
+
+
+/*
+ * Check if the trie is empty and has no entries.
+ */
+int iptrie_is_empty(struct iptrie *root) {
+    if ( root->ipv4 == NULL && root->ipv6 == NULL ) {
+        return 1;
+    }
+
+    return 0;
+}

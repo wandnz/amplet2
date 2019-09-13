@@ -71,4 +71,5 @@ void iptrie_clear(struct iptrie *root);
 int iptrie_on_all_leaves(struct iptrie *root,
         int (*func)(iptrie_node_t*, void*), void *data);
 iplist_t *iptrie_to_list(struct iptrie *root);
+int iptrie_is_empty(struct iptrie *root);
 #endif
