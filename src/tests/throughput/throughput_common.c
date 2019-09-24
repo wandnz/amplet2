@@ -192,6 +192,15 @@ Amplet2__Throughput__Item* report_schedule(struct test_request_t *info) {
     amplet2__throughput__item__init(item);
     item->has_direction = 1;
     item->direction = info->type;
+
+    if ( info->result == NULL ) {
+        Log(LOG_DEBUG, "tput result: test did not run to %s",
+                (item->direction ==
+                 AMPLET2__THROUGHPUT__ITEM__DIRECTION__SERVER_TO_CLIENT) ?
+                "client" : "server");
+        return item;
+    }
+
     item->has_duration = 1;
     item->duration = info->result->end_ns - info->result->start_ns;
     item->has_bytes = 1;

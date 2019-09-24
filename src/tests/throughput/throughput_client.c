@@ -249,12 +249,8 @@ static amp_test_result_t* report_results(uint64_t start_time,
 
     /* build up the repeated reports section with each of the results */
     for ( i = 0, item = options->schedule; item != NULL; item = item->next ) {
-        /* only report on schedule items that send data */
+        /* only report on schedule items that can possibly send data */
         if ( item->type != TPUT_2_CLIENT && item->type != TPUT_2_SERVER ) {
-            continue;
-        }
-
-        if ( item->result == NULL ) {
             continue;
         }
 
@@ -501,7 +497,7 @@ amp_test_result_t* run_throughput_client(int argc, char *argv[], int count,
     char *client;
     int duration = -1;
     enum tput_schedule_direction direction = DIRECTION_NOT_SET;
-    amp_test_result_t *result;
+    amp_test_result_t *result = NULL;
     BIO *ctrl;
     char *address_string;
     int forcev4 = 0;
@@ -714,39 +710,49 @@ amp_test_result_t* run_throughput_client(int argc, char *argv[], int count,
     /* Print out our schedule */
     printSchedule(test_options.schedule);
 
-    /* connect to the control server to start/configure the test */
-    if ( (ctrl=connect_control_server(dests[0], test_options.cport,
-                    &sockopts)) == NULL ) {
-        Log(LOG_WARNING, "Failed to connect control server");
-        return NULL;
+    if ( dests[0]->ai_addr != NULL ) {
+        /* connect to the control server to start/configure the test */
+        if ( (ctrl=connect_control_server(dests[0], test_options.cport,
+                        &sockopts)) == NULL ) {
+            Log(LOG_WARNING, "Failed to connect control server");
+            goto done;
+        }
+
+        /* start the server if required (connected to an amplet) */
+        if ( ssl_ctx && client == NULL ) {
+            Amplet2__Measured__Response response;
+
+            if ( start_remote_server(ctrl, AMP_TEST_THROUGHPUT) < 0 ) {
+                Log(LOG_WARNING, "Failed to start remote server");
+                goto done;
+            }
+
+            /* make sure the server was started properly */
+            if ( read_measured_response(ctrl, &response) < 0 ) {
+                Log(LOG_WARNING, "Failed to read server control response");
+                goto done;
+            }
+
+            /* TODO return something useful if this was remotely triggered? */
+            if ( response.code != MEASURED_CONTROL_OK ) {
+                Log(LOG_WARNING, "Failed to start server: %d %s", response.code,
+                        response.message);
+                goto done;
+            }
+        }
+
+        result = runSchedule(dests[0], &test_options, &sockopts, ctrl);
+done:
+        if ( ctrl ) {
+            close_control_connection(ctrl);
+        }
     }
 
-    /* start the server if required (connected to an amplet) */
-    if ( ssl_ctx && client == NULL ) {
-        Amplet2__Measured__Response response;
-
-        if ( start_remote_server(ctrl, AMP_TEST_THROUGHPUT) < 0 ) {
-            Log(LOG_WARNING, "Failed to start remote server");
-            return NULL;
-        }
-
-        /* make sure the server was started properly */
-        if ( read_measured_response(ctrl, &response) < 0 ) {
-            Log(LOG_WARNING, "Failed to read server control response");
-            return NULL;
-        }
-
-        /* TODO return something useful if this was remotely triggered? */
-        if ( response.code != MEASURED_CONTROL_OK ) {
-            Log(LOG_WARNING, "Failed to start server: %d %s", response.code,
-                    response.message);
-            return NULL;
-        }
+    if ( result == NULL ) {
+        /* no valid destination or other error, report an empty result */
+        result = report_results(timeNanoseconds() / 1000000000, dests[0],
+                &test_options);
     }
-
-    result = runSchedule(dests[0], &test_options, &sockopts, ctrl);
-
-    close_control_connection(ctrl);
 
     if ( client != NULL ) {
         freeaddrinfo(dests[0]);
@@ -808,9 +814,15 @@ static void printDuration(uint64_t time_ns) {
  * Mb = 1000 * Kb etc
  */
 static void printSpeed(uint64_t bytes, uint64_t time_ns) {
-    double x_per_sec = ((double)bytes * 8.0) / ((double) time_ns / 1e9);
+    double x_per_sec;
     char *units[] = {"bits", "Kbits", "Mbits", "Gbits", NULL};
     char **unit;
+
+    if ( bytes == 0 || time_ns == 0 ) {
+        x_per_sec = 0;
+    } else {
+        x_per_sec = ((double)bytes * 8.0) / ((double) time_ns / 1e9);
+    }
 
     for ( unit = units; *unit != NULL; unit++ ) {
         if ( x_per_sec < 1000 ) {
@@ -848,8 +860,13 @@ void print_throughput(amp_test_result_t *result) {
 
     /* print global configuration options */
     printf("\n");
-    inet_ntop(msg->header->family, msg->header->address.data, addrstr,
-            INET6_ADDRSTRLEN);
+    if ( msg->header->has_address ) {
+        inet_ntop(msg->header->family, msg->header->address.data, addrstr,
+                INET6_ADDRSTRLEN);
+    } else {
+        snprintf(addrstr, INET6_ADDRSTRLEN, "unresolved %s",
+                family_to_string(msg->header->family));
+    }
     printf("AMP throughput test to %s (%s)\n", msg->header->name, addrstr);
     printf("writesize:%" PRIu32 " schedule:%s ", msg->header->write_size,
             msg->header->schedule);

@@ -160,6 +160,12 @@ static int send_probe(struct socket_t *ip_sockets, uint16_t ident,
     assert(ip_sockets);
     assert(info);
 
+    if ( info->addr->ai_addr == NULL ) {
+        Log(LOG_INFO, "No address for target %s, skipping",
+                info->addr->ai_canonname);
+        return -1;
+    }
+
     memset(packet, 0, sizeof(packet));
     id = (info->ttl << 10) + info->id;
 
@@ -325,6 +331,10 @@ static int inc_probe_ttl(struct dest_info_t *item) {
         item->ttl++;
         while ( item->hop[item->ttl - 1].reply == REPLY_TIMED_OUT ) {
             item->no_reply_count++;
+            /* stop if we see too many failed responses while skipping */
+            if ( item->no_reply_count >= TRACEROUTE_NO_REPLY_LIMIT ) {
+                break;
+            }
             item->ttl++;
         }
     } else {
@@ -359,6 +369,11 @@ static int inc_attempt_counter(struct dest_info_t *info) {
         info->no_reply_count++;
     }
 
+    /* if we haven't missed too many replies, update TTL to the next value */
+    if ( info->no_reply_count < TRACEROUTE_NO_REPLY_LIMIT ) {
+        inc_probe_ttl(info);
+    }
+
     if ( !info->done_forward &&
             (info->no_reply_count >= TRACEROUTE_NO_REPLY_LIMIT ||
             info->ttl >= MAX_HOPS_IN_PATH) ) {
@@ -368,10 +383,9 @@ static int inc_attempt_counter(struct dest_info_t *info) {
         info->ttl = info->first_response - 1;
         info->attempts = 0;
         info->no_reply_count = 0;
-        return info->ttl;
     }
 
-    return inc_probe_ttl(info);
+    return info->ttl;
 }
 
 
@@ -1781,7 +1795,15 @@ void print_traceroute(amp_test_result_t *result) {
         item = msg->reports[i];
 
         printf("%s", item->name);
-        inet_ntop(item->family, item->address.data, addrstr, INET6_ADDRSTRLEN);
+
+        if ( item->has_address ) {
+            inet_ntop(item->family, item->address.data, addrstr,
+                    INET6_ADDRSTRLEN);
+        } else {
+            snprintf(addrstr, INET6_ADDRSTRLEN, "unresolved %s",
+                    family_to_string(item->family));
+        }
+
         printf(" (%s)", addrstr);
 
         if ( item->has_err_type && item->has_err_code ) {

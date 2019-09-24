@@ -105,9 +105,9 @@ def get_data(data):
                 "rtt": build_summary(i.rtt) if i.HasField("rtt") else None,
                 "jitter": build_summary(i.jitter) if i.HasField("jitter") else None,
                 "percentiles": i.percentiles,
-                "packets_received": i.packets_received,
+                "packets_received": i.packets_received if i.HasField("packets_received") else None,
                 "loss_periods": build_loss_periods(i.loss_periods),
-                "loss_percent": i.loss_percent,
+                "loss_percent": i.loss_percent if i.HasField("loss_percent") else None,
                 "voip": build_voip(i.voip) if i.HasField("voip") else None,
             }
         )

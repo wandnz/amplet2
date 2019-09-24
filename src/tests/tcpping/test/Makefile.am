@@ -1,5 +1,5 @@
-TESTS=tcpping_register.test tcpping_report.test
-check_PROGRAMS=tcpping_register.test tcpping_report.test
+TESTS=tcpping_register.test tcpping_report.test tcpping_unresolved_target.test
+check_PROGRAMS=tcpping_register.test tcpping_report.test tcpping_unresolved_target.test
 
 check_LTLIBRARIES=testtcpping.la
 testtcpping_la_SOURCES=../tcpping.c ../pcapcapture.c
@@ -12,6 +12,9 @@ tcpping_register_test_LDADD=testtcpping.la
 
 tcpping_report_test_SOURCES=tcpping_report_test.c
 tcpping_report_test_LDADD=testtcpping.la
+
+tcpping_unresolved_target_test_SOURCES=tcpping_unresolved_target_test.c
+tcpping_unresolved_target_test_LDADD=testtcpping.la
 
 AM_CFLAGS=-g -Wall -W -rdynamic -DUNIT_TEST
 INCLUDES=-I../ -I../../ -I../../../common/

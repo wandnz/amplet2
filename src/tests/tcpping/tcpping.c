@@ -763,6 +763,11 @@ static void send_packet(wand_event_handler_t *ev_hdl, void *evdata) {
     tp->info[tp->destindex].icmptype = 0;
     tp->info[tp->destindex].icmpcode = 0;
 
+    if ( !dest->ai_addr ) {
+        Log(LOG_INFO, "No address for target %s, skipping", dest->ai_canonname);
+        goto nextdest;
+    }
+
     if ( dest->ai_family == AF_INET ) {
         srcport = tp->sourceportv4;
         sock = tp->raw_sockets.socket;
@@ -831,7 +836,12 @@ nextdest:
     if ( tp->destindex == tp->destcount ) {
         Log(LOG_DEBUG, "Reached final target: %d", tp->destindex);
         tp->nextpackettimer = NULL;
-        tp->losstimer = wand_add_timer(ev_hdl, LOSS_TIMEOUT, 0, tp, halt_test);
+        if ( tp->outstanding == 0 ) {
+            ev_hdl->running = false;
+        } else {
+            tp->losstimer = wand_add_timer(ev_hdl, LOSS_TIMEOUT, 0, tp,
+                    halt_test);
+        }
     } else {
         tp->nextpackettimer = wand_add_timer(ev_hdl,
                 (int) (tp->options.inter_packet_delay / 1000000),
@@ -1193,6 +1203,15 @@ void print_tcpping(amp_test_result_t *result) {
         item = msg->reports[i];
 
         printf("%s", item->name);
+
+        if ( !item->has_address ) {
+            /* couldn't resolve the target, didn't test to it */
+            snprintf(addrstr, INET6_ADDRSTRLEN, "unresolved %s",
+                    family_to_string(item->family));
+            printf(" (%s) not tested\n", addrstr);
+            continue;
+        }
+
         inet_ntop(item->family, item->address.data, addrstr, INET6_ADDRSTRLEN);
         printf(" (%s)", addrstr);
 

@@ -570,6 +570,11 @@ static void send_packet(wand_event_handler_t *ev_hdl, void *data) {
      */
     info[seq].addr = dest;
 
+    if ( !dest->ai_addr ) {
+        Log(LOG_INFO, "No address for target %s, skipping", dest->ai_canonname);
+        goto next;
+    }
+
     /* determine the appropriate socket to use and port field to set */
     switch ( dest->ai_family ) {
 	case AF_INET:
@@ -615,8 +620,12 @@ next:
     if ( globals->index == globals->count ) {
         Log(LOG_DEBUG, "Reached final target: %d", globals->index);
         globals->nextpackettimer = NULL;
-        globals->losstimer = wand_add_timer(ev_hdl, LOSS_TIMEOUT, 0, globals,
-                halt_test);
+        if ( globals->outstanding == 0 ) {
+            ev_hdl->running = false;
+        } else {
+            globals->losstimer = wand_add_timer(ev_hdl, LOSS_TIMEOUT, 0,
+                    globals, halt_test);
+        }
     } else {
         globals->nextpackettimer = wand_add_timer(ev_hdl,
                 (int) (globals->options.inter_packet_delay / 1000000),
@@ -703,9 +712,13 @@ static Amplet2__Dns__Item* report_destination(struct info_t *info) {
     item->has_family = 1;
     item->family = info->addr->ai_family;
     item->name = address_to_name(info->addr);
-    item->has_query_length = 1;
-    item->query_length = info->query_length;
     item->has_address = copy_address_to_protobuf(&item->address, info->addr);
+
+    /* only count query length if we actually sent the query */
+    if ( info->time_sent.tv_sec > 0 ) {
+        item->has_query_length = 1;
+        item->query_length = info->query_length;
+    }
 
     /* TODO check response code too? */
     if ( info->reply && info->time_sent.tv_sec > 0 ) {
@@ -1290,16 +1303,26 @@ void print_dns(amp_test_result_t *result) {
     for ( i=0; i < msg->n_reports; i++ ) {
         item = msg->reports[i];
 
-	printf("SERVER: %s", item->name);
-	inet_ntop(item->family, item->address.data, addrstr, INET6_ADDRSTRLEN);
+        printf("SERVER: %s", item->name);
 
-        /* nothing further we can do if there is no rtt - no good response */
-        if ( !item->has_rtt ) {
-            printf(" (%s) no response\n\n", addrstr);
+        if ( !item->has_address ) {
+            /* couldn't resolve the target, didn't test to it */
+            snprintf(addrstr, INET6_ADDRSTRLEN, "unresolved %s",
+                    family_to_string(item->family));
+            printf(" (%s) not tested\n\n", addrstr);
             continue;
         }
 
-        printf(" (%s) %dus\n", addrstr, item->rtt);
+        inet_ntop(item->family, item->address.data, addrstr, INET6_ADDRSTRLEN);
+        printf(" (%s)", addrstr);
+
+        /* nothing further we can do if there is no rtt - no good response */
+        if ( !item->has_rtt ) {
+            printf(" no response\n\n");
+            continue;
+        }
+
+        printf(" %dus\n", item->rtt);
 
         /* if present, print instance name / nsid payload like dig does */
         if ( item->instance.len > 0 ) {

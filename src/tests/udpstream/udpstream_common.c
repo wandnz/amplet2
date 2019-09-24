@@ -399,7 +399,7 @@ Amplet2__Udpstream__Voip* report_voip(Amplet2__Udpstream__Item *item) {
     int lost = 0, runs = 0;
     unsigned int i;
 
-    if ( !item || !item->rtt ) {
+    if ( !item || !item->rtt || !item->jitter ) {
         return NULL;
     }
 
@@ -448,7 +448,7 @@ Amplet2__Udpstream__Voip* report_voip(Amplet2__Udpstream__Item *item) {
 Amplet2__Udpstream__SummaryStats* report_summary(struct summary_t *summary) {
     Amplet2__Udpstream__SummaryStats *stats;
 
-    if ( !summary ) {
+    if ( !summary || summary->samples == 0 ) {
         return NULL;
     }
 
@@ -496,8 +496,15 @@ Amplet2__Udpstream__Item* report_stream(enum udpstream_direction direction,
 
     memset(&jitter, 0, sizeof(jitter));
 
+    item->has_direction = 1;
+    item->direction = direction;
     item->n_loss_periods = 0;
     item->loss_periods = NULL;
+
+    /* the test never actually ran, return a minimum report */
+    if ( times == NULL ) {
+        return item;
+    }
 
     for ( i = 0; i < options->packet_count; i++ ) {
         //XXX this check doesn't properly work to prevent unset timevals?
@@ -557,8 +564,6 @@ Amplet2__Udpstream__Item* report_stream(enum udpstream_direction direction,
     Log(LOG_DEBUG, "Loss periods: %d", item->n_loss_periods);
 
     /* every result will have these, even if no packets were received */
-    item->has_direction = 1;
-    item->direction = direction;
     item->has_packets_received = 1;
     item->packets_received = received;
     item->has_loss_percent = 1;

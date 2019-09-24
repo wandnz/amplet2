@@ -61,7 +61,7 @@ def get_data(data):
                 "ttl": i.ttl if i.HasField("ttl") else None,
                 "packet_size": msg.header.packet_size,
                 "random": msg.header.random,
-                "loss": 0 if i.HasField("rtt") else 1,
+                "loss": None if not i.HasField("address") else 0 if i.HasField("rtt") else 1,
                 "dscp": getPrintableDscp(msg.header.dscp),
             }
         )

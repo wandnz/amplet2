@@ -179,3 +179,16 @@ const char *amp_inet_ntop(struct addrinfo *addr, char *buffer) {
 
     return inet_ntop(addr->ai_family, addrptr, buffer, INET6_ADDRSTRLEN);
 }
+
+
+
+/*
+ * Convert an IP address family value into a short human readable string.
+ */
+const char *family_to_string(int family) {
+    switch ( family ) {
+        case AF_INET: return "ipv4";
+        case AF_INET6: return "ipv6";
+        default: return "unknown";
+    };
+}

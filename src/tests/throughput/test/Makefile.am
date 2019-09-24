@@ -1,5 +1,5 @@
-TESTS=throughput_register.test throughput_hello.test throughput_ready.test throughput_request.test throughput_report.test
-check_PROGRAMS=throughput_register.test throughput_hello.test throughput_ready.test throughput_request.test throughput_report.test
+TESTS=throughput_register.test throughput_hello.test throughput_ready.test throughput_request.test throughput_report.test throughput_unresolved_target.test
+check_PROGRAMS=throughput_register.test throughput_hello.test throughput_ready.test throughput_request.test throughput_report.test throughput_unresolved_target.test
 
 check_LTLIBRARIES=testthroughput.la
 testthroughput_la_SOURCES=../throughput.c ../throughput_server.c ../throughput_client.c ../throughput_common.c
@@ -21,6 +21,9 @@ throughput_request_test_LDADD=testthroughput.la
 
 throughput_report_test_SOURCES=throughput_report_test.c
 throughput_report_test_LDADD=testthroughput.la
+
+throughput_unresolved_target_test_SOURCES=throughput_unresolved_target_test.c
+throughput_unresolved_target_test_LDADD=testthroughput.la
 
 AM_CFLAGS=-g -Wall -W -rdynamic -DUNIT_TEST
 INCLUDES=-I../ -I../../ -I../../../common/

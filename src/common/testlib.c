@@ -964,7 +964,7 @@ int copy_address_to_protobuf(ProtobufCBinaryData *dst,
         const struct addrinfo *src) {
     assert(dst);
 
-    if ( src == NULL ) {
+    if ( src == NULL || src->ai_addr == NULL ) {
         dst->data = 0;
         dst->len = 0;
         return 0;

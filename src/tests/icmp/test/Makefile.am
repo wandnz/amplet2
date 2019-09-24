@@ -1,5 +1,5 @@
-TESTS=icmp_register.test icmp_process_ipv4.test icmp_report.test
-check_PROGRAMS=icmp_register.test icmp_process_ipv4.test icmp_report.test
+TESTS=icmp_register.test icmp_process_ipv4.test icmp_report.test icmp_unresolved_target.test
+check_PROGRAMS=icmp_register.test icmp_process_ipv4.test icmp_report.test icmp_unresolved_target.test
 
 check_LTLIBRARIES=testicmp.la
 testicmp_la_SOURCES=../icmp.c
@@ -15,6 +15,9 @@ icmp_process_ipv4_test_LDADD=testicmp.la
 
 icmp_report_test_SOURCES=icmp_report_test.c
 icmp_report_test_LDADD=testicmp.la
+
+icmp_unresolved_target_test_SOURCES=icmp_unresolved_target_test.c
+icmp_unresolved_target_test_LDADD=testicmp.la
 
 AM_CFLAGS=-g -Wall -W -rdynamic -DUNIT_TEST
 INCLUDES=-I../ -I../../ -I../../../common/

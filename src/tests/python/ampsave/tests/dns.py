@@ -60,7 +60,7 @@ def get_data(data):
                 "instance": i.name if len(i.name) > 0 else "unknown",
                 "address": getPrintableAddress(i.family, i.address),
                 "rtt": i.rtt if i.HasField("rtt") else None,
-                "query_len": i.query_length,
+                "query_len": i.query_length if i.HasField("query_length") else None,
                 "response_size": i.response_size if i.HasField("response_size") else None,
                 "total_answer": i.total_answer if i.HasField("total_answer") else None,
                 "total_authority": i.total_authority if i.HasField("total_authority") else None,
