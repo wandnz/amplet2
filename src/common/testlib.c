@@ -331,7 +331,7 @@ static void get_tx_timestamping(int sock, struct timeval *sent){
 
     check = 0;
     do {
-        rc = recvmsg(sock, &msghTime, MSG_ERRQUEUE);
+        rc = recvmsg(sock, &msghTime, MSG_ERRQUEUE | MSG_DONTWAIT);
         if ( rc >= 0 ) {
             for ( c = CMSG_FIRSTHDR(&msghTime);
                     c;
