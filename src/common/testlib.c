@@ -214,10 +214,10 @@ int unblock_signals(void) {
 
 
 /*
- * Specfic logic for checking, retriving and converting SO_TIMESTAMPING
+ * Specific logic for checking, retriving and converting SO_TIMESTAMPING
  * timestamp value
  */
-inline static int retrive_timestamping(struct cmsghdr *c, struct timeval *now){
+inline static int retrieve_timestamping(struct cmsghdr *c, struct timeval *now){
     if ( c->cmsg_type == SO_TIMESTAMPING &&
             c->cmsg_len >= CMSG_LEN(sizeof(struct timespec)) ) {
 
@@ -239,9 +239,9 @@ inline static int retrive_timestamping(struct cmsghdr *c, struct timeval *now){
 
 
 /*
- * Specfic logic for checking and retriving SO_TIMESTAMP timestamp value
+ * Specific logic for checking and retriving SO_TIMESTAMP timestamp value
  */
-inline static int retrive_timestamp(struct cmsghdr *c, struct timeval *now){
+inline static int retrieve_timestamp(struct cmsghdr *c, struct timeval *now){
     if ( c->cmsg_type == SO_TIMESTAMP &&
             c->cmsg_len >= CMSG_LEN(sizeof(struct timeval)) ) {
 
@@ -552,7 +552,7 @@ int delay_send_packet(int sock, char *packet, int size, struct addrinfo *dest,
     bytes_sent = sendto(sock, packet, size, 0, dest->ai_addr, dest->ai_addrlen);
 
 #ifdef SO_TIMESTAMPING
-    /* if TIMESTAMPING is avaliable, attempt to obtain timestamp */
+    /* if TIMESTAMPING is available, attempt to obtain timestamp */
     get_tx_timestamping(sock, sent);
 #endif
 
