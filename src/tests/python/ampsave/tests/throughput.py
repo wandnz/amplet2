@@ -91,15 +91,13 @@ def get_data(data):
 
     for i in msg.reports:
         params = testparams.pop(0)
-        results.append(
-            {
-                "duration": params["duration"],
-                "runtime": i.duration / 1000 / 1000,  # Report in msec
-                "bytes": i.bytes,
-                "direction": direction_to_string(i.direction),
-                "tcpreused": params["tcpreused"],
-            }
-        )
+        results.append({
+            "duration": params["duration"],
+            "runtime": i.duration/1000/1000 if i.HasField("duration") else None,
+            "bytes": i.bytes if i.HasField("bytes") else None,
+            "direction": direction_to_string(i.direction),
+            "tcpreused": params["tcpreused"],
+        })
 
     # TODO confirm what happens if the test fails to connect
     return {
