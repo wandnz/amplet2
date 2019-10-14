@@ -651,12 +651,17 @@ static amp_test_result_t* send_icmp_stream(struct addrinfo *dest,
                 /* extract the sequence number from the icmp packet */
                 int64_t sequence = extract_data(dest, response, pid, &from);
                 if ( sequence >= 0 && sequence < (int64_t)options->count ) {
-                    memcpy(&(timing[sequence].time_received),
-                            &receive_time, sizeof(struct timeval));
-                    received++;
-                    if ( received >= options->count ) {
-                        Log(LOG_DEBUG, "Received all responses");
-                        break;
+                    if ( !timerisset(&timing[sequence].time_received) ) {
+                        memcpy(&(timing[sequence].time_received),
+                                &receive_time, sizeof(struct timeval));
+                        received++;
+                        if ( received >= options->count ) {
+                            Log(LOG_DEBUG, "Received all responses");
+                            break;
+                        }
+                    } else {
+                        Log(LOG_DEBUG, "Ignoring duplicate sequence number %d",
+                                sequence);
                     }
                 }
             }
