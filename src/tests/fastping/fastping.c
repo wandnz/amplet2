@@ -666,12 +666,14 @@ static amp_test_result_t* send_icmp_stream(struct addrinfo *dest,
              * Still sending data, but it seems wasteful to spin on this loop
              * if we know there is a long time to wait till the next packet.
              * Sleep for some portion of the time till the next packet if it
-             * is further away than the threshold.
+             * is further away than the threshold. Don't sleep too long or
+             * we won't send the next packet on time, or we won't service this
+             * loop often enough and incoming packets could fill up buffers.
              */
             gettimeofday(&now, NULL);
             timersub(&next_packet, &now, &towait);
             if ( timercmp(&towait, &THRESHOLD, >) ) {
-                usleep(towait.tv_usec * 0.95);
+                usleep(towait.tv_usec * 0.30);
             }
         } else {
             /* otherwise we'll wait for a bit after the last packet we saw */
@@ -737,7 +739,13 @@ static amp_test_result_t* send_icmp_stream(struct addrinfo *dest,
             int bytes;
             struct timeval receive_time;
 
-            /* read one packet out of the buffer for processing */
+            /*
+             * Only one packet is read here to try to limit any delay to
+             * sending the next packet. If lots of packets arrive all at
+             * once then they won't get processed quickly, which could fill
+             * buffers. Filtering as many unwanted packets as possible helps,
+             * as does making sure we hit this loop regularly.
+             */
             bytes = get_packet(sockets, response, RESPONSE_BUFFER_LEN, &from,
                     &wait, &receive_time);
 
