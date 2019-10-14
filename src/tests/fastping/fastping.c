@@ -449,7 +449,13 @@ static int64_t extract_data(struct addrinfo *dest, char *packet, size_t length,
         ip = (struct iphdr*) packet;
         icmp = (struct icmphdr*)(packet + (ip->ihl * 4));
 
-        if ( icmp->type != ICMP_ECHOREPLY || icmp->un.echo.id != ident ) {
+        if ( icmp->type != ICMP_ECHOREPLY ) {
+            Log(LOG_DEBUG, "Ignoring incorrect icmp type");
+            return -1;
+        }
+
+        if ( icmp->un.echo.id != ident ) {
+            Log(LOG_DEBUG, "Ignoring incorrect icmp id");
             return -1;
         }
 
@@ -466,7 +472,13 @@ static int64_t extract_data(struct addrinfo *dest, char *packet, size_t length,
 
         icmp = (struct icmp6_hdr*)packet;
 
-        if ( icmp->icmp6_type != ICMP6_ECHO_REPLY || icmp->icmp6_id != ident ) {
+        if ( icmp->icmp6_type != ICMP6_ECHO_REPLY ) {
+            Log(LOG_DEBUG, "Ignoring incorrect icmp type");
+            return -1;
+        }
+
+        if ( icmp->icmp6_id != ident ) {
+            Log(LOG_DEBUG, "Ignoring incorrect icmp id");
             return -1;
         }
 
@@ -477,6 +489,7 @@ static int64_t extract_data(struct addrinfo *dest, char *packet, size_t length,
 
     /* doesn't hurt to check that the address matches what we expect */
     if ( memcmp(dest->ai_addr, from, sockaddrlen) != 0 ) {
+        Log(LOG_DEBUG, "Ignoring response from incorrect address");
         return -1;
     }
 
@@ -485,6 +498,7 @@ static int64_t extract_data(struct addrinfo *dest, char *packet, size_t length,
 
     /* the last 16 bits should match the ICMP sequence number */
     if ( ( (uint16_t) magic) != ntohs(sequence)) {
+        Log(LOG_DEBUG, "Ignoring response with incorrect sequence number");
         return -1;
     }
 
@@ -533,6 +547,8 @@ static amp_test_result_t* send_icmp_stream(struct addrinfo *dest,
 
         return report_result(&start_time, dest, options, NULL, NULL);
     }
+
+    Log(LOG_DEBUG, "amp-fastping pid/ident = %d (0x%x)", pid, pid);
 
     /* extract the socket depending on the address family */
     switch ( dest->ai_family ) {
