@@ -615,7 +615,7 @@ static amp_test_result_t* send_icmp_stream(struct addrinfo *dest,
         case AF_INET6: sock = sockets->socket6; break;
         default:
            Log(LOG_ERR,"Unknown address family %d", dest->ai_family);
-           return NULL;
+           return report_result(&start_time, dest, options, NULL, NULL);
     };
 
     if ( set_socket_filter(sock, dest->ai_family, pid) < 0 ) {
