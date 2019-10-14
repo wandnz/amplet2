@@ -57,6 +57,7 @@
 #include <sys/ioctl.h>
 #include <math.h>
 #include <inttypes.h>
+#include <pcap.h>
 
 #include "config.h"
 #include "tests.h"
@@ -385,6 +386,64 @@ static int configure_socket(struct socket_t *sockets, struct opt_t *options,
 
 
 /*
+ * Restrict the socket to only receiving ICMP ECHO REPLY packets that have
+ * the correct ID field set. Anything else will be discarded before we see it.
+ */
+static int set_socket_filter(int sock, int family, int ident) {
+    pcap_t *pcap;
+    struct bpf_program bpf;
+    char filterstring[1024];
+
+    switch ( family ) {
+        case AF_INET:
+            snprintf(filterstring, 1023,
+                    "icmp and icmp[icmptype] == icmp-echoreply and "
+                    "icmp[4:2] = 0x%x", ident);
+            break;
+        case AF_INET6:
+            /*
+             * raw ipv6 sockets strip the ipv6 header so the data we get
+             * starts at the icmp header. Pretend it's the ethernet header
+             * and so we can use pcap_compile to create the bpf filter.
+             * Alternatively, we could do the same thing iputils ping does
+             * and write bpf to directly examine the bytes of interest.
+             */
+            snprintf(filterstring, 1023,
+                    "ether[0] = 0x81 and ether[4:2] = 0x%x", ident);
+            break;
+        default: return -1;
+    };
+
+    Log(LOG_DEBUG, "Filterstring: %s", filterstring);
+
+    if ( (pcap = pcap_open_dead(DLT_RAW, 64)) == NULL ) {
+        Log(LOG_ERR, "Failed to get pcap handle");
+        return -1;
+    }
+
+    if ( pcap_compile(pcap, &bpf, filterstring, 1, PCAP_NETMASK_UNKNOWN) < 0 ) {
+        Log(LOG_ERR, "Failed to compile BPF filter: %s", pcap_geterr(pcap));
+        pcap_close(pcap);
+        return -1;
+    }
+
+    pcap_close(pcap);
+
+    if ( setsockopt(sock, SOL_SOCKET, SO_ATTACH_FILTER, &bpf,
+                sizeof(bpf)) < 0 ) {
+        Log(LOG_ERR, "Failed to attach BPF filter");
+        pcap_freecode(&bpf);
+        return -1;
+    }
+
+    pcap_freecode(&bpf);
+
+    return 0;
+}
+
+
+
+/*
  * Create the packet and fill in the required fields. The ICMP header only
  * has 16 bits for sequence numbers, so include a 64 bit field to track
  * the actual value for use once the sequence wraps. The two fields are
@@ -558,6 +617,10 @@ static amp_test_result_t* send_icmp_stream(struct addrinfo *dest,
            Log(LOG_ERR,"Unknown address family %d", dest->ai_family);
            return NULL;
     };
+
+    if ( set_socket_filter(sock, dest->ai_family, pid) < 0 ) {
+        return report_result(&start_time, dest, options, NULL, NULL);
+    }
 
     /* packet rate is an integer above zero, so longest gap is only 1 second */
     interpacket_gap.tv_sec = options->rate <= 1 ? 1 : 0;

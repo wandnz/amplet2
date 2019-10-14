@@ -5,7 +5,7 @@ check_LTLIBRARIES=testfastping.la
 testfastping_la_SOURCES=../fastping.c
 nodist_testfastping_la_SOURCES=../fastping.pb-c.c
 testfastping_la_CFLAGS=-rdynamic -DUNIT_TEST
-testfastping_la_LDFLAGS=-module -avoid-version -L../../../common/ -lamp -lprotobuf-c -lm
+testfastping_la_LDFLAGS=-module -avoid-version -L../../../common/ -lamp -lprotobuf-c -lm -lpcap
 
 fastping_register_test_SOURCES=fastping_register_test.c
 fastping_register_test_LDADD=testfastping.la
