@@ -567,7 +567,7 @@ static amp_test_result_t* send_icmp_stream(struct addrinfo *dest,
         fd_set readfds, writefds;
 
         if ( sent < options->count ) {
-            struct timeval foo;
+            struct timeval towait;
             /*
              * Still sending data, but it seems wasteful to spin on this loop
              * if we know there is a long time to wait till the next packet.
@@ -575,9 +575,9 @@ static amp_test_result_t* send_icmp_stream(struct addrinfo *dest,
              * is further away than the threshold.
              */
             gettimeofday(&now, NULL);
-            timersub(&next_packet, &now, &foo);
-            if ( timercmp(&foo, &THRESHOLD, >) ) {
-                usleep(foo.tv_usec * 0.95);
+            timersub(&next_packet, &now, &towait);
+            if ( timercmp(&towait, &THRESHOLD, >) ) {
+                usleep(towait.tv_usec * 0.95);
             }
         } else {
             /* otherwise we'll wait for a bit after the last packet we saw */
