@@ -427,7 +427,7 @@ static int build_packet(uint8_t family, void *packet, uint16_t size,
  * Determine if the packet is a response to one we've sent, and if so extract
  * the full length sequence number from it.
  */
-static int64_t extract_data(struct addrinfo *dest, char *packet,
+static int64_t extract_data(struct addrinfo *dest, char *packet, size_t length,
         uint16_t ident, struct sockaddr *from) {
 
     int64_t magic = 0;
@@ -438,8 +438,16 @@ static int64_t extract_data(struct addrinfo *dest, char *packet,
     ident = htons(ident);
 
     if ( dest->ai_family == AF_INET ) {
-        struct iphdr* ip = (struct iphdr*) packet;
-        struct icmphdr *icmp = (struct icmphdr*)(packet + (ip->ihl * 4));
+        struct iphdr* ip;
+        struct icmphdr *icmp;
+
+        if ( length < MINIMUM_FASTPING_PACKET_SIZE ) {
+            Log(LOG_DEBUG, "Ignoring too-short response packet");
+            return -1;
+        }
+
+        ip = (struct iphdr*) packet;
+        icmp = (struct icmphdr*)(packet + (ip->ihl * 4));
 
         if ( icmp->type != ICMP_ECHOREPLY || icmp->un.echo.id != ident ) {
             return -1;
@@ -449,7 +457,14 @@ static int64_t extract_data(struct addrinfo *dest, char *packet,
         sockaddrlen = sizeof(struct sockaddr_in);
         offset = sizeof(struct iphdr) + sizeof(struct icmphdr);
     } else {
-        struct icmp6_hdr *icmp = (struct icmp6_hdr*)packet;
+        struct icmp6_hdr *icmp;
+
+        if ( length < (sizeof(struct icmp6_hdr) + sizeof(uint64_t)) ) {
+            Log(LOG_DEBUG, "Ignoring too-short response packet");
+            return -1;
+        }
+
+        icmp = (struct icmp6_hdr*)packet;
 
         if ( icmp->icmp6_type != ICMP6_ECHO_REPLY || icmp->icmp6_id != ident ) {
             return -1;
@@ -649,7 +664,8 @@ static amp_test_result_t* send_icmp_stream(struct addrinfo *dest,
 
             if ( bytes > 0 ) {
                 /* extract the sequence number from the icmp packet */
-                int64_t sequence = extract_data(dest, response, pid, &from);
+                int64_t sequence;
+                sequence = extract_data(dest, response, bytes, pid, &from);
                 if ( sequence >= 0 && sequence < (int64_t)sent ) {
                     if ( !timerisset(&timing[sequence].time_received) ) {
                         memcpy(&(timing[sequence].time_received),
