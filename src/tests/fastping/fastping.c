@@ -650,7 +650,7 @@ static amp_test_result_t* send_icmp_stream(struct addrinfo *dest,
             if ( bytes > 0 ) {
                 /* extract the sequence number from the icmp packet */
                 int64_t sequence = extract_data(dest, response, pid, &from);
-                if ( sequence >= 0 && sequence < (int64_t)options->count ) {
+                if ( sequence >= 0 && sequence < (int64_t)sent ) {
                     if ( !timerisset(&timing[sequence].time_received) ) {
                         memcpy(&(timing[sequence].time_received),
                                 &receive_time, sizeof(struct timeval));
@@ -663,6 +663,9 @@ static amp_test_result_t* send_icmp_stream(struct addrinfo *dest,
                         Log(LOG_DEBUG, "Ignoring duplicate sequence number %d",
                                 sequence);
                     }
+                } else {
+                    Log(LOG_DEBUG, "Ignoring out of range sequence number %d",
+                            sequence);
                 }
             }
         }
