@@ -407,7 +407,7 @@ static int build_packet(uint8_t family, void *packet, uint16_t size,
     icmp->code = 0;
     icmp->checksum = 0;
     icmp->un.echo.id = htons(ident);
-    icmp->un.echo.sequence = ntohs(seq);
+    icmp->un.echo.sequence = htons(seq);
     memcpy((uint8_t *)packet + sizeof(struct icmphdr), &magic, sizeof(magic));
 
     if ( family == AF_INET ) {
@@ -435,7 +435,7 @@ static int64_t extract_data(struct addrinfo *dest, char *packet,
     size_t sockaddrlen;
     uint8_t offset;
 
-    ident = ntohs(ident);
+    ident = htons(ident);
 
     if ( dest->ai_family == AF_INET ) {
         struct iphdr* ip = (struct iphdr*) packet;
