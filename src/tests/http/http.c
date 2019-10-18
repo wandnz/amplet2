@@ -119,7 +119,7 @@ static void report_header_results(Amplet2__Http__Header *header,
     header->has_total_bytes = 1;
     header->total_bytes = global.bytes;
     header->has_total_objects = 1;
-    header->total_objects = global.objects;
+    header->total_objects = global.objects + global.failed_objects;
 
     header->has_max_connections = 1;
     header->max_connections = opt->max_connections;
@@ -960,11 +960,19 @@ CURL *pipeline_next_object(CURLM *multi, struct server_stats_t *server) {
     curl_easy_setopt(object->handle, CURLOPT_USERAGENT, options.useragent);
     curl_easy_setopt(object->handle, CURLOPT_SSLVERSION, options.sslversion);
 
-    /* save the time that this server became active */
+    /* save the time that fetching started for this object */
     gettimeofday(&object->start, NULL);
+
+    /* this might be the first object we've tried to fetch from this server */
     if ( server->start.tv_sec == 0 && server->start.tv_usec == 0 ) {
-        server->start.tv_sec = object->start.tv_sec;
-        server->start.tv_usec = object->start.tv_usec;
+        server->start.tv_sec = server->end.tv_sec = object->start.tv_sec;
+        server->start.tv_usec = server->end.tv_usec = object->start.tv_usec;
+
+        /* this might also be the first object we've fetched total */
+        if ( global.start.tv_sec == 0 && global.start.tv_usec == 0 ) {
+            global.start.tv_sec = global.end.tv_sec = object->start.tv_sec;
+            global.start.tv_usec = global.end.tv_usec = object->start.tv_usec;
+        }
     }
 
     if ( curl_multi_add_handle(multi, object->handle) != 0 ) {
@@ -1109,19 +1117,19 @@ static void check_messages(CURLM *multi, int *running_handles) {
         curl_easy_getinfo(msg->easy_handle, CURLINFO_SIZE_DOWNLOAD, &bytes);
 
         if ( msg->data.result != 0 ) {
-            Log(LOG_WARNING, "R: %d - %s <%s> (%fb)\n", msg->data.result,
+            Log(LOG_WARNING, "%s <%s> (%fb)\n",
                     curl_easy_strerror(msg->data.result), url, bytes);
-            //TODO should we break out of loop or anything here?
             /*
-             * If we fail to resolve the first host then don't record an
-             * object. Any test with one server and zero objects won't be
-             * reported (similar to other tests when they fail to resolve
-             * a destination).
+             * If we fail to resolve or connect to the first host then stop
+             * the test and don't record an object.
              */
-            if ( msg->data.result == CURLE_COULDNT_RESOLVE_HOST &&
+            if ( (msg->data.result == CURLE_COULDNT_RESOLVE_HOST ||
+                        msg->data.result == CURLE_COULDNT_RESOLVE_PROXY ||
+                        msg->data.result == CURLE_COULDNT_CONNECT ||
+                        msg->data.result == CURLE_SSL_CONNECT_ERROR) &&
                     server_list && server_list->next == NULL &&
                     server_list->finished == NULL ) {
-                continue;
+                break;
             }
         }
 
@@ -1473,11 +1481,6 @@ amp_test_result_t* run_http(int argc, char *argv[],
 
     configure_global_max_requests(&options);
 
-    if ( gettimeofday(&global.start, NULL) != 0 ) {
-	Log(LOG_ERR, "Could not gettimeofday(), aborting test");
-        exit(EXIT_FAILURE);
-    }
-
     curl_global_init(CURL_GLOBAL_ALL);
 
     if ( !(multi = curl_multi_init()) ) {
@@ -1503,31 +1506,8 @@ amp_test_result_t* run_http(int argc, char *argv[],
     curl_share_cleanup(share_handle);
     curl_global_cleanup();
 
-    /*
-     * XXX don't update the end time, rely on the last successful object fetch
-     * to do this. When we move to tracking and reporting good/bad fetches then
-     * we probably want to start recording this again as the actual true total
-     * time that the test took. Right now we are being misleading with the
-     * total time ignoring failed requests.
-     *
-     * It's possible for us to get to here with end time not being set but
-     * only if no objects were fetched, in which case we don't report so the
-     * value is never used.
-     */
-    /*
-    if ( gettimeofday(&global.end, NULL) != 0 ) {
-        Log(LOG_ERR, "Could not gettimeofday(), aborting test");
-        exit(EXIT_FAILURE);
-    }
-    */
-
     /* send report */
-    if ( global.servers > 0 && global.objects > 0 ) {
-        result = report_results(&global.start, server_list, &options);
-    } else {
-        Log(LOG_DEBUG, "Didn't attempt to fetch any objects, no results");
-        result = NULL;
-    }
+    result = report_results(&global.start, server_list, &options);
 
     /* TODO, free everything */
     //free(server_list);

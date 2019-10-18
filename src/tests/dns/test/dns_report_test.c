@@ -121,8 +121,13 @@ static void verify_address(struct addrinfo *a, Amplet2__Dns__Item *b) {
  * based on the same logic used when reporting.
  */
 static void verify_response(struct info_t *a, Amplet2__Dns__Item *b) {
-    assert(b->has_query_length);
-    assert(a->query_length == b->query_length);
+    /* only expect a query length if we actually sent the query */
+    if ( a->time_sent.tv_sec > 0 ) {
+        assert(b->has_query_length);
+        assert(a->query_length == b->query_length);
+    } else {
+        assert(!b->has_query_length);
+    }
 
     /* ensure rtt, flags etc are only set if there was a valid response */
     if ( a->reply && a->time_sent.tv_sec > 0 ) {

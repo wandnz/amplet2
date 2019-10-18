@@ -1,10 +1,9 @@
 /*
  * This file is part of amplet2.
  *
- * Copyright (c) 2018 The University of Waikato, Hamilton, New Zealand.
+ * Copyright (c) 2013-2019 The University of Waikato, Hamilton, New Zealand.
  *
- * Author: Jayden Hewer
- *         Brendon Jones
+ * Author: Brendon Jones
  *
  * All rights reserved.
  *
@@ -38,60 +37,28 @@
  * along with amplet2. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef _TESTS_FASTPING_H
-#define _TESTS_FASTPING_H
-
-#include <netinet/ip.h>
-#include <netinet/ip6.h>
-#include <netinet/ip_icmp.h>
-#include <stdint.h>
-#include <sys/time.h>
-
+#include <stdio.h>
+#include <assert.h>
+#include <string.h>
 #include "tests.h"
-#include "testlib.h"
+#include "fastping.h"
 
-#define DEFAULT_FASTPING_PACKET_COUNT 60
-#define DEFAULT_FASTPING_PACKET_RATE 1
-#define DEFAULT_FASTPING_PACKET_SIZE 64
-#define FASTPING_PACKET_LOSS_TIMEOUT 3
-
-#define MAXIMUM_FASTPING_PACKET_COUNT 10000000
-#define MAXIMUM_FASTPING_PACKET_RATE 100000
-
-#define MINIMUM_FASTPING_PACKET_SIZE ( \
-        sizeof(struct ip6_hdr) + sizeof(struct icmphdr) + sizeof(uint64_t))
-
-#define RESPONSE_BUFFER_LEN ( \
-        sizeof(struct iphdr) + 60 + sizeof(struct icmphdr) + 8)
-
-/* TODO investigate the time vs space tradeoff of writing the timestamp to
- * the outgoing packet and only keeping the RTT value once it returns
+/*
+ * Check that the fastping test registration is vaguely sane.
  */
-struct info_t {
-    struct timeval time_sent;
-    struct timeval time_received;
-};
+int main(void) {
+    test_t *info = register_test();
 
-struct summary_t {
-    uint32_t maximum;
-    uint32_t minimum;
-    double mean;
-    double sd;
-    uint32_t samples;
-};
+    assert(info != NULL);
 
-struct opt_t {
-    uint64_t count;
-    uint64_t rate;
-    uint64_t gap;
-    uint16_t size;
-    uint16_t preemptive;
-    uint8_t dscp;
-};
+    assert(info->id == AMP_TEST_FASTPING);
+    assert(strcmp(info->name, "fastping") == 0);
+    assert(info->run_callback != NULL);
+    assert(info->print_callback != NULL);
+    assert(info->max_duration > 0);
 
+    free(info->name);
+    free(info);
 
-amp_test_result_t* run_fastping(int argc, char *argv[], int count,
-    struct addrinfo **dests);
-void print_fastping(amp_test_result_t *result);
-test_t *register_test(void);
-#endif
+    return 0;
+}

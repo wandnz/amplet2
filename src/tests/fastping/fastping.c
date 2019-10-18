@@ -69,6 +69,12 @@
 #include "checksum.h"
 
 
+/* time till next packet after which select will sleep rather than spin */
+const struct timeval THRESHOLD = {0, 1000};
+/* percentile values of interest */
+const float PERCENTILES[] = {0.0, 0.1, 1.0, 5.0, 10.0, 20.0, 30.0, 40.0, 50.0,
+    60.0, 70.0, 80.0, 90.0, 95.0, 99.0, 99.9, 100};
+#define PERCENTILE_COUNT ((int)(sizeof(PERCENTILES) / sizeof(float)))
 
 static struct option long_options[] = {
     {"count", required_argument, 0, 'c'},
@@ -185,6 +191,10 @@ static Amplet2__Fastping__Item* report_destination(struct info_t *timing,
 
     amplet2__fastping__item__init(item);
 
+    if ( timing == NULL ) {
+        return item;
+    }
+
     memset(&rtt, 0, sizeof(rtt));
     memset(&jitter, 0, sizeof(jitter));
 
@@ -237,8 +247,10 @@ static Amplet2__Fastping__Item* report_destination(struct info_t *timing,
         item->jitter = report_summary(&jitter, ipdv);
     }
 
-    item->has_runtime = 1;
-    item->runtime = runtime->tv_sec * 1000000 + runtime->tv_usec;
+    if ( runtime ) {
+        item->has_runtime = 1;
+        item->runtime = runtime->tv_sec * 1000000 + runtime->tv_usec;
+    }
 
     free(ipv);
     free(ipdv);
@@ -498,6 +510,15 @@ static amp_test_result_t* send_icmp_stream(struct addrinfo *dest,
     memset(&stop_time, 0, sizeof(struct timeval));
     memset(&loss_timeout, 0, sizeof(struct timeval));
 
+    if ( dest->ai_addr == NULL ) {
+        if ( gettimeofday(&start_time, NULL) != 0 ) {
+            Log(LOG_ERR, "Could not gettimeofday(), aborting test");
+            exit(EXIT_FAILURE);
+        }
+
+        return report_result(&start_time, dest, options, NULL, NULL);
+    }
+
     /* extract the socket depending on the address family */
     switch ( dest->ai_family ) {
         case AF_INET: sock = sockets->socket; break;
@@ -629,7 +650,7 @@ static amp_test_result_t* send_icmp_stream(struct addrinfo *dest,
             if ( bytes > 0 ) {
                 /* extract the sequence number from the icmp packet */
                 int64_t sequence = extract_data(dest, response, pid, &from);
-                if ( sequence >= 0 && sequence < options->count) {
+                if ( sequence >= 0 && sequence < (int64_t)options->count ) {
                     memcpy(&(timing[sequence].time_received),
                             &receive_time, sizeof(struct timeval));
                     received++;
@@ -813,7 +834,14 @@ void print_fastping(amp_test_result_t *result) {
 
     samples = item->rtt ? item->rtt->samples : 0;
     percent = ((double) samples / (double) header->count) * 100;
-    inet_ntop(header->family, header->address.data, addrstr, INET6_ADDRSTRLEN);
+
+    if ( header->has_address ) {
+        inet_ntop(header->family, header->address.data, addrstr,
+                INET6_ADDRSTRLEN);
+    } else {
+        snprintf(addrstr, INET6_ADDRSTRLEN, "unresolved %s",
+                family_to_string(header->family));
+    }
 
     /* print basic stats */
     printf("\n");
@@ -822,6 +850,12 @@ void print_fastping(amp_test_result_t *result) {
             "pps preprobe:%d DSCP:%s(0x%x)\n",
             header->count, header->size, header->rate, header->preprobe,
             dscp_to_str(header->dscp), header->dscp);
+
+    /* if the test didn't run then there isn't much to print */
+    if ( samples == 0 && item->runtime == 0 ) {
+        printf("  0 packets transmitted, 0 received\n");
+        return;
+    }
 
     printf("  %" PRIu64 " packets transmitted, %" PRIu64
             " received, %.02f%% packet loss\n",

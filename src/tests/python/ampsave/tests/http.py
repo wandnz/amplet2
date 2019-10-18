@@ -50,8 +50,8 @@ def get_data(data):
 
     results = {
         "url": msg.header.url,
-        "duration": msg.header.duration,
-        "bytes": msg.header.total_bytes,
+        "duration": msg.header.duration if msg.header.duration > 0 else None,
+        "bytes": msg.header.total_bytes if msg.header.total_bytes > 0 else None,
         "server_count": len(msg.servers),
         "object_count": msg.header.total_objects,
         "keep_alive": msg.header.persist,
@@ -84,18 +84,6 @@ def get_data(data):
         for obj in s.objects:
             if obj.code == 0:
                 results["failed_object_count"] += 1
-            # XXX can we report properly to prevent this?
-            # If there is only one server, with one object and that object
-            # has a code of zero, then we failed to fetch anything at all.
-            # Change the duration to None so the graphs properly interrupt
-            # the line.
-            if ( len(msg.servers) == 1 and
-                    msg.header.total_objects == 1 and obj.code == 0 ):
-                results["duration"] = None
-                # TODO should we still add the object?
-                #results["object_count"] = 0
-                #server["object_count"] = 0
-                #break
 
             # Append this object to the list for this server
             server["objects"].append({

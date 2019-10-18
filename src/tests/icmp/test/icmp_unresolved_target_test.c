@@ -1,10 +1,9 @@
 /*
  * This file is part of amplet2.
  *
- * Copyright (c) 2018 The University of Waikato, Hamilton, New Zealand.
+ * Copyright (c) 2013-2019 The University of Waikato, Hamilton, New Zealand.
  *
- * Author: Jayden Hewer
- *         Brendon Jones
+ * Author: Brendon Jones
  *
  * All rights reserved.
  *
@@ -38,60 +37,64 @@
  * along with amplet2. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef _TESTS_FASTPING_H
-#define _TESTS_FASTPING_H
-
-#include <netinet/ip.h>
-#include <netinet/ip6.h>
-#include <netinet/ip_icmp.h>
-#include <stdint.h>
-#include <sys/time.h>
+#include <assert.h>
+#include <netdb.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/socket.h>
 
 #include "tests.h"
-#include "testlib.h"
+#include "icmp.h"
+#include "icmp.pb-c.h"
 
-#define DEFAULT_FASTPING_PACKET_COUNT 60
-#define DEFAULT_FASTPING_PACKET_RATE 1
-#define DEFAULT_FASTPING_PACKET_SIZE 64
-#define FASTPING_PACKET_LOSS_TIMEOUT 3
+#define TEST_TARGET "doesnotexist.invalid"
 
-#define MAXIMUM_FASTPING_PACKET_COUNT 10000000
-#define MAXIMUM_FASTPING_PACKET_RATE 100000
-
-#define MINIMUM_FASTPING_PACKET_SIZE ( \
-        sizeof(struct ip6_hdr) + sizeof(struct icmphdr) + sizeof(uint64_t))
-
-#define RESPONSE_BUFFER_LEN ( \
-        sizeof(struct iphdr) + 60 + sizeof(struct icmphdr) + 8)
-
-/* TODO investigate the time vs space tradeoff of writing the timestamp to
- * the outgoing packet and only keeping the RTT value once it returns
+/*
+ *
  */
-struct info_t {
-    struct timeval time_sent;
-    struct timeval time_received;
-};
+int main(void) {
+    amp_test_result_t *result;
+    struct addrinfo *target;
+    Amplet2__Icmp__Report *msg;
+    Amplet2__Icmp__Item *item;
 
-struct summary_t {
-    uint32_t maximum;
-    uint32_t minimum;
-    double mean;
-    double sd;
-    uint32_t samples;
-};
+    /*
+     * create a dummy addrinfo like the resolver does when it can't resolve
+     * the name
+     */
+    target = calloc(1, sizeof(struct addrinfo));
+    target->ai_family = AF_INET;
+    target->ai_canonname = TEST_TARGET;
 
-struct opt_t {
-    uint64_t count;
-    uint64_t rate;
-    uint64_t gap;
-    uint16_t size;
-    uint16_t preemptive;
-    uint8_t dscp;
-};
+    /* run the test against the dummy target */
+    result = run_icmp(0, NULL, 1, &target);
 
+    assert(result);
+    assert(result->data);
 
-amp_test_result_t* run_fastping(int argc, char *argv[], int count,
-    struct addrinfo **dests);
-void print_fastping(amp_test_result_t *result);
-test_t *register_test(void);
-#endif
+    /* check that the results are missing/empty in the right places */
+    msg = amplet2__icmp__report__unpack(NULL, result->len, result->data);
+
+    assert(msg);
+    assert(msg->header);
+    assert(msg->n_reports == 1);
+    assert(msg->reports);
+
+    item = msg->reports[0];
+
+    assert(!item->has_address);
+    assert(item->has_family);
+    assert(item->family == AF_INET);
+    assert(!item->has_rtt);
+    assert(!item->has_err_type);
+    assert(!item->has_err_code);
+    assert(!item->has_ttl);
+    assert(strcmp(item->name, TEST_TARGET) == 0);
+
+    amplet2__icmp__report__free_unpacked(msg, NULL);
+    free(result->data);
+    free(result);
+    free(target);
+
+    return 0;
+}

@@ -1,7 +1,7 @@
 /*
  * This file is part of amplet2.
  *
- * Copyright (c) 2013-2016 The University of Waikato, Hamilton, New Zealand.
+ * Copyright (c) 2013-2019 The University of Waikato, Hamilton, New Zealand.
  *
  * Author: Brendon Jones
  *
@@ -37,25 +37,67 @@
  * along with amplet2. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef _COMMON_DEBUG_H_
-#define _COMMON_DEBUG_H_
-
-#include <syslog.h>
+#include <assert.h>
 #include <netdb.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/socket.h>
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+#include "tests.h"
+#include "tcpping.h"
+#include "tcpping.pb-c.h"
 
-extern int log_level;
-extern int log_level_override;
+#define TEST_TARGET "doesnotexist.invalid"
 
-void Log(int priority, const char *fmt, ...);
-const char *amp_inet_ntop(struct addrinfo *addr, char *buffer);
-const char *family_to_string(int family);
+/*
+ *
+ */
+int main(void) {
+    amp_test_result_t *result;
+    struct addrinfo *target;
+    Amplet2__Tcpping__Report *msg;
+    Amplet2__Tcpping__Item *item;
 
-#ifdef __cplusplus
+    /*
+     * create a dummy addrinfo like the resolver does when it can't resolve
+     * the name
+     */
+    target = calloc(1, sizeof(struct addrinfo));
+    target->ai_family = AF_INET;
+    target->ai_addrlen = 0;
+    target->ai_addr = NULL;
+    target->ai_canonname = TEST_TARGET;
+    target->ai_next = NULL;
+
+    /* run the test against the dummy target */
+    result = run_tcpping(0, NULL, 1, &target);
+
+    assert(result);
+    assert(result->data);
+
+    /* check that the results are missing/empty in the right places */
+    msg = amplet2__tcpping__report__unpack(NULL, result->len, result->data);
+
+    assert(msg);
+    assert(msg->header);
+    assert(msg->n_reports == 1);
+    assert(msg->reports);
+
+    item = msg->reports[0];
+
+    assert(!item->has_address);
+    assert(item->has_family);
+    assert(item->family == AF_INET);
+    assert(!item->has_rtt);
+    assert(!item->has_icmptype);
+    assert(!item->has_icmpcode);
+    assert(!item->flags);
+    assert(strcmp(item->name, TEST_TARGET) == 0);
+
+    amplet2__tcpping__report__free_unpacked(msg, NULL);
+    free(result->data);
+    free(result);
+    free(target);
+
+    return 0;
 }
-#endif
-
-#endif

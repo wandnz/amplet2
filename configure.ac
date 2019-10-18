@@ -420,10 +420,10 @@ AC_CONFIG_FILES([Makefile
                  src/tests/udpstream/test/Makefile
                  src/tests/youtube/Makefile
                  src/tests/fastping/Makefile
+                 src/tests/fastping/test/Makefile
                  src/tests/external/Makefile
                  src/tests/external/test/Makefile])
                  #src/tests/youtube/test/Makefile
-                 #src/tests/fastping/test/Makefile])
 AC_OUTPUT
 
 reportopt() {
