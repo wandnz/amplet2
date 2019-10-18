@@ -109,6 +109,7 @@ struct tcpinfo_result_t {
     uint32_t rtt;
     uint32_t rttvar;
     uint32_t min_rtt;
+    uint32_t congestion_type;
 };
 
 /**
@@ -180,7 +181,7 @@ int sendStream(int sock_fd, struct test_request_t *test_opts,
 
 /* Receive incoming test */
 int incomingTest(int sock_fd, struct test_result_t *result);
-int writeBuffer(int sock_fd, void *packet, size_t length);
+int writeBuffer(int sock_fd, void *packet, size_t length, int32_t * samples);
 int readBuffer(int test_socket);
 
 uint64_t timeNanoseconds(void);

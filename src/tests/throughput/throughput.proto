@@ -98,6 +98,20 @@ message TCPInfo {
     optional uint64 sndbuf_limited = 7;
     /* Minimum round trip time (usec) */
     optional uint32 min_rtt = 8;
+    /**
+     * Type of congestion inferred from rtt timmings.
+     * Special cases for NULL if not measured
+     * TOO_HEALTHY for no packets dropped in range
+     * UNHEALTHY if packets dropped too soon
+     */
+    enum Congestion_Type {
+        NULL = 0;
+        SELF = 1;
+        EXTERNAL = 2;
+        TOO_HEALTHY = 3;
+        UNHEALTHY = 4;
+    }
+    optional Congestion_Type congestion_type = 9;
 }
 
 

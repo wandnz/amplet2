@@ -306,6 +306,7 @@ static struct tcpinfo_result_t *extract_tcpinfo(ProtobufCBinaryData *data) {
         tcpinfo->busy_time = item->tcpinfo->busy_time;
         tcpinfo->rwnd_limited = item->tcpinfo->rwnd_limited;
         tcpinfo->sndbuf_limited = item->tcpinfo->sndbuf_limited;
+        tcpinfo->congestion_type = item->tcpinfo->congestion_type;
     }
 
     amplet2__throughput__item__free_unpacked(item, NULL);
@@ -905,6 +906,17 @@ void print_throughput(amp_test_result_t *result) {
                         100.0 * item->tcpinfo->sndbuf_limited /
                         item->tcpinfo->busy_time);
             }
+
+            char names[][12] = {
+                "NULL",
+                "SELF",
+                "EXTERNAL",
+                "TOO_HEALTHY",
+                "UNHEALTHY"
+            };
+            printf("\tLimiting congestion : %s\n",
+                    names[item->tcpinfo->congestion_type]);
+
         } else {
             printf("\tNo further TCP information available from sender\n");
         }
