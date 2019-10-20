@@ -487,9 +487,13 @@ void process_rtt(struct test_result_t *res, int32_t *samples) {
     res->tcpinfo->congestion_type = classify(CoV, NormRange);
 
     /* output dump for training data */
-    Log(LOG_DEBUG, "Training data: CoV:%.10f NormRange:%.10f", 
+    Log(LOG_DEBUG, "CongestionData: CoV NormRange sampleCount classification\n");
+    Log(LOG_DEBUG, "CongestionData: %.10f %.10f %d %d\n", 
             CoV, 
-            NormRange);
+            NormRange,
+            rttcount,
+            res->tcpinfo->congestion_type);
+
 }
 
 
