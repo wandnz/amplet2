@@ -60,6 +60,7 @@
 #define DEFAULT_TEST_DURATION 10 /* iperf default: 10s */
 #define MAX_MALLOC 20e6
 
+#define MAXSAMPLES 1024 /* Number of samples to take of RTTs */
 
 /*
  * Used as shortcuts for scheduling common tests through the web interface.
@@ -136,6 +137,13 @@ struct test_request_t {
     struct test_request_t *next;
 };
 
+/* sample set of rtt timmings */
+struct rtt_samples_t {
+    char samples[MAXSAMPLES];
+    int rttcount;
+    int keep_recording;
+};
+
 
 /*
  * Global test options that control packet size and timing.
@@ -181,7 +189,8 @@ int sendStream(int sock_fd, struct test_request_t *test_opts,
 
 /* Receive incoming test */
 int incomingTest(int sock_fd, struct test_result_t *result);
-int writeBuffer(int sock_fd, void *packet, size_t length, int32_t * samples);
+int writeBuffer(int sock_fd, void *packet, size_t length,
+        struct rtt_samples_t * rtt_samples);
 int readBuffer(int test_socket);
 
 uint64_t timeNanoseconds(void);
