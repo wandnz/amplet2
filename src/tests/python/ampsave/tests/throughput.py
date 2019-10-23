@@ -98,6 +98,11 @@ def get_data(data):
                 "bytes": i.bytes,
                 "direction": direction_to_string(i.direction),
                 "tcpreused": params["tcpreused"],
+                "congestion": ( i.tcpinfo.congestion_type
+                    if i.HasField("tcpinfo") and 
+                    i.tcpinfo.HasField("congestion_type") 
+                    else 
+                    None ),
             }
         )
 

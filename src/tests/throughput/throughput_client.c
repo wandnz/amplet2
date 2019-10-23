@@ -95,7 +95,7 @@ static void printSchedule(struct test_request_t *schedule) {
  * Note: this uses strtok() and will destroy the input argument
  *
  * @param options - A opt_t structure to append to the schedule
- * @param request - A string reprensenting the what is to be added to
+ * @param request - A string representing the what is to be added to
  *                  the schedule
  */
 static void parseSchedule(struct opt_t *options, char *request) {
@@ -181,7 +181,7 @@ static void parseSchedule(struct opt_t *options, char *request) {
             }
         }
 
-        /* Get the next string and move current foward */
+        /* Get the next string and move current forward */
         pch = strtok(NULL, ",");
         current = &(*current)->next;
     }
@@ -302,6 +302,7 @@ static struct tcpinfo_result_t *extract_tcpinfo(ProtobufCBinaryData *data) {
         tcpinfo->busy_time = item->tcpinfo->busy_time;
         tcpinfo->rwnd_limited = item->tcpinfo->rwnd_limited;
         tcpinfo->sndbuf_limited = item->tcpinfo->sndbuf_limited;
+        tcpinfo->congestion_type = item->tcpinfo->congestion_type;
     }
 
     amplet2__throughput__item__free_unpacked(item, NULL);
@@ -922,6 +923,29 @@ void print_throughput(amp_test_result_t *result) {
                         100.0 * item->tcpinfo->sndbuf_limited /
                         item->tcpinfo->busy_time);
             }
+
+            printf("\tLimiting congestion: ");
+            switch ( item->tcpinfo->congestion_type ) {
+                case AMPLET2__THROUGHPUT__TCPINFO__CONGESTION__TYPE__NULL:
+                    printf("No congestion tests performed\n");
+                    break;
+                case AMPLET2__THROUGHPUT__TCPINFO__CONGESTION__TYPE__SELF:
+                    printf("Self induced congestion from test traffic\n");
+                    break;
+                case AMPLET2__THROUGHPUT__TCPINFO__CONGESTION__TYPE__EXTERNAL:
+                    printf("External congestion from other traffic\n");
+                    break;
+                case AMPLET2__THROUGHPUT__TCPINFO__CONGESTION__TYPE__TOO_HEALTHY:
+                    printf("Can not infer end of slow-start\n");
+                    break;
+                case AMPLET2__THROUGHPUT__TCPINFO__CONGESTION__TYPE__UNHEALTHY:
+                    printf("Less than two packets of slow-start\n");
+                    break;
+                default:
+                    printf("Something went wrong\n");
+                    break;
+            }
+
         } else {
             printf("\tNo further TCP information available from sender\n");
         }
