@@ -924,7 +924,7 @@ void print_throughput(amp_test_result_t *result) {
                         item->tcpinfo->busy_time);
             }
 
-            printf("\tLimiting congestion : ");
+            printf("\tLimiting congestion: ");
             switch ( item->tcpinfo->congestion_type ) {
                 case AMPLET2__THROUGHPUT__TCPINFO__CONGESTION__TYPE__NULL:
                     printf("No congestion tests performed\n");
