@@ -1,5 +1,5 @@
 Name: amplet2
-Version: 0.9.10
+Version: 0.9.11
 Release: 1%{?dist}
 Summary: AMP Network Performance Measurement Suite
 
@@ -148,6 +148,26 @@ fi
 
 
 %changelog
+* Wed Oct 23 2019 Brendon Jones <brendonj@waikato.ac.nz> 0.9.11-1
+- dns: avoid waiting for LOSS_TIMEOUT if no packets are outstanding.
+- dns: only count DNS query length if the query was actually sent.
+- fastping: be stricter in checking before reporting parts of results.
+- fastping: ignore duplicate responses.
+- fastping: limit valid fastping sequence numbers to those sent.
+- fastping: check length of data when validating fastping response.
+- fastping: add more debugging output.
+- fastping: apply a BPF filter to restrict incoming response packets.
+- fastping: sleep less at low sending rates.
+- http: ensure server/object/global start/end times always get set.
+- http: total object count should also include failed objects.
+- icmp: avoid waiting for LOSS_TIMEOUT if no packets are outstanding.
+- tcpping: avoid waiting for LOSS_TIMEOUT if no packets are outstanding.
+- throughput: avoid using default protobuf values for runtime and bytes.
+- traceroute: fix reporting too many non-responsive hops.
+- traceroute: don't connect to whois server with no addresses to query.
+- udpstream: be stricter in checking before reporting parts of results.
+- all tests: update to accept unresolved hostnames as destinations.
+
 * Mon Aug 19 2019 Brendon Jones <brendonj@waikato.ac.nz> 0.9.10-1
 - package: put binaries in the same location they are in Debian packages.
 - package: run unit tests after building package.
