@@ -598,12 +598,13 @@ static amp_test_result_t* send_icmp_stream(struct addrinfo *dest,
     memset(&stop_time, 0, sizeof(struct timeval));
     memset(&loss_timeout, 0, sizeof(struct timeval));
 
-    if ( dest->ai_addr == NULL ) {
-        if ( gettimeofday(&start_time, NULL) != 0 ) {
-            Log(LOG_ERR, "Could not gettimeofday(), aborting test");
-            exit(EXIT_FAILURE);
-        }
+    /* get the current time to use when reporting initial errors */
+    if ( gettimeofday(&start_time, NULL) != 0 ) {
+        Log(LOG_ERR, "Could not gettimeofday(), aborting test");
+        exit(EXIT_FAILURE);
+    }
 
+    if ( dest->ai_addr == NULL ) {
         return report_result(&start_time, dest, options, NULL, NULL);
     }
 
@@ -648,6 +649,7 @@ static amp_test_result_t* send_icmp_stream(struct addrinfo *dest,
     /* generate the first packet of the run before we are ready to send it */
     length = build_packet(dest->ai_family, packet, options->size, 0, pid, 0);
 
+    /* set the actual start time now after doing all the setup */
     if ( gettimeofday(&start_time, NULL) != 0 ) {
 	Log(LOG_ERR, "Could not gettimeofday(), aborting test");
 	exit(EXIT_FAILURE);
