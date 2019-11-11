@@ -766,9 +766,19 @@ int set_dscp_socket_options(struct socket_t *sockets, uint8_t dscp) {
     if ( sockets->socket6 > 0 ) {
         if ( setsockopt(sockets->socket6, IPPROTO_IPV6, IPV6_TCLASS, &value,
                     sizeof(value)) < 0 ) {
+            int tmperrno = errno;
             Log(LOG_WARNING, "Failed to set IPv6 DSCP to %d: %s", value,
-                    strerror(errno));
-            return -1;
+                    strerror(tmperrno));
+            /*
+             * Workaround failing unit tests on qemu/docker-based build
+             * environments - IPV6_TCLASS isn't implemented in qemu until
+             * v4.1.0, lack of which causes this setsockopt to fail with
+             * ENOPROTOOPT when running on non-amd64 dockers. Fixed by
+             * https://github.com/qemu/qemu/commit/b9cce6d756043c92de1c29f73f
+             */
+            if ( tmperrno != ENOPROTOOPT ) {
+                return -1;
+            }
         }
     }
 
