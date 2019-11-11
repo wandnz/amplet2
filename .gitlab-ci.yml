@@ -40,13 +40,11 @@ stages:
     expire_in: 1 day
   only:
     - tags
+    - web
 
 build-bionic-amd64:
   <<: *build_template
   image: ubuntu:bionic
-  only:
-    - tags
-    - web
 
 build-bionic-i386:
   <<: *build_template
@@ -104,9 +102,6 @@ build-xenial-armhf:
 build-stretch-amd64:
   <<: *build_template
   image: debian:stretch
-  only:
-    - tags
-    - web
 
 build-stretch-i386:
   <<: *build_template
@@ -145,15 +140,32 @@ build-centos7-amd64:
   image: centos:7
   script:
     - ./gitlab-build-rpm.sh
+
+
+test-xenial-packages:
+  stage: test
+  image: ubuntu:xenial
+  script:
+    - *generic_apt_setup
+    - ./gitlab-test-deb.sh
   only:
-    - tags
     - web
+    - tags
 
 test-bionic-packages:
   stage: test
   image: ubuntu:bionic
   script:
-    - *fix_ubuntu_multiarch_apt
+    - *generic_apt_setup
+    - ./gitlab-test-deb.sh
+  only:
+    - web
+    - tags
+
+test-jessie-packages:
+  stage: test
+  image: debian:jessie
+  script:
     - *generic_apt_setup
     - ./gitlab-test-deb.sh
   only:
