@@ -13,7 +13,7 @@ Package: amplet2-client
 Architecture: any
 Replaces: amplet2-client-lite (<< 0.8.0)
 Breaks: amplet2-client-lite (<< 0.8.0)
-Depends: ${shlibs:Depends}, ${misc:Depends}, libwandevent (>= 3.0.0), libcurl3|libcurl4, librabbitmq4 (>= 0.7.1), libunbound2, libpcap0.8 (>= 1.7.4), rsyslog, libprotobuf-c1, lsb-base (>= 3.0-6), init-system-helpers (>= 1.22), adduser, libcap2-bin
+Depends: ${shlibs:Depends}, ${misc:Depends}, libwandevent (>= 3.0.0), libcurl3|libcurl4, librabbitmq4 (>= 0.7.1), libunbound2|libunbound8, libpcap0.8 (>= 1.7.4), rsyslog, libprotobuf-c1, lsb-base (>= 3.0-6), init-system-helpers (>= 1.22), adduser, libcap2-bin
 Recommends: rabbitmq-server (>= 3.4.0)
 Description: AMP Network Performance Measurement Suite - Client Tools
  This package contains the client tools for the AMP Measurement Suite. These

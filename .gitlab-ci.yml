@@ -99,6 +99,22 @@ build-xenial-armhf:
 #    - *generic_apt_setup
 #    - *generic_apt_build
 
+build-buster-amd64:
+  <<: *build_template
+  image: debian:buster
+
+build-buster-i386:
+  <<: *build_template
+  image: multiarch/debian-debootstrap:i386-buster
+
+build-buster-armhf:
+  <<: *build_template
+  image: multiarch/debian-debootstrap:armhf-buster
+
+#build-buster-arm64:
+#  <<: *build_template
+#  image: multiarch/debian-debootstrap:arm64-buster
+
 build-stretch-amd64:
   <<: *build_template
   image: debian:stretch
@@ -175,6 +191,16 @@ test-jessie-packages:
 test-stretch-packages:
   stage: test
   image: debian:stretch
+  script:
+    - *generic_apt_setup
+    - ./gitlab-test-deb.sh
+  only:
+    - web
+    - tags
+
+test-buster-packages:
+  stage: test
+  image: debian:buster
   script:
     - *generic_apt_setup
     - ./gitlab-test-deb.sh

@@ -17,6 +17,9 @@ test_lint() {
         stretch)
             run_lintian
             ;;
+        buster)
+            run_lintian
+            ;;
 
         centos_7)
             run_rpmlint
