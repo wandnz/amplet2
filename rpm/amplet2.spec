@@ -1,5 +1,5 @@
 Name: amplet2
-Version: 0.9.11
+Version: 0.9.12
 Release: 1%{?dist}
 Summary: AMP Network Performance Measurement Suite
 
@@ -148,6 +148,9 @@ fi
 
 
 %changelog
+* Thu Nov 14 2019 Brendon Jones <brendonj@waikato.ac.nz> 0.9.12-1
+- amplet2: add workaround for setsockopt failure under non-amd64 qemu/docker.
+
 * Wed Oct 23 2019 Brendon Jones <brendonj@waikato.ac.nz> 0.9.11-1
 - dns: avoid waiting for LOSS_TIMEOUT if no packets are outstanding.
 - dns: only count DNS query length if the query was actually sent.

@@ -1,3 +1,9 @@
+amplet2 (0.9.12-1) unstable; urgency=low
+
+  * amplet2: add workaround for setsockopt failure under non-amd64 qemu/docker.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Thu, 14 Nov 2019 13:19:55 +1300
+
 amplet2 (0.9.11-1) unstable; urgency=low
 
   * dns: avoid waiting for LOSS_TIMEOUT if no packets are outstanding.
