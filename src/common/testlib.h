@@ -79,6 +79,13 @@ struct socket_t {
     int socket6;                /* ipv6 socket, if available */
 };
 
+/* Structure representing the SO_TIMESTAMPING return value within CMSG. */
+struct timestamping_t {
+    struct timespec software;   /* software timestamp, if avaliabe */
+    struct timespec deprecated; /* deprecated */
+    struct timespec hardware;   /* hardware timestamp, if avaliabe */
+};
+
 void set_proc_name(char *testname);
 void free_duped_environ(void);
 int unblock_signals(void);
