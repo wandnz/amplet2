@@ -745,10 +745,9 @@ static void send_packet(wand_event_handler_t *ev_hdl, void *evdata) {
     uint16_t srcport;
     int packet_size;
     char *packet = NULL;
-    int bytes_sent;
     int sock;
-    struct timeval tv;
     struct sockaddr *srcaddr;
+    int delay;
 
     /* Grab the next available destination */
     assert(tp->destindex < tp->destcount);
@@ -809,24 +808,18 @@ static void send_packet(wand_event_handler_t *ev_hdl, void *evdata) {
         goto nextdest;
     }
 
-    if ( gettimeofday(&tv, NULL) == -1 ) {
-        Log(LOG_WARNING, "Error calling gettimeofday during TCPPing test");
-        goto nextdest;
+    /* send packet with appropriate inter packet delay */
+    while ( (delay = delay_send_packet(sock, packet, packet_size, dest,
+                    tp->options.inter_packet_delay,
+                    &(tp->info[tp->destindex].time_sent))) > 0 ) {
+        usleep(delay);
     }
 
-    /* record time just before sending the packet */
-    tp->info[tp->destindex].time_sent = tv;
-
-    /* Send the packet */
-    bytes_sent = sendto(sock, packet, packet_size, 0, dest->ai_addr,
-            dest->ai_addrlen);
-
-    /* TODO Handle partial sends and error cases better */
-    if ( bytes_sent != packet_size ) {
-        Log(LOG_DEBUG, "TCPPing: only sent %d of %d bytes", bytes_sent,
-                packet_size);
+    if ( delay < 0 ) {
+        /* zero the timestamp if the packet failed to send properly */
+        memset(&(tp->info[tp->destindex].time_sent), 0, sizeof(struct timeval));
     } else {
-        tp->outstanding ++;
+        tp->outstanding++;
     }
 
 nextdest:
