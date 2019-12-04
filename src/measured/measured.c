@@ -561,7 +561,8 @@ int main(int argc, char *argv[]) {
          */
         if ( setup_rabbitmq_shovel(vars.ampname, vars.local, vars.collector,
                     vars.port, vars.amqp_ssl.cacert, vars.amqp_ssl.cert,
-                    vars.amqp_ssl.key, vars.exchange, vars.routingkey) < 0 ) {
+                    vars.amqp_ssl.key, vars.exchange, vars.routingkey,
+                    vars.prefetch) < 0 ) {
             Log(LOG_ALERT, "Failed to create shovel, aborting");
             cfg_free(cfg);
             exit(EXIT_FAILURE);

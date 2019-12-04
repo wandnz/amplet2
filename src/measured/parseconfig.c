@@ -588,6 +588,7 @@ cfg_t* parse_config(char *filename, struct amp_global_t *vars) {
         CFG_STR("exchange", "amp_exchange", CFGF_NONE),
         CFG_STR("routingkey", "test", CFGF_NONE),
         CFG_BOOL("ssl", -1, CFGF_NONE),
+        CFG_INT("prefetch", DEFAULT_SHOVEL_PREFETCH_COUNT, CFGF_NONE),
         /* deprecated, will be ignored if global ssl options are set */
         CFG_STR("cacert", NULL, CFGF_NONE),
         CFG_STR("key", NULL, CFGF_NONE),
@@ -694,6 +695,7 @@ cfg_t* parse_config(char *filename, struct amp_global_t *vars) {
         vars->vhost = strdup(cfg_getstr(cfg_sub, "vhost"));
         vars->exchange = strdup(cfg_getstr(cfg_sub, "exchange"));
         vars->routingkey = strdup(cfg_getstr(cfg_sub, "routingkey"));
+        vars->prefetch = cfg_getint(cfg_sub, "prefetch");
 
         if ( (int)cfg_getbool(cfg_sub, "ssl") == -1 ) {
             /* ssl isn't set, try to guess based on the port if it is needed */

@@ -42,8 +42,11 @@
 
 #define RABBITMQCTL "/usr/sbin/rabbitmqctl"
 
+#define DEFAULT_SHOVEL_PREFETCH_COUNT 1
+
 int setup_rabbitmq_user(char *username);
 int setup_rabbitmq_shovel(char *ampname, char *local, char *collector, int port,
-        char *cacert, char *cert, char *key, char *exchange, char *routingkey);
+        char *cacert, char *cert, char *key, char *exchange, char *routingkey,
+        int prefetch);
 
 #endif

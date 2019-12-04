@@ -54,6 +54,7 @@ struct amp_global_t {
     char *vhost;
     char *exchange;
     char *routingkey;
+    int prefetch;
     int ssl;
     int control_port;
     amp_ssl_opt_t amqp_ssl;

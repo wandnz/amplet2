@@ -208,7 +208,8 @@ int setup_rabbitmq_user(char *username) {
  * with no other arguments.
  */
 int setup_rabbitmq_shovel(char *ampname, char *local, char *collector, int port,
-        char *cacert, char *cert, char *key, char *exchange, char *routingkey) {
+        char *cacert, char *cert, char *key, char *exchange, char *routingkey,
+        int prefetch) {
 
     char *args[] = { RABBITMQCTL, "set_parameter", "shovel", ampname,
         NULL, NULL };
@@ -250,10 +251,15 @@ int setup_rabbitmq_shovel(char *ampname, char *local, char *collector, int port,
                 "&fail_if_no_peer_cert=true"
                 "&auth_mechanism=external\", "
                 "\"reconnect-delay\":%d,"
+                /*
+                 * prefetch-count appears to work in all current versions of
+                 * rabbitmq, while src-prefetch-count only works in >= 3.7
+                 */
+                "\"prefetch-count\":%d,"
                 "\"dest-exchange\":\"%s\", "
                 "\"dest-exchange-key\":\"%s\"}",
                 ampname, ampname, local, ampname, collector, port, cacert,
-                cert, key, retry, exchange, routingkey) < 0 ) {
+                cert, key, retry, prefetch, exchange, routingkey) < 0 ) {
         exit(EXIT_FAILURE);
     }
 
