@@ -261,7 +261,7 @@ int main(void) {
 
     /* replace the print function with one that will verify message contents */
     udpstream_test.print_callback = verify_message;
-    /* use this stripped down test in place of the normal ICMP test */
+    /* use this stripped down test in place of the normal UDPSTREAM test */
     amp_tests[AMP_TEST_UDPSTREAM] = &udpstream_test;
 
     /*
