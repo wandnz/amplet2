@@ -296,48 +296,29 @@ static void get_timestamp(int sock, struct msghdr *msg, struct timeval *now) {
 }
 
 
+
 /*
- * Tx SO_TIMESTAMPING values are read in the from MSG_ERRQUEUE of the 
+ * Tx SO_TIMESTAMPING values are read in the from MSG_ERRQUEUE of the
  * sending socket, if value exists it is copied into 'sent'
  */
-static void get_tx_timestamping(int sock, struct timeval *sent){
-    struct msghdr msghTime;
-    struct cmsghdr *cmsgTime;
+static void get_tx_timestamping(int sock, struct timeval *sent) {
+    struct msghdr msg;
     struct cmsghdr *c;
-    uint32_t CMSG_flags;
+    char ancillary[CMSG_SPACE(sizeof(struct timespec) * 10)];
     int rc;
     int check;
-    char TxTime[CMSG_SPACE(sizeof(struct timespec) * 10)];
 
-    msghTime.msg_control = (char *) TxTime;
-    msghTime.msg_controllen = sizeof(TxTime);
-
-    msghTime.msg_name = NULL;
-    msghTime.msg_namelen = 0;
-    msghTime.msg_iov = NULL;
-    msghTime.msg_iovlen = 0;
-
-    cmsgTime = CMSG_FIRSTHDR(&msghTime);
-    cmsgTime->cmsg_level = SOL_SOCKET;
-    cmsgTime->cmsg_type = SO_TIMESTAMPING;
-    cmsgTime->cmsg_len = CMSG_LEN(sizeof(int32_t));
-    
-    CMSG_flags =
-            SOF_TIMESTAMPING_TX_SCHED |
-            SOF_TIMESTAMPING_TX_SOFTWARE |
-            SOF_TIMESTAMPING_TX_ACK;
-
-    memcpy(CMSG_DATA(cmsgTime), &CMSG_flags, sizeof(CMSG_flags));
+    memset(&msg, 0, sizeof(msg));
+    msg.msg_control = ancillary;
+    msg.msg_controllen = sizeof(ancillary);
 
     check = 0;
-    do {
-        rc = recvmsg(sock, &msghTime, MSG_ERRQUEUE | MSG_DONTWAIT);
-        if ( rc >= 0 ) {
-            for ( c = CMSG_FIRSTHDR(&msghTime);
-                    c;
-                    c = CMSG_NXTHDR(&msghTime, c) ) {
 
-                if ( c->cmsg_level == SOL_SOCKET && 
+    do {
+        rc = recvmsg(sock, &msg, MSG_ERRQUEUE | MSG_DONTWAIT);
+        if ( rc >= 0 ) {
+            for ( c = CMSG_FIRSTHDR(&msg); c; c = CMSG_NXTHDR(&msg, c) ) {
+                if ( c->cmsg_level == SOL_SOCKET &&
                         retrieve_timestamping(c, sent) ) {
                     return;
                 }
