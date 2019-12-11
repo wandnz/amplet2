@@ -148,6 +148,13 @@ if test "$capability_h_found" = 0; then
     AC_MSG_ERROR(Required headers for libcap not found; use CFLAGS to specify header location)
 fi
 
+# Debian Jessie doesn't have all the newer timestamping options available, so
+# use the presence of SOF_TIMESTAMPING_OPT_ID to determine how we do timestamps
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM(
+    [[#include <linux/net_tstamp.h>]],
+    [[int a = SOF_TIMESTAMPING_OPT_ID;]])],
+    [AC_DEFINE([HAVE_SOF_TIMESTAMPING_OPT_ID], [1], [Define to 1 if you have SOF_TIMESTAMPING_OPT_ID])], [])
+
 AC_ARG_ENABLE(python,
     AC_HELP_STRING([--enable-python],
 	[Enable the python data exporting (default: yes)]),

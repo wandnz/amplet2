@@ -52,6 +52,7 @@
 #include <signal.h>
 #include <getopt.h>
 #include <linux/net_tstamp.h>
+#include <linux/errqueue.h>
 
 #include <google/protobuf-c/protobuf-c.h>
 
@@ -220,6 +221,9 @@ int unblock_signals(void) {
 inline static int retrieve_timestamping(struct cmsghdr *c, struct timeval *now){
     struct timestamping_t *ts;
 
+    assert(c);
+    assert(now);
+
     if ( c->cmsg_type == SO_TIMESTAMPING &&
             c->cmsg_len >= CMSG_LEN(sizeof(struct timespec)) ) {
 
@@ -269,13 +273,13 @@ static void get_timestamp(int sock, struct msghdr *msg, struct timeval *now) {
     assert(msg);
     assert(now);
 
-    /* 
+    /*
      * Only one of SO_TIMESTAMPING or SO_TIMESTAMP will be enabled
      * so it is safe to just return the first we find
     */
     for ( c = CMSG_FIRSTHDR(msg); c; c = CMSG_NXTHDR(msg, c) ) {
         if ( c->cmsg_level == SOL_SOCKET ) {
-#ifdef SO_TIMESTAMPING
+#ifdef HAVE_SOF_TIMESTAMPING_OPT_ID
             if ( retrieve_timestamping(c, now) ) {
                 return;
             }
@@ -284,8 +288,8 @@ static void get_timestamp(int sock, struct msghdr *msg, struct timeval *now) {
             if ( retrieve_timestamp(c, now) ) {
                 return;
             }
-        }
 #endif
+        }
     }
 
     /* next try using SIOCGSTAMP to get a timestamp */
@@ -297,11 +301,14 @@ static void get_timestamp(int sock, struct msghdr *msg, struct timeval *now) {
 
 
 
+#ifdef HAVE_SOF_TIMESTAMPING_OPT_ID
 /*
  * Tx SO_TIMESTAMPING values are read in the from MSG_ERRQUEUE of the
  * sending socket, if value exists it is copied into 'sent'
  */
-static void get_tx_timestamping(int sock, struct timeval *sent) {
+static void get_tx_timestamping(int sock, uint32_t packet_id,
+        struct timeval *sent) {
+
     struct msghdr msg;
     struct cmsghdr *c;
     char ancillary[CMSG_SPACE(sizeof(struct timespec) * 10)];
@@ -312,21 +319,70 @@ static void get_tx_timestamping(int sock, struct timeval *sent) {
     msg.msg_control = ancillary;
     msg.msg_controllen = sizeof(ancillary);
 
+    memset(ancillary, 0, sizeof(ancillary));
+
     check = 0;
 
+    /*
+     * Even if the timestamp isn't being stored, try to empty the error
+     * queue so there is room for future timestamp mesages. Any messages
+     * seen here should be either directly related to the packet we've
+     * just sent, or are old messages that were too slow arriving and had
+     * been given up on.
+     */
     do {
         rc = recvmsg(sock, &msg, MSG_ERRQUEUE | MSG_DONTWAIT);
-        if ( rc >= 0 ) {
+
+        /* no need to process it if there is nowhere to store the result */
+        if ( rc >= 0 && sent != NULL ) {
+            struct cmsghdr *tsmsg = NULL;
+            struct sock_extended_err *serr = NULL;
+
+            /* we are only expecting to get error queue messages */
+            if ( msg.msg_flags != MSG_ERRQUEUE ) {
+                break;
+            }
+
             for ( c = CMSG_FIRSTHDR(&msg); c; c = CMSG_NXTHDR(&msg, c) ) {
                 if ( c->cmsg_level == SOL_SOCKET &&
-                        retrieve_timestamping(c, sent) ) {
+                        c->cmsg_type == SO_TIMESTAMPING ) {
+                    /* timestamp message, store it for now in case it's ours */
+                    tsmsg = c;
+                } else if ( (c->cmsg_level == SOL_IP &&
+                            c->cmsg_type == IP_RECVERR) ||
+                            (c->cmsg_level == SOL_IPV6 &&
+                            c->cmsg_type == IPV6_RECVERR)/* ||
+                            (c->cmsg_level == SOL_PACKET &&
+                            c->cmsg_type == PACKET_TX_TIMESTAMP)*/ ) {
+                    /* check for timestamp packet id, and store it if so */
+                    serr = (void *)CMSG_DATA(c);
+                    if ( serr->ee_errno != ENOMSG ||
+                            serr->ee_origin != SO_EE_ORIGIN_TIMESTAMPING ) {
+                        serr = NULL;
+                    }
+                } else {
+                    Log(LOG_DEBUG, "Unknown message on error queue %d/%d",
+                            c->cmsg_level, c->cmsg_type);
+                }
+
+                /* if there is both an id and a timestamp, see if it's ours */
+                if ( serr && tsmsg && serr->ee_data == packet_id ) {
+                    /* yes it's our packet id, use the timestamp value */
+                    retrieve_timestamping(tsmsg, sent);
                     return;
                 }
             }
         }
-    } while ( rc < 0 && errno == EAGAIN && check++ < 100 );
-    /* check 100 times max */
+    } while ( check++ < 100 &&
+            (rc >= 0 || errno == EAGAIN || errno == EWOULDBLOCK) );
+    /* keep consuming messages, or check for messages up to 100 times max */
+
+    if ( sent ) {
+        Log(LOG_DEBUG,
+                "Failed to get transmit timestamp for packet, using estimate");
+    }
 }
+#endif
 
 
 
@@ -497,8 +553,23 @@ int get_packet(struct socket_t *sockets, char *buf, int buflen,
 int delay_send_packet(int sock, char *packet, int size, struct addrinfo *dest,
         uint32_t inter_packet_delay, struct timeval *sent) {
 
-    int bytes_sent;
     static struct timeval last = {0, 0};
+#ifdef HAVE_SOF_TIMESTAMPING_OPT_ID
+    /*
+     * This could be associated more closely with each individual socket, but
+     * for now lets store the id of the packets we send here so that calling
+     * functions don't need to do any extra work. We make the assumption that
+     * tests will generally use file descriptors with lower numbers, so we can
+     * use a small array indexed by file descriptor to store the packet count
+     * for the values of descriptor that we expect to see, which are then used
+     * to match the correct timestamp message. We also make the assumption that
+     * the same file descriptor always refers to the same socket, and they
+     * aren't being reused.
+     * TODO attach packet count information to the socket and pass it around.
+     */
+    static uint32_t packet_id[MAX_TX_TIMESTAMP_FD] = {0};
+#endif
+    int bytes_sent;
     struct timeval now;
     int delay, diff;
 
@@ -522,7 +593,7 @@ int delay_send_packet(int sock, char *packet, int size, struct addrinfo *dest,
         last.tv_sec = now.tv_sec;
         last.tv_usec = now.tv_usec;
 
-        /* populate sent timestamp as well, if not null */
+        /* populate sent timestamp (might get overwritten by a better one) */
         if ( sent ) {
             sent->tv_sec = now.tv_sec;
             sent->tv_usec = now.tv_usec;
@@ -539,9 +610,15 @@ int delay_send_packet(int sock, char *packet, int size, struct addrinfo *dest,
 
     bytes_sent = sendto(sock, packet, size, 0, dest->ai_addr, dest->ai_addrlen);
 
-#ifdef SO_TIMESTAMPING
-    /* if TIMESTAMPING is available, attempt to obtain timestamp */
-    get_tx_timestamping(sock, sent);
+#ifdef HAVE_SOF_TIMESTAMPING_OPT_ID
+    /* get timestamp if TIMESTAMPING is available and we know the packet id */
+    if ( sock < MAX_TX_TIMESTAMP_FD ) {
+        get_tx_timestamping(sock, packet_id[sock]++, sent);
+    } else {
+        Log(LOG_WARNING,
+                "Transmit timestamps only supported for file descriptors < %d",
+                MAX_TX_TIMESTAMP_FD);
+    }
 #endif
 
     /* TODO determine error and/or send any unsent bytes */
@@ -783,38 +860,44 @@ int bind_sockets_to_address(struct socket_t *sockets,
  * Enable socket timestamping if it is available.
  */
 static void set_timestamp_socket_option(int sock) {
-    int timeStampingOnSW;
-    int one;
-
     assert(sock >= 0);
 
-/* first check driver capibility */
-#ifdef SO_TIMESTAMPING
-    timeStampingOnSW =
+/* SOF_TIMESTAMPING_OPT_ID is required to match packets with timestamps */
+#ifdef HAVE_SOF_TIMESTAMPING_OPT_ID
+    {
+        int optval = SOF_TIMESTAMPING_OPT_ID |
+            SOF_TIMESTAMPING_OPT_TSONLY |
             SOF_TIMESTAMPING_RX_SOFTWARE |
             SOF_TIMESTAMPING_TX_SOFTWARE |
             SOF_TIMESTAMPING_SOFTWARE;
 
-    if ( setsockopt(sock,
-            SOL_SOCKET,
-            SO_TIMESTAMPING,
-            &timeStampingOnSW,
-            sizeof(timeStampingOnSW)) >= 0 ) {
-        Log(LOG_DEBUG, "Using SOF_TIMESTAMPING_SOFTWARE.");
-        return;
+        /*
+         * TODO being able to set SOF_TIMESTAMPING_TX_SOFTWARE is no guarantee
+         * that network interfaces will actually support it. Is there any way
+         * we can actually check for support - use ETHTOOL_GET_TS_INFO?
+         */
+        if ( setsockopt(sock, SOL_SOCKET, SO_TIMESTAMPING, &optval,
+                    sizeof(optval)) >= 0 ) {
+            Log(LOG_DEBUG, "Using SOF_TIMESTAMPING_SOFTWARE");
+            return;
+        }
     }
 #endif
 
-    Log(LOG_DEBUG, "No SO_TIMESTAMPING support, "
-            "falling back to SO_TIMESTAMP.");
+    Log(LOG_DEBUG, "No SO_TIMESTAMPING support, trying SO_TIMESTAMP");
 
 #ifdef SO_TIMESTAMP
-    one = 1;
-    /* try to enable socket timestamping using SO_TIMESTAMP */
-    if ( setsockopt(sock, SOL_SOCKET, SO_TIMESTAMP, &one, sizeof(one)) >= 0 ) {
-        return;
+    {
+        int one = 1;
+        /* try to enable socket timestamping using SO_TIMESTAMP */
+        if ( setsockopt(sock, SOL_SOCKET, SO_TIMESTAMP, &one,
+                    sizeof(one)) >= 0 ) {
+            Log(LOG_DEBUG, "Using SO_TIMESTAMP");
+            return;
+        }
     }
 #endif
+
     Log(LOG_DEBUG, "No SO_TIMESTAMP support, using SIOCGSTAMP");
 }
 

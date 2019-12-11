@@ -69,6 +69,8 @@
             ((tva).tv_usec - (tvb).tv_usec) ) \
         )
 
+/* maximum value of fd that will track packet sent counts (for TX timestamps) */
+#define MAX_TX_TIMESTAMP_FD 64
 
 /*
  * Structure combining the ipv4 and ipv6 network sockets so that they can be
