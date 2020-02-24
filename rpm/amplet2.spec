@@ -1,5 +1,5 @@
 Name: amplet2
-Version: 0.9.12
+Version: 0.9.13
 Release: 1%{?dist}
 Summary: AMP Network Performance Measurement Suite
 
@@ -148,6 +148,15 @@ fi
 
 
 %changelog
+* Mon Feb 24 2020 Brendon Jones <brendonj@waikato.ac.nz> 0.9.13-1
+- dns: use SO_TIMESTAMPING to get timestamps for sent packets (#35).
+- fastping: use SO_TIMESTAMPING to get timestamps for sent packets (#35).
+- icmp: use SO_TIMESTAMPING to get timestamps for sent packets (#35).
+- tcpping: use SO_TIMESTAMPING to get timestamps for sent packets (#35).
+- traceroute: use SO_TIMESTAMPING to get timestamps for sent packets (#35).
+- udpstream: fix incorrect test name in error message.
+- amplet2: make shovel prefetch-count configurable, set to 1 by default (#38).
+
 * Thu Nov 14 2019 Brendon Jones <brendonj@waikato.ac.nz> 0.9.12-1
 - amplet2: add workaround for setsockopt failure under non-amd64 qemu/docker.
 

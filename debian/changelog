@@ -1,3 +1,15 @@
+amplet2 (0.9.13-1) unstable; urgency=low
+
+  * dns: use SO_TIMESTAMPING to get timestamps for sent packets (#35).
+  * fastping: use SO_TIMESTAMPING to get timestamps for sent packets (#35).
+  * icmp: use SO_TIMESTAMPING to get timestamps for sent packets (#35).
+  * tcpping: use SO_TIMESTAMPING to get timestamps for sent packets (#35).
+  * traceroute: use SO_TIMESTAMPING to get timestamps for sent packets (#35).
+  * udpstream: fix incorrect test name in error message.
+  * amplet2: make shovel prefetch-count configurable, set to 1 by default (#38).
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Mon, 24 Feb 2020 16:54:56 +1300
+
 amplet2 (0.9.12-1) unstable; urgency=low
 
   * amplet2: add workaround for setsockopt failure under non-amd64 qemu/docker.
