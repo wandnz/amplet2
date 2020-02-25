@@ -21,6 +21,6 @@ INCLUDES=-I../ -I../../common/
 install-exec-local:
 	setcap 'CAP_NET_ADMIN=ep CAP_NET_RAW=ep' $(DESTDIR)/$(bindir)/amp-tcpping
 
-tcpping.pb-c.c: Makefile
+tcpping.pb-c.c: tcpping.proto
 	protoc-c --c_out=. tcpping.proto
 	protoc --python_out=../python/ampsave/tests/ tcpping.proto

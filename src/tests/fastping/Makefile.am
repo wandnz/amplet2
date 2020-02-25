@@ -24,6 +24,6 @@ install-exec-local:
 
 endif
 
-fastping.pb-c.c: Makefile
+fastping.pb-c.c: fastping.proto
 	protoc-c --c_out=. fastping.proto
 	protoc --python_out=../python/ampsave/tests/ fastping.proto

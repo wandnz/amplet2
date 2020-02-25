@@ -38,6 +38,6 @@ install-exec-local:
 	cp extra/yt.html $(DESTDIR)/$(libdir)/$(PACKAGE)/extra/
 endif
 
-youtube.pb-c.c: Makefile
+youtube.pb-c.c: youtube.proto
 	protoc-c --c_out=. youtube.proto
 	protoc --python_out=../python/ampsave/tests/ youtube.proto

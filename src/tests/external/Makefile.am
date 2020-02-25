@@ -24,6 +24,6 @@ install-exec-local:
 
 endif
 
-external.pb-c.c: Makefile
+external.pb-c.c: external.proto
 	protoc-c --c_out=. external.proto
 	protoc --python_out=../python/ampsave/tests/ external.proto
