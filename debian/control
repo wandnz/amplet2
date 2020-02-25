@@ -29,11 +29,3 @@ Description: AMP Network Performance Measurement Suite - Collector Server
  This package contains the server tools used to run an AMP collector.
  Typically your collector will accept lots of measurement results from a
  set of amplets running the software found in the amplet-client package.
-
-Package: amplet2-client-lite
-Architecture: all
-Depends: amplet2-client (>= 0.8.0), ${misc:Depends}
-Priority: extra
-Section: oldlibs
-Description: transitional package
- This is a transitional package. It can safely be removed.
