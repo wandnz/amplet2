@@ -48,7 +48,7 @@
 #include <sys/time.h>
 #include <netdb.h>
 #include <stdint.h>
-#include <libwandevent.h>
+#include <event2/event.h>
 
 #include "tests.h"
 #include "testlib.h"
@@ -106,8 +106,9 @@ struct tcppingglobals {
     char *device;
     int outstanding;
 
-    struct wand_timer_t *nextpackettimer;
-    struct wand_timer_t *losstimer;
+    struct event_base *base;
+    struct event *nextpackettimer;
+    struct event *losstimer;
 };
 
 

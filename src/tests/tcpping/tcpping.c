@@ -57,7 +57,8 @@
 #include <string.h>
 #include <unistd.h>
 #include <signal.h>
-#include <libwandevent.h>
+#include <stdbool.h>
+#include <event2/event.h>
 
 #include "config.h"
 #include "testlib.h"
@@ -94,12 +95,14 @@ static struct option long_options[] = {
  * if running standalone, or sent by the watchdog if running as part of
  * measured) and report the results that have been collected so far.
  */
-static void interrupt_test(wand_event_handler_t *ev_hdl,
-        __attribute__((unused))int signum,
-        __attribute__((unused))void *data) {
+static void interrupt_test(
+        __attribute__((unused))evutil_socket_t evsock,
+        __attribute__((unused))short flags,
+        void * evdata) {
 
+    struct event_base *base = (struct event_base *)evdata;
     Log(LOG_INFO, "Received SIGINT, halting TCPPing test");
-    ev_hdl->running = false;
+    event_base_loopbreak(base);
 }
 
 
@@ -108,12 +111,18 @@ static void interrupt_test(wand_event_handler_t *ev_hdl,
  * Force the event loop to halt, so we can end the test and report the
  * results that we do have.
  */
-static void halt_test(wand_event_handler_t *ev_hdl, void *evdata) {
+static void halt_test(
+    __attribute__((unused))evutil_socket_t evsock,
+    __attribute__((unused))short flags,
+    void *evdata) {
     struct tcppingglobals *tp = (struct tcppingglobals *)evdata;
 
     Log(LOG_DEBUG, "Halting TCPPing test due to timeout");
+    if (tp->losstimer){
+        event_free(tp->losstimer);
+    }
     tp->losstimer = NULL;
-    ev_hdl->running = false;
+    event_base_loopbreak(tp->base);
 }
 
 
@@ -691,15 +700,14 @@ static void process_icmp6_response(struct tcppingglobals *tp,
  * determine the protocol of the packet and pass it to the appropriate function
  * for processing.
  */
-static void receive_packet(wand_event_handler_t *ev_hdl,
-        int fd, void *evdata, enum wand_eventtype_t ev) {
+static void receive_packet(evutil_socket_t evsock, short flags, void *evdata) {
 
     struct pcapdevice *p = (struct pcapdevice *)evdata;
     struct tcppingglobals *tp = (struct tcppingglobals *)p->callbackdata;
     struct pcaptransport transport;
 
-    assert(fd > 0);
-    assert(ev == EV_READ);
+    assert(evsock > 0);
+    assert(flags == EV_READ);
 
     transport = pcap_transport_header(p);
     if ( transport.header == NULL || transport.remaining <= 0 ) {
@@ -726,8 +734,8 @@ static void receive_packet(wand_event_handler_t *ev_hdl,
         /* All packets have been sent and we are not waiting on any more
          * responses -- exit the event loop so we can report.
          */
-        ev_hdl->running = false;
         Log(LOG_DEBUG, "All expected TCPPing responses received");
+        event_base_loopbreak(tp->base);
     }
 }
 
@@ -738,7 +746,10 @@ static void receive_packet(wand_event_handler_t *ev_hdl,
  * It will determine the next destination to be tested, create an appropriate
  * SYN packet and send it to the destination.
  */
-static void send_packet(wand_event_handler_t *ev_hdl, void *evdata) {
+static void send_packet(
+        __attribute__((unused))evutil_socket_t evsock,
+        __attribute__((unused))short flags,
+        void *evdata) {
 
     struct tcppingglobals *tp = (struct tcppingglobals *)evdata;
     struct addrinfo *dest = NULL;
@@ -748,6 +759,7 @@ static void send_packet(wand_event_handler_t *ev_hdl, void *evdata) {
     int sock;
     struct sockaddr *srcaddr;
     int delay;
+    struct timeval timeout;
 
     /* Grab the next available destination */
     assert(tp->destindex < tp->destcount);
@@ -793,7 +805,7 @@ static void send_packet(wand_event_handler_t *ev_hdl, void *evdata) {
     /* Create a listening pcap fd for the interface */
     if ( pcap_listen(srcaddr, tp->sourceportv4, tp->sourceportv6,
             tp->options.port, tp->device,
-            ev_hdl, tp, receive_packet) == -1 ) {
+            tp->base, tp, receive_packet) == -1 ) {
         Log(LOG_WARNING, "Failed to create pcap device for dest %s:%d",
                 dest->ai_canonname, tp->options.port);
 
@@ -830,16 +842,18 @@ nextdest:
         Log(LOG_DEBUG, "Reached final target: %d", tp->destindex);
         tp->nextpackettimer = NULL;
         if ( tp->outstanding == 0 ) {
-            ev_hdl->running = false;
+            event_base_loopbreak(tp->base);
         } else {
-            tp->losstimer = wand_add_timer(ev_hdl, LOSS_TIMEOUT, 0, tp,
-                    halt_test);
+            tp->losstimer = event_new(tp->base, -1, 0, halt_test, tp);
+            timeout = (struct timeval) {LOSS_TIMEOUT, 0};
+            event_add(tp->losstimer, &timeout);
         }
     } else {
-        tp->nextpackettimer = wand_add_timer(ev_hdl,
+        tp->nextpackettimer = event_new(tp->base, -1, 0, send_packet, tp);
+        timeout = (struct timeval) {
                 (int) (tp->options.inter_packet_delay / 1000000),
-                (tp->options.inter_packet_delay % 1000000),
-                tp, send_packet);
+                (tp->options.inter_packet_delay % 1000000)};
+        event_add(tp->nextpackettimer, &timeout);
     }
 
     if ( packet ) {
@@ -1027,13 +1041,13 @@ amp_test_result_t* run_tcpping(int argc, char *argv[], int count,
     int opt;
     struct timeval start_time;
     struct tcppingglobals *globals;
-    wand_event_handler_t *ev_hdl = NULL;
+    struct event_base *base = NULL;
+    struct event * signal_int;
     amp_test_result_t *result;
     char *address_string;
 
     Log(LOG_DEBUG, "Starting TCPPing test");
-    wand_event_init();
-    ev_hdl = wand_create_event_handler();
+    base = event_base_new();
 
     globals = (struct tcppingglobals *)malloc(sizeof(struct tcppingglobals));
 
@@ -1047,6 +1061,7 @@ amp_test_result_t* run_tcpping(int argc, char *argv[], int count,
     globals->sourcev4 = NULL;
     globals->sourcev6 = NULL;
     globals->device = NULL;
+    globals->base = base;
 
     while ( (opt = getopt_long(argc, argv, "P:p:rs:I:Q:Z:4::6::hvx",
                 long_options, NULL)) != -1 ) {
@@ -1120,27 +1135,30 @@ amp_test_result_t* run_tcpping(int argc, char *argv[], int count,
     globals->losstimer = NULL;
 
     /* catch a SIGINT and end the test early */
-    wand_add_signal(SIGINT, NULL, interrupt_test);
+    signal_int = event_new(base, SIGINT,
+            EV_SIGNAL|EV_PERSIST, interrupt_test, base);
+    event_add(signal_int, NULL);
 
     /*
      * Send a SYN to our first destination at time zero (immediately). This
      * will setup a timer callback for sending the next packet and a fd
      * callback for any response.
      */
-    globals->nextpackettimer = wand_add_timer(ev_hdl, 0, 0, globals,
-            send_packet);
+    globals->nextpackettimer = event_new(base, -1,
+            EV_PERSIST, send_packet, globals);
+    event_active(globals->nextpackettimer, 0, 0);
 
-    wand_event_run(ev_hdl);
+    event_base_dispatch(base);
 
     if ( globals->losstimer ) {
-        wand_del_timer(ev_hdl, globals->losstimer);
+        event_free(globals->losstimer);
     }
 
     if ( globals->nextpackettimer ) {
-        wand_del_timer(ev_hdl, globals->nextpackettimer);
+        event_free(globals->nextpackettimer);
     }
 
-    pcap_cleanup(ev_hdl);
+    pcap_cleanup();
 
     close_sockets(globals);
 
@@ -1151,7 +1169,7 @@ amp_test_result_t* run_tcpping(int argc, char *argv[], int count,
     free(globals->device);
     free(globals->info);
     free(globals);
-    wand_destroy_event_handler(ev_hdl);
+    event_base_free(base);
 
     return result;
 }
