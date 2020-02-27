@@ -57,7 +57,7 @@
 #include <string.h>
 #include <signal.h>
 #include <inttypes.h>
-#include <libwandevent.h>
+#include <event2/event.h>
 
 #include "config.h"
 #include "testlib.h"
@@ -1231,13 +1231,18 @@ static struct timeval get_next_timeout_time(struct timeval *next,
 
 
 //XXX can we avoid having forward declarations?
-static void probe_timeout_callback(wand_event_handler_t *ev_hdl, void *data);
+static void probe_timeout_callback(evutil_socket_t evsock, 
+        short flags, void *evdata);
 
 
 
-static void send_probe_callback(wand_event_handler_t *ev_hdl, void *data) {
-    struct probe_list_t *probelist = (struct probe_list_t*)data;
+static void send_probe_callback(
+        __attribute__((unused))evutil_socket_t evsock,
+        __attribute__((unused))short flags,
+        void *evdata) {
+    struct probe_list_t *probelist = (struct probe_list_t*)evdata;
     struct dest_info_t *item;
+    struct timeval timeout;
 
     Log(LOG_DEBUG, "send_probe_callback");
 
@@ -1265,7 +1270,7 @@ static void send_probe_callback(wand_event_handler_t *ev_hdl, void *data) {
         set_done_item(probelist, item);
         enqueue_next_pending(probelist);
         if ( probelist->outstanding == NULL && probelist->ready == NULL ) {
-            ev_hdl->running = 0;
+            event_base_loopbreak(probelist->base);
             return;
         }
     } else {
@@ -1277,9 +1282,10 @@ static void send_probe_callback(wand_event_handler_t *ev_hdl, void *data) {
         if ( probelist->outstanding == NULL ) {
             probelist->outstanding = item;
             probelist->outstanding_end = item;
-            probelist->timeout =
-                wand_add_timer(ev_hdl, LOSS_TIMEOUT, 0, data,
-                        probe_timeout_callback);
+            probelist->timeout = event_new(probelist->base, -1, 0,
+                        probe_timeout_callback, evdata);
+            timeout = (struct timeval) {LOSS_TIMEOUT, 0};
+            event_add(probelist->timeout, &timeout);
         } else {
             probelist->outstanding_end->next = item;
             probelist->outstanding_end = item;
@@ -1294,9 +1300,9 @@ static void send_probe_callback(wand_event_handler_t *ev_hdl, void *data) {
         delay = get_next_send_time(probelist->last_probe,
                 probelist->opts->inter_packet_delay);
 
-        probelist->sendtimer = wand_add_timer(ev_hdl,
-                delay.tv_sec, delay.tv_usec,
-                data, send_probe_callback);
+        probelist->sendtimer = event_new(probelist->base, -1, 0,
+                    send_probe_callback, evdata);
+        event_add(probelist->sendtimer, &delay);
     }
 }
 
@@ -1305,11 +1311,14 @@ static void send_probe_callback(wand_event_handler_t *ev_hdl, void *data) {
 /*
  * Callback function used when receiving a packet.
  */
-static void recv_probe_callback(wand_event_handler_t *ev_hdl,
-        int fd, void *data, __attribute__((unused))enum wand_eventtype_t ev) {
+static void recv_probe_callback(
+        evutil_socket_t evsock,
+        __attribute__((unused))short flags,
+        void *evdata) {
+
     char packet[2048];
     struct timeval now;
-    struct probe_list_t *probelist = (struct probe_list_t*)data;
+    struct probe_list_t *probelist = (struct probe_list_t*)evdata;
     struct sockaddr_storage addr;
     socklen_t socklen = sizeof(addr);
     struct dest_info_t *item;
@@ -1322,15 +1331,15 @@ static void recv_probe_callback(wand_event_handler_t *ev_hdl,
      * determine the address family of the socket, so we can properly get
      * the source address from the get_packet() call
      */
-    if ( getsockname(fd, (struct sockaddr*)&addr, &socklen) < 0 ) {
+    if ( getsockname(evsock, (struct sockaddr*)&addr, &socklen) < 0 ) {
         Log(LOG_WARNING, "getsockname() failed in receive callback: %s",
                 strerror(errno));
         return;
     }
 
     wait = 0;
-    sockets.socket = (addr.ss_family == AF_INET) ? fd : -1;
-    sockets.socket6 = (addr.ss_family == AF_INET6) ? fd : -1;
+    sockets.socket = (addr.ss_family == AF_INET) ? evsock : -1;
+    sockets.socket6 = (addr.ss_family == AF_INET6) ? evsock : -1;
 
     if ( get_packet(&sockets, packet, sizeof(packet), (struct sockaddr*)&addr,
                 &wait, &now) < 1 ) {
@@ -1340,27 +1349,27 @@ static void recv_probe_callback(wand_event_handler_t *ev_hdl,
 
     item = probelist->outstanding;
 
-    if ( process_packet((struct sockaddr*)&addr, packet, now, data) > 0 ) {
+    if ( process_packet((struct sockaddr*)&addr, packet, now, evdata) > 0 ) {
         struct timeval delay;
         assert(probelist->sendtimer == NULL);
 
         delay = get_next_send_time(probelist->last_probe,
                 probelist->opts->inter_packet_delay);
 
-        probelist->sendtimer = wand_add_timer(ev_hdl,
-                delay.tv_sec, delay.tv_usec,
-                data, send_probe_callback);
+        probelist->sendtimer = event_new(probelist->base, -1, 0,
+                    send_probe_callback, evdata);
+        event_add(probelist->sendtimer, &delay);
     }
 
     if ( probelist->outstanding == NULL ) {
         /* no outstanding probes, remove timer and check if we are done */
         if ( probelist->timeout ) {
-            wand_del_timer(ev_hdl, probelist->timeout);
+            event_free(probelist->timeout);
             probelist->timeout = NULL;
         }
 
         if ( probelist->ready == NULL ) {
-            ev_hdl->running = 0;
+            event_base_loopbreak(probelist->base);
         }
     } else if ( probelist->outstanding != item ) {
         /* if we processed the head of the outstanding list, update timer */
@@ -1368,16 +1377,18 @@ static void recv_probe_callback(wand_event_handler_t *ev_hdl,
         item = probelist->outstanding;
 
         /* delete the timer intended for the packet we just received */
-        wand_del_timer(ev_hdl, probelist->timeout);
-        probelist->timeout = NULL;
+        if ( probelist->timeout ) {
+            event_free(probelist->timeout);
+            probelist->timeout = NULL;
+        }
 
         /* calculate the timeout for the next outstanding packet */
         next = get_next_timeout_time(&item->hop[item->ttl-1].time_sent,
                 LOSS_TIMEOUT_US);
 
-        probelist->timeout =
-            wand_add_timer(ev_hdl, next.tv_sec, next.tv_usec, data,
-                    probe_timeout_callback);
+        probelist->timeout = event_new(probelist->base, -1, 0,
+                    probe_timeout_callback, evdata);
+        event_add(probelist->timeout, &next);
     }
 }
 
@@ -1388,8 +1399,11 @@ static void recv_probe_callback(wand_event_handler_t *ev_hdl,
  * attempt to retransmit a probe until TRACEROUTE_RETRY_LIMIT attempts have
  * been made.
  */
-static void probe_timeout_callback(wand_event_handler_t *ev_hdl, void *data) {
-    struct probe_list_t *probelist = (struct probe_list_t*)data;
+static void probe_timeout_callback(
+        __attribute__((unused))evutil_socket_t evsock,
+        __attribute__((unused))short flags,
+        void *evdata) {
+    struct probe_list_t *probelist = (struct probe_list_t*)evdata;
     struct dest_info_t *item;
 
     assert(probelist->outstanding);
@@ -1428,9 +1442,9 @@ static void probe_timeout_callback(wand_event_handler_t *ev_hdl, void *data) {
         delay = get_next_send_time(probelist->last_probe,
                 probelist->opts->inter_packet_delay);
 
-        probelist->sendtimer = wand_add_timer(ev_hdl,
-                delay.tv_sec, delay.tv_usec,
-                data, send_probe_callback);
+        probelist->sendtimer = event_new(probelist->base, -1, 0,
+            send_probe_callback, evdata);
+        event_add(probelist->sendtimer, &delay);
     }
 
     /* update timeout to be the next most outstanding packet */
@@ -1440,12 +1454,12 @@ static void probe_timeout_callback(wand_event_handler_t *ev_hdl, void *data) {
         next = get_next_timeout_time(&item->hop[item->ttl-1].time_sent,
                 LOSS_TIMEOUT_US);
 
-        probelist->timeout =
-            wand_add_timer(ev_hdl, next.tv_sec, next.tv_usec, data,
-                    probe_timeout_callback);
+        probelist->timeout = event_new(probelist->base, -1, 0,
+                    probe_timeout_callback, evdata);
+        event_add(probelist->timeout, &next);
     } else {
         if ( probelist->ready == NULL ) {
-            ev_hdl->running = 0;
+            event_base_loopbreak(probelist->base);
         }
     }
 }
@@ -1491,12 +1505,14 @@ static void free_dest_info(struct dest_info_t *list) {
  * if running standalone, or sent by the watchdog if running as part of
  * measured) and report the results that have been collected so far.
  */
-static void interrupt_test(wand_event_handler_t *ev_hdl,
-        __attribute__((unused))int signum,
-        __attribute__((unused))void *data) {
+static void interrupt_test(
+        __attribute__((unused))evutil_socket_t evsock,
+        __attribute__((unused))short flags,
+        void * evdata) {
 
+    struct event_base *base = (struct event_base *)evdata;
     Log(LOG_INFO, "Received SIGINT, halting traceroute test");
-    ev_hdl->running = false;
+    event_base_loopbreak(base);
 }
 
 
@@ -1516,11 +1532,13 @@ amp_test_result_t* run_traceroute(int argc, char *argv[], int count,
     struct addrinfo *sourcev4, *sourcev6;
     char *device;
     struct probe_list_t probelist;
-    wand_event_handler_t *ev_hdl;
     struct dest_info_t *item;
     amp_test_result_t *result;
     int window;
     char *address_string;
+    struct event *signal_int;
+    struct event *socket;
+    struct event *socket6;
 
     Log(LOG_DEBUG, "Starting TRACEROUTE test");
 
@@ -1664,6 +1682,7 @@ amp_test_result_t* run_traceroute(int argc, char *argv[], int count,
     probelist.total_probes = 0;
     probelist.done_count = 0;
     probelist.last_probe = NULL;
+    probelist.base = event_base_new();
 
     /* create all info blocks and place them in the send queue */
     for ( i = 0; i < count; i++ ) {
@@ -1689,26 +1708,39 @@ amp_test_result_t* run_traceroute(int argc, char *argv[], int count,
         }
     }
 
-    wand_event_init();
-    ev_hdl = wand_create_event_handler();
-
     /* catch a SIGINT and end the test early */
-    wand_add_signal(SIGINT, NULL, interrupt_test);
+    signal_int = event_new(probelist.base, SIGINT,
+            EV_SIGNAL|EV_PERSIST, interrupt_test, probelist.base);
+    event_add(signal_int, NULL);
 
-    /* set up callbacks for receiving packets */
-    wand_add_fd(ev_hdl, icmp_sockets.socket, EV_READ, &probelist,
-            recv_probe_callback);
+    socket = event_new(probelist.base, icmp_sockets.socket,
+            EV_READ|EV_PERSIST, recv_probe_callback, &probelist);
+    event_add(socket, NULL);
 
-    wand_add_fd(ev_hdl, icmp_sockets.socket6, EV_READ, &probelist,
-            recv_probe_callback);
+    socket6 = event_new(probelist.base, icmp_sockets.socket6,
+            EV_READ|EV_PERSIST, recv_probe_callback, &probelist);
+    event_add(socket6, NULL);
 
-    /* set up timer to send packets, starting immediately */
-    probelist.sendtimer = wand_add_timer(ev_hdl, 0, 0, &probelist,
-            send_probe_callback);
+    /* schedule the first probe packet to be sent immediately */
+    probelist.sendtimer = event_new(probelist.base, -1,
+            EV_PERSIST, send_probe_callback, &probelist);
+    event_active(probelist.sendtimer, 0, 0);
 
-    wand_event_run(ev_hdl);
+    event_base_dispatch(probelist.base);
 
-    wand_destroy_event_handler(ev_hdl);
+    if ( socket ) {
+        event_free(socket);
+    }
+
+    if ( socket6 ) {
+        event_free(socket6);
+    }
+
+    if ( signal_int ) {
+        event_free(signal_int);
+    }
+
+    event_base_free(probelist.base);
 
     /* sockets aren't needed any longer */
     if ( icmp_sockets.socket > 0 ) {
