@@ -837,10 +837,12 @@ static void send_packet(
 nextdest:
     /* Create a timer for sending the next packet */
     tp->destindex ++;
-
+    if ( tp->nextpackettimer ) {
+        event_free(tp->nextpackettimer);
+        tp->nextpackettimer = NULL;
+    }
     if ( tp->destindex == tp->destcount ) {
         Log(LOG_DEBUG, "Reached final target: %d", tp->destindex);
-        tp->nextpackettimer = NULL;
         if ( tp->outstanding == 0 ) {
             event_base_loopbreak(tp->base);
         } else {
