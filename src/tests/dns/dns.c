@@ -98,7 +98,7 @@ static void interrupt_test(
         void * evdata) {
 
     struct event_base *base = (struct event_base *)evdata;
-    Log(LOG_INFO, "Received SIGINT, halting ICMP test");
+    Log(LOG_INFO, "Received SIGINT, halting DNS test");
     event_base_loopbreak(base);
 }
 

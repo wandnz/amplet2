@@ -7,13 +7,13 @@ testdir=$(libdir)/$(PACKAGE)/tests
 
 bin_PROGRAMS=amp-tcpping
 amp_tcpping_SOURCES=../testmain.c
-amp_tcpping_LDADD=tcpping.la -L../../common/ -lamp -lwandevent -lpcap -lprotobuf-c -lunbound -levent
+amp_tcpping_LDADD=tcpping.la -L../../common/ -lamp -lpcap -lprotobuf-c -lunbound -levent
 amp_tcpping_LDFLAGS=-Wl,--no-as-needed
 
 test_LTLIBRARIES=tcpping.la
 tcpping_la_SOURCES=pcapcapture.c tcpping.c
 nodist_tcpping_la_SOURCES=tcpping.pb-c.c
-tcpping_la_LDFLAGS=-module -avoid-version -L../../common/ -lamp -lwandevent \
+tcpping_la_LDFLAGS=-module -avoid-version -L../../common/ -lamp \
                 -lpcap -lprotobuf-c
 
 INCLUDES=-I../ -I../../common/

@@ -119,8 +119,9 @@ struct icmpglobals_t {
     int count;
     int outstanding;
 
-    struct wand_timer_t *nextpackettimer;
-    struct wand_timer_t *losstimer;
+    struct event_base *base;
+    struct event *nextpackettimer;
+    struct event *losstimer;
 };
 
 

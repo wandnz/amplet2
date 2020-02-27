@@ -53,7 +53,7 @@
 #include <arpa/inet.h>
 #include <string.h>
 #include <signal.h>
-#include <libwandevent.h>
+#include <event2/event.h>
 
 #include "config.h"
 #include "tests.h"
@@ -94,12 +94,14 @@ static struct option long_options[] = {
  * if running standalone, or sent by the watchdog if running as part of
  * measured) and report the results that have been collected so far.
  */
-static void interrupt_test(wand_event_handler_t *ev_hdl,
-        __attribute__((unused))int signum,
-        __attribute__((unused))void *data) {
+static void interrupt_test(
+        __attribute__((unused))evutil_socket_t evsock,
+        __attribute__((unused))short flags,
+        void * evdata) {
 
+    struct event_base *base = (struct event_base *)evdata;
     Log(LOG_INFO, "Received SIGINT, halting ICMP test");
-    ev_hdl->running = false;
+    event_base_loopbreak(base);
 }
 
 
@@ -108,12 +110,18 @@ static void interrupt_test(wand_event_handler_t *ev_hdl,
  * Force the event loop to halt, so we can end the test and report the
  * results that we do have.
  */
-static void halt_test(wand_event_handler_t *ev_hdl, void *data) {
-    struct icmpglobals_t *globals = (struct icmpglobals_t *)data;
+static void halt_test(
+    __attribute__((unused))evutil_socket_t evsock,
+    __attribute__((unused))short flags,
+    void *evdata) {
+    struct icmpglobals_t *globals = (struct icmpglobals_t *)evdata;
 
     Log(LOG_DEBUG, "Halting ICMP test due to timeout");
-    globals->losstimer = NULL;
-    ev_hdl->running = false;
+    if ( globals->losstimer ) {
+        event_free(globals->losstimer);
+        globals->losstimer = NULL;
+    }
+    event_base_loopbreak(globals->base);
 }
 
 
@@ -324,8 +332,8 @@ static int process_ipv6_packet(struct icmpglobals_t *globals, char *packet,
  * Callback used when a packet is received that might be a response to one
  * of our probes.
  */
-static void receive_probe_callback(wand_event_handler_t *ev_hdl,
-        int fd, void *data, enum wand_eventtype_t ev) {
+static void receive_probe_callback(evutil_socket_t evsock,
+        short flags, void *evdata) {
 
     char packet[RESPONSE_BUFFER_LEN];
     struct timeval now;
@@ -333,15 +341,15 @@ static void receive_probe_callback(wand_event_handler_t *ev_hdl,
     ssize_t bytes;
     int wait;
     struct socket_t sockets;
-    struct icmpglobals_t *globals = (struct icmpglobals_t*)data;
+    struct icmpglobals_t *globals = (struct icmpglobals_t*)evdata;
 
-    assert(fd > 0);
-    assert(ev == EV_READ);
+    assert(evsock > 0);
+    assert(flags == EV_READ);
 
     wait = 0;
 
     /* the socket used here doesn't matter as the family isn't used anywhere */
-    sockets.socket = fd;
+    sockets.socket = evsock;
     sockets.socket6 = -1;
 
     if ( (bytes=get_packet(&sockets, packet, RESPONSE_BUFFER_LEN, NULL, &wait,
@@ -363,8 +371,8 @@ static void receive_probe_callback(wand_event_handler_t *ev_hdl,
 
     if ( globals->outstanding == 0 && globals->index == globals->count ) {
         /* not waiting on any more packets, exit the event loop */
-        ev_hdl->running = false;
         Log(LOG_DEBUG, "All expected ICMP responses received");
+        event_base_loopbreak(globals->base);
     }
 }
 
@@ -409,7 +417,10 @@ static int build_probe(uint8_t family, void *packet, uint16_t packet_size,
 /*
  * Construct and send an icmp echo request packet.
  */
-static void send_packet(wand_event_handler_t *ev_hdl, void *data) {
+static void send_packet(
+        __attribute__((unused))evutil_socket_t evsock,
+        __attribute__((unused))short flags,
+        void *evdata) {
 
     char *packet;
     int sock;
@@ -421,8 +432,9 @@ static void send_packet(wand_event_handler_t *ev_hdl, void *data) {
     struct opt_t *opt;
     struct icmpglobals_t *globals;
     struct info_t *info;
+    struct timeval timeout;
 
-    globals = (struct icmpglobals_t *)data;
+    globals = (struct icmpglobals_t *)evdata;
     info = globals->info;
     seq = globals->index;
     ident = globals->ident;
@@ -476,23 +488,29 @@ static void send_packet(wand_event_handler_t *ev_hdl, void *data) {
 
 next:
     globals->index++;
-
+    if ( globals->nextpackettimer ) {
+        event_free(globals->nextpackettimer);
+        globals->nextpackettimer = NULL;
+    }
     /* create timer for sending the next packet if there are still more to go */
     if ( globals->index == globals->count ) {
         Log(LOG_DEBUG, "Reached final target: %d", globals->index);
-        globals->nextpackettimer = NULL;
         if ( globals->outstanding == 0 ) {
             /* avoid waiting for LOSS_TIMEOUT if no packets are outstanding */
-            ev_hdl->running = false;
+            event_base_loopbreak(globals->base);
         } else {
-            globals->losstimer = wand_add_timer(ev_hdl, LOSS_TIMEOUT, 0,
-                    globals, halt_test);
+            globals->losstimer = event_new(globals->base, -1, 0,
+                    halt_test, globals);
+            timeout = (struct timeval) {LOSS_TIMEOUT, 0};
+            event_add(globals->losstimer, &timeout);
         }
     } else {
-        globals->nextpackettimer = wand_add_timer(ev_hdl,
+        globals->nextpackettimer = event_new(globals->base, -1, 0,
+                send_packet, globals);
+        timeout = (struct timeval) {
                 (int) (globals->options.inter_packet_delay / 1000000),
-                (globals->options.inter_packet_delay % 1000000),
-                globals, send_packet);
+                (globals->options.inter_packet_delay % 1000000)};
+        event_add(globals->nextpackettimer, &timeout);
     }
 
     if ( packet ) {
@@ -677,15 +695,16 @@ amp_test_result_t* run_icmp(int argc, char *argv[], int count,
     char *device;
     char *address_string;
     struct icmpglobals_t *globals;
-    wand_event_handler_t *ev_hdl = NULL;
+    struct event *signal_int;
+    struct event *socket;
+    struct event *socket6;
     amp_test_result_t *result;
 
     Log(LOG_DEBUG, "Starting ICMP test");
 
-    wand_event_init();
-    ev_hdl = wand_create_event_handler();
-
     globals = (struct icmpglobals_t *)malloc(sizeof(struct icmpglobals_t));
+
+    globals->base = event_base_new();
 
     /* set some sensible defaults */
     globals->options.dscp = DEFAULT_DSCP_VALUE;
@@ -806,31 +825,49 @@ amp_test_result_t* run_icmp(int argc, char *argv[], int count,
     globals->losstimer = NULL;
 
     /* catch a SIGINT and end the test early */
-    wand_add_signal(SIGINT, NULL, interrupt_test);
+    signal_int = event_new(globals->base, SIGINT,
+            EV_SIGNAL|EV_PERSIST, interrupt_test, globals->base);
+    event_add(signal_int, NULL);
 
     /* set up callbacks for receiving packets */
-    wand_add_fd(ev_hdl, globals->sockets.socket, EV_READ, globals,
-            receive_probe_callback);
+    socket = event_new(globals->base, globals->sockets.socket,
+            EV_READ|EV_PERSIST, receive_probe_callback, globals);
+    event_add(socket, NULL);
 
-    wand_add_fd(ev_hdl, globals->sockets.socket6, EV_READ, globals,
-            receive_probe_callback);
+    socket6 = event_new(globals->base, globals->sockets.socket6,
+            EV_READ|EV_PERSIST, receive_probe_callback, globals);
+    event_add(socket6, NULL);
 
     /* schedule the first probe packet to be sent immediately */
-    wand_add_timer(ev_hdl, 0, 0, globals, send_packet);
+    globals->nextpackettimer = event_new(globals->base, -1,
+            EV_PERSIST, send_packet, globals);
+    event_active(globals->nextpackettimer, 0, 0);
 
     /* run the event loop till told to stop or all tests performed */
-    wand_event_run(ev_hdl);
+    event_base_dispatch(globals->base);
 
     /* tidy up after ourselves */
     if ( globals->losstimer ) {
-        wand_del_timer(ev_hdl, globals->losstimer);
+        event_free(globals->losstimer);
     }
 
     if ( globals->nextpackettimer ) {
-        wand_del_timer(ev_hdl, globals->nextpackettimer);
+        event_free(globals->nextpackettimer);
     }
 
-    wand_destroy_event_handler(ev_hdl);
+    if ( socket ) {
+        event_free(socket);
+    }
+
+    if ( socket6 ) {
+        event_free(socket6);
+    }
+
+    if ( signal_int ) {
+        event_free(signal_int);
+    }
+
+    event_base_free(globals->base);
 
     if ( globals->sockets.socket > 0 ) {
 	close(globals->sockets.socket);
