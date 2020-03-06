@@ -11,6 +11,17 @@ Files: src/common/checksum.c
 Copyright: 1988 IETF Trust, R. Braden, D.Borman, C. Partridge.
 License:
 
+Files: src/tests/sip/extra/sip-test.wav
+Copyright: Open Speech Repository
+License: Open-Speech-Repository
+ The OSR Project provides freely usable speech files in multiple
+ languages for use in Voice over IP testing and other applications.
+ We encourage you to use these files, publish, copy, broadcast
+ without restriction - we only require that you identify the source
+ of files used as "Open Speech Repository".
+Comment:
+ http://www.voiptroubleshooter.com/open_speech/american/OSR_us_000_0014_8k.wav
+
 Files: *
 Copyright: 2013-2016 The University of Waikato, Hamilton, New Zealand. All Rights Reserved.
 License: GPL-2 with OpenSSL exception

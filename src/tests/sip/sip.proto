@@ -1,0 +1,128 @@
+/**
+ * Data reporting messages for the AMP SIP/RTP test.
+ *
+ * This test establishes a SIP session with a remote host then sends a stream
+ * of RTP packets containing audio, which it uses to observe jitter, latency
+ * and loss along the path.
+ *
+ * Each message contains one Report.
+ * Each Report contains one Header and one Item per result.
+ * Each Item contains information on a test result.
+ */
+syntax = "proto2";
+package amplet2.sip;
+
+
+/**
+ * An instance of the test will generate one Report message.
+ */
+message Report {
+    /** Describes the test settings used in this test instance */
+    optional Header header = 1;
+    /** Results for all test targets */
+    repeated Item reports = 2;
+}
+
+
+/**
+ * The test header describes all of the settings that the test was configured
+ * to run with. These settings are the same for every result contained within
+ * the Report message.
+ */
+message Header {
+    /** The uri that was tested to */
+    optional string uri = 1;
+    /** Host portion of the test URI */
+    optional string hostname = 2;
+    /** User-Agent string used by the test */
+    optional string useragent = 3;
+    /** Audio file name */
+    optional string filename = 4;
+    /** Maximum duration before terminating the test */
+    optional uint32 max_duration = 5;
+    /** Proxy server used to reach the URI */
+    repeated string proxy = 6;
+    /** Was the audio file allowed to be repeated? */
+    optional bool repeat = 7;
+    /** Differentiated Services Code Point (DSCP) used */
+    optional uint32 dscp = 8 [default = 0];
+    /** The address used by the RTP peer */
+    optional bytes address = 9;
+    /** Address family used for test */
+    optional uint32 family = 10;
+}
+
+
+/**
+ */
+message Item {
+    /** Duration from start of test to receiving the first response (us) */
+    optional uint64 time_till_first_response = 1;
+    /** Duration from start of test to receiving SIP ACK (us) */
+    optional uint64 time_till_connected = 2;
+    /** Duration from start of test to disconnecting at the end of test (us) */
+    optional uint64 duration = 3;
+
+    /** Summary statistics about the round trip time observed */
+    optional SummaryStats rtt = 5;
+    /** RTP stream statistics for received packets */
+    optional StreamStats rx = 6;
+    /** RTP stream statistics for transmitted packets */
+    optional StreamStats tx = 7;
+}
+
+
+/**
+ *
+ */
+message StreamStats {
+    /** Count of RTP packets */
+    optional uint32 packets = 1;
+    /** Count of RTP bytes */
+    optional uint32 bytes = 2;
+    /** Count of RTP packets that were lost */
+    optional uint32 lost = 3;
+    /** Count of RTP packets that were discarded */
+    optional uint32 discarded = 4;
+    /** Count of RTP packets that were reordered */
+    optional uint32 reordered = 5;
+    /** Count of RTP packets that were duplicated */
+    optional uint32 duplicated = 6;
+
+    /** Summary statistics about the inter packet delay variation observed */
+    optional SummaryStats jitter = 7;
+    /** Summary statistics about loss period duration */
+    optional SummaryStats loss = 8;
+    /** Stats on (calculated) quality of a voice connection using the path */
+    optional Mos mos = 9;
+}
+
+
+/**
+ * Simple summary statistics.
+ */
+message SummaryStats {
+    /** Maximum value observed (us) */
+    optional int32 maximum = 1;
+    /** Minimum value observed (us) */
+    optional int32 minimum = 2;
+    /** Mean value observed (us) */
+    optional int32 mean = 3;
+    /** Standard deviation (us) */
+    optional uint32 sd = 4;
+}
+
+
+/**
+ * Voice over IP related statistics calculated during the test.
+ */
+message Mos {
+    /** Calculated Planning Impairment Factor (ICPIF) */
+    optional int32 icpif = 1;
+    /** Cisco style Mean Opinion Score calculated from ICPIF */
+    optional double cisco_mos = 2;
+    /** ITU-T G.107 (06/2015) E-model R rating value */
+    optional double itu_rating = 3;
+    /** Mean Opinion Score calculated from R rating value */
+    optional double itu_mos = 4;
+}

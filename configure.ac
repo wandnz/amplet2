@@ -397,9 +397,51 @@ AC_ARG_ENABLE(external,
 # using AM_CONDITIONAL propagates this value through to all Makefile.am files
 AM_CONDITIONAL(WANT_EXTERNAL_TEST, [test x"$want_external_test" = xtrue])
 
+AC_ARG_ENABLE(sip,
+    AC_HELP_STRING([--enable-sip],
+        [Enable the sip test (default: no)]),
+    [case "${enableval}" in
+    true) ;&
+    yes) want_sip_test=true ;;
+    false) ;&
+    no)  want_sip_test=false ;;
+    *) AC_MSG_ERROR(bad value ${enableval} for --enable-sip) ;;
+    esac],
+    [want_sip_test=false])
+# using AM_CONDITIONAL propagates this value through to all Makefile.am files
+AM_CONDITIONAL(WANT_SIP_TEST, [test x"$want_sip_test" = xtrue])
+
+if test x"$want_sip_test" = xtrue; then
+    AC_CHECK_LIB([pj], [pj_timer_entry_init], pj_found=1, pj_found=0)
+    AC_CHECK_LIB([pjmedia], [pjmedia_wav_player_set_eof_cb], pjmedia_found=1, pjmedia_found=0)
+    AC_CHECK_LIB([pjsip], [pjsip_parse_uri], pjsip_found=1, pjsip_found=0)
+    AC_CHECK_LIB([pjsua], [pjsua_init], pjsua_found=1, pjsua_found=0)
+
+    if test "$pj_found" = 0; then
+        AC_MSG_ERROR(libpj2 is required for the sip test but not found; use LDFLAGS to specify library location or disable the sip test by setting --enable-sip=no)
+    fi
+
+    if test "$pjmedia_found" = 0; then
+        AC_MSG_ERROR(libpjmedia2 is required for the sip test but not found; use LDFLAGS to specify library location or disable the sip test by setting --enable-sip=no)
+    fi
+
+    if test "$pjsip_found" = 0; then
+        AC_MSG_ERROR(libpjsip2 is required for the sip test but not found; use LDFLAGS to specify library location or disable the sip test by setting --enable-sip=no)
+    fi
+
+    if test "$pjsua_found" = 0; then
+        AC_MSG_ERROR(libpjsua2 is required for the sip test but not found; use LDFLAGS to specify library location or disable the sip test by setting --enable-sip=no)
+    fi
+
+    AC_CHECK_HEADER(pjsua-lib/pjsua.h, pjsua_h_found=1, pjsua_h_found=0)
+    if test "$pjsua_h_found" = 0; then
+        AC_MSG_ERROR(Required headers for libpjproject not found; use CFLAGS to specify header location)
+    fi
+fi
+
 
 # Set default CFLAGS including the AMP_CONFIG_DIR and AMP_TEST_DIR
-AC_SUBST([AM_CFLAGS], ["-rdynamic -g -Wall -W -D_GNU_SOURCE -DAMP_CONFIG_DIR=\\\"\$(sysconfdir)/\$(PACKAGE)\\\" -DAMP_TEST_DIRECTORY=\\\"\$(libdir)/\$(PACKAGE)/tests\\\" -DAMP_LOG_DIR=\\\"\$(localstatedir)/log/\\\" -DAMP_EXTERNAL_BIN_DIRECTORY=\\\"\$(libdir)/\$(PACKAGE)/external\\\""])
+AC_SUBST([AM_CFLAGS], ["-rdynamic -g -Wall -W -D_GNU_SOURCE -DAMP_CONFIG_DIR=\\\"\$(sysconfdir)/\$(PACKAGE)\\\" -DAMP_TEST_DIRECTORY=\\\"\$(libdir)/\$(PACKAGE)/tests\\\" -DAMP_LOG_DIR=\\\"\$(localstatedir)/log/\\\" -DAMP_EXTERNAL_BIN_DIRECTORY=\\\"\$(libdir)/\$(PACKAGE)/external\\\" -DAMP_EXTRA_DIRECTORY=\\\"\$(libdir)/\$(PACKAGE)/extra\\\""])
 
 
 AC_CONFIG_FILES([Makefile
@@ -432,7 +474,9 @@ AC_CONFIG_FILES([Makefile
                  src/tests/fastping/Makefile
                  src/tests/fastping/test/Makefile
                  src/tests/external/Makefile
-                 src/tests/external/test/Makefile])
+                 src/tests/external/test/Makefile
+                 src/tests/sip/Makefile
+                 src/tests/sip/test/Makefile])
                  #src/tests/youtube/test/Makefile
 AC_OUTPUT
 
@@ -458,3 +502,4 @@ reportopt "Compiled with udpstream test support" $want_udpstream_test
 reportopt "Compiled with youtube test support" $want_youtube_test
 reportopt "Compiled with fastping test support" $want_fastping_test
 reportopt "Compiled with external test support" $want_external_test
+reportopt "Compiled with sip test support" $want_sip_test
