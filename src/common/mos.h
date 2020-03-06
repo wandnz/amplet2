@@ -37,8 +37,8 @@
  * along with amplet2. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef _TESTS_UDPSTREAM_MOS_H
-#define _TESTS_UDPSTREAM_MOS_H
+#ifndef _COMMON_MOS_H
+#define _COMMON_MOS_H
 
 #include <stdint.h>
 
