@@ -51,7 +51,7 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <arpa/inet.h>
-#include <libwandevent.h>
+#include <event2/event.h>
 #include <net/if.h>
 #include <netinet/in.h>
 #include <stdint.h>
@@ -414,16 +414,21 @@ static void process_control_message(int fd, struct acl_root *acl) {
  * Short callback to fork a new process for dealing with the control message.
  * TODO this is very very similar to test.c:fork_test()
  */
-static void control_read_callback(wand_event_handler_t *ev_hdl, int fd,
-        void *data, __attribute__((unused))enum wand_eventtype_t ev) {
+static void control_read_callback(
+        evutil_socket_t evsock,
+        __attribute__((unused))short flags,
+        void *evdata) {
 
     pid_t pid;
+    struct acl_event *acl_e = evdata;
+    struct acl_root *acl = acl_e->acl;
 
     /*
      * The main event loop shouldn't trigger on these events any more, once
      * we read data from here it is someone elses problem.
      */
-    wand_del_fd(ev_hdl, fd);
+    event_free(acl_e->control_read);
+    free(acl_e);
 
     /* Fork to validate SSL cert and actually run the server */
     if ( (pid = fork()) < 0 ) {
@@ -446,12 +451,12 @@ static void control_read_callback(wand_event_handler_t *ev_hdl, int fd,
         }
 
         reseed_openssl_rng();
-        process_control_message(fd, (struct acl_root*)data);
+        process_control_message(evsock, acl);
         exit(EXIT_SUCCESS);
     }
 
     /* the parent process doesn't need the client file descriptor */
-    close(fd);
+    close(evsock);
 }
 
 
@@ -460,9 +465,12 @@ static void control_read_callback(wand_event_handler_t *ev_hdl, int fd,
  * A connection has been made on our control port. Accept it and set up an
  * event for when data arrives on this connection.
  */
-static void control_establish_callback(wand_event_handler_t *ev_hdl,
-        int eventfd, void *data,
-        __attribute__((unused))enum wand_eventtype_t ev) {
+static void control_establish_callback(
+        evutil_socket_t evsock,
+        __attribute__((unused))short flags,
+        void *evdata) {
+
+    amp_control_t *control = evdata;
 
     int fd;
     struct sockaddr_storage remote;
@@ -470,13 +478,21 @@ static void control_establish_callback(wand_event_handler_t *ev_hdl,
 
     Log(LOG_DEBUG, "Got new control connection");
 
-    if ( (fd = accept(eventfd, (struct sockaddr *)&remote, &size)) < 0 ) {
+    if ( (fd = accept(evsock, (struct sockaddr *)&remote, &size)) < 0 ) {
         Log(LOG_WARNING, "Failed to accept connection on control socket: %s",
                 strerror(errno));
         return;
     }
 
-    wand_add_fd(ev_hdl, fd, EV_READ, data, control_read_callback);
+    /* 
+     * this event does not have the persist flag so it shall only run the 
+     * first time
+     */ 
+    struct acl_event *acl_e = malloc(sizeof (struct acl_event));
+    acl_e->acl = control->acl;
+    acl_e->control_read = event_new(control->base, fd,
+        EV_READ, control_read_callback, acl_e);
+    event_add(acl_e->control_read, NULL);
 
     return;
 }
@@ -488,13 +504,14 @@ static void control_establish_callback(wand_event_handler_t *ev_hdl,
  * use separate sockets for IPv4 and IPv6 so that we can have each of them
  * listening on specific, different addresses.
  */
-int initialise_control_socket(wand_event_handler_t *ev_hdl,
+int initialise_control_socket(struct event_base *base,
         amp_control_t *control) {
 
     struct addrinfo *addr4, *addr6;
     int one = 1;
     char addrstr[INET6_ADDRSTRLEN];
     struct socket_t sockets;
+    control->base = base;
 
     Log(LOG_DEBUG, "Creating control socket");
 
@@ -623,14 +640,16 @@ int initialise_control_socket(wand_event_handler_t *ev_hdl,
 
     /* if we have an ipv4 socket then set up the event listener */
     if ( sockets.socket > 0 ) {
-        wand_add_fd(ev_hdl, sockets.socket, EV_READ, control->acl,
-                control_establish_callback);
+        control->socket = event_new(base, sockets.socket,
+            EV_READ|EV_PERSIST, control_establish_callback, control);
+        event_add(control->socket, NULL);
     }
 
     /* if we have an ipv6 socket then set up the event listener */
     if ( sockets.socket6 > 0 ) {
-        wand_add_fd(ev_hdl, sockets.socket6, EV_READ, control->acl,
-                control_establish_callback);
+        control->socket6 = event_new(base, sockets.socket6,
+            EV_READ|EV_PERSIST, control_establish_callback, control);
+        event_add(control->socket6, NULL); 
     }
 
     return 0;
@@ -651,5 +670,7 @@ void free_control_config(amp_control_t *control) {
     if ( control->ipv6 ) free(control->ipv6);
     if ( control->port ) free(control->port);
     if ( control->acl ) free_acl(control->acl);
+    if ( control->socket ) event_free(control->socket);
+    if ( control->socket6 ) event_free(control->socket6);
     free(control);
 }

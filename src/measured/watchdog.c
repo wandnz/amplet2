@@ -131,9 +131,10 @@ int stop_watchdog(timer_t timerid) {
  * libwandevent not to fire this event for every child, so loop around and
  * consume all the children.
  */
-void child_reaper(__attribute__((unused))wand_event_handler_t *ev_hdl,
-        __attribute__((unused))int signum,
-        __attribute__((unused))void *data) {
+void child_reaper(
+        __attribute__((unused))evutil_socket_t evsock,
+        __attribute__((unused))short flags,
+        __attribute__((unused))void *evdata) {
 
     siginfo_t infop;
 

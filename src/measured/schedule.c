@@ -54,7 +54,7 @@
 #include <yaml.h>
 #include <stdint.h>
 #include <inttypes.h>
-#include <libwandevent.h>
+#include <event2/event.h>
 
 #include "config.h"
 #include "schedule.h"
@@ -65,12 +65,23 @@
 #include "modules.h"
 #include "testlib.h"
 
+/*
+ * Forward declear block to avoid rearanging code in this commit
+ */
+static void timer_fetch_callback(
+        __attribute__((unused))evutil_socket_t evsock, 
+        __attribute__((unused))short flags, 
+        void *evdata);
+int check_test_compare_callback(
+         __attribute__((unused))const struct event_base *base, 
+        const struct event *ev, 
+        void *evdata);
 
 
 /*
  * Dump a debug information line about a scheduled test.
  */
-static void dump_event_run_test(test_schedule_item_t *item, FILE *out) {
+static void __attribute__((unused))dump_event_run_test(test_schedule_item_t *item, FILE *out) {
 
     assert(item);
 
@@ -95,7 +106,7 @@ static void dump_event_run_test(test_schedule_item_t *item, FILE *out) {
 /*
  * Dump a debug information line about a scheduled schedule update.
  */
-static void dump_event_fetch_schedule(fetch_schedule_item_t *item, FILE *out) {
+static void __attribute__((unused))dump_event_fetch_schedule(fetch_schedule_item_t *item, FILE *out) {
     assert(item);
 
     fprintf(out, "EVENT_FETCH_SCHEDULE %s\n", item->schedule_url);
@@ -106,38 +117,41 @@ static void dump_event_fetch_schedule(fetch_schedule_item_t *item, FILE *out) {
 /*
  * Dump the current schedule for debug purposes
  */
-void dump_schedule(wand_event_handler_t *ev_hdl, FILE *out) {
-    struct wand_timer_t *timer;
-    schedule_item_t *item;
-    struct timeval mono, wall, offset;
-
+void dump_schedule(struct event_base *base, FILE *out) {
+    //struct wand_timer_t *timer;
+    //schedule_item_t *item;
+    //struct timeval mono, wall, offset;
+    struct timeval wall;
     assert(out);
 
-    mono = wand_get_monotonictime(ev_hdl);
-    wall = wand_get_walltime(ev_hdl);
+    //wall = wand_get_walltime(ev_hdl);
+
+    event_base_gettimeofday_cached(base, &wall);
 
     fprintf(out, "===== SCHEDULE at %d.%d =====\n", (int)wall.tv_sec,
             (int)wall.tv_usec);
 
-    for ( timer=ev_hdl->timers; timer != NULL; timer=timer->next ) {
-        timersub(&timer->expire, &mono, &offset);
-	fprintf(out, "%d.%.6d ", (int)offset.tv_sec, (int)offset.tv_usec);
-	if ( timer->data == NULL ) {
-	    fprintf(out, "NULL\n");
-	    continue;
-	}
+    event_base_dump_events(base, out); //maybe not ideal TODO:event
 
-	item = (schedule_item_t *)timer->data;
-	switch ( item->type ) {
-	    case EVENT_RUN_TEST:
-                dump_event_run_test(item->data.test, out);
-                break;
-            case EVENT_FETCH_SCHEDULE:
-                dump_event_fetch_schedule(item->data.fetch, out);
-                break;
-	    default: fprintf(out, "UNKNOWN\n"); continue;
-	};
-    }
+    // for ( timer=ev_hdl->timers; timer != NULL; timer=timer->next ) {
+    //     timersub(&timer->expire, &mono, &offset);
+    //     fprintf(out, "%d.%.6d ", (int)offset.tv_sec, (int)offset.tv_usec);
+    //     if ( timer->data == NULL ) {
+    //         fprintf(out, "NULL\n");
+    //         continue;
+    //     }
+
+    //     item = (schedule_item_t *)timer->data;
+    //     switch ( item->type ) {
+    //         case EVENT_RUN_TEST:
+    //             dump_event_run_test(item->data.test, out);
+    //             break;
+    //         case EVENT_FETCH_SCHEDULE:
+    //             dump_event_fetch_schedule(item->data.fetch, out);
+    //             break;
+    //         default: fprintf(out, "UNKNOWN\n"); continue;
+    //     };
+    // }
     fprintf(out, "\n");
 
 }
@@ -203,6 +217,26 @@ static void free_fetch_schedule_item(fetch_schedule_item_t *item) {
     free(item);
 }
 
+/*
+ * libevent can't iterate over the list of pending events like libwandevent
+ * can, so instead we use a callback againt every event to populate an array.
+ */
+struct events_array {
+    struct event **events;
+    int index;
+};
+/*
+ * Simple callback to append each event to an array of events
+ */ 
+static int append_events_array_callback(
+        __attribute__((unused)) const struct event_base *base,
+        const struct event *ev, 
+        void *evdata){
+    struct events_array *events_arr = evdata;
+    events_arr->events[events_arr->index] = (struct event *)ev;
+    events_arr->index++;
+    return 0;
+}
 
 
 /*
@@ -210,48 +244,62 @@ static void free_fetch_schedule_item(fetch_schedule_item_t *item) {
  * scheduled tests. Refreshing the test schedule will still leave schedule
  * fetches in the list.
  */
-void clear_test_schedule(wand_event_handler_t *ev_hdl, int all) {
-    struct wand_timer_t *timer = ev_hdl->timers;
-    struct wand_timer_t *tmp;
+void clear_test_schedule(struct event_base *base, int all) {
     schedule_item_t *item;
+    struct events_array events_arr;
+    struct event *curr_event;
 
-    while ( timer != NULL ) {
-	tmp = timer;
-	timer = timer->next;
-	/* only remove future scheduled tests */
-	if ( tmp->data != NULL ) {
-	    item = (schedule_item_t *)tmp->data;
+    event_callback_fn event_callback;
 
-            /* We can clear just the test schedule, or all timer events */
-            if ( !all && item->type != EVENT_RUN_TEST ) {
-                continue;
-            }
+    int events_count = event_base_get_num_events(base, EVENT_BASE_COUNT_ADDED);
 
-            wand_del_timer(ev_hdl, tmp);
+    events_arr = (struct events_array){
+            calloc(events_count, sizeof(struct event*)),
+            0};
 
-            switch ( item->type ) {
-                case EVENT_RUN_TEST:
-                    if ( item->data.test != NULL ) {
-                        free_test_schedule_item(item->data.test);
-                    }
-                    break;
-                case EVENT_FETCH_SCHEDULE:
-                    if ( item->data.fetch != NULL ) {
-                        free_fetch_schedule_item(item->data.fetch);
-                    }
-                    break;
-                default:
-                    Log(LOG_WARNING, "Freeing unknown schedule item type %d",
-                            item->type);
-                    break;
-            };
+    event_base_foreach_event(base, append_events_array_callback, &events_arr);
 
-            free(item);
-	}
+    assert(events_arr.index == events_count);
+
+    for ( int index = 0; index < events_count; index++ ) {
+
+        curr_event = events_arr.events[index];
+        event_callback = event_get_callback(curr_event);
+        item = event_get_callback_arg(curr_event);
+
+        /*
+         * Need to test the used callback to check what the event is, libevent 
+         * has some under the hood events that will also be listed here and we
+         * cannot safely dereference 'item' untill we know what it is
+         */
+        if ( event_callback != run_scheduled_test &&
+                ( !all || event_callback != timer_fetch_callback )) {
+            continue;
+        }
+
+        event_free(curr_event);
+
+        switch ( item->type ) {
+            case EVENT_RUN_TEST:
+                if ( item->data.test != NULL ) {
+                    free_test_schedule_item(item->data.test);
+                }
+                break;
+            case EVENT_FETCH_SCHEDULE:
+                if ( item->data.fetch != NULL ) {
+                    free_fetch_schedule_item(item->data.fetch);
+                }
+                break;
+            default:
+                Log(LOG_WARNING, "Freeing unknown schedule item type %d",
+                        item->type);
+                break;
+        };
+
+        free(item);
     }
+    free(events_arr.events);
 }
-
-
 
 /*
  * Convert a string from the schedule file into a regular time period.
@@ -507,31 +555,22 @@ parse_param_error:
  * use an offset because libwandevent schedules relative to a monotonic clock,
  * not the system clock.
  */
-struct timeval get_next_schedule_time(wand_event_handler_t *ev_hdl,
-	schedule_period_t period, uint64_t start, uint64_t end,
-        uint64_t frequency, int run, struct timeval *abstime) {
+static inline struct timeval get_next_schedule_time_internal(
+        struct timeval *time_pass, schedule_period_t period, uint64_t start, 
+        uint64_t end, uint64_t frequency, int run, struct timeval *abstime) {
 
     time_t period_start, period_end;
-    struct timeval now, next = {0,0};
+    struct timeval next = {0,0};
     int64_t diff, test_end;
     int next_repeat;
 
-    /*
-     * wand_get_walltime essentially just calls gettimeofday(), but it lets
-     * us write unit tests easier because we can cheat and set the time to
-     * anything we want. Also, have to make sure that we use this same time
-     * result for everything - if we make multiple calls we could end up on
-     * either side of a period boundary or similar.
-     */
-    now = wand_get_walltime(ev_hdl);
-
-    period_start = get_period_start(period, &now.tv_sec);
+    period_start = get_period_start(period, &time_pass->tv_sec);
     test_end = (period_start * INT64_C(1000000)) + end;
 
     /* get difference in us between the first event of this period and now */
-    diff = now.tv_sec - period_start;
+    diff = time_pass->tv_sec - period_start;
     diff *= 1000000;
-    diff += now.tv_usec;
+    diff += time_pass->tv_usec;
     diff -= start;
 
     /* if the difference is negative, we are before the first scheduled run */
@@ -559,7 +598,7 @@ struct timeval get_next_schedule_time(wand_event_handler_t *ev_hdl,
 
         /* save the absolute time this test was meant to be run */
         if ( abstime ) {
-            timeradd(&now, &next, abstime);
+            timeradd(time_pass, &next, abstime);
         }
 
         Log(LOG_DEBUG, "test triggered early, rescheduling for: %d.%d\n",
@@ -590,23 +629,23 @@ struct timeval get_next_schedule_time(wand_event_handler_t *ev_hdl,
             diff += frequency;
         }
 
-	next.tv_sec = diff / 1000000;
-	next.tv_usec = diff % 1000000;
+        next.tv_sec = diff / 1000000;
+        next.tv_usec = diff % 1000000;
     }
 
     /* check that this next repeat is allowed at this time */
     period_end = period_start + get_period_max_value(period);
-    if ( next_repeat || now.tv_sec + (diff/1000000) > period_end ||
-	    US_FROM_TV(now) + diff > test_end ) {
-	/* next time is after the end time for test, advance to next start */
-	next.tv_sec = period_end - now.tv_sec;
-        if ( now.tv_usec > 0 ) {
+    if ( next_repeat || time_pass->tv_sec + (diff/1000000) > period_end ||
+            US_FROM_TV(*time_pass) + diff > test_end ) {
+        /* next time is after the end time for test, advance to next start */
+        next.tv_sec = period_end - time_pass->tv_sec;
+        if ( time_pass->tv_usec > 0 ) {
             next.tv_sec--;
-            next.tv_usec = 1000000 - now.tv_usec;
+            next.tv_usec = 1000000 - time_pass->tv_usec;
         } else {
             next.tv_usec = 0;
         }
-	ADD_TV_PARTS(next, next, start / 1000000, start % 1000000);
+        ADD_TV_PARTS(next, next, start / 1000000, start % 1000000);
     }
 
     /* If somehow we get an invalid offset then throw all the calculations
@@ -627,16 +666,34 @@ struct timeval get_next_schedule_time(wand_event_handler_t *ev_hdl,
 
     /* save the absolute time this test was meant to be run */
     if ( abstime ) {
-        timeradd(&now, &next, abstime);
+        timeradd(time_pass, &next, abstime);
     }
 
     Log(LOG_DEBUG, "next test run scheduled at: %d.%d\n", (int)next.tv_sec,
-	    (int)next.tv_usec);
+            (int)next.tv_usec);
 
     return next;
 }
 
+/*
+ * To aid unit tests we have a wrapper around get_next_schedule_time that 
+ * allows us to override the time taken from the event_base and set the 
+ * time to anything we want. Also, have to make sure that we use this same
+ * time result for everything - if we make multiple calls we could end up 
+ * on either side of a period boundary or similar.
+ */
+struct timeval get_next_schedule_time(struct event_base *base,
+        schedule_period_t period, uint64_t start, uint64_t end,
+        uint64_t frequency, int run, struct timeval *abstime) {
 
+    struct timeval now;
+    if ( event_base_gettimeofday_cached(base, &now) != 0 ) {
+        gettimeofday(&now, NULL);
+    }
+
+    return get_next_schedule_time_internal(&now, period, start, end, frequency,
+            run, abstime);
+}
 
 /*
  * Compare two test schedule items to see if they are similar enough to
@@ -683,78 +740,86 @@ static int compare_test_items(test_schedule_item_t *a, test_schedule_item_t *b){
 
 
 /*
+ * Callback that is used to find the first matching timer event, once a valid 
+ * event is found the event is stored at the address pointed to by return_value
+ */
+int check_test_compare_callback(
+        __attribute__((unused))const struct event_base *base, 
+        const struct event *ev, 
+        void *evdata) {
+
+    schedule_item_t *sched_item;
+    test_schedule_item_t *sched_test;
+    test_schedule_item_t *test;
+    test_schedule_item_t **return_value = evdata;
+
+    /*
+     * test if event callback matches test callback
+     * (libevent may have other events queued)
+     */
+    if ( event_get_callback(ev) != run_scheduled_test ) {
+        return 0;
+    }
+
+    sched_item = event_get_callback_arg(ev);
+
+    assert(sched_item->data.test);
+    sched_test = sched_item->data.test;
+
+    assert(*return_value);
+    test = (*return_value);
+
+    /* check if these tests are the same */
+    if ( compare_test_items(sched_test, test) ) {
+
+        /* check if there is room for more destinations */
+        if ( test->test->max_targets == 0 ||
+                (sched_test->dest_count + sched_test->resolve_count) <
+                test->test->max_targets ) {
+
+            /* valid matching sched_item was found */
+            *return_value = sched_test;
+            return 1;
+        }
+    }
+    /* No match was found, move on to next item */
+    return 0;
+}
+
+
+/*
  * Try to merge the given test with any currently scheduled tests that have
  * exactly the same schedule, parameters etc and also allow multiple
  * destinations. If the tests can be merged that helps to limit the number of
  * active timers and tests that need to be run.
  */
-static int merge_scheduled_tests(struct wand_event_handler_t *ev_hdl,
-	test_schedule_item_t *item) {
+static int merge_scheduled_tests(
+        struct event_base *base, 
+        test_schedule_item_t *test) {
 
-    struct wand_timer_t *timer;
-    schedule_item_t *sched_item;
-    test_schedule_item_t *sched_test;
-    struct timeval when, expire;
+    test_schedule_item_t * sched_test = test;
 
-    /* find the time that the timer for this test should expire */
-    when = get_next_schedule_time(ev_hdl, item->period, item->start, item->end,
-	    US_FROM_TV(item->interval), 0, NULL);
-    expire = wand_calc_expire(ev_hdl, when.tv_sec, when.tv_usec);
+    /* if entire events list was searched without returning then result is 0 */
+    if ( event_base_foreach_event(base, 
+            check_test_compare_callback, &sched_test) ) {
 
-    /* search all existing scheduled test timers for a test that matches */
-    for ( timer=ev_hdl->timers; timer != NULL; timer=timer->next ) {
+        /* if status is non zero sched_test must contain a matching test */
+        assert(sched_test != test);
 
-	/* give up if we get past the time the test should occur */
-	if ( timercmp(&(timer->expire), &expire, >) ) {
-	    return 0;
-	}
-
-	/* all our timers should have data, but maybe not... */
-	if ( timer->data == NULL ) {
-	    continue;
-	}
-
-	sched_item = (schedule_item_t *)timer->data;
-
-	/* ignore non-test timers, we can't match them */
-	if ( sched_item->type != EVENT_RUN_TEST ) {
-	    continue;
-	}
-
-	assert(sched_item->data.test);
-	sched_test = sched_item->data.test;
-
-	/* check if these tests are the same */
-	if ( compare_test_items(sched_test, item) ) {
-
-	    /* check if there is room for more destinations */
-	    if ( item->test->max_targets == 0 ||
-		    (sched_test->dest_count + sched_test->resolve_count) <
-                    item->test->max_targets ) {
-
-		/*
-	 	 * resize the dests pointers to make room for the new dest
-		 * TODO be smarter about resizing
-		 */
-		if ( item->dest_count > 0 ) {
-		    /* add a new pre-resolved address */
-		    sched_test->dests = realloc(sched_test->dests,
-			    (sched_test->dest_count+1) *
-			    sizeof(struct addrinfo *));
-		    sched_test->dests[sched_test->dest_count++] =
-			item->dests[0];
-		} else {
-		    /* add a new address we will need to resolve later */
-		    item->resolve->next = sched_test->resolve;
-		    sched_test->resolve = item->resolve;
-		    sched_test->resolve_count++;
-		}
-
-		return 1;
-	    }
-	}
+        if ( test->dest_count > 0 ) {
+            /* add a new pre-resolved address */
+            sched_test->dests = realloc(sched_test->dests,
+                    (sched_test->dest_count+1) *
+                    sizeof(struct addrinfo *));
+            sched_test->dests[sched_test->dest_count++] = test->dests[0];
+        } else {
+            /* add a new address we will need to resolve later */
+            test->resolve->next = sched_test->resolve;
+            sched_test->resolve = test->resolve;
+            sched_test->resolve_count++;
+        }
+        return 1;
     }
-
     return 0;
 }
 
@@ -898,7 +963,7 @@ char **populate_target_lists(test_schedule_item_t *test, char **targets) {
  * because it makes scheduling easier.
  */
 static test_schedule_item_t *create_and_schedule_test(
-        wand_event_handler_t *ev_hdl, yaml_document_t *document,
+        struct event_base *base, yaml_document_t *document,
         yaml_node_item_t index, amp_test_meta_t *meta) {
 
     test_schedule_item_t *test = NULL;
@@ -1067,7 +1132,7 @@ static test_schedule_item_t *create_and_schedule_test(
         if ( remaining != NULL && *remaining == NULL &&
                 test_definition->max_targets != 1 ) {
             /* check if this test at this time already exists */
-            if ( merge_scheduled_tests(ev_hdl, test) ) {
+            if ( merge_scheduled_tests(base, test) ) {
                 /* remove pointer to names, merged test owns it */
                 test->resolve = NULL;
                 /* free this test, it has now merged */
@@ -1078,15 +1143,17 @@ static test_schedule_item_t *create_and_schedule_test(
 
         sched = (schedule_item_t *)malloc(sizeof(schedule_item_t));
         sched->type = EVENT_RUN_TEST;
-        sched->ev_hdl = ev_hdl;
         sched->data.test = test;
+        sched->base = base;
 
         /* create the timer event for this test */
-        next = get_next_schedule_time(ev_hdl, test->period, test->start,
+        next = get_next_schedule_time(base, test->period, test->start,
                 test->end, US_FROM_TV(test->interval), 0, &test->abstime);
 
-        if ( wand_add_timer(ev_hdl, next.tv_sec, next.tv_usec, sched,
-                run_scheduled_test) == NULL ) {
+        sched->event = event_new(sched->base, -1,
+            0, run_scheduled_test, sched);
+
+        if ( event_add(sched->event, &next) != 0 ) {
             Log(LOG_ALERT, "Failed to schedule %s test", testname);
         }
 
@@ -1105,7 +1172,7 @@ end:
 /*
  * Read in the schedule file and create events for each test.
  */
-static void read_schedule_file(wand_event_handler_t *ev_hdl, char *filename,
+static void read_schedule_file(struct event_base *base, char *filename,
         amp_test_meta_t *meta) {
 
     FILE *in;
@@ -1114,7 +1181,7 @@ static void read_schedule_file(wand_event_handler_t *ev_hdl, char *filename,
     yaml_node_t *root;
     yaml_node_pair_t *pair;
 
-    assert(ev_hdl);
+    assert(base);
     assert(filename);
 
     Log(LOG_INFO, "Loading schedule from %s", filename);
@@ -1163,7 +1230,7 @@ static void read_schedule_file(wand_event_handler_t *ev_hdl, char *filename,
             yaml_node_item_t *item;
             for ( item = value->data.sequence.items.start;
                     item != value->data.sequence.items.top; item++ ) {
-                create_and_schedule_test(ev_hdl, &document, *item, meta);
+                create_and_schedule_test(base, &document, *item, meta);
             }
         }
      }
@@ -1182,14 +1249,14 @@ parser_load_error:
  * Read all the test schedule files in the given directory and add their
  * contents to the global test schedule.
  */
-void read_schedule_dir(wand_event_handler_t *ev_hdl, char *directory,
+void read_schedule_dir(struct event_base *base, char *directory,
         amp_test_meta_t *meta) {
 
     glob_t glob_buf;
     unsigned int i;
     char full_loc[MAX_PATH_LENGTH];
 
-    assert(ev_hdl);
+    assert(base);
     assert(directory);
     assert(strlen(directory) < MAX_PATH_LENGTH - 8);
     assert(meta);
@@ -1207,7 +1274,7 @@ void read_schedule_dir(wand_event_handler_t *ev_hdl, char *directory,
 	    directory, glob_buf.gl_pathc);
 
     for ( i = 0; i < glob_buf.gl_pathc; i++ ) {
-	read_schedule_file(ev_hdl, glob_buf.gl_pathv[i], meta);
+	read_schedule_file(base, glob_buf.gl_pathv[i], meta);
     }
 
     globfree(&glob_buf);
@@ -1450,11 +1517,12 @@ static void fork_and_fetch(fetch_schedule_item_t *fetch, int clobber) {
  * Callback for the manually fired user signal to trigger a schedule fetch.
  */
 void signal_fetch_callback(
-        __attribute__((unused))wand_event_handler_t *ev_hdl,
-        __attribute__((unused))int signum, void *data) {
+        __attribute__((unused))evutil_socket_t evsock,
+        __attribute__((unused))short flags,
+        void * evdata) {
 
     Log(LOG_DEBUG, "Refetching schedule due to signal");
-    fork_and_fetch((fetch_schedule_item_t *)data, 1);
+    fork_and_fetch((fetch_schedule_item_t *)evdata, 1);
 }
 
 
@@ -1462,22 +1530,29 @@ void signal_fetch_callback(
 /*
  * Callback for the timer that triggers a schedule fetch.
  */
-static void timer_fetch_callback(wand_event_handler_t *ev_hdl, void *data) {
+static void timer_fetch_callback(
+        __attribute__((unused))evutil_socket_t evsock,
+        __attribute__((unused))short flags,
+        void *evdata) {
+
     schedule_item_t *item;
     fetch_schedule_item_t *fetch;
 
     Log(LOG_DEBUG, "Timer fired for remote schedule checking");
 
-    item = (schedule_item_t *)data;
+    item = (schedule_item_t *)evdata;
     assert(item->type == EVENT_FETCH_SCHEDULE);
 
     fetch = (fetch_schedule_item_t *)item->data.fetch;
 
     fork_and_fetch(fetch, 0);
 
+    struct timeval timeout = (struct timeval) {
+            fetch->frequency / 1000000,
+            fetch->frequency % 1000000};
+
     /* reschedule checking for schedule updates */
-    if ( wand_add_timer(ev_hdl, fetch->frequency, 0, data,
-                timer_fetch_callback) == NULL ) {
+    if ( event_add(item->event, &timeout) != 0 ) {
         Log(LOG_ALERT, "Failed to reschedule remote update check");
     }
 }
@@ -1488,12 +1563,12 @@ static void timer_fetch_callback(wand_event_handler_t *ev_hdl, void *data) {
  * Try to fetch the remote schedule right now, and create the recurring event
  * that will check for new schedules in the future.
  */
-int enable_remote_schedule_fetch(wand_event_handler_t *ev_hdl,
+int enable_remote_schedule_fetch(struct event_base *base,
         fetch_schedule_item_t *fetch) {
 
     schedule_item_t *item;
 
-    assert(ev_hdl);
+    assert(base);
 
     if ( fetch == NULL ) {
         Log(LOG_DEBUG, "Remote schedule fetching disabled");
@@ -1510,12 +1585,16 @@ int enable_remote_schedule_fetch(wand_event_handler_t *ev_hdl,
 
     item = (schedule_item_t *)malloc(sizeof(schedule_item_t));
     item->type = EVENT_FETCH_SCHEDULE;
-    item->ev_hdl = ev_hdl;
+    item->base = base;
     item->data.fetch = fetch;
+    item->event = event_new(base, -1, 0, timer_fetch_callback, item);
+
+    struct timeval timeout = (struct timeval) {
+            fetch->frequency / 1000000,
+            fetch->frequency % 1000000};
 
     /* create the timer event for fetching schedules */
-    if ( wand_add_timer(ev_hdl, fetch->frequency, 0, item,
-                timer_fetch_callback) == NULL ) {
+    if ( event_add(item->event, &timeout) != 0 ) {
         Log(LOG_ALERT, "Failed to schedule remote update check");
         return -1;
     }
@@ -1534,5 +1613,11 @@ int64_t amp_test_check_time_range(int64_t value, schedule_period_t period) {
 }
 time_t amp_test_get_period_start(char repeat, time_t *now) {
     return get_period_start(repeat, now);
+}
+struct timeval amp_test_get_next_schedule_time(struct timeval *time_pass,
+        schedule_period_t period, uint64_t start, uint64_t end,
+        uint64_t frequency, int run, struct timeval *abstime) {
+    return get_next_schedule_time_internal(time_pass, period, start, end, frequency,
+            run, abstime);
 }
 #endif

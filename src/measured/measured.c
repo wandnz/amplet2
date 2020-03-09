@@ -48,7 +48,7 @@
 #include <errno.h>
 #include <amqp_ssl_socket.h>
 #include <curl/curl.h>
-#include <libwandevent.h>
+#include <event2/event.h>
 #include <confuse.h>
 #include <limits.h>
 #include <time.h>
@@ -191,15 +191,17 @@ static int create_pidfile(char *pidfile) {
 
 
 /*
- * Set the flag that will cause libwandevent to stop running the main event
+ * Call the method that will cause libevent to stop running the main event
  * loop and return control to us.
  */
-static void stop_running(wand_event_handler_t *ev_hdl,
-        __attribute__((unused))int signum,
-        __attribute__((unused))void *data) {
+static void stop_running(
+        __attribute__((unused))evutil_socket_t evsock,
+        __attribute__((unused))short flags,
+        void * evdata) {
 
+    struct event_base *base = (struct event_base *)evdata;
     Log(LOG_DEBUG, "Received signal, exiting event loop");
-    ev_hdl->running = false;
+    event_base_loopbreak(base);
 }
 
 
@@ -209,17 +211,20 @@ static void stop_running(wand_event_handler_t *ev_hdl,
  * available test modules and re-read the schedule file taking into account
  * the new list of available tests.
  */
-static void reload(wand_event_handler_t *ev_hdl, int signum, void *data) {
+static void reload(
+        __attribute__((unused))evutil_socket_t evsock, 
+        __attribute__((unused))short flags, 
+        void *evdata) {
     char nametable[PATH_MAX];
     char schedule[PATH_MAX];
-    amp_test_meta_t *meta = (amp_test_meta_t*)data;
+    amp_test_meta_t *meta = (amp_test_meta_t*)evdata;
 
     /* signal > 0 is a real signal meaning "reload", signal == 0 is "load" */
-    if ( signum > 0 ) {
-        Log(LOG_INFO, "Received signal %d, reloading all configuration",signum);
+    if ( evsock > 0 ) {
+        Log(LOG_INFO, "Received signal %d, reloading all configuration",evsock);
 
         /* cancel all scheduled tests (let running ones finish) */
-        clear_test_schedule(ev_hdl, 0);
+        clear_test_schedule(meta->base, 0);
 
         /* empty the nametable */
         clear_nametable();
@@ -240,9 +245,9 @@ static void reload(wand_event_handler_t *ev_hdl, int signum, void *data) {
     read_nametable_dir(nametable);
 
     /* re-read schedule files from the global and client specific dirs */
-    read_schedule_dir(ev_hdl, SCHEDULE_DIR, meta);
+    read_schedule_dir(meta->base, SCHEDULE_DIR, meta);
     snprintf((char*)&schedule, PATH_MAX, "%s/%s", SCHEDULE_DIR, meta->ampname);
-    read_schedule_dir(ev_hdl, schedule, meta);
+    read_schedule_dir(meta->base, schedule, meta);
 }
 
 
@@ -251,9 +256,8 @@ static void reload(wand_event_handler_t *ev_hdl, int signum, void *data) {
  * Loading everything for the first time is almost the same as reloading all
  * the configuration after receiving a signal, just call through to reload().
  */
-static void load_tests_and_schedules(wand_event_handler_t *ev_hdl,
-        amp_test_meta_t *meta) {
-    reload(ev_hdl, 0, meta);
+static void load_tests_and_schedules(amp_test_meta_t *meta) {
+    reload(0, 0, meta);
 }
 
 
@@ -264,11 +268,14 @@ static void load_tests_and_schedules(wand_event_handler_t *ev_hdl,
  * problems and it's not always possible to run in full debug mode (lots of
  * output!).
  */
-static void debug_dump(wand_event_handler_t *ev_hdl, int signum,
-        __attribute__((unused))void *data) {
+static void debug_dump(
+        evutil_socket_t evsock,
+        __attribute__((unused))short flags,
+        void *evdata) {
 
     char *filename;
     FILE *out;
+    struct event_base *base = evdata;
 
     if ( asprintf(&filename, "%s.%d", DEBUG_SCHEDULE_DUMP_FILE,getpid()) < 0 ) {
         Log(LOG_WARNING, "Failed to build filename for debug schedule output");
@@ -276,7 +283,7 @@ static void debug_dump(wand_event_handler_t *ev_hdl, int signum,
     }
 
     Log(LOG_INFO, "Received signal %d, dumping debug information to '%s'",
-            signum, filename);
+            evsock, filename);
 
     if ( (out = fopen(filename, "a")) == NULL ) {
         Log(LOG_WARNING, "Failed to open debug schedule output file '%s': %s",
@@ -284,7 +291,7 @@ static void debug_dump(wand_event_handler_t *ev_hdl, int signum,
         return;
     }
 
-    dump_schedule(ev_hdl, out);
+    dump_schedule(base, out);
 
     fclose(out);
     free(filename);
@@ -338,7 +345,6 @@ static void free_global_vars(struct amp_global_t *vars) {
  *
  */
 int main(int argc, char *argv[]) {
-    wand_event_handler_t *ev_hdl;
     char *config_file = NULL;
     char *pidfile = NULL;
     int fetch_remote = 1;
@@ -350,6 +356,15 @@ int main(int argc, char *argv[]) {
     cfg_t *cfg;
     int opt;
     char *address_string;
+    struct event *signal_load = NULL;
+    struct event *signal_int = NULL;
+    struct event *signal_term = NULL;
+    struct event *signal_chld = NULL;
+    struct event *resolver_socket_event = NULL;
+    struct event *asn_socket_event = NULL;
+    struct event *signal_hup = NULL;
+    struct event *signal_usr1 = NULL;
+    struct event *signal_tmax = NULL;
 
     memset(&meta, 0, sizeof(meta));
     meta.inter_packet_delay = MIN_INTER_PACKET_DELAY;
@@ -586,9 +601,8 @@ int main(int argc, char *argv[]) {
     }
 
     /* set up event handlers */
-    wand_event_init();
-    ev_hdl = wand_create_event_handler();
-    assert(ev_hdl);
+    meta.base = event_base_new();
+    assert(meta.base);
 
     /* construct our custom, per-client nameserver socket */
     if ( asprintf(&vars.nssock, "%s/%s.sock", AMP_RUN_DIR, vars.ampname) < 0 ) {
@@ -607,25 +621,36 @@ int main(int argc, char *argv[]) {
     /* if remote fetching is enabled, try to get the config for it */
     if ( fetch_remote && (fetch = get_remote_schedule_config(cfg)) ) {
         /* TODO fetch gets leaked, has lots of parts needing to be freed */
-        if ( enable_remote_schedule_fetch(ev_hdl, fetch) < 0 ) {
+        if ( enable_remote_schedule_fetch(meta.base, fetch) < 0 ) {
             Log(LOG_ALERT, "Failed to enable remote schedule fetching");
             cfg_free(cfg);
             exit(EXIT_FAILURE);
         }
 
         /* SIGUSR2 should trigger a refetch of any remote schedule files */
-        wand_add_signal(SIGUSR2, fetch, signal_fetch_callback);
+        signal_load = event_new(meta.base, SIGUSR2,
+                EV_SIGNAL|EV_PERSIST, signal_fetch_callback, fetch);
+        event_add(signal_load, NULL);
+
     } else {
         /* if fetching isn't enabled then just reload the current schedule */
-        wand_add_signal(SIGUSR2, &meta, reload);
+        signal_load = event_new(meta.base, SIGUSR2,
+                EV_SIGNAL|EV_PERSIST, reload, &meta);
+        event_add(signal_load, NULL);
     }
 
     /* set up a handler to deal with SIGINT/SIGTERM so we can shutdown nicely */
-    wand_add_signal(SIGINT, NULL, stop_running);
-    wand_add_signal(SIGTERM, NULL, stop_running);
+    signal_int = event_new(meta.base, SIGINT,
+            EV_SIGNAL|EV_PERSIST, stop_running, NULL);
+    event_add(signal_int, NULL);
+    signal_term = event_new(meta.base, SIGTERM,
+            EV_SIGNAL|EV_PERSIST, stop_running, NULL);
+    event_add(signal_term, NULL);
 
     /* set up handler to deal with SIGCHLD so we can tidy up after tests */
-    wand_add_signal(SIGCHLD, NULL, child_reaper);
+    signal_chld = event_new(meta.base, SIGCHLD,
+            EV_SIGNAL|EV_PERSIST, child_reaper, NULL);
+    event_add(signal_chld, NULL);
 
     /* create the resolver/cache unix socket and add event listener for it */
     if ( (vars.nssock_fd = initialise_local_socket(vars.nssock)) < 0 ) {
@@ -633,8 +658,9 @@ int main(int argc, char *argv[]) {
 	cfg_free(cfg);
         exit(EXIT_FAILURE);
     }
-    wand_add_fd(ev_hdl, vars.nssock_fd, EV_READ, vars.ctx,
-            resolver_socket_event_callback);
+    resolver_socket_event = event_new(meta.base, vars.nssock_fd,
+            EV_READ|EV_PERSIST, resolver_socket_event_callback, vars.ctx);
+    event_add(resolver_socket_event, NULL);
 
     /* create the asn lookup unix socket and add event listener for it */
     Log(LOG_DEBUG, "Creating local socket for ASN lookups");
@@ -646,8 +672,9 @@ int main(int argc, char *argv[]) {
 
     asn_info = initialise_asn_info();
     //XXX can we move this and socket creation off into the function too?
-    wand_add_fd(ev_hdl, vars.asnsock_fd, EV_READ, asn_info,
-            asn_socket_event_callback);
+    asn_socket_event = event_new(meta.base, vars.asnsock_fd,
+            EV_READ|EV_PERSIST, asn_socket_event_callback, asn_info);
+    event_add(asn_socket_event, NULL);
 
     /* save the port, tests need to know where to connect */
     control = get_control_config(cfg, &meta);
@@ -657,7 +684,7 @@ int main(int argc, char *argv[]) {
 
     /* if SSL is properly enabled then try to create the control sockets */
     if ( ssl_ctx != NULL && control->enabled ) {
-        if ( initialise_control_socket(ev_hdl, control) < 0 ) {
+        if ( initialise_control_socket(meta.base, control) < 0 ) {
             Log(LOG_WARNING, "Failed to start control socket!");
         }
     } else if ( ssl_ctx != NULL ) {
@@ -672,34 +699,50 @@ int main(int argc, char *argv[]) {
      * without a TTY. With a TTY we want SIGHUP to terminate measured.
      */
     if ( backgrounded ) {
-        wand_add_signal(SIGHUP, &meta, reload);
+        signal_hup = event_new(meta.base, SIGHUP,
+                EV_SIGNAL|EV_PERSIST, reload, &meta);
+        event_add(signal_hup, NULL);
     }
 
     /* SIGUSR1 should also reload tests/schedules, we use this internally */
-    wand_add_signal(SIGUSR1, &meta, reload);
+    signal_usr1 = event_new(meta.base, SIGUSR1,
+            EV_SIGNAL|EV_PERSIST, reload, &meta);
+    event_add(signal_usr1, NULL);
 
     /* SIGRTMAX is a debug signal to dump internal state */
-    wand_add_signal(SIGRTMAX, NULL, debug_dump);
+    signal_tmax = event_new(meta.base, SIGRTMAX,
+            EV_SIGNAL|EV_PERSIST, debug_dump, meta.base);
+    event_add(signal_tmax, NULL);
 
     /* register all test modules, load nametable, load schedules */
-    load_tests_and_schedules(ev_hdl, &meta);
+    load_tests_and_schedules(&meta);
+    //can replace will a call to event_active so it calls immediatly
 
     /* give up control to libwandevent */
-    wand_event_run(ev_hdl);
+    event_base_dispatch(meta.base);
 
 
     Log(LOG_INFO, "Shutting down");
 
     /* if we get control back then it's time to tidy up */
     Log(LOG_DEBUG, "Clearing test schedules");
-    clear_test_schedule(ev_hdl, 1);
+    clear_test_schedule(meta.base, 1);
 
     Log(LOG_DEBUG, "Clearing name table");
     clear_nametable();
 
     /* destroying event handler will also clear all signal handlers etc */
     Log(LOG_DEBUG, "Clearing event handlers");
-    wand_destroy_event_handler(ev_hdl);
+    event_base_free(meta.base);
+    if ( signal_load ) event_free(signal_load);
+    if ( signal_int ) event_free(signal_int);
+    if ( signal_term ) event_free(signal_term);
+    if ( signal_chld ) event_free(signal_chld);
+    if ( resolver_socket_event ) event_free(resolver_socket_event);
+    if ( asn_socket_event ) event_free(asn_socket_event);
+    if ( signal_hup ) event_free(signal_hup);
+    if ( signal_usr1 ) event_free(signal_usr1);
+    if ( signal_tmax ) event_free(signal_tmax);
 
     //TODO shutdown control socket?
     free_control_config(control);
