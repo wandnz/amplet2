@@ -62,14 +62,13 @@ build-bionic-armhf:
     - *generic_apt_setup
     - *generic_apt_build
 
-#build-bionic-arm64:
-#  <<: *build_template
-#  image: multiarch/ubuntu-debootstrap:arm64-bionic
-#  script:
-#    - *fix_ubuntu_multiarch_apt
-#    - *generic_apt_setup
-#    - *generic_apt_build
-
+build-bionic-arm64:
+  <<: *build_template
+  image: multiarch/ubuntu-debootstrap:arm64-bionic
+  script:
+    - *fix_ubuntu_multiarch_apt
+    - *generic_apt_setup
+    - *generic_apt_build
 
 build-xenial-amd64:
   <<: *build_template
@@ -91,13 +90,13 @@ build-xenial-armhf:
     - *generic_apt_setup
     - *generic_apt_build
 
-#build-xenial-arm64:
-#  <<: *build_template
-#  image: multiarch/ubuntu-debootstrap:arm64-xenial
-#  script:
-#    - *fix_ubuntu_multiarch_apt
-#    - *generic_apt_setup
-#    - *generic_apt_build
+build-xenial-arm64:
+  <<: *build_template
+  image: multiarch/ubuntu-debootstrap:arm64-xenial
+  script:
+    - *fix_ubuntu_multiarch_apt
+    - *generic_apt_setup
+    - *generic_apt_build
 
 build-buster-amd64:
   <<: *build_template
@@ -111,9 +110,9 @@ build-buster-armhf:
   <<: *build_template
   image: multiarch/debian-debootstrap:armhf-buster
 
-#build-buster-arm64:
-#  <<: *build_template
-#  image: multiarch/debian-debootstrap:arm64-buster
+build-buster-arm64:
+  <<: *build_template
+  image: multiarch/debian-debootstrap:arm64-buster
 
 build-stretch-amd64:
   <<: *build_template
@@ -127,9 +126,9 @@ build-stretch-armhf:
   <<: *build_template
   image: multiarch/debian-debootstrap:armhf-stretch
 
-#build-stretch-arm64:
-#  <<: *build_template
-#  image: multiarch/debian-debootstrap:arm64-stretch
+build-stretch-arm64:
+  <<: *build_template
+  image: multiarch/debian-debootstrap:arm64-stretch
 
 build-jessie-amd64:
   <<: *build_template
