@@ -1,5 +1,5 @@
 Name: amplet2
-Version: 0.9.13
+Version: 0.9.14
 Release: 1%{?dist}
 Summary: AMP Network Performance Measurement Suite
 
@@ -148,6 +148,9 @@ fi
 
 
 %changelog
+* Tue Mar 10 2020 Brendon Jones <brendonj@waikato.ac.nz> 0.9.14-1
+- sip: add new SIP/RTP test, currently disabled by default.
+
 * Mon Feb 24 2020 Brendon Jones <brendonj@waikato.ac.nz> 0.9.13-1
 - dns: use SO_TIMESTAMPING to get timestamps for sent packets (#35).
 - fastping: use SO_TIMESTAMPING to get timestamps for sent packets (#35).
