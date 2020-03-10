@@ -1,4 +1,5 @@
-usr/bin/* usr/sbin
+usr/sbin/*
+usr/bin/*
 usr/lib/*/libamp.*so*
 usr/lib/*/amplet2/tests/*so
 #usr/lib/*/amplet2/chromium/*

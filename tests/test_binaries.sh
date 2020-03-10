@@ -6,16 +6,16 @@
 test_capabilities() {
     declare -A capabilities=(
         ["/usr/sbin/amplet2"]="cap_net_bind_service,cap_net_admin,cap_net_raw+ep"
-        ["/usr/sbin/amp-dns"]=""
-        ["/usr/sbin/amp-external"]=""
-        ["/usr/sbin/amp-fastping"]="cap_net_raw+ep"
-        ["/usr/sbin/amp-http"]=""
-        ["/usr/sbin/amp-icmp"]="cap_net_raw+ep"
-        ["/usr/sbin/amp-tcpping"]="cap_net_admin,cap_net_raw+ep"
-        ["/usr/sbin/amp-throughput"]="cap_net_bind_service+ep"
-        ["/usr/sbin/amp-trace"]="cap_net_raw+ep"
-        ["/usr/sbin/amp-udpstream"]="cap_net_bind_service+ep"
-        ["/usr/sbin/amplet2-remote"]=""
+        ["/usr/bin/amp-dns"]=""
+        ["/usr/bin/amp-external"]=""
+        ["/usr/bin/amp-fastping"]="cap_net_raw+ep"
+        ["/usr/bin/amp-http"]=""
+        ["/usr/bin/amp-icmp"]="cap_net_raw+ep"
+        ["/usr/bin/amp-tcpping"]="cap_net_admin,cap_net_raw+ep"
+        ["/usr/bin/amp-throughput"]="cap_net_bind_service+ep"
+        ["/usr/bin/amp-trace"]="cap_net_raw+ep"
+        ["/usr/bin/amp-udpstream"]="cap_net_bind_service+ep"
+        ["/usr/bin/amplet2-remote"]=""
         )
 
     for bin in "${!capabilities[@]}"; do

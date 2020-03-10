@@ -42,15 +42,12 @@ one or more rabbitmq brokers via the AMQP protocol.
 if [ -x bootstrap.sh ]; then ./bootstrap.sh; fi
 %configure
 
-make %{?_smp_mflags} 
+make %{?_smp_mflags}
 %install
 rm -rf %{buildroot}
 make install DESTDIR=%{buildroot}
 install -D amplet2-client.init %{buildroot}%{_initrddir}/amplet2-client
 install -m 644 -D src/measured/rsyslog/10-amplet2.conf %{buildroot}%{_sysconfdir}/rsyslog.d/10-amplet2.conf
-# XXX this is hax, should amplet2 be in sbin or bin?
-mkdir %{buildroot}%{_sbindir}/
-mv %{buildroot}%{_bindir}/amp* %{buildroot}%{_sbindir}/
 install -m 644 -D amplet2-client.service %{buildroot}%{_unitdir}/amplet2-client.service
 install -m 644 -D src/measured/rabbitmq/client-rabbitmq.config %{buildroot}%{_docdir}/amplet2-client/examples/rabbitmq/client-rabbitmq.config
 rm -rf %{buildroot}/usr/lib/python2.6/
@@ -73,13 +70,14 @@ rm -rf %{buildroot}
 %doc
 %{_mandir}/man8/amp*.8.gz
 %{_sbindir}/*
+%{_bindir}/*
 %caps(cap_net_raw=pe cap_net_admin=pe cap_net_bind_service=pe) %{_sbindir}/amplet2
-%caps(cap_net_raw=pe) %{_sbindir}/amp-fastping
-%caps(cap_net_raw=pe) %{_sbindir}/amp-icmp
-%caps(cap_net_raw=pe cap_net_admin=pe) %{_sbindir}/amp-tcpping
-%caps(cap_net_bind_service=pe) %{_sbindir}/amp-throughput
-%caps(cap_net_raw=pe) %{_sbindir}/amp-trace
-%caps(cap_net_bind_service=pe) %{_sbindir}/amp-udpstream
+%caps(cap_net_raw=pe) %{_bindir}/amp-fastping
+%caps(cap_net_raw=pe) %{_bindir}/amp-icmp
+%caps(cap_net_raw=pe cap_net_admin=pe) %{_bindir}/amp-tcpping
+%caps(cap_net_bind_service=pe) %{_bindir}/amp-throughput
+%caps(cap_net_raw=pe) %{_bindir}/amp-trace
+%caps(cap_net_bind_service=pe) %{_bindir}/amp-udpstream
 %{_libdir}/*.so
 %{_libdir}/*.so.*
 %{_libdir}/amplet2/tests/*so
