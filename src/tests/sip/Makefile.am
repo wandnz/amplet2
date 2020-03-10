@@ -1,10 +1,11 @@
 EXTRA_DIST=*.h sip.proto extra/*
-SUBDIRS= . test
+SUBDIRS=.
 BUILT_SOURCES=sip.pb-c.c
 CLEANFILES=sip.pb-c.c sip.pb-c.h
 
 if WANT_SIP_TEST
 
+SUBDIRS+=test
 testdir=$(libdir)/$(PACKAGE)/tests
 
 bin_PROGRAMS=amp-sip
