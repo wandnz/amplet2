@@ -17,7 +17,7 @@ throughput_la_LDFLAGS=-module -avoid-version -L../../common/ -lamp -lprotobuf-c
 
 INCLUDES=-I../ -I../../common/
 
-install-exec-local:
+install-exec-hook:
 	setcap 'CAP_NET_BIND_SERVICE=ep' $(DESTDIR)/$(bindir)/amp-throughput
 
 throughput.pb-c.c: throughput.proto

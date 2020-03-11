@@ -17,7 +17,7 @@ icmp_la_LDFLAGS=-module -avoid-version -L../../common/ -lamp -lprotobuf-c -lwand
 
 INCLUDES=-I../ -I../../common/
 
-install-exec-local:
+install-exec-hook:
 	setcap 'CAP_NET_RAW=ep' $(DESTDIR)/$(bindir)/amp-icmp
 
 icmp.pb-c.c: icmp.proto

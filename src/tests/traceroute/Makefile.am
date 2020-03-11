@@ -17,7 +17,7 @@ trace_la_LDFLAGS=-module -avoid-version -L../../common/ -lamp -lwandevent -lpthr
 
 INCLUDES=-I../ -I../../common/
 
-install-exec-local:
+install-exec-hook:
 	setcap 'CAP_NET_RAW=ep' $(DESTDIR)/$(bindir)/amp-trace
 
 traceroute.pb-c.c: traceroute.proto

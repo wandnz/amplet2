@@ -19,7 +19,7 @@ fastping_la_LDFLAGS=-module -avoid-version -L../../common/ -lamp -lprotobuf-c -l
 
 INCLUDES=-I../ -I../../common/
 
-install-exec-local:
+install-exec-hook:
 	setcap 'CAP_NET_RAW=ep' $(DESTDIR)/$(bindir)/amp-fastping
 
 endif
