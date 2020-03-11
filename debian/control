@@ -2,7 +2,7 @@ Source: amplet2
 Section: net
 Priority: optional
 Maintainer: Brendon Jones <brendonj@waikato.ac.nz>
-Build-Depends: debhelper (>= 9~), autotools-dev, python, libunbound-dev, libssl-dev, libpcap-dev (>= 1.7.4), libyaml-dev, libprotobuf-c-dev, protobuf-c-compiler, protobuf-compiler, dh-systemd, libconfuse-dev, libcurl4-openssl-dev, librabbitmq-dev (>= 0.7.1), libwandevent-dev, python-setuptools, flex, automake, libtool, libcap2-bin, libcap-dev
+Build-Depends: debhelper (>= 9~), autotools-dev, python, libunbound-dev, libssl-dev, libpcap-dev (>= 1.7.4), libyaml-dev, libprotobuf-c-dev, protobuf-c-compiler, protobuf-compiler, dh-systemd, libconfuse-dev, libcurl4-openssl-dev, librabbitmq-dev (>= 0.7.1), libwandevent-dev, python-setuptools, flex, automake, libtool, libcap2-bin, libcap-dev, libpjproject-dev
 Standards-Version: 3.8.4
 Homepage: http://amp.wand.net.nz
 Testsuite: autopkgtest
@@ -20,6 +20,12 @@ Description: AMP Network Performance Measurement Suite - Client Tools
  tools read a schedule file and measure the network performance to specified
  targets. The resulting data is transferred back to one or more collectors.
  Software to run an AMP collector is found in the amp-server package.
+
+Package: amplet2-client-sip
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, amplet2-client (= ${source:Version}), libpj2, libpjmedia2, libpjsip2, libpjsua2
+Description: AMP Network Performance Measurement Suite - SIP test
+ This package contains the SIP test for the AMP Measurement Suite.
 
 Package: amplet2-server
 Architecture: all

@@ -1,0 +1,3 @@
+usr/bin/amp-sip
+usr/lib/*/amplet2/tests/sip.so
+usr/lib/*/amplet2/extra/sip-test.wav

@@ -11,7 +11,7 @@ Patch0: amplet2-client-init.patch
 Patch1: amplet2-client-service.patch
 BuildRoot:	%(mktemp -ud %{_tmppath}/%{name}-%{version}-%{release}-XXXXXX)
 
-BuildRequires: automake libtool openssl-devel libconfuse-devel libwandevent-devel >= 3.0.1 libcurl-devel unbound-devel libpcap-devel protobuf-c-devel librabbitmq-devel >= 0.7.1 flex libyaml-devel systemd libcap-devel
+BuildRequires: automake libtool openssl-devel libconfuse-devel libwandevent-devel >= 3.0.1 libcurl-devel unbound-devel libpcap-devel protobuf-c-devel librabbitmq-devel >= 0.7.1 flex libyaml-devel systemd libcap-devel pjproject-devel
 
 
 %description
@@ -23,13 +23,17 @@ one or more rabbitmq brokers via the AMQP protocol.
 %package client
 Summary: AMP Network Performance Measurement Suite - Client Tools
 Requires: librabbitmq >= 0.7.1 libwandevent >= 3.0.1 rsyslog protobuf-c systemd initscripts
-
-
 %description client
 This package contains the client tools for the AMP Measurement Suite.
 These measure the network performance to specified targets according
 to a configured schedule. The resulting data is transferred back to
 one or more rabbitmq brokers via the AMQP protocol.
+
+%package client-sip
+Summary: AMP Network Performance Measurement Suite - SIP Test
+Requires: amplet2-client = %{version}
+%description client-sip
+This package contains the SIP test for the AMP Measurement Suite.
 
 
 %prep
@@ -40,7 +44,7 @@ one or more rabbitmq brokers via the AMQP protocol.
 
 %build
 if [ -x bootstrap.sh ]; then ./bootstrap.sh; fi
-%configure
+%configure --enable-sip
 
 make %{?_smp_mflags}
 %install
@@ -67,20 +71,39 @@ rm -rf %{buildroot}
 
 %files client
 %defattr(-,root,root,-)
-%doc
-%{_mandir}/man8/amp*.8.gz
-%{_sbindir}/*
-%{_bindir}/*
+%doc %{_mandir}/man8/amplet2.8.gz
+%doc %{_mandir}/man8/amplet2-remote.8.gz
+%doc %{_mandir}/man8/amp-dns.8.gz
+%doc %{_mandir}/man8/amp-external.8.gz
+%doc %{_mandir}/man8/amp-fastping.8.gz
+%doc %{_mandir}/man8/amp-http.8.gz
+%doc %{_mandir}/man8/amp-icmp.8.gz
+%doc %{_mandir}/man8/amp-tcpping.8.gz
+%doc %{_mandir}/man8/amp-throughput.8.gz
+%doc %{_mandir}/man8/amp-trace.8.gz
+%doc %{_mandir}/man8/amp-udpstream.8.gz
+%exclude %{_mandir}/man8/amp-youtube.8.gz
 %caps(cap_net_raw=pe cap_net_admin=pe cap_net_bind_service=pe) %{_sbindir}/amplet2
+%{_bindir}/amplet2-remote
+%{_bindir}/amp-dns
+%{_bindir}/amp-external
 %caps(cap_net_raw=pe) %{_bindir}/amp-fastping
+%{_bindir}/amp-http
 %caps(cap_net_raw=pe) %{_bindir}/amp-icmp
 %caps(cap_net_raw=pe cap_net_admin=pe) %{_bindir}/amp-tcpping
 %caps(cap_net_bind_service=pe) %{_bindir}/amp-throughput
 %caps(cap_net_raw=pe) %{_bindir}/amp-trace
 %caps(cap_net_bind_service=pe) %{_bindir}/amp-udpstream
-%{_libdir}/*.so
-%{_libdir}/*.so.*
-%{_libdir}/amplet2/tests/*so
+%{_libdir}/libamp.*so*
+%{_libdir}/amplet2/tests/dns.so
+%{_libdir}/amplet2/tests/external.so
+%{_libdir}/amplet2/tests/fastping.so
+%{_libdir}/amplet2/tests/http.so
+%{_libdir}/amplet2/tests/icmp.so
+%{_libdir}/amplet2/tests/tcpping.so
+%{_libdir}/amplet2/tests/throughput.so
+%{_libdir}/amplet2/tests/trace.so
+%{_libdir}/amplet2/tests/udpstream.so
 %config(noreplace) %{_sysconfdir}/%{name}/*
 %config %{_sysconfdir}/rsyslog.d/10-amplet2.conf
 %{_initrddir}/*
@@ -91,6 +114,13 @@ rm -rf %{buildroot}
 %license COPYING
 %{_unitdir}/amplet2-client.service
 
+%files client-sip
+%defattr(-,root,root,-)
+%doc
+%{_mandir}/man8/amp-sip.8.gz
+%{_bindir}/amp-sip
+%{_libdir}/amplet2/tests/sip.so
+%{_libdir}/amplet2/extra/sip-test.wav
 
 %post client
 /sbin/ldconfig
