@@ -5,7 +5,7 @@ check_LTLIBRARIES=testudpstream.la
 testudpstream_la_SOURCES=../udpstream.c ../udpstream_server.c ../udpstream_client.c ../udpstream_common.c
 nodist_testudpstream_la_SOURCES=../udpstream.pb-c.c
 testudpstream_la_CFLAGS=-rdynamic -DUNIT_TEST
-testudpstream_la_LDFLAGS=-module -avoid-version -L../../../common/ -lamp -lprotobuf-c
+testudpstream_la_LDFLAGS=-module -avoid-version -L../../../common/ -lamp -lprotobuf-c -lm
 
 udpstream_register_test_SOURCES=udpstream_register_test.c
 udpstream_register_test_LDADD=testudpstream.la
