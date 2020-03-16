@@ -568,7 +568,7 @@ static int64_t extract_data(struct addrinfo *dest, char *packet, size_t length,
 
 /*
  * Build, send and receive the packets for the test. Rather than using
- * libwandevent we instead loop tightly around select() with a zero timeout
+ * libevent we instead loop tightly around select() with a zero timeout
  * to try to minimise delay between when a packet should be sent, and when it
  * is sent.
  */

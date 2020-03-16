@@ -1175,7 +1175,7 @@ static struct timeval get_next_send_time(struct timeval *last, uint32_t delay) {
     /*
      * Use gettimeofday so that we are using the same clock that set the last
      * sent time for the probe. It's different to the clock used by
-     * libwandevent but we are only interested in the difference between values
+     * libevent but we are only interested in the difference between values
      * so that's ok.
      */
     gettimeofday(&now, NULL);
@@ -1231,7 +1231,7 @@ static struct timeval get_next_timeout_time(struct timeval *next,
 
 
 //XXX can we avoid having forward declarations?
-static void probe_timeout_callback(evutil_socket_t evsock, 
+static void probe_timeout_callback(evutil_socket_t evsock,
         short flags, void *evdata);
 
 

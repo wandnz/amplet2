@@ -414,7 +414,7 @@ static void process_packet(struct dnsglobals_t *globals, char *packet,
  * Callback used when a packet is received that might be a response to one
  * of our probes.
  */
-static void receive_probe_callback(evutil_socket_t evsock, 
+static void receive_probe_callback(evutil_socket_t evsock,
         short flags, void *evdata) {
 
     char *packet;

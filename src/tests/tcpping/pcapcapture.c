@@ -356,7 +356,7 @@ int pcap_listen(struct sockaddr *address, uint16_t srcportv4,
 
     /* Add the fd for the new device to our event handler so that our
      * callback will fire whenever a packet arrives */
-    p->event = event_new(base, p->pcap_fd, EV_READ, callback, p);
+    p->event = event_new(base, p->pcap_fd, EV_READ|EV_PERSIST, callback, p);
     if ( event_add(p->event, NULL) != 0 ) {
         Log(LOG_ERR, "Failed to add fd event for new pcap device %s", device);
         return 0;

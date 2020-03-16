@@ -471,7 +471,6 @@ static void control_establish_callback(
         void *evdata) {
 
     amp_control_t *control = evdata;
-
     int fd;
     struct sockaddr_storage remote;
     socklen_t size = sizeof(remote);

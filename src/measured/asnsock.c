@@ -472,8 +472,8 @@ end:
  * and spawn a new thread to deal with the queries from the test process.
  */
 void asn_socket_event_callback(
-         evutil_socket_t evsock, 
-        __attribute__((unused))short flags, 
+         evutil_socket_t evsock,
+        __attribute__((unused))short flags,
         void *evdata) {
 
     int fd;

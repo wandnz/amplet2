@@ -298,7 +298,6 @@ static void check_next_schedule_time(void) {
         {604800, 1},
     };
 
-
     assert((sizeof(schedule) / sizeof(struct test_schedule)) ==
             sizeof(expected) / sizeof(struct timeval));
     count = sizeof(schedule) / sizeof(struct test_schedule);
@@ -314,7 +313,8 @@ static void check_next_schedule_time(void) {
          * just change them here rather than add a heap of zeroes above
          */
         /* get when the algorithm thinks the next scheduled test should be */
-        offset = amp_test_get_next_schedule_time(&sched_start, schedule[i].repeat,
+        offset = amp_test_get_next_schedule_time(&sched_start,
+                schedule[i].repeat,
                 schedule[i].start*1000, schedule[i].end*1000,
                 schedule[i].freq*1000, schedule[i].run, NULL);
 

@@ -65,8 +65,10 @@
 #include "modules.h"
 #include "testlib.h"
 
+
+
 /*
- * Forward declear block to avoid rearanging code in this commit
+ * Forward declear to use as function pointer values
  */
 static void timer_fetch_callback(
         __attribute__((unused))evutil_socket_t evsock, 
@@ -116,7 +118,7 @@ static void dump_event_fetch_schedule(fetch_schedule_item_t *item, FILE *out) {
 
 static int dump_events_callback(
         __attribute__((unused)) const struct event_base *base,
-        const struct event *ev, 
+        const struct event *ev,
         void *evdata){
 
     struct timeval tv;
@@ -228,6 +230,9 @@ struct events_array {
     struct event **events;
     int index;
 };
+
+
+
 /*
  * Simple callback to append each event to an array of events
  */ 
@@ -240,6 +245,7 @@ static int append_events_array_callback(
     events_arr->index++;
     return 0;
 }
+
 
 
 /*
@@ -257,8 +263,9 @@ void clear_test_schedule(struct event_base *base, int all) {
     int events_count = event_base_get_num_events(base, EVENT_BASE_COUNT_ADDED);
 
     events_arr = (struct events_array){
-            calloc(events_count, sizeof(struct event*)),
-            0};
+                (struct event **)calloc(events_count, sizeof(struct event*)),
+                0
+            };
 
     event_base_foreach_event(base, append_events_array_callback, &events_arr);
 
@@ -303,6 +310,8 @@ void clear_test_schedule(struct event_base *base, int all) {
     }
     free(events_arr.events);
 }
+
+
 
 /*
  * Convert a string from the schedule file into a regular time period.
@@ -554,12 +563,12 @@ parse_param_error:
 
 /*
  * Calculate the next time that a test is due to be run and return a timeval
- * with an offset appropriate for use with libwandevent scheduling. We have to
- * use an offset because libwandevent schedules relative to a monotonic clock,
+ * with an offset appropriate for use with libevent scheduling. We have to
+ * use an offset because libevent schedules relative to a monotonic clock,
  * not the system clock.
  */
 static inline struct timeval get_next_schedule_time_internal(
-        struct timeval *time_pass, schedule_period_t period, uint64_t start, 
+        struct timeval *now, schedule_period_t period, uint64_t start, 
         uint64_t end, uint64_t frequency, int run, struct timeval *abstime) {
 
     time_t period_start, period_end;
@@ -567,13 +576,13 @@ static inline struct timeval get_next_schedule_time_internal(
     int64_t diff, test_end;
     int next_repeat;
 
-    period_start = get_period_start(period, &time_pass->tv_sec);
+    period_start = get_period_start(period, &now->tv_sec);
     test_end = (period_start * INT64_C(1000000)) + end;
 
     /* get difference in us between the first event of this period and now */
-    diff = time_pass->tv_sec - period_start;
+    diff = now->tv_sec - period_start;
     diff *= 1000000;
-    diff += time_pass->tv_usec;
+    diff += now->tv_usec;
     diff -= start;
 
     /* if the difference is negative, we are before the first scheduled run */
@@ -601,7 +610,7 @@ static inline struct timeval get_next_schedule_time_internal(
 
         /* save the absolute time this test was meant to be run */
         if ( abstime ) {
-            timeradd(time_pass, &next, abstime);
+            timeradd(now, &next, abstime);
         }
 
         Log(LOG_DEBUG, "test triggered early, rescheduling for: %d.%d\n",
@@ -638,13 +647,13 @@ static inline struct timeval get_next_schedule_time_internal(
 
     /* check that this next repeat is allowed at this time */
     period_end = period_start + get_period_max_value(period);
-    if ( next_repeat || time_pass->tv_sec + (diff/1000000) > period_end ||
-            US_FROM_TV(*time_pass) + diff > test_end ) {
+    if ( next_repeat || now->tv_sec + (diff/1000000) > period_end ||
+            US_FROM_TV(*now) + diff > test_end ) {
         /* next time is after the end time for test, advance to next start */
-        next.tv_sec = period_end - time_pass->tv_sec;
-        if ( time_pass->tv_usec > 0 ) {
+        next.tv_sec = period_end - now->tv_sec;
+        if ( now->tv_usec > 0 ) {
             next.tv_sec--;
-            next.tv_usec = 1000000 - time_pass->tv_usec;
+            next.tv_usec = 1000000 - now->tv_usec;
         } else {
             next.tv_usec = 0;
         }
@@ -653,7 +662,7 @@ static inline struct timeval get_next_schedule_time_internal(
 
     /* If somehow we get an invalid offset then throw all the calculations
      * out the window and just offset by the frequency. Better to have the
-     * test scheduled roughly correct than to pass rubbish on to libwandevent.
+     * test scheduled roughly correct than to pass rubbish on to libevent.
      */
     if ( next.tv_sec < 0 || next.tv_usec < 0 || next.tv_usec >= 1000000 ) {
         Log(LOG_WARNING,
@@ -669,7 +678,7 @@ static inline struct timeval get_next_schedule_time_internal(
 
     /* save the absolute time this test was meant to be run */
     if ( abstime ) {
-        timeradd(time_pass, &next, abstime);
+        timeradd(now, &next, abstime);
     }
 
     Log(LOG_DEBUG, "next test run scheduled at: %d.%d\n", (int)next.tv_sec,
@@ -683,7 +692,10 @@ static inline struct timeval get_next_schedule_time_internal(
  * allows us to override the time taken from the event_base and set the 
  * time to anything we want. Also, have to make sure that we use this same
  * time result for everything - if we make multiple calls we could end up 
- * on either side of a period boundary or similar.
+ * on either side of a period boundary or similar. libevent ensures this by
+ * caching the internal time between events, so if
+ * 'event_base_gettimeofday_cached' is called  multiple times within the same
+ * event (or sequence of events) the time shall remain constant.
  */
 struct timeval get_next_schedule_time(struct event_base *base,
         schedule_period_t period, uint64_t start, uint64_t end,
@@ -744,10 +756,10 @@ static int compare_test_items(test_schedule_item_t *a, test_schedule_item_t *b){
 
 /*
  * Callback that is used to find the first matching timer event, once a valid 
- * event is found the event is stored at the address pointed to by return_value
+ * event is found the event is stored at the address pointed to by evdata
  */
 int check_test_compare_callback(
-        __attribute__((unused))const struct event_base *base, 
+        __attribute__((unused))const struct event_base *base,
         const struct event *ev, 
         void *evdata) {
 
@@ -790,6 +802,7 @@ int check_test_compare_callback(
 }
 
 
+
 /*
  * Try to merge the given test with any currently scheduled tests that have
  * exactly the same schedule, parameters etc and also allow multiple
@@ -803,7 +816,7 @@ static int merge_scheduled_tests(
     test_schedule_item_t * sched_test = test;
 
     /* if entire events list was searched without returning then result is 0 */
-    if ( event_base_foreach_event(base, 
+    if ( event_base_foreach_event(base,
             check_test_compare_callback, &sched_test) ) {
 
         /* if status is non zero sched_test must contain a matching test */
@@ -1274,10 +1287,10 @@ void read_schedule_dir(struct event_base *base, char *directory,
     glob(full_loc, 0, NULL, &glob_buf);
 
     Log(LOG_INFO, "Loading schedule from %s (found %zd candidates)",
-	    directory, glob_buf.gl_pathc);
+            directory, glob_buf.gl_pathc);
 
     for ( i = 0; i < glob_buf.gl_pathc; i++ ) {
-	read_schedule_file(base, glob_buf.gl_pathv[i], meta);
+        read_schedule_file(base, glob_buf.gl_pathv[i], meta);
     }
 
     globfree(&glob_buf);

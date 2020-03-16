@@ -212,8 +212,8 @@ static void stop_running(
  * the new list of available tests.
  */
 static void reload(
-        __attribute__((unused))evutil_socket_t evsock, 
-        __attribute__((unused))short flags, 
+        __attribute__((unused))evutil_socket_t evsock,
+        __attribute__((unused))short flags,
         void *evdata) {
     char nametable[PATH_MAX];
     char schedule[PATH_MAX];
@@ -716,9 +716,8 @@ int main(int argc, char *argv[]) {
 
     /* register all test modules, load nametable, load schedules */
     load_tests_and_schedules(&meta);
-    //can replace will a call to event_active so it calls immediatly
 
-    /* give up control to libwandevent */
+    /* give up control to libevent */
     event_base_dispatch(meta.base);
 
 
