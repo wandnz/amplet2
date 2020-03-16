@@ -2,10 +2,10 @@ TESTS=udpstream_register.test udpstream_hello.test udpstream_ready.test udpstrea
 check_PROGRAMS=udpstream_register.test udpstream_hello.test udpstream_ready.test udpstream_request.test udpstream_unresolved_target.test
 
 check_LTLIBRARIES=testudpstream.la
-testudpstream_la_SOURCES=../udpstream.c ../udpstream_server.c ../udpstream_client.c ../udpstream_common.c ../mos.c
+testudpstream_la_SOURCES=../udpstream.c ../udpstream_server.c ../udpstream_client.c ../udpstream_common.c
 nodist_testudpstream_la_SOURCES=../udpstream.pb-c.c
 testudpstream_la_CFLAGS=-rdynamic -DUNIT_TEST
-testudpstream_la_LDFLAGS=-module -avoid-version -L../../../common/ -lamp -lprotobuf-c -lm
+testudpstream_la_LDFLAGS=-module -avoid-version -L../../../common/ -lamp -lprotobuf-c
 
 udpstream_register_test_SOURCES=udpstream_register_test.c
 udpstream_register_test_LDADD=testudpstream.la

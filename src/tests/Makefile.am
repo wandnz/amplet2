@@ -43,6 +43,7 @@ endif
 SUBDIRS+=youtube
 SUBDIRS+=fastping
 SUBDIRS+=external
+SUBDIRS+=sip
 
 if WANT_PYTHON
 SUBDIRS+=python

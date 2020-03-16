@@ -17,6 +17,6 @@ dns_la_LDFLAGS=-module -avoid-version -L../../common/ -lamp -lprotobuf-c -levent
 
 INCLUDES=-I../ -I../../common/
 
-dns.pb-c.c: Makefile
+dns.pb-c.c: dns.proto
 	protoc-c --c_out=. dns.proto
 	protoc --python_out=../python/ampsave/tests/ dns.proto

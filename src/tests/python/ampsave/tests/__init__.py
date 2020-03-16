@@ -51,4 +51,5 @@ __all__ = [
     "youtube",
     "fastping",
     "external",
+    "sip",
 ]

@@ -17,6 +17,6 @@ http_la_LDFLAGS=-module -avoid-version -L../../common/ -lamp -lcurl -lprotobuf-c
 
 INCLUDES=-I../ -I../../common/
 
-http.pb-c.c: Makefile
+http.pb-c.c: http.proto
 	protoc-c --c_out=. http.proto
 	protoc --python_out=../python/ampsave/tests/ http.proto

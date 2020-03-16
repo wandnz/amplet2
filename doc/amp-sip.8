@@ -1,0 +1,159 @@
+.TH AMP-SIP 8 "2020-03-06" "amplet2-client" "The Active Measurement Project"
+
+.SH NAME
+amp-sip \- AMP standalone SIP/RTP test
+
+
+.SH SYNOPSIS
+\fBamp-sip\fR \fB-s\fR [\fIoptions\fR]
+.br
+\fBamp-sip\fR \fB-u \fIuri\fR [\fIoptions\fR]
+
+
+.SH DESCRIPTION
+\fBamp-sip\fP is the standalone version of the \fBamplet2\fP(8)
+SIP/RTP test. It establishes a SIP connection between two endpoints (the
+remote endpoint being another instance of this standalone test, a running
+instance of \fBamplet2\fP(8), or any other SIP endpoint) then sends an RTP
+stream containing audio data, reporting on the jitter, latency and loss
+observed. It also uses these values to calculate Mean Opinion Scores.
+
+The test runs till the maximum duration is reached, or (if looping is
+disabled) when playback of the audio file ends.
+
+
+.SH GENERAL OPTIONS
+.TP
+\fB-a, --user-agent \fIagent\fR
+Specify User-Agent string. The default is "AMP SIP test agent <version>".
+
+
+.TP
+\fB-f, --filename \fIfilename\fR
+Specify the WAV audio file to play once the media connection is established.
+It should be encoded as 16-bit, mono, 16000Hz. The test will run until playback
+of the audio file ends or the maximum allowed test duration is reached,
+whichever occurs first.
+The default is \fI/usr/lib/{arch}/amplet2/extra/sip-test.wav\fR.
+.\" XXX this isn't architecture specific, put this in share/ or something?
+
+
+.TP
+\fB-I, --interface \fIiface\fR
+Specifies the interface (device) that tests should use when sending packets.
+By default the interface will be selected according to the routing table.
+
+
+.TP
+\fB-Q, --dscp \fIcodepoint\fR
+IP differentiated services codepoint to set. This should be a string
+representing a 6-bit value in binary, octal, decimal or hexadecimal, or the
+short name of a predefined, commonly used codepoint.
+
+
+.TP
+\fB-4, --ipv4 \fIa.b.c.d\fR
+Specifies the source IPv4 address that tests should use when sending packets to
+IPv4 targets. This address must belong to one of the interfaces.
+By default the IPv4 address of the outgoing interface will be used.
+
+
+.TP
+\fB-6, --ipv6 \fIa:b:c:d:e:f:g:h\fR
+Specifies the source IPv6 address that tests should use when sending packets to
+IPv6 targets. This address must belong to one of the interfaces.
+By default the IPv6 address of the outgoing interface will be used.
+
+
+.SH SERVER OPTIONS
+.TP
+\fB-P, --port \fIport\fR
+Set the local SIP port to bind to. The default is 5060.
+
+
+.TP
+\fB-s, --server\fR
+Run in server mode.
+
+
+.SH CLIENT OPTIONS
+.TP
+\fB-r, --disable-repeat
+Play the WAV file only once then hang up.
+
+
+.TP
+\fB-t, --time \fIduration\fR
+Maximum duration in seconds that the test should run for. The test will run
+until playback of the audio file ends or \fIduration\fR seconds have passed,
+whichever occurs first. The default is 30 seconds.
+
+
+.TP
+\fB-u, --uri \fIuri\fR
+Run in client mode, connecting to \fIuri\fR.
+
+
+.TP
+\fB-y, --proxy \fIuri\fR
+Specify the URI to a SIP proxy that should be used. May be given multiple
+times.
+
+
+.SH MISCELLANEOUS OPTIONS
+.TP
+\fB-h, --help\fR
+Show summary of options.
+
+
+.TP
+\fB-v, --version\fR
+Show version of program.
+
+
+.TP
+\fB-x, --debug\fR
+Enable extra debugging output.
+
+
+.SH EXAMPLES
+.TP
+\fBamp-sip -u sip:192.0.2.1
+Connect to a SIP endpoint that is listening on address 192.0.2.1 and play
+the default audio file on repeat until the default test duration is reached.
+
+
+.TP
+\fBamp-sip -u sip:example@sip.example.com -r
+Connect to a SIP endpoint that is registered as example@sip.example.com and
+play the default audio file once (the default audio file is shorter than the
+default maximum test duration).
+
+
+.TP
+\fBamp-sip -u sip:192.0.2.1 -f ~/example.wav -t 60\fR
+Connect to a SIP endpoint that is listening on address 192.0.2.1 and play
+the audio file \fI~/example.wav\fB for 60 seconds, repeating the audio file
+should it reach the end.
+
+
+.SH SEE ALSO
+.BR amplet2 (8),
+.BR amplet2-remote (8),
+.BR amp-icmp (8),
+.BR amp-trace (8),
+.BR amp-dns (8),
+.BR amp-throughput (8),
+.BR amp-http (8),
+.BR amp-tcpping (8),
+.BR amp-youtube (8),
+.BR amp-fastping (8),
+.BR amp-external (8),
+.BR amp-udpstream (8).
+
+
+.SH AUTHOR
+amp-sip was written by Brendon Jones <brendonj@waikato.ac.nz>.
+
+.PP
+This manual page was written by Brendon Jones <brendonj@waikato.ac.nz>.

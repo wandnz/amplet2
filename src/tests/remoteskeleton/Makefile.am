@@ -17,6 +17,6 @@ remoteskeleton_la_LDFLAGS=-module -avoid-version -L../../common/ -lamp -lprotobu
 
 INCLUDES=-I../ -I../../common/
 
-remoteskeleton.pb-c.c: Makefile
+remoteskeleton.pb-c.c: remoteskeleton.proto
 	protoc-c --c_out=. remoteskeleton.proto
 	protoc --python_out=../python/ampsave/tests/ remoteskeleton.proto

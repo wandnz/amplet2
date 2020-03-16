@@ -20,6 +20,6 @@ INCLUDES=-I../ -I../../common/
 install-exec-local:
 	setcap 'CAP_NET_RAW=ep' $(DESTDIR)/$(bindir)/amp-trace
 
-traceroute.pb-c.c: Makefile
+traceroute.pb-c.c: traceroute.proto
 	protoc-c --c_out=. traceroute.proto
 	protoc --python_out=../python/ampsave/tests/ traceroute.proto
