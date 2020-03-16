@@ -372,29 +372,29 @@ int main(int argc, char *argv[]) {
     while ( (opt = getopt_long(argc, argv, "dhp:vxc:rZ:I:4::6::",
                     long_options, NULL)) != -1 ) {
 
-	switch ( opt ) {
-	    case 'd':
-		/* daemonise, detach, close stdin/out/err, etc */
-		if ( daemon(0, 0) < 0 ) {
-		    perror("daemon");
-		    exit(EXIT_FAILURE);
-		}
+        switch ( opt ) {
+            case 'd':
+                /* daemonise, detach, close stdin/out/err, etc */
+                if ( daemon(0, 0) < 0 ) {
+                    perror("daemon");
+                    exit(EXIT_FAILURE);
+                }
                 backgrounded = 1;
-		break;
-	    case 'v':
-		/* print version and build info */
+                break;
+                case 'v':
+                /* print version and build info */
                 print_measured_version(argv[0]);
                 exit(EXIT_SUCCESS);
-	    case 'x':
-		/* enable extra debug output, overriding config settings */
+            case 'x':
+                /* enable extra debug output, overriding config settings */
                 /* TODO allow the exact log level to be set? */
-		log_level = LOG_DEBUG;
+                log_level = LOG_DEBUG;
                 log_level_override = 1;
-		break;
-	    case 'c':
-		/* specify a configuration file */
-		config_file = optarg;
-		break;
+                break;
+            case 'c':
+                /* specify a configuration file */
+                config_file = optarg;
+                break;
             case 'p':
                 pidfile = optarg;
                 break;
@@ -428,13 +428,13 @@ int main(int argc, char *argv[]) {
                     meta.sourcev6 = "any";
                 }
                 break;
-	    case 'h':
+            case 'h':
                 usage();
                 exit(EXIT_SUCCESS);
-	    default:
-		usage();
-		exit(EXIT_FAILURE);
-	};
+            default:
+                usage();
+                exit(EXIT_FAILURE);
+        };
     }
 
     /* save the pointer to argv so that we can overwrite the name later */
@@ -655,7 +655,7 @@ int main(int argc, char *argv[]) {
     /* create the resolver/cache unix socket and add event listener for it */
     if ( (vars.nssock_fd = initialise_local_socket(vars.nssock)) < 0 ) {
         Log(LOG_ALERT, "Failed to initialise local resolver, aborting");
-	cfg_free(cfg);
+        cfg_free(cfg);
         exit(EXIT_FAILURE);
     }
     resolver_socket_event = event_new(meta.base, vars.nssock_fd,

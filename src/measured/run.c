@@ -426,8 +426,8 @@ static int fork_test(test_schedule_item_t *item) {
      * fine.
      */
     if ( (pid = fork()) < 0 ) {
-	perror("fork");
-	return 0;
+        perror("fork");
+        return 0;
     } else if ( pid == 0 ) {
         /*
          * close the unix domain sockets the parent had, if we keep them open
@@ -442,11 +442,15 @@ static int fork_test(test_schedule_item_t *item) {
             Log(LOG_WARNING, "Failed to unblock signals, aborting");
             exit(EXIT_FAILURE);
         }
+        /* 
+         * libevent can have issuse spooling up another event loop from within
+         * an existing event loop 
+         */
+        event_base_free(item->meta->base);
+        run_test(item, NULL);
 
-	run_test(item, NULL);
-
-	Log(LOG_WARNING, "%s test failed to run", item->test->name);
-	exit(EXIT_FAILURE);
+        Log(LOG_WARNING, "%s test failed to run", item->test->name);
+        exit(EXIT_FAILURE);
     }
 
     return 1;

@@ -1147,7 +1147,7 @@ amp_test_result_t* run_tcpping(int argc, char *argv[], int count,
      * callback for any response.
      */
     globals->nextpackettimer = event_new(base, -1,
-            EV_PERSIST, send_packet, globals);
+            0, send_packet, globals);
     event_active(globals->nextpackettimer, 0, 0);
 
     event_base_dispatch(base);

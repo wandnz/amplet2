@@ -81,22 +81,22 @@ int check_test_compare_callback(
 /*
  * Dump a debug information line about a scheduled test.
  */
-static void __attribute__((unused))dump_event_run_test(test_schedule_item_t *item, FILE *out) {
+static void dump_event_run_test(test_schedule_item_t *item, FILE *out) {
 
     assert(item);
 
     fprintf(out, "EVENT_RUN_TEST ");
     fprintf(out, "%s %d.%.6d", item->test->name,
-	    (int)item->interval.tv_sec, (int)item->interval.tv_usec);
+            (int)item->interval.tv_sec, (int)item->interval.tv_usec);
 
     if ( item->params == NULL ) {
-	fprintf(out, " (no args)");
+        fprintf(out, " (no args)");
     } else {
         int i;
-	/* params is a NULL terminated array */
-	for ( i=0; item->params[i] != NULL; i++ ) {
-	    fprintf(out, " %s", item->params[i]);
-	}
+        /* params is a NULL terminated array */
+        for ( i=0; item->params[i] != NULL; i++ ) {
+            fprintf(out, " %s", item->params[i]);
+        }
     }
     fprintf(out, "\n");
 }
@@ -106,7 +106,7 @@ static void __attribute__((unused))dump_event_run_test(test_schedule_item_t *ite
 /*
  * Dump a debug information line about a scheduled schedule update.
  */
-static void __attribute__((unused))dump_event_fetch_schedule(fetch_schedule_item_t *item, FILE *out) {
+static void dump_event_fetch_schedule(fetch_schedule_item_t *item, FILE *out) {
     assert(item);
 
     fprintf(out, "EVENT_FETCH_SCHEDULE %s\n", item->schedule_url);
@@ -114,46 +114,49 @@ static void __attribute__((unused))dump_event_fetch_schedule(fetch_schedule_item
 
 
 
+static int dump_events_callback(
+        __attribute__((unused)) const struct event_base *base,
+        const struct event *ev, 
+        void *evdata){
+
+    struct timeval tv;
+    schedule_item_t *item;
+    FILE *out = evdata;
+    event_callback_fn cb = event_get_callback(ev);
+
+    if ( cb == run_scheduled_test || cb == timer_fetch_callback ) {
+        event_pending(ev,EV_TIMEOUT,&tv);
+
+        fprintf(out, "%d.%.6d ", (int)tv.tv_sec, (int)tv.tv_usec);
+        item = event_get_callback_arg(ev);
+        switch ( item->type ) {
+            case EVENT_RUN_TEST:
+                dump_event_run_test(item->data.test, out);
+                break;
+            case EVENT_FETCH_SCHEDULE:
+                dump_event_fetch_schedule(item->data.fetch, out);
+                break;
+            default: fprintf(out, "UNKNOWN\n");
+        };
+    }
+    return 0;
+}
+
 /*
  * Dump the current schedule for debug purposes
  */
 void dump_schedule(struct event_base *base, FILE *out) {
-    //struct wand_timer_t *timer;
-    //schedule_item_t *item;
-    //struct timeval mono, wall, offset;
     struct timeval wall;
     assert(out);
-
-    //wall = wand_get_walltime(ev_hdl);
 
     event_base_gettimeofday_cached(base, &wall);
 
     fprintf(out, "===== SCHEDULE at %d.%d =====\n", (int)wall.tv_sec,
             (int)wall.tv_usec);
 
-    event_base_dump_events(base, out); //maybe not ideal TODO:event
+    event_base_foreach_event(base, dump_events_callback, out);
 
-    // for ( timer=ev_hdl->timers; timer != NULL; timer=timer->next ) {
-    //     timersub(&timer->expire, &mono, &offset);
-    //     fprintf(out, "%d.%.6d ", (int)offset.tv_sec, (int)offset.tv_usec);
-    //     if ( timer->data == NULL ) {
-    //         fprintf(out, "NULL\n");
-    //         continue;
-    //     }
-
-    //     item = (schedule_item_t *)timer->data;
-    //     switch ( item->type ) {
-    //         case EVENT_RUN_TEST:
-    //             dump_event_run_test(item->data.test, out);
-    //             break;
-    //         case EVENT_FETCH_SCHEDULE:
-    //             dump_event_fetch_schedule(item->data.fetch, out);
-    //             break;
-    //         default: fprintf(out, "UNKNOWN\n"); continue;
-    //     };
-    // }
     fprintf(out, "\n");
-
 }
 
 
@@ -1548,8 +1551,8 @@ static void timer_fetch_callback(
     fork_and_fetch(fetch, 0);
 
     struct timeval timeout = (struct timeval) {
-            fetch->frequency / 1000000,
-            fetch->frequency % 1000000};
+            fetch->frequency,
+            fetch->frequency};
 
     /* reschedule checking for schedule updates */
     if ( event_add(item->event, &timeout) != 0 ) {
@@ -1590,8 +1593,8 @@ int enable_remote_schedule_fetch(struct event_base *base,
     item->event = event_new(base, -1, 0, timer_fetch_callback, item);
 
     struct timeval timeout = (struct timeval) {
-            fetch->frequency / 1000000,
-            fetch->frequency % 1000000};
+            fetch->frequency,
+            fetch->frequency};
 
     /* create the timer event for fetching schedules */
     if ( event_add(item->event, &timeout) != 0 ) {
