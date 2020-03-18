@@ -362,7 +362,11 @@ static pj_status_t register_transport(pj_pool_t *pool,
     /* if using IPv6, need to tell the media to use it as well */
     if ( transport & PJSIP_TRANSPORT_IPV6 ) {
         pjsua_acc_config account_cfg;
+#if PJ_VERSION_NUM >= 0x02020000
         pjsua_acc_get_config(account_id, pool, &account_cfg);
+#else
+        pjsua_acc_get_config(account_id, &account_cfg);
+#endif
         account_cfg.ipv6_media_use = PJSUA_IPV6_ENABLED;
         pjsua_acc_modify(account_id, &account_cfg);
     }
