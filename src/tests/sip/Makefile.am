@@ -16,6 +16,7 @@ amp_sip_LDFLAGS=-Wl,--no-as-needed
 test_LTLIBRARIES=sip.la
 sip_la_SOURCES=sip.c sip_common.c sip_server.c sip_client.c
 nodist_sip_la_SOURCES=sip.pb-c.c
+sip_la_CFLAGS=$(AM_CFLAGS) -DPJ_AUTOCONF=1
 sip_la_LDFLAGS=-module -avoid-version -L../../common/ -lamp -lprotobuf-c -lpj -lpjsua -lpjsip -lpjmedia
 
 INCLUDES=-I../ -I../../common/

@@ -413,6 +413,7 @@ AC_ARG_ENABLE(sip,
 AM_CONDITIONAL(WANT_SIP_TEST, [test x"$want_sip_test" = xtrue])
 
 if test x"$want_sip_test" = xtrue; then
+    AC_DEFINE([PJ_AUTOCONF], [1], [Define to 1 so pjsip works correctly with autoconf])
     AC_CHECK_LIB([pj], [pj_timer_entry_init], pj_found=1, pj_found=0)
     AC_CHECK_LIB([pjmedia], [pjmedia_wav_player_set_eof_cb], pjmedia_found=1, pjmedia_found=0)
     AC_CHECK_LIB([pjsip], [pjsip_parse_uri], pjsip_found=1, pjsip_found=0)
