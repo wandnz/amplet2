@@ -22,6 +22,7 @@ stages:
   export DEBEMAIL='brendonj@waikato.ac.nz' &&
   export DEBFULLNAME='Brendon Jones' &&
   export CODENAME=`lsb_release -c -s` &&
+  export DEB_BUILD_PROFILES=$CODENAME &&
   mk-build-deps -i -r -t 'apt-get -f -y --force-yes'
 
 .generic_apt_build_template: &generic_apt_build

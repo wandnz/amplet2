@@ -22,6 +22,12 @@ export DH_OPTIONS
 # currently hardcoded...
 export DEB_PYTHON_INSTALL_ARGS = --install-layout=deb --single-version-externally-managed --record $(CURDIR)/debian/tmp/usr/lib/python2.7/dist-packages/ampsave/install_files.txt
 
+# only build sip test if buster isn't in the build profiles
+ifeq ($(filter buster,$(DEB_BUILD_PROFILES)),)
+	ENABLE_SIP="--enable-sip"
+else
+	ENABLE_SIP="--disable-sip"
+endif
 
 %:
 	dh $@ --with python2 --with=systemd
@@ -31,7 +37,7 @@ override_dh_installinit:
 
 override_dh_auto_configure:
 	if [ -x $(CURDIR)/bootstrap.sh ]; then $(CURDIR)/bootstrap.sh; fi
-	dh_auto_configure -- --enable-sip $(shell dpkg-buildflags --export=configure)
+	dh_auto_configure -- $(ENABLE_SIP) $(shell dpkg-buildflags --export=configure)
 
 override_dh_systemd_enable:
 	dh_systemd_enable --no-enable
