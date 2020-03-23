@@ -1,3 +1,13 @@
+amplet2 (0.10.0-1) unstable; urgency=low
+
+  * amplet2: move standalone test binaries from /usr/sbin to /usr/bin/.
+  * sip: fix building the test with older libpjsip packages.
+  * sip: fix building the test on armhf and arm64 architectures.
+  * sip: build a separate {deb,rpm} package containing the sip test.
+  * udpstream: link the test with -lm again.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Tue, 24 Mar 2020 09:47:14 +1300
+
 amplet2 (0.9.14-1) unstable; urgency=low
 
   * package: no longer build transitional package amplet2-client-lite.

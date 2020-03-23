@@ -1,5 +1,5 @@
 Name: amplet2
-Version: 0.9.14
+Version: 0.10.0
 Release: 1%{?dist}
 Summary: AMP Network Performance Measurement Suite
 
@@ -176,6 +176,13 @@ fi
 
 
 %changelog
+* Tue Mar 24 2020 Brendon Jones <brendonj@waikato.ac.nz> 0.10.0-1
+- amplet2: move standalone test binaries from /usr/sbin to /usr/bin/.
+- sip: fix building the test with older libpjsip packages.
+- sip: fix building the test on armhf and arm64 architectures.
+- sip: build a separate {deb,rpm} package containing the sip test.
+- udpstream: link the test with -lm again.
+
 * Tue Mar 10 2020 Brendon Jones <brendonj@waikato.ac.nz> 0.9.14-1
 - sip: add new SIP/RTP test, currently disabled by default.
 
