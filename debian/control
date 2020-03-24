@@ -24,7 +24,7 @@ Description: AMP Network Performance Measurement Suite - Client Tools
 Package: amplet2-client-sip
 Architecture: any
 Build-Profiles: <!buster>
-Depends: ${shlibs:Depends}, ${misc:Depends}, amplet2-client (= ${source:Version}), libpj2, libpjmedia2, libpjsip2, libpjsua2
+Depends: ${shlibs:Depends}, ${misc:Depends}, amplet2-client (= ${source:Version}), libpj2, libpjmedia2, libpjsip2, libpjsua2, libmirclient9 <bionic>
 Description: AMP Network Performance Measurement Suite - SIP test
  This package contains the SIP test for the AMP Measurement Suite.
 
