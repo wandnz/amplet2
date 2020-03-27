@@ -217,16 +217,44 @@ static void print_video(Amplet2__Youtube__Item *video) {
 
     printf("  Title: \"%s\"\n", video->title);
     printf("  Final quality: %s\n", get_quality_string(video->quality));
-    printf("  Reported duration: %lums\n", video->reported_duration);
-    printf("  Time before buffering: %lums\n", video->pre_time);
-    printf("  Initial buffering: %lums\n", video->initial_buffering);
-    printf("  Time playing: %lums\n", video->playing_time);
-    if ( video->stall_count == 0 ) {
-        printf("  Maintained continuous playback, did not stall\n");
+
+    printf("  Reported duration: ");
+    if ( video->has_reported_duration ) {
+        printf("%lums\n", video->reported_duration);
     } else {
-        printf("  Stalled %lu times for a total of %lums\n",
-                video->stall_count, video->stall_time);
+        printf("unknown\n");
     }
+
+    printf("  Time before buffering: ");
+    if ( video->has_pre_time ) {
+        printf("%lums\n", video->pre_time);
+    } else {
+        printf("unknown\n");
+    }
+
+    printf("  Initial buffering: ");
+    if ( video->has_initial_buffering ) {
+        printf("%lums\n", video->initial_buffering);
+    } else {
+        printf("unknown\n");
+    }
+
+    printf("  Time playing: ");
+    if ( video->has_playing_time ) {
+        printf("  Time playing: %lums\n", video->playing_time);
+    } else {
+        printf("unknown\n");
+    }
+
+    if ( video->has_stall_count ) {
+        if ( video->stall_count == 0 ) {
+            printf("  Maintained continuous playback, did not stall\n");
+        } else {
+            printf("  Stalled %lu times for a total of %lums\n",
+                    video->stall_count, video->stall_time);
+        }
+    }
+
     printf("  Total time: %lums\n", video->total_time);
     printf("  Timeline:\n");
     for ( i = 0; i < video->n_timeline; i++ ) {

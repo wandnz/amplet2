@@ -99,20 +99,29 @@ static Amplet2__Youtube__Item* report_video_results(
     video->has_quality = 1;
     video->title = info->title;
 
-    video->has_pre_time = 1;
-    video->pre_time = info->pre_time;
-    video->has_initial_buffering = 1;
-    video->initial_buffering = info->initial_buffering;
-    video->has_playing_time = 1;
-    video->playing_time = info->playing_time;
-    video->has_stall_time = 1;
-    video->stall_time = info->stall_time;
-    video->has_stall_count = 1;
-    video->stall_count = info->stall_count;
     video->has_total_time = 1;
     video->total_time = info->total_time;
-    video->has_reported_duration = 1;
-    video->reported_duration = info->reported_duration;
+    video->has_pre_time = 1;
+    video->pre_time = info->pre_time;
+
+    /*
+     * If initial buffering is zero it likely means the video had an error
+     * before it started playing, so these values don't make sense to report.
+     * TODO We might be able to assume that either the time it transitioned
+     * to "unstarted" or "error" is the end of initial buffering.
+     */
+    if ( info->initial_buffering > 0 ) {
+        video->has_initial_buffering = 1;
+        video->initial_buffering = info->initial_buffering;
+        video->has_playing_time = 1;
+        video->playing_time = info->playing_time;
+        video->has_stall_time = 1;
+        video->stall_time = info->stall_time;
+        video->has_stall_count = 1;
+        video->stall_count = info->stall_count;
+        video->has_reported_duration = 1;
+        video->reported_duration = info->reported_duration;
+    }
 
     /* build up the repeated timeline section */
     video->n_timeline = info->event_count;
