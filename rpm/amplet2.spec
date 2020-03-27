@@ -105,7 +105,7 @@ rm -rf %{buildroot}
 %{_libdir}/amplet2/tests/trace.so
 %{_libdir}/amplet2/tests/udpstream.so
 %config(noreplace) %{_sysconfdir}/%{name}/*
-%config %{_sysconfdir}/rsyslog.d/10-amplet2.conf
+%config(noreplace) %{_sysconfdir}/rsyslog.d/10-amplet2.conf
 %{_initrddir}/*
 %dir %{_localstatedir}/run/%{name}/
 %doc %{_docdir}/amplet2-client/examples/rabbitmq/*
