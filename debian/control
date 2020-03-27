@@ -2,7 +2,7 @@ Source: amplet2
 Section: net
 Priority: optional
 Maintainer: Brendon Jones <brendonj@waikato.ac.nz>
-Build-Depends: debhelper (>= 9~), autotools-dev, python, libunbound-dev, libssl-dev, libpcap-dev (>= 1.7.4), libyaml-dev, libprotobuf-c-dev, protobuf-c-compiler, protobuf-compiler, dh-systemd, libconfuse-dev, libcurl4-openssl-dev, librabbitmq-dev (>= 0.7.1), libwandevent-dev, python-setuptools, flex, automake, libtool, libcap2-bin, libcap-dev, libpjproject-dev <!buster>
+Build-Depends: debhelper (>= 9~), autotools-dev, python, libunbound-dev, libssl-dev, libpcap-dev (>= 1.7.4), libyaml-dev, libprotobuf-c-dev, protobuf-c-compiler, protobuf-compiler, dh-systemd, libconfuse-dev, libcurl4-openssl-dev, librabbitmq-dev (>= 0.7.1), libwandevent-dev, python-setuptools, flex, automake, libtool, libcap2-bin, libcap-dev, libpjproject-dev <!buster>, clang <pkg.amplet2.build-youtube>, lld <pkg.amplet2.build-youtube>, libnss3 <pkg.amplet2.build-youtube>, dh-exec (>=0.3) <pkg.amplet2.build-youtube>
 Standards-Version: 3.8.4
 Homepage: http://amp.wand.net.nz
 Testsuite: autopkgtest
@@ -27,6 +27,14 @@ Build-Profiles: <!buster>
 Depends: ${shlibs:Depends}, ${misc:Depends}, amplet2-client (= ${source:Version}), libpj2, libpjmedia2, libpjsip2, libpjsua2, libmirclient9 <bionic>
 Description: AMP Network Performance Measurement Suite - SIP test
  This package contains the SIP test for the AMP Measurement Suite.
+
+Package: amplet2-client-youtube
+Architecture: amd64
+Build-Profiles: <pkg.amplet2.build-youtube>
+Depends: ${shlibs:Depends}, ${misc:Depends}, amplet2-client (= ${source:Version}), fontconfig, libnss3
+Recommends: chromium-codecs-ffmpeg-extra (= 71.0.3578.98-0ubuntu0.18.04.1)
+Description: AMP Network Performance Measurement Suite - YouTube test
+ This package contains the YouTube test for the AMP Measurement Suite.
 
 Package: amplet2-server
 Architecture: all

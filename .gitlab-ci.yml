@@ -22,7 +22,9 @@ stages:
   export DEBEMAIL='brendonj@waikato.ac.nz' &&
   export DEBFULLNAME='Brendon Jones' &&
   export CODENAME=`lsb_release -c -s` &&
-  export DEB_BUILD_PROFILES=$CODENAME &&
+  export ARCH=`dpkg-architecture -qDEB_HOST_ARCH` &&
+  { wget -nv https://wand.net.nz/~brendonj/amp/youtube/chromium-libs_$CODENAME-$ARCH.tar.gz && tar xzvf chromium-libs_$CODENAME-$ARCH.tar.gz && export YOUTUBE="pkg.amplet2.build-youtube" || true; } &&
+  export DEB_BUILD_PROFILES="$CODENAME $YOUTUBE" &&
   mk-build-deps -i -r -t 'apt-get -f -y --force-yes'
 
 .generic_apt_build_template: &generic_apt_build

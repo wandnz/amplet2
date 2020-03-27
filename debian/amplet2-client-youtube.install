@@ -1,0 +1,7 @@
+#! /usr/bin/dh-exec
+
+usr/bin/amp-youtube
+usr/lib/*/amplet2/chromium/amp-youtube-wrapper
+usr/lib/*/amplet2/tests/youtube.so
+usr/lib/*/amplet2/extra/yt.html
+chromium-libs_*/*.so usr/lib/${DEB_HOST_MULTIARCH}/amplet2/chromium/

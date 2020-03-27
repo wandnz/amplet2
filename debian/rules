@@ -24,9 +24,16 @@ export DEB_PYTHON_INSTALL_ARGS = --install-layout=deb --single-version-externall
 
 # only build sip test if buster isn't in the build profiles
 ifeq ($(filter buster,$(DEB_BUILD_PROFILES)),)
-	ENABLE_SIP="--enable-sip"
+	ENABLE_SIP=--enable-sip
 else
-	ENABLE_SIP="--disable-sip"
+	ENABLE_SIP=--disable-sip
+endif
+
+# only build youtube test if set in the build profiles
+ifneq ($(filter pkg.amplet2.build-youtube,$(DEB_BUILD_PROFILES)),)
+	ENABLE_YOUTUBE=--enable-youtube --with-chromium-build=`pwd`/chromium-libs_$(CODENAME)-$(ARCH)/ --with-chromium-includes=`pwd`/chromium-libs_$(CODENAME)-$(ARCH)/include/
+else
+	ENABLE_YOUTUBE=--disable-youtube
 endif
 
 %:
@@ -37,7 +44,7 @@ override_dh_installinit:
 
 override_dh_auto_configure:
 	if [ -x $(CURDIR)/bootstrap.sh ]; then $(CURDIR)/bootstrap.sh; fi
-	dh_auto_configure -- $(ENABLE_SIP) $(shell dpkg-buildflags --export=configure)
+	dh_auto_configure -- $(ENABLE_SIP) $(ENABLE_YOUTUBE) $(shell dpkg-buildflags --export=configure)
 
 override_dh_systemd_enable:
 	dh_systemd_enable --no-enable
