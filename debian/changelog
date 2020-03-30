@@ -1,3 +1,13 @@
+amplet2 (0.10.1-1) unstable; urgency=low
+
+  * package: remove unnecessary /usr/sbin directory from debian install dirs.
+  * package: add extra dependency for amplet2-client-sip on Ubuntu Bionic.
+  * package: add extra build dependencies for amplet2-client-youtube package.
+  * youtube: build a separate deb package containing the youtube test.
+  * youtube: don't print test timing results if they aren't set.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Mon, 30 Mar 2020 15:10:43 +1300
+
 amplet2 (0.10.0-1) unstable; urgency=low
 
   * amplet2: move standalone test binaries from /usr/sbin to /usr/bin/.

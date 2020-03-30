@@ -1,5 +1,5 @@
 Name: amplet2
-Version: 0.10.0
+Version: 0.10.1
 Release: 1%{?dist}
 Summary: AMP Network Performance Measurement Suite
 
@@ -176,6 +176,10 @@ fi
 
 
 %changelog
+* Mon Mar 30 2020 Brendon Jones <brendonj@waikato.ac.nz> 0.10.1-1
+- package: set noreplace on the rsyslogd config file in RPM packages.
+- youtube: don't print test timing results if they aren't set.
+
 * Tue Mar 24 2020 Brendon Jones <brendonj@waikato.ac.nz> 0.10.0-1
 - amplet2: move standalone test binaries from /usr/sbin to /usr/bin/.
 - sip: fix building the test with older libpjsip packages.
