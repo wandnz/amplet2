@@ -173,8 +173,9 @@ void amp_resolver_context_delete(struct ub_ctx *ctx) {
  * a new thread to deal with the queries from the test process.
  */
 void resolver_socket_event_callback(
-        __attribute__((unused))wand_event_handler_t *ev_hdl, int eventfd,
-        void *data, __attribute__((unused))enum wand_eventtype_t ev) {
+    evutil_socket_t evsock, 
+    __attribute__((unused))short flags, 
+    void *evdata) {
 
     int fd;
     pthread_t thread;
@@ -182,7 +183,7 @@ void resolver_socket_event_callback(
 
     Log(LOG_DEBUG, "Accepting for new resolver connection");
 
-    if ( (fd = accept(eventfd, NULL, NULL)) < 0 ) {
+    if ( (fd = accept(evsock, NULL, NULL)) < 0 ) {
         Log(LOG_WARNING, "Failed to accept for name resolution: %s",
                 strerror(errno));
         return;
@@ -191,7 +192,7 @@ void resolver_socket_event_callback(
     Log(LOG_DEBUG, "Accepted new resolver connection on fd %d", fd);
 
     info = calloc(1, sizeof(struct amp_resolve_info));
-    info->ctx = data;
+    info->ctx = evdata;
     info->fd = fd;
 
     /* create the thread and detach, we don't need to look after it */

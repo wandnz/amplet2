@@ -170,8 +170,9 @@ struct probe_list_t {
     struct dest_info_t *outstanding;    /* targets with an outstanding probe */
     struct dest_info_t *outstanding_end;
     struct dest_info_t *done;           /* targets with completed paths */
-    struct wand_timer_t *timeout;
-    struct wand_timer_t *sendtimer;
+    struct event_base *base;
+    struct event *timeout;
+    struct event *sendtimer;
     uint32_t count;
     uint32_t done_count;
     uint16_t ident;

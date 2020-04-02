@@ -88,9 +88,9 @@ if test "$confuse_found" = 0; then
     AC_MSG_ERROR(Required library libconfuse not found; use LDFLAGS to specify library location)
 fi
 
-AC_CHECK_LIB([wandevent], [wand_add_fd],event_found=1,event_found=0)
+AC_CHECK_LIB([event], [event_base_foreach_event],event_found=1,event_found=0)
 if test "$event_found" = 0; then
-    AC_MSG_ERROR(Required library libwandevent3 not found; use LDFLAGS to specify library location)
+    AC_MSG_ERROR(Required library libevent-2.1.x not found; use LDFLAGS to specify library location)
 fi
 
 AC_CHECK_LIB([rabbitmq], [amqp_new_connection],rabbit_found=1,rabbit_found=0)

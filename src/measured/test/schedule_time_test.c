@@ -40,6 +40,7 @@
 #include <stdio.h>
 #include <assert.h>
 #include <string.h>
+#include <event2/event.h>
 #include "schedule.h"
 
 
@@ -167,8 +168,7 @@ static void check_time_parsing(void) {
  * Check that the next scheduled times are correct.
  */
 static void check_next_schedule_time(void) {
-    wand_event_handler_t ev_hdl;
-    struct timeval offset;
+    struct timeval offset, sched_start;
     int i, count;
     time_t now;
     struct test_schedule schedule[] = {
@@ -298,26 +298,23 @@ static void check_next_schedule_time(void) {
         {604800, 1},
     };
 
-    memset(&ev_hdl, 0, sizeof(ev_hdl));
-    ev_hdl.walltimeok = 1;
-
     assert((sizeof(schedule) / sizeof(struct test_schedule)) ==
             sizeof(expected) / sizeof(struct timeval));
     count = sizeof(schedule) / sizeof(struct test_schedule);
 
     for ( i = 0; i < count; i++ ) {
         time(&now);
-        /* set offset from start of period to be the "now" time */
-        ev_hdl.walltime.tv_sec = amp_test_get_period_start(
+        sched_start.tv_sec = amp_test_get_period_start(
                 schedule[i].repeat, &now) + schedule[i].offset.tv_sec;
-        ev_hdl.walltime.tv_usec = schedule[i].offset.tv_usec;
+        sched_start.tv_usec = schedule[i].offset.tv_usec;
 
         /*
          * start, end and freq are all now in usec rather than msec, easier to
          * just change them here rather than add a heap of zeroes above
          */
         /* get when the algorithm thinks the next scheduled test should be */
-        offset = get_next_schedule_time(&ev_hdl, schedule[i].repeat,
+        offset = amp_test_get_next_schedule_time(&sched_start,
+                schedule[i].repeat,
                 schedule[i].start*1000, schedule[i].end*1000,
                 schedule[i].freq*1000, schedule[i].run, NULL);
 

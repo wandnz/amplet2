@@ -5,7 +5,7 @@ check_LTLIBRARIES=testtcpping.la
 testtcpping_la_SOURCES=../tcpping.c ../pcapcapture.c
 nodist_testtcpping_la_SOURCES=../tcpping.pb-c.c
 testtcpping_la_CFLAGS=-rdynamic -DUNIT_TEST
-testtcpping_la_LDFLAGS=-module -avoid-version -L../../../common/ -lamp -lwandevent -lpcap -lprotobuf-c
+testtcpping_la_LDFLAGS=-module -avoid-version -L../../../common/ -lamp -lpcap -lprotobuf-c
 
 tcpping_register_test_SOURCES=tcpping_register_test.c
 tcpping_register_test_LDADD=testtcpping.la

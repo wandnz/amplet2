@@ -53,7 +53,7 @@
 #include <string.h>
 #include <signal.h>
 #include <ctype.h>
-#include <libwandevent.h>
+#include <event2/event.h>
 
 #include "config.h"
 #include "tests.h"
@@ -92,26 +92,33 @@ static struct option long_options[] = {
  * if running standalone, or sent by the watchdog if running as part of
  * measured) and report the results that have been collected so far.
  */
-static void interrupt_test(wand_event_handler_t *ev_hdl,
-        __attribute__((unused))int signum,
-        __attribute__((unused))void *data) {
+static void interrupt_test(
+        __attribute__((unused))evutil_socket_t evsock,
+        __attribute__((unused))short flags,
+        void * evdata) {
 
-    Log(LOG_INFO, "Received SIGINT, halting ICMP test");
-    ev_hdl->running = false;
+    struct event_base *base = (struct event_base *)evdata;
+    Log(LOG_INFO, "Received SIGINT, halting DNS test");
+    event_base_loopbreak(base);
 }
-
 
 
 /*
  * Force the event loop to halt, so we can end the test and report the
  * results that we do have.
  */
-static void halt_test(wand_event_handler_t *ev_hdl, void *data) {
-    struct dnsglobals_t *globals = (struct dnsglobals_t *)data;
+static void halt_test(
+    __attribute__((unused))evutil_socket_t evsock,
+    __attribute__((unused))short flags,
+    void *evdata) {
+    struct dnsglobals_t *globals = (struct dnsglobals_t *)evdata;
 
     Log(LOG_DEBUG, "Halting DNS test due to timeout");
-    globals->losstimer = NULL;
-    ev_hdl->running = false;
+    if ( globals->losstimer ) {
+        event_free(globals->losstimer);
+        globals->losstimer = NULL;
+    }
+    event_base_loopbreak(globals->base);
 }
 
 
@@ -407,8 +414,8 @@ static void process_packet(struct dnsglobals_t *globals, char *packet,
  * Callback used when a packet is received that might be a response to one
  * of our probes.
  */
-static void receive_probe_callback(wand_event_handler_t *ev_hdl,
-        int fd, void *data, enum wand_eventtype_t ev) {
+static void receive_probe_callback(evutil_socket_t evsock,
+        short flags, void *evdata) {
 
     char *packet;
     int buflen;
@@ -416,10 +423,10 @@ static void receive_probe_callback(wand_event_handler_t *ev_hdl,
     int wait;
     struct timeval now;
     struct socket_t sockets;
-    struct dnsglobals_t *globals = (struct dnsglobals_t*)data;
+    struct dnsglobals_t *globals = (struct dnsglobals_t*)evdata;
 
-    assert(fd > 0);
-    assert(ev == EV_READ);
+    assert(evsock > 0);
+    assert(flags == EV_READ);
 
     if ( globals->options.udp_payload_size > 0 ) {
         buflen = globals->options.udp_payload_size;
@@ -428,7 +435,7 @@ static void receive_probe_callback(wand_event_handler_t *ev_hdl,
     }
 
     wait = 0;
-    sockets.socket = fd;
+    sockets.socket = evsock;
     sockets.socket6 = -1;
 
     packet = calloc(1, buflen);
@@ -439,8 +446,8 @@ static void receive_probe_callback(wand_event_handler_t *ev_hdl,
 
     if ( globals->outstanding == 0 && globals->index == globals->count ) {
         /* not waiting on any more packets, exit the event loop */
-        ev_hdl->running = false;
         Log(LOG_DEBUG, "All expected DNS responses received");
+        event_base_loopbreak(globals->base);
     }
 
     free(packet);
@@ -542,7 +549,10 @@ static char *create_dns_query(uint16_t ident, uint32_t *len, struct opt_t *opt){
 /*
  * Send a DNS packet and record information about when it was sent.
  */
-static void send_packet(wand_event_handler_t *ev_hdl, void *data) {
+static void send_packet(
+        __attribute__((unused))evutil_socket_t evsock,
+        __attribute__((unused))short flags,
+        void *evdata) {
 
     int sock;
     int delay;
@@ -553,8 +563,9 @@ static void send_packet(wand_event_handler_t *ev_hdl, void *data) {
     struct opt_t *opt;
     struct dnsglobals_t *globals;
     struct info_t *info;
+    struct timeval timeout;
 
-    globals = (struct dnsglobals_t *)data;
+    globals = (struct dnsglobals_t *)evdata;
     info = globals->info;
     seq = globals->index;
     ident = globals->ident;
@@ -615,24 +626,29 @@ static void send_packet(wand_event_handler_t *ev_hdl, void *data) {
 
 next:
     globals->index++;
-
+    if ( globals->nextpackettimer ) {
+        event_free(globals->nextpackettimer);
+        globals->nextpackettimer = NULL;
+    }
     /* create timer for sending the next packet if there are still more to go */
     if ( globals->index == globals->count ) {
         Log(LOG_DEBUG, "Reached final target: %d", globals->index);
-        globals->nextpackettimer = NULL;
         if ( globals->outstanding == 0 ) {
-            ev_hdl->running = false;
+            event_base_loopbreak(globals->base);
         } else {
-            globals->losstimer = wand_add_timer(ev_hdl, LOSS_TIMEOUT, 0,
-                    globals, halt_test);
+            globals->losstimer = event_new(globals->base, -1, 0,
+                    halt_test, globals);
+            timeout = (struct timeval) {LOSS_TIMEOUT, 0};
+            event_add(globals->losstimer, &timeout);
         }
     } else {
-        globals->nextpackettimer = wand_add_timer(ev_hdl,
+        globals->nextpackettimer = event_new(globals->base, -1, 0,
+                send_packet, globals);
+        timeout = (struct timeval) {
                 (int) (globals->options.inter_packet_delay / 1000000),
-                (globals->options.inter_packet_delay % 1000000),
-                globals, send_packet);
+                (globals->options.inter_packet_delay % 1000000)};
+        event_add(globals->nextpackettimer, &timeout);
     }
-
     if ( qbuf ) {
         free(qbuf);
     }
@@ -1011,15 +1027,16 @@ amp_test_result_t* run_dns(int argc, char *argv[], int count,
     char *address_string;
     int local_resolv;
     struct dnsglobals_t *globals;
-    wand_event_handler_t *ev_hdl = NULL;
+    struct event *signal_int;
+    struct event *socket;
+    struct event *socket6;
     amp_test_result_t *result;
 
     Log(LOG_DEBUG, "Starting DNS test");
 
-    wand_event_init();
-    ev_hdl = wand_create_event_handler();
-
     globals = (struct dnsglobals_t *)malloc(sizeof(struct dnsglobals_t));
+
+    globals->base = event_base_new();
 
     /* set some sensible defaults */
     options = &globals->options;
@@ -1198,31 +1215,49 @@ amp_test_result_t* run_dns(int argc, char *argv[], int count,
     globals->losstimer = NULL;
 
     /* catch a SIGINT and end the test early */
-    wand_add_signal(SIGINT, NULL, interrupt_test);
+    signal_int = event_new(globals->base, SIGINT,
+            EV_SIGNAL|EV_PERSIST, interrupt_test, globals->base);
+    event_add(signal_int, NULL);
 
     /* set up callbacks for receiving packets */
-    wand_add_fd(ev_hdl, globals->sockets.socket, EV_READ, globals,
-            receive_probe_callback);
+    socket = event_new(globals->base, globals->sockets.socket,
+            EV_READ|EV_PERSIST, receive_probe_callback, globals);
+    event_add(socket, NULL);
 
-    wand_add_fd(ev_hdl, globals->sockets.socket6, EV_READ, globals,
-            receive_probe_callback);
+    socket6 = event_new(globals->base, globals->sockets.socket6,
+            EV_READ|EV_PERSIST, receive_probe_callback, globals);
+    event_add(socket6, NULL);
 
     /* schedule the first probe packet to be sent immediately */
-    wand_add_timer(ev_hdl, 0, 0, globals, send_packet);
+    globals->nextpackettimer = event_new(globals->base, -1,
+            EV_PERSIST, send_packet, globals);
+    event_active(globals->nextpackettimer, 0, 0);
 
     /* run the event loop till told to stop or all tests performed */
-    wand_event_run(ev_hdl);
+    event_base_dispatch(globals->base);
 
     /* tidy up after ourselves */
     if ( globals->losstimer ) {
-        wand_del_timer(ev_hdl, globals->losstimer);
+        event_free(globals->losstimer);
     }
 
     if ( globals->nextpackettimer ) {
-        wand_del_timer(ev_hdl, globals->nextpackettimer);
+        event_free(globals->nextpackettimer);
     }
 
-    wand_destroy_event_handler(ev_hdl);
+    if ( socket ) {
+        event_free(socket);
+    }
+
+    if ( socket6 ) {
+        event_free(socket6);
+    }
+
+    if ( signal_int ) {
+        event_free(signal_int);
+    }
+
+    event_base_free(globals->base);
 
     if ( globals->sockets.socket > 0 ) {
 	close(globals->sockets.socket);

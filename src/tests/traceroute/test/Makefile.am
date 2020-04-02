@@ -5,7 +5,7 @@ check_LTLIBRARIES=testtraceroute.la
 testtraceroute_la_SOURCES=../traceroute.c ../as.c
 nodist_testtraceroute_la_SOURCES=../traceroute.pb-c.c
 testtraceroute_la_CFLAGS=-rdynamic -DUNIT_TEST
-testtraceroute_la_LDFLAGS=-module -avoid-version -L../../../common/ -lamp -lwandevent -lprotobuf-c
+testtraceroute_la_LDFLAGS=-module -avoid-version -L../../../common/ -lamp -lprotobuf-c
 
 traceroute_register_test_SOURCES=traceroute_register_test.c
 traceroute_register_test_LDADD=testtraceroute.la

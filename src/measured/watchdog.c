@@ -128,12 +128,13 @@ int stop_watchdog(timer_t timerid) {
 /*
  * Trigger when receiving SIGCHLD to report on how the process (test) completed.
  * Multiple children can finish at the same time, possibly causing
- * libwandevent not to fire this event for every child, so loop around and
+ * libevent not to fire this event for every child, so loop around and
  * consume all the children.
  */
-void child_reaper(__attribute__((unused))wand_event_handler_t *ev_hdl,
-        __attribute__((unused))int signum,
-        __attribute__((unused))void *data) {
+void child_reaper(
+        __attribute__((unused))evutil_socket_t evsock,
+        __attribute__((unused))short flags,
+        __attribute__((unused))void *evdata) {
 
     siginfo_t infop;
 

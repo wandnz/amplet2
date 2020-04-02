@@ -40,7 +40,7 @@
 #ifndef _MEASURED_CONTROL_H
 #define _MEASURED_CONTROL_H
 
-#include <libwandevent.h>
+#include <event2/event.h>
 
 #include "acl.h"
 
@@ -56,16 +56,24 @@
 #define MEASURED_CONTROL_FAILED 500
 #define MEASURED_CONTROL_NOTIMPLEMENTED 501
 
+struct acl_event {
+    struct acl_root *acl;
+    struct event *control_read;
+};
+
 typedef struct amp_control {
     int enabled;
     char *port;
     char *interface;
     char *ipv4;
     char *ipv6;
+    struct event *socket;
+    struct event *socket6;
+    struct event_base *base;
     struct acl_root *acl;
 } amp_control_t;
 
-int initialise_control_socket(wand_event_handler_t *ev_hdl,
+int initialise_control_socket(struct event_base *base,
         amp_control_t *control);
 
 void free_control_config(amp_control_t *control);

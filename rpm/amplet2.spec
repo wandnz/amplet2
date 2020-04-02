@@ -11,7 +11,7 @@ Patch0: amplet2-client-init.patch
 Patch1: amplet2-client-service.patch
 BuildRoot:	%(mktemp -ud %{_tmppath}/%{name}-%{version}-%{release}-XXXXXX)
 
-BuildRequires: automake libtool openssl-devel libconfuse-devel libwandevent-devel >= 3.0.1 libcurl-devel unbound-devel libpcap-devel protobuf-c-devel librabbitmq-devel >= 0.7.1 flex libyaml-devel systemd libcap-devel pjproject-devel
+BuildRequires: automake libtool openssl-devel libconfuse-devel libevent-devel >= 2.0.21 libcurl-devel unbound-devel libpcap-devel protobuf-c-devel librabbitmq-devel >= 0.7.1 flex libyaml-devel systemd libcap-devel pjproject-devel
 
 
 %description
@@ -22,7 +22,7 @@ one or more rabbitmq brokers via the AMQP protocol.
 
 %package client
 Summary: AMP Network Performance Measurement Suite - Client Tools
-Requires: librabbitmq >= 0.7.1 libwandevent >= 3.0.1 rsyslog protobuf-c systemd initscripts
+Requires: librabbitmq >= 0.7.1 libevent >= 2.0.21 rsyslog protobuf-c systemd initscripts
 %description client
 This package contains the client tools for the AMP Measurement Suite.
 These measure the network performance to specified targets according
