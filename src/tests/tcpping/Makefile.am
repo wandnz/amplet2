@@ -13,8 +13,7 @@ amp_tcpping_LDFLAGS=-Wl,--no-as-needed
 test_LTLIBRARIES=tcpping.la
 tcpping_la_SOURCES=pcapcapture.c tcpping.c
 nodist_tcpping_la_SOURCES=tcpping.pb-c.c
-tcpping_la_LDFLAGS=-module -avoid-version -L../../common/ -lamp \
-                -lpcap -lprotobuf-c
+tcpping_la_LDFLAGS=-module -avoid-version -L../../common/ -lamp -lpcap -lprotobuf-c -levent
 
 INCLUDES=-I../ -I../../common/
 

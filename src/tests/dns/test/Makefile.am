@@ -5,7 +5,7 @@ check_LTLIBRARIES=testdns.la
 testdns_la_SOURCES=../dns.c
 nodist_testdns_la_SOURCES=../dns.pb-c.c
 testdns_la_CFLAGS=-rdynamic -DUNIT_TEST
-testdns_la_LDFLAGS=-module -avoid-version -L../../../common/ -lamp -lprotobuf-c
+testdns_la_LDFLAGS=-module -avoid-version -L../../../common/ -lamp -lprotobuf-c -levent
 
 dns_register_test_SOURCES=dns_register_test.c
 dns_register_test_LDADD=testdns.la
