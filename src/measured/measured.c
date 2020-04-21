@@ -653,10 +653,10 @@ int main(int argc, char *argv[]) {
 
     /* set up a handler to deal with SIGINT/SIGTERM so we can shutdown nicely */
     signal_int = event_new(meta.base, SIGINT,
-            EV_SIGNAL|EV_PERSIST, stop_running, NULL);
+            EV_SIGNAL|EV_PERSIST, stop_running, meta.base);
     event_add(signal_int, NULL);
     signal_term = event_new(meta.base, SIGTERM,
-            EV_SIGNAL|EV_PERSIST, stop_running, NULL);
+            EV_SIGNAL|EV_PERSIST, stop_running, meta.base);
     event_add(signal_term, NULL);
 
     /* set up handler to deal with SIGCHLD so we can tidy up after tests */
