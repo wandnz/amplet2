@@ -65,6 +65,10 @@
 #include "modules.h"
 #include "testlib.h"
 
+#ifndef HAVE_LIBEVENT_FOREACH
+#include "libevent_internal.h"
+#endif
+
 
 
 /*
