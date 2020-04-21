@@ -1246,6 +1246,7 @@ static void send_probe_callback(
 
     Log(LOG_DEBUG, "send_probe_callback");
 
+    event_free(probelist->sendtimer);
     probelist->sendtimer = NULL;
 
     /* do nothing if there are no packets to send */
@@ -1411,7 +1412,9 @@ static void probe_timeout_callback(
 
     Log(LOG_DEBUG, "Probe has timed out");
 
+    event_free(probelist->timeout);
     probelist->timeout = NULL;
+
     item = probelist->outstanding;
     probelist->outstanding = probelist->outstanding->next;
     if ( probelist->outstanding == NULL ) {
@@ -1722,8 +1725,8 @@ amp_test_result_t* run_traceroute(int argc, char *argv[], int count,
     event_add(socket6, NULL);
 
     /* schedule the first probe packet to be sent immediately */
-    probelist.sendtimer = event_new(probelist.base, -1,
-            EV_PERSIST, send_probe_callback, &probelist);
+    probelist.sendtimer = event_new(probelist.base, -1, 0,
+            send_probe_callback, &probelist);
     event_active(probelist.sendtimer, 0, 0);
 
     event_base_dispatch(probelist.base);
@@ -1738,6 +1741,14 @@ amp_test_result_t* run_traceroute(int argc, char *argv[], int count,
 
     if ( signal_int ) {
         event_free(signal_int);
+    }
+
+    if ( probelist.sendtimer ) {
+        event_free(probelist.sendtimer);
+    }
+
+    if ( probelist.timeout ) {
+        event_free(probelist.timeout);
     }
 
     event_base_free(probelist.base);

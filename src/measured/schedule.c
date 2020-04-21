@@ -222,27 +222,32 @@ static void free_fetch_schedule_item(fetch_schedule_item_t *item) {
     free(item);
 }
 
+
+
 /*
- * libevent can't iterate over the list of pending events like libwandevent
- * can, so instead we use a callback againt every event to populate an array.
+ * libevent can't operate on events while iterating over them, so instead
+ * use a callback against every event to put them into our own list.
  */
-struct events_array {
-    struct event **events;
-    int index;
+struct tmp_event_list {
+    struct event *event;
+    struct tmp_event_list *next;
 };
 
 
 
 /*
- * Simple callback to append each event to an array of events
- */ 
-static int append_events_array_callback(
+ * Simple callback to add each event to a list of events.
+ */
+static int add_events_list_callback(
         __attribute__((unused)) const struct event_base *base,
-        const struct event *ev, 
-        void *evdata){
-    struct events_array *events_arr = evdata;
-    events_arr->events[events_arr->index] = (struct event *)ev;
-    events_arr->index++;
+        const struct event *ev,
+        void *evdata) {
+    /* prepend each event to the accumulating list */
+    struct tmp_event_list **list = (struct tmp_event_list**)evdata;
+    struct tmp_event_list *item = calloc(1, sizeof(struct tmp_event_list));
+    item->event = (struct event*)ev;
+    item->next = *list;
+    *list = item;
     return 0;
 }
 
@@ -254,41 +259,36 @@ static int append_events_array_callback(
  * fetches in the list.
  */
 void clear_test_schedule(struct event_base *base, int all) {
-    schedule_item_t *item;
-    struct events_array events_arr;
-    struct event *curr_event;
+    struct tmp_event_list *list = NULL;
 
-    event_callback_fn event_callback;
+    /* can't make changes during foreach(), so first get all the events */
+    event_base_foreach_event(base, add_events_list_callback, &list);
 
-    int events_count = event_base_get_num_events(base, EVENT_BASE_COUNT_ADDED);
+    /* and then unschedule the relevant events using event_free() */
+    for ( struct tmp_event_list *current = list; current != NULL; /* */ ) {
+        struct tmp_event_list *tmp;
 
-    events_arr = (struct events_array){
-                (struct event **)calloc(events_count, sizeof(struct event*)),
-                0
-            };
-
-    event_base_foreach_event(base, append_events_array_callback, &events_arr);
-
-    assert(events_arr.index == events_count);
-
-    for ( int index = 0; index < events_count; index++ ) {
-
-        curr_event = events_arr.events[index];
-        event_callback = event_get_callback(curr_event);
-        item = event_get_callback_arg(curr_event);
+        struct event *curr_event = current->event;
+        event_callback_fn event_callback = event_get_callback(curr_event);
+        schedule_item_t *item = event_get_callback_arg(curr_event);
 
         /*
-         * Need to test the used callback to check what the event is, libevent 
+         * Need to test the used callback to check what the event is, libevent
          * has some under the hood events that will also be listed here and we
-         * cannot safely dereference 'item' untill we know what it is
+         * cannot safely dereference 'item' until we know what it is
          */
         if ( event_callback != run_scheduled_test &&
                 ( !all || event_callback != timer_fetch_callback )) {
+            tmp = current;
+            current = current->next;
+            free(tmp);
             continue;
         }
 
+        /* unschedule and free the event structure */
         event_free(curr_event);
 
+        /* also free our own data that was attached to the event */
         switch ( item->type ) {
             case EVENT_RUN_TEST:
                 if ( item->data.test != NULL ) {
@@ -307,8 +307,12 @@ void clear_test_schedule(struct event_base *base, int all) {
         };
 
         free(item);
+
+        /* free each item in our temporary list as we walk it */
+        tmp = current;
+        current = current->next;
+        free(tmp);
     }
-    free(events_arr.events);
 }
 
 

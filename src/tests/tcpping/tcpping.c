@@ -1152,6 +1152,10 @@ amp_test_result_t* run_tcpping(int argc, char *argv[], int count,
 
     event_base_dispatch(base);
 
+    if ( signal_int ) {
+        event_free(signal_int);
+    }
+
     if ( globals->losstimer ) {
         event_free(globals->losstimer);
     }

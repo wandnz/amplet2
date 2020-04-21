@@ -742,9 +742,10 @@ int main(int argc, char *argv[]) {
     Log(LOG_DEBUG, "Clearing name table");
     clear_nametable();
 
-    /* destroying event handler will also clear all signal handlers etc */
+    Log(LOG_DEBUG, "Stopping control socket");
+    free_control_config(control);
+
     Log(LOG_DEBUG, "Clearing event handlers");
-    event_base_free(meta.base);
     if ( signal_load ) event_free(signal_load);
     if ( signal_int ) event_free(signal_int);
     if ( signal_term ) event_free(signal_term);
@@ -755,8 +756,8 @@ int main(int argc, char *argv[]) {
     if ( signal_usr1 ) event_free(signal_usr1);
     if ( signal_tmax ) event_free(signal_tmax);
 
-    //TODO shutdown control socket?
-    free_control_config(control);
+    Log(LOG_DEBUG, "Clearing libevent");
+    event_base_free(meta.base);
 
     free_local_meta_vars(&meta);
     free_global_vars(&vars);
