@@ -365,6 +365,7 @@ int main(int argc, char *argv[]) {
     struct event *signal_hup = NULL;
     struct event *signal_usr1 = NULL;
     struct event *signal_tmax = NULL;
+    const char *event_noepoll = "1";
 
     memset(&meta, 0, sizeof(meta));
     meta.inter_packet_delay = MIN_INTER_PACKET_DELAY;
@@ -596,6 +597,17 @@ int main(int argc, char *argv[]) {
     /* drop root permissions now that we no longer need them to set up rabbit */
     if ( change_user("amplet") < 0 ) {
         Log(LOG_ALERT, "Failed to change to user 'amplet', aborting");
+        cfg_free(cfg);
+        exit(EXIT_FAILURE);
+    }
+
+    /*
+     * stop libevent using epoll due to the way it handles signals in only
+     * one event_base at a time. Resetting it after forking appears to fix
+     * the behaviour, but still triggers scary looking warning messages.
+     */
+    if ( setenv("EVENT_NOEPOLL", event_noepoll, 0) < 0 ) {
+        Log(LOG_WARNING, "Failed to disable libevent epoll");
         cfg_free(cfg);
         exit(EXIT_FAILURE);
     }
