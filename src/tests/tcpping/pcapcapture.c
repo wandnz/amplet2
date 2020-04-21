@@ -310,8 +310,7 @@ int pcap_listen(struct sockaddr *address, uint16_t srcportv4,
         uint16_t srcportv6, uint16_t destport, char *device,
         struct event_base *base,
         void *callbackdata,
-        void(*callback)(evutil_socket_t evsock,
-            short flags, void *evdata)) {
+        void(*callback)(evutil_socket_t evsock, short flags, void *evdata)) {
 
     struct pcapdevice *p;
 
@@ -487,7 +486,7 @@ struct pcaptransport pcap_transport_header(struct pcapdevice *p) {
 /*
  * Close up any pcap devices used during the test.
  */
-void pcap_cleanup() {
+void pcap_cleanup(void) {
     struct pcapdevice *p = pcaps;
     struct pcapdevice *tmp;
 

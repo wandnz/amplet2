@@ -72,15 +72,11 @@
 
 
 /*
- * Forward declear to use as function pointer values
+ * Forward declare to use as function pointer values
  */
 static void timer_fetch_callback(
-        __attribute__((unused))evutil_socket_t evsock, 
-        __attribute__((unused))short flags, 
-        void *evdata);
-int check_test_compare_callback(
-         __attribute__((unused))const struct event_base *base, 
-        const struct event *ev, 
+        __attribute__((unused))evutil_socket_t evsock,
+        __attribute__((unused))short flags,
         void *evdata);
 
 
@@ -120,18 +116,22 @@ static void dump_event_fetch_schedule(fetch_schedule_item_t *item, FILE *out) {
 
 
 
+/*
+ *
+ */
 static int dump_events_callback(
         __attribute__((unused)) const struct event_base *base,
         const struct event *ev,
-        void *evdata){
+        void *evdata) {
 
     struct timeval tv;
-    schedule_item_t *item;
     FILE *out = evdata;
     event_callback_fn cb = event_get_callback(ev);
 
     if ( cb == run_scheduled_test || cb == timer_fetch_callback ) {
-        event_pending(ev,EV_TIMEOUT,&tv);
+        schedule_item_t *item;
+
+        event_pending(ev, EV_TIMEOUT, &tv);
 
         fprintf(out, "%d.%.6d ", (int)tv.tv_sec, (int)tv.tv_usec);
         item = event_get_callback_arg(ev);
@@ -147,6 +147,8 @@ static int dump_events_callback(
     }
     return 0;
 }
+
+
 
 /*
  * Dump the current schedule for debug purposes
@@ -576,11 +578,11 @@ parse_param_error:
  * not the system clock.
  */
 static inline struct timeval get_next_schedule_time_internal(
-        struct timeval *now, schedule_period_t period, uint64_t start, 
+        struct timeval *now, schedule_period_t period, uint64_t start,
         uint64_t end, uint64_t frequency, int run, struct timeval *abstime) {
 
     time_t period_start, period_end;
-    struct timeval next = {0,0};
+    struct timeval next = {0, 0};
     int64_t diff, test_end;
     int next_repeat;
 
@@ -696,14 +698,16 @@ static inline struct timeval get_next_schedule_time_internal(
 }
 
 /*
- * To aid unit tests we have a wrapper around get_next_schedule_time that 
- * allows us to override the time taken from the event_base and set the 
- * time to anything we want. Also, have to make sure that we use this same
- * time result for everything - if we make multiple calls we could end up 
- * on either side of a period boundary or similar. libevent ensures this by
- * caching the internal time between events, so if
- * 'event_base_gettimeofday_cached' is called  multiple times within the same
- * event (or sequence of events) the time shall remain constant.
+ * To aid unit tests we have a wrapper around get_next_schedule_time that
+ * allows us to override the time taken from the event_base and set the
+ * time to anything we want.
+ *
+ * Also, have to make sure that we use this same time result for everything
+ * - if we make multiple calls we could end up on either side of a period
+ * boundary or similar. libevent ensures this by caching the internal time
+ * between events, so if 'event_base_gettimeofday_cached' is called multiple
+ * times within the same event (or sequence of events) the time shall remain
+ * constant.
  */
 struct timeval get_next_schedule_time(struct event_base *base,
         schedule_period_t period, uint64_t start, uint64_t end,
@@ -717,6 +721,8 @@ struct timeval get_next_schedule_time(struct event_base *base,
     return get_next_schedule_time_internal(&now, period, start, end, frequency,
             run, abstime);
 }
+
+
 
 /*
  * Compare two test schedule items to see if they are similar enough to
@@ -763,12 +769,12 @@ static int compare_test_items(test_schedule_item_t *a, test_schedule_item_t *b){
 
 
 /*
- * Callback that is used to find the first matching timer event, once a valid 
+ * Callback that is used to find the first matching timer event, once a valid
  * event is found the event is stored at the address pointed to by evdata
  */
-int check_test_compare_callback(
+static int check_test_compare_callback(
         __attribute__((unused))const struct event_base *base,
-        const struct event *ev, 
+        const struct event *ev,
         void *evdata) {
 
     schedule_item_t *sched_item;
@@ -805,6 +811,7 @@ int check_test_compare_callback(
             return 1;
         }
     }
+
     /* No match was found, move on to next item */
     return 0;
 }
@@ -818,7 +825,7 @@ int check_test_compare_callback(
  * active timers and tests that need to be run.
  */
 static int merge_scheduled_tests(
-        struct event_base *base, 
+        struct event_base *base,
         test_schedule_item_t *test) {
 
     test_schedule_item_t * sched_test = test;
@@ -842,8 +849,10 @@ static int merge_scheduled_tests(
             sched_test->resolve = test->resolve;
             sched_test->resolve_count++;
         }
+
         return 1;
     }
+
     return 0;
 }
 
@@ -1174,8 +1183,7 @@ static test_schedule_item_t *create_and_schedule_test(
         next = get_next_schedule_time(base, test->period, test->start,
                 test->end, US_FROM_TV(test->interval), 0, &test->abstime);
 
-        sched->event = event_new(sched->base, -1,
-            0, run_scheduled_test, sched);
+        sched->event = event_new(sched->base, -1, 0, run_scheduled_test, sched);
 
         if ( event_add(sched->event, &next) != 0 ) {
             Log(LOG_ALERT, "Failed to schedule %s test", testname);
@@ -1341,8 +1349,8 @@ static int update_remote_schedule(fetch_schedule_item_t *fetch, int clobber) {
          * TODO Can we move towards asprintf stuff rather than fixed buffers?
          * This sort of thing is icky and problematic.
          */
-        snprintf(tmp_sched_file, MAX_PATH_LENGTH-1, "%s/%s",fetch->schedule_dir,
-                TMP_REMOTE_SCHEDULE_FILE);
+        snprintf(tmp_sched_file, MAX_PATH_LENGTH-1, "%s/%s",
+                fetch->schedule_dir, TMP_REMOTE_SCHEDULE_FILE);
         tmp_sched_file[MAX_PATH_LENGTH-1] = '\0';
 
         snprintf(sched_file, MAX_PATH_LENGTH-1, "%s/%s", fetch->schedule_dir,
@@ -1561,6 +1569,7 @@ static void timer_fetch_callback(
 
     schedule_item_t *item;
     fetch_schedule_item_t *fetch;
+    struct timeval timeout;
 
     Log(LOG_DEBUG, "Timer fired for remote schedule checking");
 
@@ -1571,9 +1580,8 @@ static void timer_fetch_callback(
 
     fork_and_fetch(fetch, 0);
 
-    struct timeval timeout = (struct timeval) {
-            fetch->frequency,
-            fetch->frequency};
+    timeout.tv_sec = fetch->frequency;
+    timeout.tv_usec = 0;
 
     /* reschedule checking for schedule updates */
     if ( event_add(item->event, &timeout) != 0 ) {
@@ -1591,6 +1599,7 @@ int enable_remote_schedule_fetch(struct event_base *base,
         fetch_schedule_item_t *fetch) {
 
     schedule_item_t *item;
+    struct timeval timeout;
 
     assert(base);
 
@@ -1613,9 +1622,8 @@ int enable_remote_schedule_fetch(struct event_base *base,
     item->data.fetch = fetch;
     item->event = event_new(base, -1, 0, timer_fetch_callback, item);
 
-    struct timeval timeout = (struct timeval) {
-            fetch->frequency,
-            fetch->frequency};
+    timeout.tv_sec = fetch->frequency;
+    timeout.tv_usec = 0;
 
     /* create the timer event for fetching schedules */
     if ( event_add(item->event, &timeout) != 0 ) {

@@ -53,11 +53,8 @@
 #define MIN_ASN_CACHE_REFRESH 86400
 #define MAX_ASN_CACHE_REFRESH_OFFSET 3600
 
-void asn_socket_event_callback(
-        evutil_socket_t evsock,
-        __attribute__((unused))short flags,
-        void *evdata);
-
+void asn_socket_event_callback(evutil_socket_t evsock,
+        __attribute__((unused))short flags, void *evdata);
 
 struct amp_asn_info* initialise_asn_info(void);
 void amp_asn_info_delete(struct amp_asn_info *info);

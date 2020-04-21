@@ -471,10 +471,8 @@ end:
  * Accept a new connection on the local autonomous system resolution socket
  * and spawn a new thread to deal with the queries from the test process.
  */
-void asn_socket_event_callback(
-         evutil_socket_t evsock,
-        __attribute__((unused))short flags,
-        void *evdata) {
+void asn_socket_event_callback(evutil_socket_t evsock,
+        __attribute__((unused))short flags, void *evdata) {
 
     int fd;
     pthread_t thread;

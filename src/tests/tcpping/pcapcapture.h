@@ -77,8 +77,7 @@ int pcap_listen(struct sockaddr *address, uint16_t srcportv4,
         uint16_t srcportv6, uint16_t destport, char *device,
         struct event_base *base,
         void *callbackdata,
-        void(*callback)(evutil_socket_t evsock,
-            short flags, void *evdata));
+        void(*callback)(evutil_socket_t evsock, short flags, void *evdata));
 
 int find_source_address(char *device, struct addrinfo *dest,
         struct sockaddr *saddr);

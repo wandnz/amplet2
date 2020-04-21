@@ -1312,10 +1312,8 @@ static void send_probe_callback(
 /*
  * Callback function used when receiving a packet.
  */
-static void recv_probe_callback(
-        evutil_socket_t evsock,
-        __attribute__((unused))short flags,
-        void *evdata) {
+static void recv_probe_callback(evutil_socket_t evsock,
+        __attribute__((unused))short flags, void *evdata) {
 
     char packet[2048];
     struct timeval now;

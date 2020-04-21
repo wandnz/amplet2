@@ -501,15 +501,15 @@ next:
         } else {
             globals->losstimer = event_new(globals->base, -1, 0,
                     halt_test, globals);
-            timeout = (struct timeval) {LOSS_TIMEOUT, 0};
+            timeout.tv_sec = LOSS_TIMEOUT;
+            timeout.tv_usec = 0;
             event_add(globals->losstimer, &timeout);
         }
     } else {
         globals->nextpackettimer = event_new(globals->base, -1, 0,
                 send_packet, globals);
-        timeout = (struct timeval) {
-                (int) (globals->options.inter_packet_delay / 1000000),
-                (globals->options.inter_packet_delay % 1000000)};
+        timeout.tv_sec = (int)(globals->options.inter_packet_delay / 1000000);
+        timeout.tv_usec = globals->options.inter_packet_delay % 1000000;
         event_add(globals->nextpackettimer, &timeout);
     }
 

@@ -55,6 +55,6 @@ int stop_watchdog(timer_t timerid);
 void child_reaper(
         __attribute__((unused))evutil_socket_t evsock,
         __attribute__((unused))short flags,
-        void *evdata);
+        __attribute__((unused))void *evdata);
 
 #endif

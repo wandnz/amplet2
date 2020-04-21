@@ -172,10 +172,8 @@ void amp_resolver_context_delete(struct ub_ctx *ctx) {
  * Accept a new connection on the local name resolution socket and spawn
  * a new thread to deal with the queries from the test process.
  */
-void resolver_socket_event_callback(
-    evutil_socket_t evsock, 
-    __attribute__((unused))short flags, 
-    void *evdata) {
+void resolver_socket_event_callback(evutil_socket_t evsock,
+    __attribute__((unused))short flags, void *evdata) {
 
     int fd;
     pthread_t thread;

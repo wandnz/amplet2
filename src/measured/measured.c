@@ -197,7 +197,7 @@ static int create_pidfile(char *pidfile) {
 static void stop_running(
         __attribute__((unused))evutil_socket_t evsock,
         __attribute__((unused))short flags,
-        void * evdata) {
+        void *evdata) {
 
     struct event_base *base = (struct event_base *)evdata;
     Log(LOG_DEBUG, "Received signal, exiting event loop");
@@ -268,10 +268,8 @@ static void load_tests_and_schedules(amp_test_meta_t *meta) {
  * problems and it's not always possible to run in full debug mode (lots of
  * output!).
  */
-static void debug_dump(
-        evutil_socket_t evsock,
-        __attribute__((unused))short flags,
-        void *evdata) {
+static void debug_dump(evutil_socket_t evsock,
+        __attribute__((unused))short flags, void *evdata) {
 
     char *filename;
     FILE *out;
@@ -745,6 +743,7 @@ int main(int argc, char *argv[]) {
     Log(LOG_DEBUG, "Stopping control socket");
     free_control_config(control);
 
+    /* clean up all the signal handlers */
     Log(LOG_DEBUG, "Clearing event handlers");
     if ( signal_load ) event_free(signal_load);
     if ( signal_int ) event_free(signal_int);

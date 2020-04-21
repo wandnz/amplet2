@@ -50,9 +50,7 @@ struct amp_resolve_info {
     struct ub_ctx *ctx;         /* shared unbound context (with the cache) */
 };
 
-void resolver_socket_event_callback(
-        evutil_socket_t evsock,
-        __attribute__((unused))short flags,
-        void *evdata);
+void resolver_socket_event_callback(evutil_socket_t evsock,
+        __attribute__((unused))short flags, void *evdata);
 
 #endif

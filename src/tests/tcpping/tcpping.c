@@ -57,7 +57,6 @@
 #include <string.h>
 #include <unistd.h>
 #include <signal.h>
-#include <stdbool.h>
 #include <event2/event.h>
 
 #include "config.h"
@@ -545,7 +544,7 @@ static void process_tcp_response(struct tcppingglobals *tp, struct tcphdr *tcp,
         return;
     }
 
-    if ((destid = match_response(tp, tcp, true)) >= 0) {
+    if ((destid = match_response(tp, tcp, 1)) >= 0) {
         int64_t delay;
 
         tp->info[destid].reply = TCP_REPLY;
@@ -620,7 +619,7 @@ static void process_icmp4_response(struct tcppingglobals *tp,
         return;
     }
 
-    if ((destid = match_response(tp, (struct tcphdr *)packet, false)) >= 0) {
+    if ((destid = match_response(tp, (struct tcphdr *)packet, 0)) >= 0) {
         int64_t delay;
 
         tp->info[destid].icmptype = icmp->type;
@@ -676,7 +675,7 @@ static void process_icmp6_response(struct tcppingglobals *tp,
         return;
     }
 
-    if ((destid = match_response(tp, (struct tcphdr *)packet, false)) >= 0) {
+    if ((destid = match_response(tp, (struct tcphdr *)packet, 0)) >= 0) {
         int64_t delay;
 
         tp->info[destid].icmptype = icmp->icmp6_type;
@@ -847,14 +846,14 @@ nextdest:
             event_base_loopbreak(tp->base);
         } else {
             tp->losstimer = event_new(tp->base, -1, 0, halt_test, tp);
-            timeout = (struct timeval) {LOSS_TIMEOUT, 0};
+            timeout.tv_sec = LOSS_TIMEOUT;
+            timeout.tv_usec = 0;
             event_add(tp->losstimer, &timeout);
         }
     } else {
         tp->nextpackettimer = event_new(tp->base, -1, 0, send_packet, tp);
-        timeout = (struct timeval) {
-                (int) (tp->options.inter_packet_delay / 1000000),
-                (tp->options.inter_packet_delay % 1000000)};
+        timeout.tv_sec = (int)(tp->options.inter_packet_delay / 1000000);
+        timeout.tv_usec = tp->options.inter_packet_delay % 1000000;
         event_add(tp->nextpackettimer, &timeout);
     }
 
@@ -1044,7 +1043,7 @@ amp_test_result_t* run_tcpping(int argc, char *argv[], int count,
     struct timeval start_time;
     struct tcppingglobals *globals;
     struct event_base *base = NULL;
-    struct event * signal_int;
+    struct event *signal_int;
     amp_test_result_t *result;
     char *address_string;
 
@@ -1146,8 +1145,7 @@ amp_test_result_t* run_tcpping(int argc, char *argv[], int count,
      * will setup a timer callback for sending the next packet and a fd
      * callback for any response.
      */
-    globals->nextpackettimer = event_new(base, -1,
-            0, send_packet, globals);
+    globals->nextpackettimer = event_new(base, -1, 0, send_packet, globals);
     event_active(globals->nextpackettimer, 0, 0);
 
     event_base_dispatch(base);
