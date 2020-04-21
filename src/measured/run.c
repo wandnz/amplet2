@@ -442,12 +442,14 @@ static int fork_test(test_schedule_item_t *item) {
             Log(LOG_WARNING, "Failed to unblock signals, aborting");
             exit(EXIT_FAILURE);
         }
-        /* 
-         * libevent can have issuse spooling up another event loop from within
+        /*
+         * libevent can have issues spooling up another event loop from within
          * an existing event loop, so need to free current base before we can
          * register a new one
          */
+        clear_test_schedule(item->meta->base, 1);
         event_base_free(item->meta->base);
+
         run_test(item, NULL);
 
         Log(LOG_WARNING, "%s test failed to run", item->test->name);
