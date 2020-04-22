@@ -5,9 +5,9 @@ Maintainer: Brendon Jones <brendonj@waikato.ac.nz>
 Build-Depends: debhelper (>= 9~), autotools-dev, python, libunbound-dev, libssl-dev, libpcap-dev (>= 1.7.4), libyaml-dev, libprotobuf-c-dev, protobuf-c-compiler, protobuf-compiler, dh-systemd, libconfuse-dev, libcurl4-openssl-dev, librabbitmq-dev (>= 0.7.1), libevent-dev (>= 2.0.21), python-setuptools, flex, automake, libtool, libcap2-bin, libcap-dev, dh-exec, libpjproject-dev <!buster>, clang <pkg.amplet2.build-youtube>, lld <pkg.amplet2.build-youtube>, libnss3 <pkg.amplet2.build-youtube>, libglib2.0-dev <pkg.amplet2.build-youtube>
 Standards-Version: 3.8.4
 Homepage: http://amp.wand.net.nz
+Vcs-Git: https://github.com/wanduow/amplet2.git
+Vcs-Browser: https://github.com/wanduow/amplet2
 Testsuite: autopkgtest
-#Vcs-Git: git://git.debian.org/collab-maint/amplet2.git
-#Vcs-Browser: http://git.debian.org/?p=collab-maint/amplet2.git;a=summary
 
 Package: amplet2-client
 Architecture: any
