@@ -306,8 +306,20 @@ static amp_test_result_t* report_result(struct timeval *start_time,
     amplet2__fastping__report__pack(&msg, result->data);
 
     /* free all data that is no longer required by the protobuffer */
-    free(reports[0]->rtt);
-    free(reports[0]->jitter);
+    if ( reports[0]->rtt ) {
+        if ( reports[0]->rtt->percentiles ) {
+            free(reports[0]->rtt->percentiles);
+        }
+        free(reports[0]->rtt);
+    }
+
+    if ( reports[0]->jitter ) {
+        if ( reports[0]->jitter->percentiles ) {
+            free(reports[0]->jitter->percentiles);
+        }
+        free(reports[0]->jitter);
+    }
+
     free(reports[0]);
     free(reports);
 
