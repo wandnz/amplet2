@@ -266,12 +266,13 @@ static int add_events_list_callback(
  */
 void clear_test_schedule(struct event_base *base, int all) {
     struct tmp_event_list *list = NULL;
+    struct tmp_event_list *current;
 
     /* can't make changes during foreach(), so first get all the events */
     event_base_foreach_event(base, add_events_list_callback, &list);
 
     /* and then unschedule the relevant events using event_free() */
-    for ( struct tmp_event_list *current = list; current != NULL; /* */ ) {
+    for ( current = list; current != NULL; /* */ ) {
         struct tmp_event_list *tmp;
 
         struct event *curr_event = current->event;
