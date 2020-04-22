@@ -88,9 +88,17 @@ if test "$confuse_found" = 0; then
     AC_MSG_ERROR(Required library libconfuse not found; use LDFLAGS to specify library location)
 fi
 
-AC_CHECK_LIB([wandevent], [wand_add_fd],event_found=1,event_found=0)
+AC_CHECK_LIB([event], [event_base_dispatch],event_found=1,event_found=0)
 if test "$event_found" = 0; then
-    AC_MSG_ERROR(Required library libwandevent3 not found; use LDFLAGS to specify library location)
+    AC_MSG_ERROR(Required library libevent not found; use LDFLAGS to specify library location)
+fi
+
+# Older versions of libevent are missing event_base_foreach_event
+AC_CHECK_LIB(event, event_base_foreach_event, AC_DEFINE([HAVE_LIBEVENT_FOREACH], [1], [Define to 1 if you have the libevent event_base_foreach_event function]),)
+
+AC_CHECK_HEADER(event2/event.h, event_h_found=1, event_h_found=0)
+if test "$event_h_found" = 0; then
+    AC_MSG_ERROR(Required headers for libevent not found; use CFLAGS to specify header location)
 fi
 
 AC_CHECK_LIB([rabbitmq], [amqp_new_connection],rabbit_found=1,rabbit_found=0)

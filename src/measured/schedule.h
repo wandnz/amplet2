@@ -43,7 +43,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <sys/time.h>
-#include <libwandevent.h>
+#include <event2/event.h>
 
 #include "tests.h"
 #include "ampresolv.h"
@@ -112,6 +112,7 @@ typedef struct amp_test_meta {
     char *ampname;
     uint32_t inter_packet_delay;
     uint8_t dscp;
+    struct event_base *base;
 } amp_test_meta_t;
 
 
@@ -161,31 +162,35 @@ typedef enum {
  *
  */
 typedef struct schedule_item {
-    event_type_t type;		    /* type of schedule item (test, fetch) */
-    wand_event_handler_t *ev_hdl;   /* pointer to main event handler */
+    event_type_t type;          /* type of schedule item (test, fetch) */
+    struct event_base *base;    /* pointer to main event handler */
+    struct event *event;
     union {
-	test_schedule_item_t *test;
+        test_schedule_item_t *test;
         fetch_schedule_item_t *fetch;
-    } data;			    /* schedule item data based on type */
+    } data;                     /* schedule item data based on type */
 } schedule_item_t;
 
 
 char **parse_param_string(char *param_string);
 char **populate_target_lists(test_schedule_item_t *test, char **targets);
-void dump_schedule(wand_event_handler_t *ev_hdl, FILE *out);
-void clear_test_schedule(wand_event_handler_t *ev_hdl, int all);
-void read_schedule_dir(wand_event_handler_t *ev_hdl, char *directory,
+void dump_schedule(struct event_base *base, FILE *out);
+void clear_test_schedule(struct event_base *base, int all);
+void read_schedule_dir(struct event_base *base, char *directory,
         amp_test_meta_t *meta);
-struct timeval get_next_schedule_time(wand_event_handler_t *ev_hdl,
+struct timeval get_next_schedule_time(struct event_base *base,
         schedule_period_t period, uint64_t start, uint64_t end,
         uint64_t frequency, int run, struct timeval *abstime);
-void signal_fetch_callback(wand_event_handler_t *ev_hdl, int signum,void *data);
-int enable_remote_schedule_fetch(wand_event_handler_t *ev_hdl,
+void signal_fetch_callback(evutil_socket_t evsock, short flags, void * evdata);
+int enable_remote_schedule_fetch(struct event_base *base,
         fetch_schedule_item_t *fetch);
 #if UNIT_TEST
 time_t amp_test_get_period_max_value(char repeat);
 int64_t amp_test_check_time_range(int64_t value, schedule_period_t period);
 time_t amp_test_get_period_start(char repeat, time_t *now);
+struct timeval amp_test_get_next_schedule_time(struct timeval *time_pass,
+        schedule_period_t period, uint64_t start, uint64_t end,
+        uint64_t frequency, int run, struct timeval *abstime);
 #endif
 
 #endif

@@ -42,7 +42,7 @@
 #define _TCPPING_PCAPCAPTURE_H_
 
 #include <pcap.h>
-#include <libwandevent.h>
+#include <event2/event.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/time.h>
@@ -60,6 +60,7 @@ struct pcapdevice {
     int pcap_fd;
     char *if_name;
     void *callbackdata;
+    struct event *event;
     struct pcapdevice *next;
 };
 
@@ -70,14 +71,13 @@ struct pcaptransport {
     struct timeval ts;
 };
 
-void pcap_cleanup(wand_event_handler_t *ev_hdl);
+void pcap_cleanup(void);
 
 int pcap_listen(struct sockaddr *address, uint16_t srcportv4,
         uint16_t srcportv6, uint16_t destport, char *device,
-        wand_event_handler_t *ev_hdl,
+        struct event_base *base,
         void *callbackdata,
-        void (*callback)(wand_event_handler_t *ev_hdl,
-            int fd, void *data, enum wand_eventtype_t ev));
+        void(*callback)(evutil_socket_t evsock, short flags, void *evdata));
 
 int find_source_address(char *device, struct addrinfo *dest,
         struct sockaddr *saddr);

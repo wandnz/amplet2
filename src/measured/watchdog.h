@@ -41,7 +41,7 @@
 #define _MEASURED_WATCHDOG_H
 
 #include <time.h>
-#include <libwandevent.h>
+#include <event2/event.h>
 
 #include "tests.h"
 
@@ -52,8 +52,9 @@ int start_test_watchdog(test_t *test, timer_t *timerid);
 int start_watchdog(time_t duration, int signal, timer_t *timerid);
 int stop_watchdog(timer_t timerid);
 
-void child_reaper(wand_event_handler_t *ev_hdl,
-        __attribute__((unused))int signum,
-        __attribute__((unused))void *data);
+void child_reaper(
+        __attribute__((unused))evutil_socket_t evsock,
+        __attribute__((unused))short flags,
+        __attribute__((unused))void *evdata);
 
 #endif

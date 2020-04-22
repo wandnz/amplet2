@@ -181,7 +181,7 @@ void free_duped_environ(void) {
 
 /*
  * Reset the handlers and unblock all the signals that we had associated with
- * libwandevent in the parent process so that tests can receive them properly.
+ * libevent in the parent process so that tests can receive them properly.
  * TODO maintain the list of signals dynamically?
  */
 int unblock_signals(void) {

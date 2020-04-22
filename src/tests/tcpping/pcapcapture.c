@@ -45,7 +45,7 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <ifaddrs.h>
-#include <libwandevent.h>
+#include <event2/event.h>
 #include <arpa/inet.h>
 #include <string.h>
 #include <pcap.h>
@@ -308,10 +308,9 @@ int find_source_address(char *device, struct addrinfo *dest,
  */
 int pcap_listen(struct sockaddr *address, uint16_t srcportv4,
         uint16_t srcportv6, uint16_t destport, char *device,
-        wand_event_handler_t *ev_hdl,
+        struct event_base *base,
         void *callbackdata,
-        void (*callback)(wand_event_handler_t *ev_hdl,
-                int fd, void *data, enum wand_eventtype_t ev)) {
+        void(*callback)(evutil_socket_t evsock, short flags, void *evdata)) {
 
     struct pcapdevice *p;
 
@@ -356,7 +355,8 @@ int pcap_listen(struct sockaddr *address, uint16_t srcportv4,
 
     /* Add the fd for the new device to our event handler so that our
      * callback will fire whenever a packet arrives */
-    if (!wand_add_fd(ev_hdl, p->pcap_fd, EV_READ, p, callback)) {
+    p->event = event_new(base, p->pcap_fd, EV_READ|EV_PERSIST, callback, p);
+    if ( event_add(p->event, NULL) != 0 ) {
         Log(LOG_ERR, "Failed to add fd event for new pcap device %s", device);
         return 0;
     }
@@ -486,13 +486,13 @@ struct pcaptransport pcap_transport_header(struct pcapdevice *p) {
 /*
  * Close up any pcap devices used during the test.
  */
-void pcap_cleanup(wand_event_handler_t *ev_hdl) {
+void pcap_cleanup(void) {
     struct pcapdevice *p = pcaps;
     struct pcapdevice *tmp;
 
     while ( p != NULL ) {
         /* Remove each pcap device fd from the event handler */
-        wand_del_fd(ev_hdl, p->pcap_fd);
+        event_free(p->event);
 
         /* Close the pcap device */
         pcap_close(p->pcap);

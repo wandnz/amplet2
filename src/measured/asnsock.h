@@ -40,7 +40,7 @@
 #ifndef _MEASURED_ASNSOCK_H
 #define _MEASURED_ASNSOCK_H
 
-#include <libwandevent.h>
+#include <event2/event.h>
 
 #include "iptrie.h"
 #include "asn.h"
@@ -53,9 +53,8 @@
 #define MIN_ASN_CACHE_REFRESH 86400
 #define MAX_ASN_CACHE_REFRESH_OFFSET 3600
 
-void asn_socket_event_callback(
-        __attribute__((unused))wand_event_handler_t *ev_hdl, int eventfd,
-        void *data, __attribute__((unused))enum wand_eventtype_t ev);
+void asn_socket_event_callback(evutil_socket_t evsock,
+        __attribute__((unused))short flags, void *evdata);
 
 struct amp_asn_info* initialise_asn_info(void);
 void amp_asn_info_delete(struct amp_asn_info *info);

@@ -46,7 +46,7 @@
 #include <string.h>
 #include <sys/types.h>
 #include <ifaddrs.h>
-#include <libwandevent.h>
+#include <event2/event.h>
 #include <fcntl.h>
 #include <stdint.h>
 #include <sys/socket.h>
@@ -426,8 +426,8 @@ static int fork_test(test_schedule_item_t *item) {
      * fine.
      */
     if ( (pid = fork()) < 0 ) {
-	perror("fork");
-	return 0;
+        perror("fork");
+        return 0;
     } else if ( pid == 0 ) {
         /*
          * close the unix domain sockets the parent had, if we keep them open
@@ -442,11 +442,18 @@ static int fork_test(test_schedule_item_t *item) {
             Log(LOG_WARNING, "Failed to unblock signals, aborting");
             exit(EXIT_FAILURE);
         }
+        /*
+         * libevent can have issues spooling up another event loop from within
+         * an existing event loop, so need to free current base before we can
+         * register a new one
+         */
+        clear_test_schedule(item->meta->base, 1);
+        event_base_free(item->meta->base);
 
-	run_test(item, NULL);
+        run_test(item, NULL);
 
-	Log(LOG_WARNING, "%s test failed to run", item->test->name);
-	exit(EXIT_FAILURE);
+        Log(LOG_WARNING, "%s test failed to run", item->test->name);
+        exit(EXIT_FAILURE);
     }
 
     return 1;
@@ -457,8 +464,11 @@ static int fork_test(test_schedule_item_t *item) {
 /*
  * Start a scheduled test running and reschedule it to run again next interval
  */
-void run_scheduled_test(wand_event_handler_t *ev_hdl, void *data) {
-    schedule_item_t *item = (schedule_item_t *)data;
+void run_scheduled_test(
+        __attribute__((unused))evutil_socket_t evsock,
+        __attribute__((unused))short flags,
+        void *evdata) {
+    schedule_item_t *item = (schedule_item_t *)evdata;
     test_schedule_item_t *test_item;
     struct timeval next;
     int run;
@@ -477,12 +487,11 @@ void run_scheduled_test(wand_event_handler_t *ev_hdl, void *data) {
     run = fork_test(test_item);
 
     /* while the test runs, reschedule it again */
-    next = get_next_schedule_time(item->ev_hdl, test_item->period,
+    next = get_next_schedule_time(item->base, test_item->period,
             test_item->start, test_item->end, US_FROM_TV(test_item->interval),
             run, &test_item->abstime);
 
-    if ( wand_add_timer(ev_hdl, next.tv_sec, next.tv_usec, data,
-                run_scheduled_test) == NULL ) {
+    if ( event_add(item->event, &next) != 0 ) {
         /* this should never happen if we properly check the next time */
         Log(LOG_ALERT, "Failed to reschedule %s test", test_item->test->name);
     }
