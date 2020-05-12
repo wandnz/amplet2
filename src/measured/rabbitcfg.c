@@ -248,6 +248,7 @@ int setup_rabbitmq_shovel(char *ampname, char *local, char *collector, int port,
                 "&certfile=%s"
                 "&keyfile=%s"
                 "&verify=verify_peer"
+                "&server_name_indication=%s"
                 "&fail_if_no_peer_cert=true"
                 "&auth_mechanism=external\", "
                 "\"reconnect-delay\":%d,"
@@ -259,7 +260,8 @@ int setup_rabbitmq_shovel(char *ampname, char *local, char *collector, int port,
                 "\"dest-exchange\":\"%s\", "
                 "\"dest-exchange-key\":\"%s\"}",
                 ampname, ampname, local, ampname, collector, port, cacert,
-                cert, key, retry, prefetch, exchange, routingkey) < 0 ) {
+                cert, key, collector, retry, prefetch, exchange,
+                routingkey) < 0 ) {
         exit(EXIT_FAILURE);
     }
 
