@@ -60,7 +60,7 @@
 #include "../measured/control.h" /* just for CONTROL_PORT */
 
 
-struct option long_options[] = {
+struct option standalone_long_options[] = {
     {"cacert", required_argument, 0, '0'},
     {"cert", required_argument, 0, '9'},
     {"key", required_argument, 0, '8'},
@@ -125,7 +125,7 @@ int main(int argc, char *argv[]) {
      * known argument, but for some reason the permutation isn't working?
      */
     while ( (opt = getopt_long(argc, argv, "-x0:9:8:7:4::6::",
-                    long_options, NULL)) != -1 ) {
+                    standalone_long_options, NULL)) != -1 ) {
 	/* generally do nothing, just use up arguments until the -- marker */
         switch ( opt ) {
             /* -x is an option only we care about for now - enable debug */
