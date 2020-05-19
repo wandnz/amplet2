@@ -185,7 +185,7 @@ test_t *register_test() {
     new_test->max_targets = 0;
 
     /* minimum number of targets required to run this test */
-    new_test->min_targets = 1;
+    new_test->min_targets = 0;
 
     /* maximum duration this test should take before being killed */
     new_test->max_duration = 330;
