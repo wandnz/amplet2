@@ -650,7 +650,6 @@ amp_test_result_t* run_sip_client(int argc, char *argv[], int count,
     pj_status_t status;
     char errmsg[PJ_ERR_MSG_SIZE];
     pjsua_config cfg;
-    pjsua_transport_config transport_config;
     pjsua_logging_config log_cfg;
     struct opt_t *options;
     BIO *ctrl = NULL;
@@ -661,8 +660,6 @@ amp_test_result_t* run_sip_client(int argc, char *argv[], int count,
     cfg.cb.on_call_media_state = &on_call_media_state;
     cfg.cb.on_call_state = &on_call_state;
     cfg.max_calls = 1;
-
-    pjsua_transport_config_default(&transport_config);
 
     pjsua_logging_config_default(&log_cfg);
     log_cfg.console_level = 0;
@@ -683,7 +680,6 @@ amp_test_result_t* run_sip_client(int argc, char *argv[], int count,
     options = parse_options(argc, argv);
 
     /* some of the options need to be given to specific configs */
-    transport_config.port = options->sip_port;
     cfg.user_agent = options->user_agent;
     cfg.outbound_proxy_cnt = options->outbound_proxy_cnt;
     memcpy(cfg.outbound_proxy, options->outbound_proxy,
@@ -750,7 +746,7 @@ amp_test_result_t* run_sip_client(int argc, char *argv[], int count,
         exit(EXIT_FAILURE);
     }
 
-    status = register_transports(options, &transport_config, AMP_SIP_CLIENT);
+    status = register_transports(options, AMP_SIP_CLIENT);
     if ( status != PJ_SUCCESS ) {
         pj_strerror(status, errmsg, sizeof(errmsg));
         Log(LOG_WARNING, "%s\n", errmsg);
@@ -775,6 +771,7 @@ amp_test_result_t* run_sip_client(int argc, char *argv[], int count,
 
     if ( count > 0 && dests && dests[0]->ai_addr != NULL && ssl_ctx ) {
         Amplet2__Measured__Response response;
+        char *params = NULL;
 
         /* start the server if required (connected to an amplet) */
         if ( (ctrl=connect_control_server(
@@ -784,7 +781,20 @@ amp_test_result_t* run_sip_client(int argc, char *argv[], int count,
             goto end;
         }
 
-        if ( start_remote_server(ctrl, AMP_TEST_SIP) < 0 ) {
+        /*
+         * TODO do I want to pass a different username and password to the
+         * server too if it also needs to register? Is this the right way?
+         */
+        /* build the options string required to run the server */
+        if ( options->dscp ) {
+            if ( asprintf(&params, "-Q %d", options->dscp) < 0 ) {
+                Log(LOG_WARNING, "Failed to build server parameter string");
+                exit(EXIT_FAILURE);
+            }
+        }
+
+        /* try to start the server */
+        if ( start_remote_server(ctrl, AMP_TEST_SIP, params) < 0 ) {
             Log(LOG_WARNING, "Failed to start remote server");
             goto end;
         }

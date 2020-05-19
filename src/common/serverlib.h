@@ -71,7 +71,7 @@ int start_listening(struct socket_t *sockets, int port,
         struct sockopt_t *sockopts);
 BIO* listen_control_server(uint16_t port, uint16_t portmax,
         struct sockopt_t *sockopts);
-int start_remote_server(BIO *ctrl, uint64_t type);
+int start_remote_server(BIO *ctrl, uint64_t type, char *params);
 BIO* connect_control_server(struct addrinfo *dest, uint16_t port,
         struct sockopt_t *sockopts);
 int connect_to_server(struct addrinfo *dest, uint16_t port,

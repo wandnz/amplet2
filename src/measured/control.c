@@ -76,7 +76,7 @@
  * XXX these names are all very confusing when compared to the protobuf
  * names in common/servers.proto and the associated functions!
  */
-static int parse_server_start(void *data, uint32_t len, uint64_t *type) {
+static int parse_server_start(void *data, uint32_t len, uint64_t *type, char ***params) {
 
     Amplet2__Measured__Control *msg;
 
@@ -99,8 +99,7 @@ static int parse_server_start(void *data, uint32_t len, uint64_t *type) {
     }
 
     *type = msg->server->test_type;
-
-    /* TODO argv */
+    *params = parse_param_string(msg->server->params);
 
     amplet2__measured__control__free_unpacked(msg, NULL);
 
@@ -182,6 +181,7 @@ static int parse_single_test(void *data, uint32_t len,
 static void do_start_server(BIO *ctrl, void *data, uint32_t len) {
     timer_t watchdog;
     uint64_t test_type;
+    char **test_params;
     test_t *test;
     char *proc_name;
     struct sockaddr_storage addr;
@@ -194,7 +194,7 @@ static void do_start_server(BIO *ctrl, void *data, uint32_t len) {
     int fd;
 
     /* TODO read test arguments if required */
-    if ( parse_server_start(data, len, &test_type) < 0 ) {
+    if ( parse_server_start(data, len, &test_type, &test_params) < 0 ) {
         Log(LOG_WARNING, "Failed to parse SERVER packet");
         return;
     }
@@ -270,6 +270,14 @@ static void do_start_server(BIO *ctrl, void *data, uint32_t len) {
         }
     }
 
+    /* add any arguments that came from the remote end */
+    if ( test_params ) {
+        int i;
+        for ( i = 0; test_params[i] != NULL; i++ ) {
+            argv[argc++] = test_params[i];
+        }
+    }
+
     argv[argc] = NULL;
 
     /* Run server function using callback in test */
@@ -279,6 +287,14 @@ static void do_start_server(BIO *ctrl, void *data, uint32_t len) {
 
     free_duped_environ();
     free(proc_name);
+
+    if ( test_params ) {
+        int i;
+        for ( i = 0; test_params[i] != NULL; i++ ) {
+            free(test_params[i]);
+        }
+        free(test_params);
+    }
 }
 
 

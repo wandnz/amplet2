@@ -68,7 +68,6 @@ uint8_t get_family_from_uri(pj_pool_t *pool, pj_str_t uri_str);
 test_t *register_test(void);
 
 struct opt_t* parse_options(int argc, char *argv[]);
-int register_transports(struct opt_t *options,
-        pjsua_transport_config *transport_config, int is_server);
+int register_transports(struct opt_t *options, int is_server);
 
 #endif

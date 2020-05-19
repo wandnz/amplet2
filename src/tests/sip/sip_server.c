@@ -125,7 +125,6 @@ void run_sip_server(int argc, char *argv[], __attribute__((unused))BIO *ctrl) {
     pj_status_t status;
     char errmsg[PJ_ERR_MSG_SIZE];
     pjsua_config cfg;
-    pjsua_transport_config transport_config;
     pjsua_logging_config log_cfg;
     struct opt_t *options;
 
@@ -137,8 +136,6 @@ void run_sip_server(int argc, char *argv[], __attribute__((unused))BIO *ctrl) {
     cfg.cb.on_incoming_call = &on_incoming_call;
     cfg.cb.on_call_state = &on_call_state;
     cfg.max_calls = 1;
-
-    pjsua_transport_config_default(&transport_config);
 
     /* minimise the data we send so it doesn't blow out the packet size */
     set_use_minimal_messages();
@@ -154,7 +151,6 @@ void run_sip_server(int argc, char *argv[], __attribute__((unused))BIO *ctrl) {
 
     options = parse_options(argc, argv);
     cfg.user_agent = options->user_agent;
-    transport_config.port = options->sip_port;
 
     pjsua_logging_config_default(&log_cfg);
     log_cfg.console_level = 0;
@@ -165,7 +161,7 @@ void run_sip_server(int argc, char *argv[], __attribute__((unused))BIO *ctrl) {
         exit(EXIT_FAILURE);
     }
 
-    status = register_transports(options, &transport_config, AMP_SIP_SERVER);
+    status = register_transports(options, AMP_SIP_SERVER);
     if ( status != PJ_SUCCESS ) {
         pj_strerror(status, errmsg, sizeof(errmsg));
         Log(LOG_WARNING, "%s", errmsg);

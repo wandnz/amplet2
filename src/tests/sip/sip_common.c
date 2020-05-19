@@ -49,6 +49,7 @@
 #include "sip.h"
 #include "debug.h"
 #include "testlib.h"
+#include "dscp.h"
 #include "../../measured/control.h"
 
 
@@ -68,11 +69,11 @@ struct opt_t* parse_options(int argc, char *argv[]) {
     options->control_port = atoi(DEFAULT_AMPLET_CONTROL_PORT);
     /* port to bind to locally, use the URI to set remote port */
     options->sip_port = SIP_SERVER_LISTEN_PORT;
+    options->dscp = DEFAULT_DSCP_VALUE;
 
     /* TODO transport TLS configuration, publicAddress? */
     /* TODO add STUN option? */
     /* TODO do non-sip, e.g. tel: ? */
-    /* TODO DSCP - should be able to use transport_config.qos_type */
     /* TODO device - can we use transport_config.sockopt_params? */
     while ( (opt = getopt_long(argc, argv, "a:f:P:p:rst:u:y:I:Q:Z:4::6::hvx",
                             long_options, NULL)) != -1 ) {
@@ -83,7 +84,11 @@ struct opt_t* parse_options(int argc, char *argv[]) {
             case '6': options->forcev6 = 1;
                       options->sourcev6 = parse_optional_argument(argv);
                       break;
-            case 'Q': /* TODO pj_sock_set_qos_params() */ break;
+            case 'Q': if ( parse_dscp_value(optarg, &options->dscp) < 0 ) {
+                          Log(LOG_WARNING, "Invalid DSCP value, aborting");
+                          exit(EXIT_FAILURE);
+                          break;
+                      }
             case 'I': options->device = optarg; break;
             case 'a': options->user_agent = pj_str(optarg); break;
             case 'f': options->filename = pj_str(optarg); break;
@@ -338,6 +343,7 @@ static pj_status_t register_transport(pj_pool_t *pool,
         pjsip_transport_type_e transport, pjsua_transport_config *cfg) {
     pjsua_transport_id trans_id;
     pjsua_acc_id account_id;
+    pjsua_acc_config account_cfg;
     pj_status_t status;
 
     if ( (transport & ~PJSIP_TRANSPORT_IPV6) == PJSIP_TRANSPORT_UDP ) {
@@ -359,17 +365,21 @@ static pj_status_t register_transport(pj_pool_t *pool,
     /* add a local account using this transport */
     pjsua_acc_add_local(trans_id, PJ_FALSE, &account_id);
 
+#if PJ_VERSION_NUM >= 0x02020000
+    pjsua_acc_get_config(account_id, pool, &account_cfg);
+#else
+    pjsua_acc_get_config(account_id, &account_cfg);
+#endif
+
+    /* set DSCP bits */
+    account_cfg.rtp_cfg.qos_params = cfg->qos_params;
+
     /* if using IPv6, need to tell the media to use it as well */
     if ( transport & PJSIP_TRANSPORT_IPV6 ) {
-        pjsua_acc_config account_cfg;
-#if PJ_VERSION_NUM >= 0x02020000
-        pjsua_acc_get_config(account_id, pool, &account_cfg);
-#else
-        pjsua_acc_get_config(account_id, &account_cfg);
-#endif
         account_cfg.ipv6_media_use = PJSUA_IPV6_ENABLED;
-        pjsua_acc_modify(account_id, &account_cfg);
     }
+
+    pjsua_acc_modify(account_id, &account_cfg);
 
     return PJ_SUCCESS;
 }
@@ -411,11 +421,11 @@ static int register_family_transports(pj_pool_t *pool, int family,
 /*
  * Register all the required transports for this test run.
  */
-int register_transports(struct opt_t *options,
-        pjsua_transport_config *transport_config, int is_server) {
+int register_transports(struct opt_t *options, int is_server) {
     int status;
     int family;
     pj_pool_t *pool;
+    pjsua_transport_config transport_config;
 
     Log(LOG_DEBUG, "Registering transports");
 
@@ -436,15 +446,26 @@ int register_transports(struct opt_t *options,
         }
     }
 
+    /* set common transport options */
+    pjsua_transport_config_default(&transport_config);
+    transport_config.port = options->sip_port;
+    transport_config.qos_params.flags = PJ_QOS_PARAM_HAS_DSCP;
+    transport_config.qos_params.dscp_val = options->dscp;
+
+    /*
+     * TODO transports need to be registered for the address family used to
+     * reach the registrar as well, even if they aren't used for INVITE/media
+     */
+
     /* register ipv4 transports */
     if ( family == AF_INET || family == AF_UNSPEC ) {
-        struct pjsua_transport_config *ipv4_config = transport_config;
+        struct pjsua_transport_config *ipv4_config = &transport_config;
         if ( options->sourcev4 ) {
-            pjsua_transport_config_dup(pool, ipv4_config, transport_config);
-            transport_config->bound_addr = pj_str(options->sourcev4);
+            pjsua_transport_config_dup(pool, ipv4_config, &transport_config);
+            transport_config.bound_addr = pj_str(options->sourcev4);
         }
 
-        status = register_family_transports(pool, AF_INET, transport_config);
+        status = register_family_transports(pool, AF_INET, &transport_config);
         if ( status != PJ_SUCCESS ) {
             pj_pool_release(pool);
             return status;
@@ -453,13 +474,13 @@ int register_transports(struct opt_t *options,
 
     /* register ipv6 transports */
     if ( family == AF_INET6 || family == AF_UNSPEC ) {
-        struct pjsua_transport_config *ipv6_config = transport_config;
+        struct pjsua_transport_config *ipv6_config = &transport_config;
         if ( options->sourcev6 ) {
-            pjsua_transport_config_dup(pool, ipv6_config, transport_config);
-            transport_config->bound_addr = pj_str(options->sourcev6);
+            pjsua_transport_config_dup(pool, ipv6_config, &transport_config);
+            transport_config.bound_addr = pj_str(options->sourcev6);
         }
 
-        status = register_family_transports(pool, AF_INET6, transport_config);
+        status = register_family_transports(pool, AF_INET6, &transport_config);
         if ( status != PJ_SUCCESS ) {
             pj_pool_release(pool);
             return status;

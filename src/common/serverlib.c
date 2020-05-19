@@ -383,7 +383,7 @@ int start_listening(struct socket_t *sockets, int port,
  * be started. The connection to the remote client should already be
  * established by this point.
  */
-static int send_server_start(BIO *ctrl, uint64_t type) {
+static int send_server_start(BIO *ctrl, uint64_t type, char *params) {
     int len;
     void *buffer;
     int result;
@@ -392,6 +392,7 @@ static int send_server_start(BIO *ctrl, uint64_t type) {
 
     server.has_test_type = 1;
     server.test_type = type;
+    server.params = params;
 
     msg.server = &server;
     msg.has_type = 1;
@@ -692,13 +693,13 @@ BIO* connect_control_server(struct addrinfo *dest, uint16_t port,
  * Ask that a remote amplet client that we are connected to start a server
  * for a particular test.
  */
-int start_remote_server(BIO *ctrl, uint64_t type) {
+int start_remote_server(BIO *ctrl, uint64_t type, char *params) {
 
     assert(ctrl);
 
     /* Send the test type, so the other end knows which server to run */
     /* TODO send any test parameters? */
-    if ( send_server_start(ctrl, type) < 0 ) {
+    if ( send_server_start(ctrl, type, params) < 0 ) {
         Log(LOG_DEBUG, "Failed to send test type");
         return -1;
     }
