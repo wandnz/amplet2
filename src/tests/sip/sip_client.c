@@ -389,7 +389,7 @@ static amp_test_result_t* report_results(struct timeval *start_time,
     header.has_dscp = 1;
     header.dscp = options->dscp;
     header.has_family = 1;
-    header.family = get_family_from_uri(pool, options->uri);
+    header.family = options->family;
     header.hostname = get_host_from_uri(pool, options->uri);
     header.has_address = copy_pj_sockaddr_to_protobuf(&header.address,
             options->address);
@@ -752,6 +752,13 @@ amp_test_result_t* run_sip_client(int argc, char *argv[], int count,
         Log(LOG_WARNING, "%s\n", errmsg);
         pjsua_destroy();
         exit(EXIT_FAILURE);
+    }
+
+    status = register_account(options);
+    if ( status != PJ_SUCCESS ) {
+        pj_strerror(status, errmsg, sizeof(errmsg));
+        Log(LOG_WARNING, "%s\n", errmsg);
+        goto end;
     }
 
     /* use the null sound device, we don't want to actually play sound */

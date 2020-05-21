@@ -169,6 +169,13 @@ void run_sip_server(int argc, char *argv[], __attribute__((unused))BIO *ctrl) {
         exit(EXIT_FAILURE);
     }
 
+    status = register_account(options);
+    if ( status != PJ_SUCCESS ) {
+        pj_strerror(status, errmsg, sizeof(errmsg));
+        Log(LOG_WARNING, "%s\n", errmsg);
+        goto end;
+    }
+
     /* use the null sound device, we don't want to actually play sound */
     Log(LOG_DEBUG, "Setting null sound device");
     pjsua_set_null_snd_dev();
@@ -187,6 +194,7 @@ void run_sip_server(int argc, char *argv[], __attribute__((unused))BIO *ctrl) {
     /* loop till test completes */
     run_sip_server_loop();
 
+end:
     free(options);
     pjsua_destroy();
 }

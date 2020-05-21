@@ -38,7 +38,6 @@
  */
 
 /*
- * TODO account registration?
  * TODO TLS?
  * TODO build as separate package to avoid pjsip dependencies
  */
@@ -57,6 +56,10 @@
 
 struct option long_options[] = {
     //{"perturbate", required_argument, 0, 'p'},
+    {"username", required_argument, 0, 'n'},
+    {"password", required_argument, 0, 'w'},
+    {"registrar", required_argument, 0, 'e'},
+    {"id", required_argument, 0, 'i'},
     {"user-agent", required_argument, 0, 'a'},
     {"useragent", required_argument, 0, 'a'},
     {"filename", required_argument, 0, 'f'},
@@ -97,6 +100,14 @@ void usage(void) {
             "Specify User-Agent string\n");
     fprintf(stderr, "  -f, --filename       <file>    "
             "WAV audio file to play\n");
+    fprintf(stderr, "  -n, --username       <user>    "
+            "Username to use for authentication\n");
+    fprintf(stderr, "  -w, --password       <passwd>  "
+            "Plain text password for authentication\n");
+    fprintf(stderr, "  -e, --registrar      <uri>     "
+            "SIP URI to register/authenticate against\n");
+    fprintf(stderr, "  -i, --id             <uri>     "
+            "SIP identity string to use\n");
     print_interface_usage();
     fprintf(stderr, "\n");
 
@@ -140,7 +151,8 @@ amp_test_result_t* run_sip(int argc, char *argv[], int count,
 
     Log(LOG_DEBUG, "Starting sip test");
 
-    while ( (opt = getopt_long(argc, argv, "a:f:P:p:rst:u:y:I:Q:Z:4::6::hvx",
+    while ( (opt = getopt_long(argc, argv,
+                    "n:w:e:i:a:f:P:p:rst:u:y:I:Q:Z:4::6::hvx",
                     long_options, NULL)) != -1 ) {
         switch ( opt ) {
             case 's': server_flag_index = optind - 1; break;

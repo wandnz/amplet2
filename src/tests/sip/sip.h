@@ -36,6 +36,10 @@ struct opt_t {
     char *device;
     char *hostname;
     pj_sockaddr_t *address;
+    pj_str_t registrar;
+    pj_str_t username;
+    pj_str_t password;
+    pj_str_t id;
     pj_str_t uri;
     pj_str_t filename;
     pj_str_t user_agent;
@@ -64,10 +68,10 @@ void start_duration_timer(int duration);
 void set_use_minimal_messages(void);
 void on_call_media_state(pjsua_call_id call_id);
 char* get_host_from_uri(pj_pool_t *pool, pj_str_t uri_str);
-uint8_t get_family_from_uri(pj_pool_t *pool, pj_str_t uri_str);
 test_t *register_test(void);
 
 struct opt_t* parse_options(int argc, char *argv[]);
 int register_transports(struct opt_t *options, int is_server);
+pj_status_t register_account(struct opt_t *options);
 
 #endif

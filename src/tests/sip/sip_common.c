@@ -40,6 +40,7 @@
 #include <stdio.h>
 #include <getopt.h>
 #include <sys/socket.h>
+#include <unistd.h>
 
 #include <pjsua-lib/pjsua.h>
 #include <pjsua-lib/pjsua_internal.h>
@@ -70,13 +71,15 @@ struct opt_t* parse_options(int argc, char *argv[]) {
     /* port to bind to locally, use the URI to set remote port */
     options->sip_port = SIP_SERVER_LISTEN_PORT;
     options->dscp = DEFAULT_DSCP_VALUE;
+    options->family = AF_UNSPEC;
 
     /* TODO transport TLS configuration, publicAddress? */
     /* TODO add STUN option? */
     /* TODO do non-sip, e.g. tel: ? */
     /* TODO device - can we use transport_config.sockopt_params? */
-    while ( (opt = getopt_long(argc, argv, "a:f:P:p:rst:u:y:I:Q:Z:4::6::hvx",
-                            long_options, NULL)) != -1 ) {
+    while ( (opt = getopt_long(argc, argv,
+                    "n:w:e:i:a:f:P:p:rst:u:y:I:Q:Z:4::6::hvx",
+                    long_options, NULL)) != -1 ) {
         switch ( opt ) {
             case '4': options->forcev4 = 1;
                       options->sourcev4 = parse_optional_argument(argv);
@@ -87,9 +90,23 @@ struct opt_t* parse_options(int argc, char *argv[]) {
             case 'Q': if ( parse_dscp_value(optarg, &options->dscp) < 0 ) {
                           Log(LOG_WARNING, "Invalid DSCP value, aborting");
                           exit(EXIT_FAILURE);
-                          break;
                       }
+                      break;
             case 'I': options->device = optarg; break;
+            case 'n': options->username = pj_str(optarg); break;
+            case 'w': options->password = pj_str(optarg); break;
+            case 'e': if ( pjsua_verify_sip_url(optarg) != PJ_SUCCESS ) {
+                          Log(LOG_WARNING, "Bad registrar URI: '%s'", optarg);
+                          exit(EXIT_FAILURE);
+                      }
+                      options->registrar = pj_str(optarg);
+                      break;
+            case 'i': if ( pjsua_verify_sip_url(optarg) != PJ_SUCCESS ) {
+                          Log(LOG_WARNING, "Bad id URI: '%s'", optarg);
+                          exit(EXIT_FAILURE);
+                      }
+                      options->id = pj_str(optarg);
+                      break;
             case 'a': options->user_agent = pj_str(optarg); break;
             case 'f': options->filename = pj_str(optarg); break;
             case 'P': options->sip_port = atoi(optarg); break;
@@ -314,7 +331,7 @@ char* get_host_from_uri(pj_pool_t *pool, pj_str_t uri_str) {
  * Given a URI, return the address family that should be used to call it.
  * The URI should have been validated before this function is called.
  */
-uint8_t get_family_from_uri(pj_pool_t *pool, pj_str_t uri_str) {
+static uint8_t get_family_from_uri(pj_pool_t *pool, pj_str_t uri_str) {
     pj_sockaddr addr;
     pj_status_t status;
     pj_str_t host;
@@ -423,7 +440,6 @@ static int register_family_transports(pj_pool_t *pool, int family,
  */
 int register_transports(struct opt_t *options, int is_server) {
     int status;
-    int family;
     pj_pool_t *pool;
     pjsua_transport_config transport_config;
 
@@ -433,16 +449,16 @@ int register_transports(struct opt_t *options, int is_server) {
 
     /* determine which address families should register transports */
     if ( options->forcev4 && !options->forcev6 ) {
-        family = AF_INET;
+        options->family = AF_INET;
     } else if ( options->forcev6 && !options->forcev4 ) {
-        family = AF_INET6;
+        options->family = AF_INET6;
     } else {
         if ( is_server ) {
             /* this is a server, use both address families */
-            family = AF_UNSPEC;
+            options->family = AF_UNSPEC;
         } else {
             /* try to guess one family based on the URI */
-            family = get_family_from_uri(pool, options->uri);
+            options->family = get_family_from_uri(pool, options->uri);
         }
     }
 
@@ -458,7 +474,7 @@ int register_transports(struct opt_t *options, int is_server) {
      */
 
     /* register ipv4 transports */
-    if ( family == AF_INET || family == AF_UNSPEC ) {
+    if ( options->family == AF_INET || options->family == AF_UNSPEC ) {
         struct pjsua_transport_config *ipv4_config = &transport_config;
         if ( options->sourcev4 ) {
             pjsua_transport_config_dup(pool, ipv4_config, &transport_config);
@@ -473,7 +489,7 @@ int register_transports(struct opt_t *options, int is_server) {
     }
 
     /* register ipv6 transports */
-    if ( family == AF_INET6 || family == AF_UNSPEC ) {
+    if ( options->family == AF_INET6 || options->family == AF_UNSPEC ) {
         struct pjsua_transport_config *ipv6_config = &transport_config;
         if ( options->sourcev6 ) {
             pjsua_transport_config_dup(pool, ipv6_config, &transport_config);
@@ -488,6 +504,84 @@ int register_transports(struct opt_t *options, int is_server) {
     }
 
     pj_pool_release(pool);
+
+    return PJ_SUCCESS;
+}
+
+
+
+/*
+ *
+ */
+pj_status_t register_account(struct opt_t *options) {
+    pjsua_acc_config acc_cfg;
+    pjsua_acc_info acc_info;
+    int retry = 0;
+    int status;
+
+    /* only register with a server if authentication details are provided */
+    if ( options->username.slen == 0 || options->registrar.slen == 0 ) {
+        return PJ_SUCCESS;
+    }
+
+    /* need to configure another account, separate to local transports */
+    pjsua_acc_config_default(&acc_cfg);
+
+    acc_cfg.allow_sdp_nat_rewrite = PJ_TRUE;
+
+    acc_cfg.reg_uri = options->registrar;
+    acc_cfg.id = options->id;
+
+    /*
+     * XXX should be able to get all these by parsing a single URI,
+     * but the pjsip library function to do so is broken and can't
+     * deal with passwords properly
+     */
+    acc_cfg.cred_count = 1;
+    acc_cfg.cred_info[0].realm = pj_str("*");
+    acc_cfg.cred_info[0].username = options->username;
+    acc_cfg.cred_info[0].scheme = pj_str("digest");
+
+    if ( options->password.slen > 0 ) {
+        acc_cfg.cred_info[0].data_type = PJSIP_CRED_DATA_PLAIN_PASSWD;
+        acc_cfg.cred_info[0].data = options->password;
+    }
+
+    /* TODO set registration time down to slightly longer than test duration? */
+    acc_cfg.reg_timeout = 60;
+
+    /* XXX IPV6 DSCP needs version >= 2.6 of pjproject otherwise ignored */
+    pjsua_transport_config rtp_cfg;
+    pjsua_transport_config_default(&rtp_cfg);
+    rtp_cfg.qos_params.flags = PJ_QOS_PARAM_HAS_DSCP;
+    rtp_cfg.qos_params.dscp_val = options->dscp;
+    acc_cfg.rtp_cfg = rtp_cfg;
+
+    /*
+     * I think this only matters for outgoing connections, so probably only
+     * needs to be set if we know we are doing IPv6. It can only be
+     * AF_UNSPEC if this is a server not knowing which family to listen on.
+     */
+    if ( /*options->family == AF_UNSPEC ||*/ options->family == AF_INET6 ) {
+        acc_cfg.ipv6_media_use = PJSUA_IPV6_ENABLED;
+    }
+
+    if ( (status = pjsua_acc_add(&acc_cfg, PJ_TRUE, NULL)) != PJ_SUCCESS ) {
+        return status;
+    }
+
+    /* wait for registration to complete */
+    do {
+        pjsua_acc_get_info(pjsua_acc_get_default(), &acc_info);
+        Log(LOG_DEBUG, "Account status: %d", acc_info.status);
+        sleep(1);
+    } while ( acc_info.status == PJSIP_SC_TRYING && retry++ < 10 );
+
+    if ( acc_info.status != PJSIP_SC_OK ) {
+        const pj_str_t *text = pjsip_get_status_text(status);
+        Log(LOG_WARNING, "Failed to register: %*s", text->slen, text->ptr);
+        return PJ_EUNKNOWN;
+    }
 
     return PJ_SUCCESS;
 }
