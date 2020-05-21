@@ -169,9 +169,9 @@ void set_use_minimal_messages(void) {
     extern pj_bool_t pjsip_include_allow_hdr_in_dlg;
     pjsip_include_allow_hdr_in_dlg = PJ_FALSE;
 
-    /* Do not include rtpmap for static payload types (<96) */
+    /* keep this true for now to explicitly list all codecs */
     extern pj_bool_t pjmedia_add_rtpmap_for_static_pt;
-    pjmedia_add_rtpmap_for_static_pt = PJ_FALSE;
+    pjmedia_add_rtpmap_for_static_pt = PJ_TRUE;
 }
 
 
@@ -581,6 +581,46 @@ pj_status_t register_account(struct opt_t *options) {
         const pj_str_t *text = pjsip_get_status_text(status);
         Log(LOG_WARNING, "Failed to register: %*s", text->slen, text->ptr);
         return PJ_EUNKNOWN;
+    }
+
+    return PJ_SUCCESS;
+}
+
+
+
+/*
+ *
+ */
+pj_status_t register_codecs(void) {
+    pj_str_t id;
+    pj_status_t status;
+    char **codec;
+    char *enable[] = { "PCMA/8000", NULL };
+    char *disable[] = {
+        "PCMU/8000",
+        "GSM/8000",
+        "AMR/8000",
+        "AMR-WB/16000",
+        "opus/48000/2",
+        "speex/32000",
+        NULL
+    };
+
+    /* TODO allow changing priority of codecs? */
+    for ( codec = enable; *codec != NULL; codec++ ) {
+        status = pjsua_codec_set_priority(pj_cstr(&id, *codec),
+                PJMEDIA_CODEC_PRIO_HIGHEST);
+        if ( status != PJ_SUCCESS ) {
+            return status;
+        }
+    }
+
+    for ( codec = disable; *codec != NULL; codec++ ) {
+        status = pjsua_codec_set_priority(pj_cstr(&id, *codec),
+                PJMEDIA_CODEC_PRIO_DISABLED);
+        if ( status != PJ_SUCCESS ) {
+            return status;
+        }
     }
 
     return PJ_SUCCESS;

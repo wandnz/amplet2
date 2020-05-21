@@ -23,7 +23,7 @@ INCLUDES=-I../ -I../../common/
 
 install-exec-local:
 	mkdir -p $(DESTDIR)/$(libdir)/$(PACKAGE)/extra
-	cp extra/sip-test.wav $(DESTDIR)/$(libdir)/$(PACKAGE)/extra
+	cp extra/sip-test-8000.wav $(DESTDIR)/$(libdir)/$(PACKAGE)/extra
 
 install-exec-hook:
 	setcap 'CAP_NET_RAW=ep' $(DESTDIR)/$(bindir)/amp-sip

@@ -651,6 +651,7 @@ amp_test_result_t* run_sip_client(int argc, char *argv[], int count,
     char errmsg[PJ_ERR_MSG_SIZE];
     pjsua_config cfg;
     pjsua_logging_config log_cfg;
+    pjsua_media_config media_cfg;
     struct opt_t *options;
     BIO *ctrl = NULL;
     amp_test_result_t *result = NULL;
@@ -663,6 +664,9 @@ amp_test_result_t* run_sip_client(int argc, char *argv[], int count,
 
     pjsua_logging_config_default(&log_cfg);
     log_cfg.console_level = 0;
+
+    pjsua_media_config_default(&media_cfg);
+    media_cfg.clock_rate = 8000;
 
     /* minimise the data we send so it doesn't blow out the packet size */
     /* XXX is this still an issue? do I need to do all the minimisation? */
@@ -740,7 +744,7 @@ amp_test_result_t* run_sip_client(int argc, char *argv[], int count,
 
     Log(LOG_DEBUG, "Initialising pjsua");
 
-    if ( (status = pjsua_init(&cfg, &log_cfg, NULL)) != PJ_SUCCESS ) {
+    if ( (status = pjsua_init(&cfg, &log_cfg, &media_cfg)) != PJ_SUCCESS ) {
         pj_strerror(status, errmsg, sizeof(errmsg));
         Log(LOG_WARNING, "%s\n", errmsg);
         exit(EXIT_FAILURE);
@@ -758,6 +762,13 @@ amp_test_result_t* run_sip_client(int argc, char *argv[], int count,
     if ( status != PJ_SUCCESS ) {
         pj_strerror(status, errmsg, sizeof(errmsg));
         Log(LOG_WARNING, "%s\n", errmsg);
+        goto end;
+    }
+
+    status = register_codecs();
+    if ( status != PJ_SUCCESS ) {
+        pj_strerror(status, errmsg, sizeof(errmsg));
+        Log(LOG_WARNING, "Failed to configure codecs: %s\n", errmsg);
         goto end;
     }
 

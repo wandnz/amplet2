@@ -126,6 +126,7 @@ void run_sip_server(int argc, char *argv[], __attribute__((unused))BIO *ctrl) {
     char errmsg[PJ_ERR_MSG_SIZE];
     pjsua_config cfg;
     pjsua_logging_config log_cfg;
+    pjsua_media_config media_cfg;
     struct opt_t *options;
 
     Log(LOG_DEBUG, "Running sip test as server");
@@ -155,7 +156,11 @@ void run_sip_server(int argc, char *argv[], __attribute__((unused))BIO *ctrl) {
     pjsua_logging_config_default(&log_cfg);
     log_cfg.console_level = 0;
 
-    if ( (status = pjsua_init(&cfg, &log_cfg, NULL)) != PJ_SUCCESS ) {
+    pjsua_media_config_default(&media_cfg);
+    media_cfg.clock_rate = 8000;
+
+    status = pjsua_init(&cfg, &log_cfg, &media_cfg);
+    if ( status != PJ_SUCCESS ) {
         pj_strerror(status, errmsg, sizeof(errmsg));
         Log(LOG_WARNING, "%s", errmsg);
         exit(EXIT_FAILURE);
@@ -173,6 +178,13 @@ void run_sip_server(int argc, char *argv[], __attribute__((unused))BIO *ctrl) {
     if ( status != PJ_SUCCESS ) {
         pj_strerror(status, errmsg, sizeof(errmsg));
         Log(LOG_WARNING, "%s\n", errmsg);
+        goto end;
+    }
+
+    status = register_codecs();
+    if ( status != PJ_SUCCESS ) {
+        pj_strerror(status, errmsg, sizeof(errmsg));
+        Log(LOG_WARNING, "Failed to configure codecs: %s\n", errmsg);
         goto end;
     }
 

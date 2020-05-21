@@ -15,7 +15,7 @@
 /* server should listen on this port for a client to connect */
 #define SIP_SERVER_LISTEN_PORT 5060
 /* WAV file to play once connected */
-#define SIP_WAV_FILE AMP_EXTRA_DIRECTORY "/sip-test.wav"
+#define SIP_WAV_FILE AMP_EXTRA_DIRECTORY "/sip-test-8000.wav"
 
 /* server/client flags used for determining which protocols to register */
 #define AMP_SIP_CLIENT 0
@@ -73,5 +73,6 @@ test_t *register_test(void);
 struct opt_t* parse_options(int argc, char *argv[]);
 int register_transports(struct opt_t *options, int is_server);
 pj_status_t register_account(struct opt_t *options);
+pj_status_t register_codecs(void);
 
 #endif
