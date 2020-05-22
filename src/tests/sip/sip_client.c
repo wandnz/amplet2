@@ -759,8 +759,7 @@ amp_test_result_t* run_sip_client(int argc, char *argv[], int count,
     if ( status != PJ_SUCCESS ) {
         pj_strerror(status, errmsg, sizeof(errmsg));
         Log(LOG_WARNING, "%s\n", errmsg);
-        pjsua_destroy();
-        exit(EXIT_FAILURE);
+        goto end;
     }
 
     status = register_account(options);
@@ -779,14 +778,17 @@ amp_test_result_t* run_sip_client(int argc, char *argv[], int count,
 
     /* use the null sound device, we don't want to actually play sound */
     Log(LOG_DEBUG, "Setting null sound device");
-    pjsua_set_null_snd_dev();
+    if ( (status = pjsua_set_null_snd_dev()) != PJ_SUCCESS ) {
+        pj_strerror(status, errmsg, sizeof(errmsg));
+        Log(LOG_WARNING, "Failed to set null sound device: %s\n", errmsg);
+        goto end;
+    }
 
     Log(LOG_DEBUG, "Starting pjsua");
     if ( (status = pjsua_start()) != PJ_SUCCESS ) {
         pj_strerror(status, errmsg, sizeof(errmsg));
         Log(LOG_WARNING, "%s\n", errmsg);
-        pjsua_destroy();
-        exit(EXIT_FAILURE);
+        goto end;
     }
 
     /* set options as account user data so it's available in callbacks */
@@ -812,7 +814,7 @@ amp_test_result_t* run_sip_client(int argc, char *argv[], int count,
         if ( options->dscp ) {
             if ( asprintf(&params, "-Q %d", options->dscp) < 0 ) {
                 Log(LOG_WARNING, "Failed to build server parameter string");
-                exit(EXIT_FAILURE);
+                goto end;
             }
         }
 

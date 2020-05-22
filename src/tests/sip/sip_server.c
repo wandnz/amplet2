@@ -163,15 +163,14 @@ void run_sip_server(int argc, char *argv[], __attribute__((unused))BIO *ctrl) {
     if ( status != PJ_SUCCESS ) {
         pj_strerror(status, errmsg, sizeof(errmsg));
         Log(LOG_WARNING, "%s", errmsg);
-        exit(EXIT_FAILURE);
+        goto end;
     }
 
     status = register_transports(options, AMP_SIP_SERVER);
     if ( status != PJ_SUCCESS ) {
         pj_strerror(status, errmsg, sizeof(errmsg));
         Log(LOG_WARNING, "%s", errmsg);
-        pjsua_destroy();
-        exit(EXIT_FAILURE);
+        goto end;
     }
 
     status = register_account(options);
@@ -190,14 +189,17 @@ void run_sip_server(int argc, char *argv[], __attribute__((unused))BIO *ctrl) {
 
     /* use the null sound device, we don't want to actually play sound */
     Log(LOG_DEBUG, "Setting null sound device");
-    pjsua_set_null_snd_dev();
+    if ( (status = pjsua_set_null_snd_dev()) != PJ_SUCCESS ) {
+        pj_strerror(status, errmsg, sizeof(errmsg));
+        Log(LOG_WARNING, "Failed to set null sound device: %s\n", errmsg);
+        goto end;
+    }
 
     Log(LOG_DEBUG, "Starting pjsua");
     if ( (status = pjsua_start()) != PJ_SUCCESS ) {
         pj_strerror(status, errmsg, sizeof(errmsg));
         Log(LOG_WARNING, "%s", errmsg);
-        pjsua_destroy();
-        exit(EXIT_FAILURE);
+        goto end;
     }
 
     /* set options as account user data so it's available in callbacks */
