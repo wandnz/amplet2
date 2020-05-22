@@ -255,25 +255,30 @@ static Amplet2__Sip__Mos* report_mos(pjmedia_rtcp_stream_stat *stats,
 
     Amplet2__Sip__Mos *mos;
     double rating;
+    double loss_percent;
+    double loss_period;
 
     mos = calloc(1, sizeof(Amplet2__Sip__Mos));
     amplet2__sip__mos__init(mos);
 
     /*
      * Absolute one-way delay:
-     *  Recorded in usec, halve RTT for approximation of OWD, add maximum
-     *  jitter to match udpstream test (TODO other documents suggest twice
-     *  the mean jitter, also adding codec/protocol delays, e.g.
-     * https://www.pingman.com/kb/article/how-is-mos-calculated-in-pingplotter-pro-50.html)
+     *   Recorded in usec, halve RTT for approximation of OWD, add maximum
+     *   jitter to match udpstream test (TODO other documents suggest twice
+     *   the mean jitter, also adding codec/protocol delays, e.g.
+     *   https://www.pingman.com/kb/article/how-is-mos-calculated-in-pingplotter-pro-50.html). The function will convert from usec to msec.
+     *
      * Packet loss probability:
-     *  Recorded in packets, convert to a percentage
+     *   Recorded in packets, convert to a percentage of total packets
      * Average loss length:
-     *  Recorded in usec, convert to packet count, assuming 20usec intervals
+     *   Recorded in usec, convert to packet count, assuming 20msec intervals
+     *   (TODO depends on the codec!)
      */
+    loss_percent = 100.0 * stats->loss / (stats->pkt + stats->loss);
+    loss_period = stats->loss_period.mean / 20.0 / 1000.0;
+
     rating = calculate_itu_rating(
-            (rtt->mean / 2.0) + stats->jitter.max,
-            stats->loss / (stats->pkt + stats->loss) * 100,
-            stats->loss_period.mean / 20.0);
+            (rtt->mean / 2.0) + stats->jitter.max, loss_percent, loss_period);
 
     mos->has_itu_rating = 1;
     mos->itu_rating = rating;
