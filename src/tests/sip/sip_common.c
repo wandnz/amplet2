@@ -529,7 +529,9 @@ pj_status_t register_account(struct opt_t *options) {
     /* need to configure another account, separate to local transports */
     pjsua_acc_config_default(&acc_cfg);
 
+#if PJ_VERSION_NUM >= 0x02020000
     acc_cfg.allow_sdp_nat_rewrite = PJ_TRUE;
+#endif
 
     acc_cfg.reg_uri = options->registrar;
     acc_cfg.id = options->id;
