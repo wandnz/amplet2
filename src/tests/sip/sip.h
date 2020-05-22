@@ -71,7 +71,7 @@ char* get_host_from_uri(pj_pool_t *pool, pj_str_t uri_str);
 test_t *register_test(void);
 
 struct opt_t* parse_options(int argc, char *argv[]);
-int register_transports(struct opt_t *options, int is_server);
+pj_status_t register_transports(struct opt_t *options, int is_server);
 pj_status_t register_account(struct opt_t *options);
 pj_status_t register_codecs(void);
 

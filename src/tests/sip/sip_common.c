@@ -406,7 +406,7 @@ static pj_status_t register_transport(pj_pool_t *pool,
 /*
  * Register all the required transports for one address family.
  */
-static int register_family_transports(pj_pool_t *pool, int family,
+static pj_status_t register_family_transports(pj_pool_t *pool, int family,
         pjsua_transport_config *cfg) {
     unsigned i;
     int status;
@@ -438,7 +438,7 @@ static int register_family_transports(pj_pool_t *pool, int family,
 /*
  * Register all the required transports for this test run.
  */
-int register_transports(struct opt_t *options, int is_server) {
+pj_status_t register_transports(struct opt_t *options, int is_server) {
     int status;
     pj_pool_t *pool;
     pjsua_transport_config transport_config;
