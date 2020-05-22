@@ -24,7 +24,7 @@ message Server {
         /* TODO easier to pass in a string and parse it later on, or an array
          * of strings ready to go?
          */
-        optional string argv = 2;
+        optional string params = 2;
 }
 
 message Test {

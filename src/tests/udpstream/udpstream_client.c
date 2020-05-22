@@ -533,7 +533,7 @@ amp_test_result_t* run_udpstream_client(int argc, char *argv[], int count,
         if ( ssl_ctx && client == NULL ) {
             Amplet2__Measured__Response response;
 
-            if ( start_remote_server(ctrl, AMP_TEST_UDPSTREAM) < 0 ) {
+            if ( start_remote_server(ctrl, AMP_TEST_UDPSTREAM, NULL) < 0 ) {
                 Log(LOG_WARNING, "Failed to start remote server");
                 goto end;
             }
