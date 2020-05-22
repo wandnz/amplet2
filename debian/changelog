@@ -1,3 +1,21 @@
+amplet2 (0.10.2-1) unstable; urgency=low
+
+  * amplet2: Switch to using libevent rather than libwandevent (#41).
+  * amplet2: Set server name indication on rabbitmq shovels.
+  * fastping: Free percentile data in summary structures when finished.
+  * package: Set VCS fields in Debian control file.
+  * sip: Set minimum targets for test to zero (it could be a URI instead).
+  * sip: Correctly flag options as not having arguments.
+  * sip: Set DSCP bits, and send the option to the server too.
+  * sip: Add optional account registration.
+  * sip: Remove all codecs except PCMA/8000 and set clock rate to 8000Hz.
+  * sip: Fix incorrect loss percent/period used by SIP test to calculate MOS.
+  * sip: Fix use of original transport config instead of the duplicated one.
+  * sip: Ensure new 8000Hz wav file is part of the amplet2-client-sip package.
+  * standalone tests: Avoid shadowing test specific long options struct.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Fri, 22 May 2020 16:50:36 +1200
+
 amplet2 (0.10.1-1) unstable; urgency=low
 
   * package: remove unnecessary /usr/sbin directory from debian install dirs.

@@ -1,5 +1,5 @@
 Name: amplet2
-Version: 0.10.1
+Version: 0.10.2
 Release: 1%{?dist}
 Summary: AMP Network Performance Measurement Suite
 
@@ -176,6 +176,21 @@ fi
 
 
 %changelog
+* Fri May 22 2020 Brendon Jones <brendonj@waikato.ac.nz> 0.10.2-1
+- amplet2: Switch to using libevent rather than libwandevent (#41).
+- amplet2: Set server name indication on rabbitmq shovels.
+- fastping: Free percentile data in summary structures when finished.
+- package: Set VCS fields in Debian control file.
+- sip: Set minimum targets for test to zero (it could be a URI instead).
+- sip: Correctly flag options as not having arguments.
+- sip: Set DSCP bits, and send the option to the server too.
+- sip: Add optional account registration.
+- sip: Remove all codecs except PCMA/8000 and set clock rate to 8000Hz.
+- sip: Fix incorrect loss percent/period used by SIP test to calculate MOS.
+- sip: Fix use of original transport config instead of the duplicated one.
+- sip: Ensure new 8000Hz wav file is part of the amplet2-client-sip package.
+- standalone tests: Avoid shadowing test specific long options struct.
+
 * Mon Mar 30 2020 Brendon Jones <brendonj@waikato.ac.nz> 0.10.1-1
 - package: set noreplace on the rsyslogd config file in RPM packages.
 - youtube: don't print test timing results if they aren't set.
