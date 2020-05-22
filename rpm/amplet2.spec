@@ -120,7 +120,7 @@ rm -rf %{buildroot}
 %{_mandir}/man8/amp-sip.8.gz
 %{_bindir}/amp-sip
 %{_libdir}/amplet2/tests/sip.so
-%{_libdir}/amplet2/extra/sip-test.wav
+%{_libdir}/amplet2/extra/sip-test-8000.wav
 
 %post client
 /sbin/ldconfig
