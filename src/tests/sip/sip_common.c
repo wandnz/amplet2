@@ -605,6 +605,8 @@ pj_status_t register_codecs(void) {
         "AMR-WB/16000",
         "opus/48000/2",
         "speex/32000",
+        "speex/16000",
+        "speex/8000",
         NULL
     };
 
