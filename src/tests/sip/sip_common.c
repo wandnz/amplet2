@@ -475,13 +475,14 @@ int register_transports(struct opt_t *options, int is_server) {
 
     /* register ipv4 transports */
     if ( options->family == AF_INET || options->family == AF_UNSPEC ) {
-        struct pjsua_transport_config *ipv4_config = &transport_config;
+        struct pjsua_transport_config ipv4_config;
+        pjsua_transport_config_dup(pool, &ipv4_config, &transport_config);
+
         if ( options->sourcev4 ) {
-            pjsua_transport_config_dup(pool, ipv4_config, &transport_config);
-            transport_config.bound_addr = pj_str(options->sourcev4);
+            ipv4_config.bound_addr = pj_str(options->sourcev4);
         }
 
-        status = register_family_transports(pool, AF_INET, &transport_config);
+        status = register_family_transports(pool, AF_INET, &ipv4_config);
         if ( status != PJ_SUCCESS ) {
             pj_pool_release(pool);
             return status;
@@ -490,13 +491,14 @@ int register_transports(struct opt_t *options, int is_server) {
 
     /* register ipv6 transports */
     if ( options->family == AF_INET6 || options->family == AF_UNSPEC ) {
-        struct pjsua_transport_config *ipv6_config = &transport_config;
+        struct pjsua_transport_config ipv6_config;
+        pjsua_transport_config_dup(pool, &ipv6_config, &transport_config);
+
         if ( options->sourcev6 ) {
-            pjsua_transport_config_dup(pool, ipv6_config, &transport_config);
-            transport_config.bound_addr = pj_str(options->sourcev6);
+            ipv6_config.bound_addr = pj_str(options->sourcev6);
         }
 
-        status = register_family_transports(pool, AF_INET6, &transport_config);
+        status = register_family_transports(pool, AF_INET6, &ipv6_config);
         if ( status != PJ_SUCCESS ) {
             pj_pool_release(pool);
             return status;
