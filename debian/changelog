@@ -1,3 +1,13 @@
+amplet2 (0.10.3-1) unstable; urgency=low
+
+  * amplet2: Allow setting default parameters for servers started by tests.
+  * amplet2: Allow including other files in the client configuration file.
+  * sip: Fix copy and paste error in mutex name.
+  * sip: Start remote server before initialising pjsip locally.
+  * sip: Cleanup and return more often rather than exiting with error.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Thu, 28 May 2020 10:40:43 +1200
+
 amplet2 (0.10.2-1) unstable; urgency=low
 
   * amplet2: Switch to using libevent rather than libwandevent (#41).

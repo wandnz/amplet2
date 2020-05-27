@@ -1,5 +1,5 @@
 Name: amplet2
-Version: 0.10.2
+Version: 0.10.3
 Release: 1%{?dist}
 Summary: AMP Network Performance Measurement Suite
 
@@ -176,6 +176,13 @@ fi
 
 
 %changelog
+* Thu May 28 2020 Brendon Jones <brendonj@waikato.ac.nz> 0.10.3-1
+- amplet2: Allow setting default parameters for servers started by tests.
+- amplet2: Allow including other files in the client configuration file.
+- sip: Fix copy and paste error in mutex name.
+- sip: Start remote server before initialising pjsip locally.
+- sip: Cleanup and return more often rather than exiting with error.
+
 * Fri May 22 2020 Brendon Jones <brendonj@waikato.ac.nz> 0.10.2-1
 - amplet2: Switch to using libevent rather than libwandevent (#41).
 - amplet2: Set server name indication on rabbitmq shovels.
