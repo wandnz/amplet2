@@ -126,3 +126,10 @@ remotesched {
 #    cert = /etc/amplet2/keys/cert.pem
 #    key = /etc/amplet2/keys/key.pem
 }
+
+# Set any default arguments that should be applied to test servers. You can
+# have multiple "defaults" blocks, one per test type. Ignored for tests that
+# don't start their own server.
+#defaults <testname> {
+#    server = "--foo --bar baz"
+#}

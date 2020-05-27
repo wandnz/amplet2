@@ -278,6 +278,15 @@ static void do_start_server(BIO *ctrl, void *data, uint32_t len) {
         }
     }
 
+    /* TODO overwrite duplicates rather than appending? */
+    /* add any default arguments from the client config file */
+    if ( test->server_params ) {
+        int i;
+        for ( i = 0; test->server_params[i] != NULL; i++ ) {
+            argv[argc++] = test->server_params[i];
+        }
+    }
+
     argv[argc] = NULL;
 
     /* Run server function using callback in test */

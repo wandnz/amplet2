@@ -1125,6 +1125,12 @@ static test_schedule_item_t *create_and_schedule_test(
         goto end;
     }
 
+    /*
+     * TODO Merge in any default test parameters from the client config.
+     * If we do this before the test is combined with other similar tests
+     * then checking for duplicates in the schedule can be more accurate.
+     */
+
     Log(LOG_DEBUG, "start:%" PRId64 " end:%" PRId64 " freq:%" PRId64
             " period:%" PRId64, start, end, frequency, period);
 

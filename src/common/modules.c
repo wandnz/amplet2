@@ -81,6 +81,8 @@ test_t *register_one_test(char *filename) {
     }
 
     test_info->dlhandle = hdl;
+    test_info->server_params = NULL;
+    test_info->client_params = NULL;
 
     assert(test_info->name);
     assert(test_info->run_callback);
@@ -157,8 +159,25 @@ void unregister_tests() {
     }
 
     for ( test = amp_tests; *test != NULL; test++ ) {
+        char **param;
+
         free((*test)->name);
         dlclose((*test)->dlhandle);
+
+        if ( (*test)->server_params ) {
+            for ( param = (*test)->server_params; *param != NULL; param++ ) {
+                free(*param);
+            }
+            free((*test)->server_params);
+        }
+
+        if ( (*test)->client_params ) {
+            for ( param = (*test)->client_params; *param != NULL; param++ ) {
+                free(*param);
+            }
+            free((*test)->client_params);
+        }
+
         free(*test);
     }
 

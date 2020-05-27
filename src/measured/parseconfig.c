@@ -56,6 +56,7 @@
 #include "acl.h"
 #include "dscp.h"
 #include "rabbitcfg.h"
+#include "modules.h"
 
 
 
@@ -547,6 +548,40 @@ struct ub_ctx* get_dns_context_config(cfg_t *cfg, amp_test_meta_t *meta) {
 
 
 /*
+ *
+ */
+void get_default_test_args(cfg_t *cfg) {
+    cfg_t *cfg_defaults;
+    int i;
+
+    for ( i = 0; i < cfg_size(cfg, "defaults"); i++ ) {
+        test_t *test;
+
+        cfg_defaults = cfg_getnsec(cfg, "defaults", i);
+
+        /* get test name from section heading */
+        test = get_test_by_name((char*)cfg_title(cfg_defaults));
+
+        if ( test == NULL ) {
+            Log(LOG_WARNING, "Default arguments for unknown test '%s'",
+                    cfg_title(cfg_defaults));
+            continue;
+        }
+
+        /* parse and store default arguments */
+        if ( test->server_callback ) {
+            test->server_params =
+                parse_param_string(cfg_getstr(cfg_defaults, "server"));
+        }
+
+        test->client_params =
+            parse_param_string(cfg_getstr(cfg_defaults, "client"));
+    }
+}
+
+
+
+/*
  * Parse the config and set the generic options that we know are always
  * required. These options to into the global vars structure, which is slowly
  * being phased out as I figure out how to place the variables in the
@@ -624,6 +659,12 @@ cfg_t* parse_config(char *filename, struct amp_global_t *vars) {
         CFG_END()
     };
 
+    cfg_opt_t opt_defaults[] = {
+        CFG_STR("client", NULL, CFGF_NONE),
+        CFG_STR("server", NULL, CFGF_NONE),
+        CFG_END()
+    };
+
     cfg_opt_t measured_opts[] = {
 	CFG_STR("ampname", NULL, CFGF_NONE),
 	CFG_STR("interface", NULL, CFGF_NONE),
@@ -637,6 +678,7 @@ cfg_t* parse_config(char *filename, struct amp_global_t *vars) {
 	CFG_SEC("collector", opt_collector, CFGF_NONE),
         CFG_SEC("remotesched", opt_remotesched, CFGF_NONE),
         CFG_SEC("control", opt_control, CFGF_NONE),
+        CFG_SEC("defaults", opt_defaults, CFGF_TITLE | CFGF_MULTI),
 	CFG_END()
     };
 

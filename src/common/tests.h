@@ -155,6 +155,13 @@ typedef struct test {
      */
      int sigint;
 
+    /*
+     * Each client can have default parameters applied to all tests of a type.
+     * Store the default parameters here so they can be accessed when the test
+     * runs.
+     */
+    char **server_params;
+    char **client_params;
 } test_t;
 
 

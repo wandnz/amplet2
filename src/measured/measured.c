@@ -701,6 +701,12 @@ int main(int argc, char *argv[]) {
         Log(LOG_DEBUG, "Control socket is disabled, skipping");
     }
 
+    /* register all test modules, load nametable, load schedules */
+    load_tests_and_schedules(&meta);
+
+    /* get the default arguments that should be applied to each test */
+    get_default_test_args(cfg);
+
     /* configuration is done, free the object */
     cfg_free(cfg);
 
@@ -723,9 +729,6 @@ int main(int argc, char *argv[]) {
     signal_tmax = event_new(meta.base, SIGRTMAX,
             EV_SIGNAL|EV_PERSIST, debug_dump, meta.base);
     event_add(signal_tmax, NULL);
-
-    /* register all test modules, load nametable, load schedules */
-    load_tests_and_schedules(&meta);
 
     /* give up control to libevent */
     event_base_dispatch(meta.base);
