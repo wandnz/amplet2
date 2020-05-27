@@ -147,7 +147,7 @@ void run_sip_server(int argc, char *argv[], __attribute__((unused))BIO *ctrl) {
     if ( (status = pjsua_create()) != PJ_SUCCESS ) {
         pj_strerror(status, errmsg, sizeof(errmsg));
         Log(LOG_WARNING, "%s", errmsg);
-        exit(EXIT_FAILURE);
+        goto end;
     }
 
     options = parse_options(argc, argv);

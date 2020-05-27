@@ -800,7 +800,7 @@ amp_test_result_t* run_sip_client(int argc, char *argv[], int count,
     if ( (status = pjsua_init(&cfg, &log_cfg, &media_cfg)) != PJ_SUCCESS ) {
         pj_strerror(status, errmsg, sizeof(errmsg));
         Log(LOG_WARNING, "%s\n", errmsg);
-        exit(EXIT_FAILURE);
+        goto end;
     }
 
     status = register_transports(options, AMP_SIP_CLIENT);
