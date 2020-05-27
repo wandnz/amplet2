@@ -679,6 +679,7 @@ cfg_t* parse_config(char *filename, struct amp_global_t *vars) {
         CFG_SEC("remotesched", opt_remotesched, CFGF_NONE),
         CFG_SEC("control", opt_control, CFGF_NONE),
         CFG_SEC("defaults", opt_defaults, CFGF_TITLE | CFGF_MULTI),
+        CFG_FUNC("include", &cfg_include),
 	CFG_END()
     };
 

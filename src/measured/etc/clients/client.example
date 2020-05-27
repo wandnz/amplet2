@@ -133,3 +133,6 @@ remotesched {
 #defaults <testname> {
 #    server = "--foo --bar baz"
 #}
+
+# Include another configuration file in this one.
+#include(/path/to/file)
