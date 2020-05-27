@@ -474,7 +474,7 @@ static pj_sockaddr* get_peer_address(pjsua_call_id call_id) {
     pjsip_dialog *dlg;
     pj_sockaddr *address = NULL;
 
-    status = acquire_call("collect_statistics", call_id, &call, &dlg);
+    status = acquire_call("get_peer_address", call_id, &call, &dlg);
     if ( status != PJ_SUCCESS ) {
         return NULL;
     }
