@@ -747,6 +747,54 @@ amp_test_result_t* run_sip_client(int argc, char *argv[], int count,
         exit(EXIT_FAILURE);
     }
 
+    if ( count > 0 && dests && dests[0]->ai_addr != NULL && ssl_ctx ) {
+        Amplet2__Measured__Response response;
+        char *params = NULL;
+
+        /* start the server if required (connected to an amplet) */
+        if ( (ctrl=connect_control_server(
+                        //dests[0], options.cport, &sockopts)) == NULL ) {
+                        dests[0], options->control_port, NULL)) == NULL ) {
+            Log(LOG_WARNING, "Failed to connect control server");
+            goto end;
+        }
+
+        /* build the options string required to run the server */
+        if ( options->dscp ) {
+            if ( asprintf(&params, "-Q %d", options->dscp) < 0 ) {
+                Log(LOG_WARNING, "Failed to build server parameter string");
+                goto end;
+            }
+        }
+
+        /* try to start the server */
+        if ( start_remote_server(ctrl, AMP_TEST_SIP, params) < 0 ) {
+            Log(LOG_WARNING, "Failed to start remote server");
+            goto end;
+        }
+
+        /* make sure the server was started properly */
+        if ( read_measured_response(ctrl, &response) < 0 ) {
+            Log(LOG_WARNING, "Failed to read server control response");
+            goto end;
+        }
+
+        /* TODO return something useful if this was remotely triggered? */
+        if ( response.code != MEASURED_CONTROL_OK ) {
+            Log(LOG_WARNING, "Failed to start server: %d %s", response.code,
+                    response.message);
+            goto end;
+        }
+
+        Log(LOG_DEBUG, "Remote server started ok");
+
+        /*
+         * XXX add a proper retry loop around call establishment, rather than
+         * waiting a bit to give the server time to register etc
+         */
+        sleep(2);
+    }
+
     Log(LOG_DEBUG, "Initialising pjsua");
 
     if ( (status = pjsua_init(&cfg, &log_cfg, &media_cfg)) != PJ_SUCCESS ) {
@@ -793,52 +841,6 @@ amp_test_result_t* run_sip_client(int argc, char *argv[], int count,
 
     /* set options as account user data so it's available in callbacks */
     pjsua_acc_set_user_data(pjsua_acc_get_default(), options);
-
-    if ( count > 0 && dests && dests[0]->ai_addr != NULL && ssl_ctx ) {
-        Amplet2__Measured__Response response;
-        char *params = NULL;
-
-        /* start the server if required (connected to an amplet) */
-        if ( (ctrl=connect_control_server(
-                        //dests[0], options.cport, &sockopts)) == NULL ) {
-                        dests[0], options->control_port, NULL)) == NULL ) {
-            Log(LOG_WARNING, "Failed to connect control server");
-            goto end;
-        }
-
-        /*
-         * TODO do I want to pass a different username and password to the
-         * server too if it also needs to register? Is this the right way?
-         */
-        /* build the options string required to run the server */
-        if ( options->dscp ) {
-            if ( asprintf(&params, "-Q %d", options->dscp) < 0 ) {
-                Log(LOG_WARNING, "Failed to build server parameter string");
-                goto end;
-            }
-        }
-
-        /* try to start the server */
-        if ( start_remote_server(ctrl, AMP_TEST_SIP, params) < 0 ) {
-            Log(LOG_WARNING, "Failed to start remote server");
-            goto end;
-        }
-
-        /* make sure the server was started properly */
-        if ( read_measured_response(ctrl, &response) < 0 ) {
-            Log(LOG_WARNING, "Failed to read server control response");
-            goto end;
-        }
-
-        /* TODO return something useful if this was remotely triggered? */
-        if ( response.code != MEASURED_CONTROL_OK ) {
-            Log(LOG_WARNING, "Failed to start server: %d %s", response.code,
-                    response.message);
-            goto end;
-        }
-
-        Log(LOG_DEBUG, "Remote server started ok");
-    }
 
     result = run_sip_client_loop(options);
 
