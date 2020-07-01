@@ -115,7 +115,6 @@ def get_data(data):
         "dscp": getPrintableDscp(msg.header.dscp),
         "hostname": msg.header.hostname,
         "address": getPrintableAddress(msg.header.family, msg.header.address),
-        "family": "ipv4" if msg.header.family == socket.AF_INET else "ipv6",
         "results": results,
     }
 
