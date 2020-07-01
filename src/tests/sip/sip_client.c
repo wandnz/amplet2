@@ -694,9 +694,13 @@ amp_test_result_t* run_sip_client(int argc, char *argv[], int count,
     memcpy(cfg.outbound_proxy, options->outbound_proxy,
             sizeof(cfg.outbound_proxy));
 
-    /* check exactly one of a URI or an AMP destination address is specified */
-    if ( count > 0 && dests && options->uri.slen > 0 ) {
-        Log(LOG_WARNING, "Option -u not valid when target address already set");
+    /*
+     * if running standalone without an SSL context, check exactly one of a
+     * URI or an AMP destination address is specified
+     */
+    if ( count > 0 && dests && options->uri.slen > 0 && !ssl_ctx ) {
+        Log(LOG_WARNING, "Setting both -u and target address is not valid "
+                "without also having an SSL context");
         exit(EXIT_FAILURE);
     }
 
@@ -705,10 +709,13 @@ amp_test_result_t* run_sip_client(int argc, char *argv[], int count,
      * name has already been resolved (and may come from the local AMP
      * nametable, and not be available in DNS) so just connect to the address.
      *
+     * If a URI is also given then use that instead - the AMP target will only
+     * be used to start the remote server.
+     *
      * TODO TLS will probably still need to know the canonical name so
      * that certificates can be verified.
      */
-    if ( count > 0 && dests ) {
+    if ( count > 0 && dests && options->uri.slen == 0 ) {
         char address[INET6_ADDRSTRLEN];
         char *uri;
 
@@ -747,11 +754,11 @@ amp_test_result_t* run_sip_client(int argc, char *argv[], int count,
         exit(EXIT_FAILURE);
     }
 
+    /* start the server if required (have an amplet target and SSL context) */
     if ( count > 0 && dests && dests[0]->ai_addr != NULL && ssl_ctx ) {
         Amplet2__Measured__Response response;
         char *params = NULL;
 
-        /* start the server if required (connected to an amplet) */
         if ( (ctrl=connect_control_server(
                         //dests[0], options.cport, &sockopts)) == NULL ) {
                         dests[0], options->control_port, NULL)) == NULL ) {
