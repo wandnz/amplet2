@@ -1,4 +1,4 @@
-.TH AMP-SIP 8 "2020-03-06" "amplet2-client" "The Active Measurement Project"
+.TH AMP-SIP 8 "2020-07-01" "amplet2-client" "The Active Measurement Project"
 
 .SH NAME
 amp-sip \- AMP standalone SIP/RTP test
@@ -7,7 +7,7 @@ amp-sip \- AMP standalone SIP/RTP test
 .SH SYNOPSIS
 \fBamp-sip\fR \fB-s\fR [\fIoptions\fR]
 .br
-\fBamp-sip\fR \fB-u \fIuri\fR [\fIoptions\fR]
+\fBamp-sip\fR [\fB-u \fIuri\fR] [\fIoptions\fR] [-- \fIdestination\fR]
 
 
 .SH DESCRIPTION
@@ -21,12 +21,23 @@ observed. It also uses these values to calculate Mean Opinion Scores.
 The test runs till the maximum duration is reached, or (if looping is
 disabled) when playback of the audio file ends.
 
+At least one of \fIuri\fR or \fIdestination\fR must be specified. If only
+a \fIuri\fR is present then the test connects to it exactly as given. If only
+a \fIdestination\fR is present then it is resolved like all other AMP
+destinations and a \fIuri\fR is created using that address. If SSL
+configuration exists (e.g. the test is scheduled rather than standalone) then a
+control connection is established to \fIdestination\fR in order to start a SIP
+test server before connecting to the (generated or specified) \fIuri\fR.
+
 
 .SH GENERAL OPTIONS
 .TP
 \fB-a, --user-agent \fIagent\fR
 Specify User-Agent string. The default is "AMP SIP test agent <version>".
 
+.TP
+\fB-e, --registrar \fIuri\fR
+SIP URI that registration should be performed to.
 
 .TP
 \fB-f, --filename \fIfilename\fR
@@ -37,12 +48,22 @@ whichever occurs first.
 The default is \fI/usr/lib/{arch}/amplet2/extra/sip-test.wav\fR.
 .\" XXX this isn't architecture specific, put this in share/ or something?
 
+.TP
+\fB-i, --id \fIuser@host\fR
+The SIP identity to register with, if a registrar is specified.
+
+.TP
+\fB-n, --username \fIusername\fR
+The username to register with, if a registrar is specified.
+
+.TP
+\fB-w, --password \fIpassword\fR
+The password to register with, if a registrar is specified.
 
 .TP
 \fB-I, --interface \fIiface\fR
 Specifies the interface (device) that tests should use when sending packets.
 By default the interface will be selected according to the routing table.
-
 
 .TP
 \fB-Q, --dscp \fIcodepoint\fR
@@ -50,13 +71,11 @@ IP differentiated services codepoint to set. This should be a string
 representing a 6-bit value in binary, octal, decimal or hexadecimal, or the
 short name of a predefined, commonly used codepoint.
 
-
 .TP
 \fB-4, --ipv4 \fIa.b.c.d\fR
 Specifies the source IPv4 address that tests should use when sending packets to
 IPv4 targets. This address must belong to one of the interfaces.
 By default the IPv4 address of the outgoing interface will be used.
-
 
 .TP
 \fB-6, --ipv6 \fIa:b:c:d:e:f:g:h\fR
@@ -122,13 +141,16 @@ Enable extra debugging output.
 Connect to a SIP endpoint that is listening on address 192.0.2.1 and play
 the default audio file on repeat until the default test duration is reached.
 
+.TP
+\fBamp-sip -- 192.0.2.1
+Connect to a SIP endpoint that is listening on address 192.0.2.1 and play
+the default audio file on repeat until the default test duration is reached.
 
 .TP
 \fBamp-sip -u sip:example@sip.example.com -r
 Connect to a SIP endpoint that is registered as example@sip.example.com and
 play the default audio file once (the default audio file is shorter than the
 default maximum test duration).
-
 
 .TP
 \fBamp-sip -u sip:192.0.2.1 -f ~/example.wav -t 60\fR
