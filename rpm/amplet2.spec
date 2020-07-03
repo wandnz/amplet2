@@ -1,5 +1,5 @@
 Name: amplet2
-Version: 0.10.3
+Version: 0.10.4
 Release: 1%{?dist}
 Summary: AMP Network Performance Measurement Suite
 
@@ -176,6 +176,12 @@ fi
 
 
 %changelog
+* Fri Jul  3 2020 Brendon Jones <brendonj@waikato.ac.nz> 0.10.4-1
+- sip: Allow test to take both a URI and a normal target.
+- sip: Update man page with new options.
+- sip: Remove (unused) "family" from result dict, to match other tests.
+- traceroute: Don't increment TTL if already at the maximum path length.
+
 * Thu May 28 2020 Brendon Jones <brendonj@waikato.ac.nz> 0.10.3-1
 - amplet2: Allow setting default parameters for servers started by tests.
 - amplet2: Allow including other files in the client configuration file.
