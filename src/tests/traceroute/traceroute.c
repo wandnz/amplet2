@@ -322,6 +322,9 @@ static int get_index(int family, char *embedded,
  *   up will decrement the ttl by one.
  */
 static int inc_probe_ttl(struct dest_info_t *item) {
+    assert(item);
+    assert(item->ttl < MAX_HOPS_IN_PATH);
+
     if ( item->attempts > TRACEROUTE_RETRY_LIMIT && !item->first_response ) {
         /* the very first probe has timed out without a response */
         item->ttl = item->ttl / 2;
@@ -369,8 +372,12 @@ static int inc_attempt_counter(struct dest_info_t *info) {
         info->no_reply_count++;
     }
 
-    /* if we haven't missed too many replies, update TTL to the next value */
-    if ( info->no_reply_count < TRACEROUTE_NO_REPLY_LIMIT ) {
+    /*
+     * if we haven't missed too many replies nor reached the path limit,
+     * update TTL to the next value
+     */
+    if ( info->no_reply_count < TRACEROUTE_NO_REPLY_LIMIT &&
+            info->ttl < MAX_HOPS_IN_PATH ) {
         inc_probe_ttl(info);
     }
 
