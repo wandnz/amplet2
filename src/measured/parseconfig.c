@@ -310,7 +310,7 @@ amp_control_t* get_control_config(cfg_t *cfg, amp_test_meta_t *meta) {
     cfg_sub = cfg_getsec(cfg, "control");
 
     if ( cfg_sub ) {
-        control = (amp_control_t *) malloc(sizeof(amp_control_t));
+        control = (amp_control_t *) calloc(1, sizeof(amp_control_t));
 
         control->acl = initialise_acl();
         control->enabled = cfg_getbool(cfg_sub, "enabled");
