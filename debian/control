@@ -12,7 +12,7 @@ Testsuite: autopkgtest
 Package: amplet2-client
 Architecture: any
 Replaces: amplet2-client-lite (<< 0.8.0)
-Breaks: amplet2-client-lite (<< 0.8.0)
+Breaks: amplet2-client-lite (<< 0.8.0), amplet2-chromium-libs
 Depends: ${shlibs:Depends}, ${misc:Depends}, libevent-2.0-5 (>= 2.0.21)|libevent-2.1-6, libcurl3|libcurl4, librabbitmq4 (>= 0.7.1), libunbound2|libunbound8, libpcap0.8 (>= 1.7.4), rsyslog, libprotobuf-c1, lsb-base (>= 3.0-6), init-system-helpers (>= 1.22), adduser, libcap2-bin
 Recommends: rabbitmq-server (>= 3.4.0)
 Description: AMP Network Performance Measurement Suite - Client Tools
@@ -31,6 +31,8 @@ Description: AMP Network Performance Measurement Suite - SIP test
 Package: amplet2-client-youtube
 Architecture: amd64
 Build-Profiles: <pkg.amplet2.build-youtube>
+Replaces: amplet2-chromium-libs
+Breaks: amplet2-chromium-libs
 Depends: ${shlibs:Depends}, ${misc:Depends}, amplet2-client (= ${source:Version}), fontconfig, libnss3
 Recommends: chromium-codecs-ffmpeg-extra (= 71.0.3578.98-0ubuntu0.18.04.1)
 Description: AMP Network Performance Measurement Suite - YouTube test
