@@ -107,8 +107,12 @@ static int set_and_verify_sockopt(int sock, int value, int proto,
         return -1;
     }
 
-    if ( proto == SOL_SOCKET && (opt == SO_RCVBUF || opt == SO_SNDBUF ||
-                opt == SO_RCVBUFFORCE || opt == SO_SNDBUFFORCE) ) {
+#ifdef SO_SNDBUF
+    if ( proto == SOL_SOCKET && (opt == SO_RCVBUF || opt == SO_SNDBUF
+#ifdef SO_SNDBUFFORCE
+                || opt == SO_RCVBUFFORCE || opt == SO_SNDBUFFORCE
+#endif
+                ) ) {
         /* buffer sizes will be set to twice what was asked for */
         if ( value != verify / 2 ) {
             Log(LOG_WARNING,
@@ -116,7 +120,9 @@ static int set_and_verify_sockopt(int sock, int value, int proto,
                     "got %d, expected %d", optname, verify, value);
             return -1;
         }
-    } else if ( value != verify ) {
+    } else
+#endif
+    if ( value != verify ) {
         /* all other values should match what was requested */
         Log(LOG_WARNING,
                 "getsockopt() reports incorrect value for %s after setting:"

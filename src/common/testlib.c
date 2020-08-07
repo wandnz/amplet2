@@ -218,6 +218,7 @@ int unblock_signals(void) {
  * Specific logic for checking, retriving and converting SO_TIMESTAMPING
  * timestamp value
  */
+#ifdef HAVE_SOF_TIMESTAMPING_OPT_ID
 inline static int retrieve_timestamping(struct cmsghdr *c, struct timeval *now){
     struct timestamping_t *ts;
 
@@ -241,13 +242,15 @@ inline static int retrieve_timestamping(struct cmsghdr *c, struct timeval *now){
     }
     return 0;
 }
+#endif
 
 
 
 /*
  * Specific logic for checking and retriving SO_TIMESTAMP timestamp value
  */
-inline static int retrieve_timestamp(struct cmsghdr *c, struct timeval *now){
+#ifdef SO_TIMESTAMP
+inline static int retrieve_timestamp(struct cmsghdr *c, struct timeval *now) {
     struct timeval *tv;
     if ( c->cmsg_type == SO_TIMESTAMP &&
             c->cmsg_len >= CMSG_LEN(sizeof(struct timeval)) ) {
@@ -259,6 +262,7 @@ inline static int retrieve_timestamp(struct cmsghdr *c, struct timeval *now){
     }
     return 0;
 }
+#endif
 
 
 
@@ -293,10 +297,14 @@ static void get_timestamp(int sock, struct msghdr *msg, struct timeval *now) {
     }
 
     /* next try using SIOCGSTAMP to get a timestamp */
+#ifdef SIOCGSTAMP
     if ( ioctl(sock, SIOCGSTAMP, now) < 0 ) {
+#endif
         /* failing that, call gettimeofday() which we know will work */
         gettimeofday(now, NULL);
+#ifdef SIOCGSTAMP
     }
+#endif
 }
 
 
@@ -745,12 +753,17 @@ int bind_socket_to_device(int sock, char *device) {
 
     Log(LOG_DEBUG, "Trying to bind socket to device '%s'", device);
 
+#ifdef SO_BINDTODEVICE
     if ( setsockopt(sock, SOL_SOCKET, SO_BINDTODEVICE, device,
                 strlen(device)+1) < 0 ) {
         Log(LOG_WARNING, "Failed to bind to device %s: %s", device,
                 strerror(errno));
         return -1;
     }
+#else
+    Log(LOG_WARNING, "Failed to bind to device %s: SO_BINDTODEVICE undefined",
+            device);
+#endif
 
     return 0;
 }
@@ -998,7 +1011,11 @@ int check_exists(char *path, int strict) {
     /* file exists */
     if ( stat_result == 0 ) {
         /* check it's a normal file or a symbolic link */
-        if ( S_ISREG(statbuf.st_mode) || S_ISLNK(statbuf.st_mode) ) {
+        if ( S_ISREG(statbuf.st_mode)
+#ifdef S_ISLNK
+                || S_ISLNK(statbuf.st_mode)
+#endif
+           ) {
             return 0;
         }
 

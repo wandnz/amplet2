@@ -238,6 +238,7 @@ static void do_start_server(BIO *ctrl, void *data, uint32_t len) {
         return;
     }
 
+#ifdef SO_BINDTODEVICE
     /* bind to the same device as the connected control socket */
     optlen = sizeof(opt);
     /* linux >= 3.8 required to get SO_BINDTODEVICE */
@@ -248,6 +249,7 @@ static void do_start_server(BIO *ctrl, void *data, uint32_t len) {
             argv[argc++] = opt;
         }
     }
+#endif
 
     /* bind to the same address as the connected control socket */
     addrlen = sizeof(struct sockaddr_storage);
