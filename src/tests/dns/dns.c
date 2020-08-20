@@ -213,7 +213,7 @@ static char *encode(char *query) {
 
     do {
 	/* each part of the query is separated by dots */
-	dot = index(query_index, '.');
+	dot = strchr(query_index, '.');
 	if ( dot == NULL )
 	    length = strlen(query_index);
 	else

@@ -401,7 +401,7 @@ static void split_url(char *orig_url, char *server, char *path, int set) {
         return;
     } else if ( base_server != NULL && base_path != NULL ) {
         /* no initial slashes but not the first url, treat as a relative path */
-        char *slash = rindex(base_path, '/');
+        char *slash = strrchr(base_path, '/');
         strncpy(server, base_server, MAX_DNS_NAME_LEN);
         memset(path, 0, MAX_PATH_LEN);
         strncpy(path, base_path, (slash - base_path) + 1);
@@ -414,7 +414,7 @@ static void split_url(char *orig_url, char *server, char *path, int set) {
          */
         if ( strstr(url, "../") == url ) {
             /* last slash in the path */
-            slash = rindex(path, '/');
+            slash = strrchr(path, '/');
             /* while the url starts with "../", keep stripping it */
             while ( strstr(url, "../") == url ) {
                 Log(LOG_DEBUG,
@@ -422,7 +422,7 @@ static void split_url(char *orig_url, char *server, char *path, int set) {
                 /* strip one level of the path if there are still any left */
                 if ( slash != path ) {
                     *slash = '\0';
-                    slash = rindex(path, '/');
+                    slash = strrchr(path, '/');
                     *(slash+1) = '\0';
                 }
                 /* advance one level of the url */
@@ -442,8 +442,8 @@ static void split_url(char *orig_url, char *server, char *path, int set) {
     }
 
     /* determine end of the host portion and extract the remaining path */
-    if ( (end = index(start, '/')) == NULL ) {
-        if ( (end = index(start, '?')) == NULL ) {
+    if ( (end = strchr(start, '/')) == NULL ) {
+        if ( (end = strchr(start, '?')) == NULL ) {
             /* no '?' or '/', make the path just a '/' */
             end = start + strlen(start);
             strncpy(path, "/\0", 2);
@@ -742,7 +742,7 @@ struct server_stats_t *add_object(char *url, int parse) {
     assert(url);
 
     /* for now, ignore URLs with spaces or URLs broken by chunked encoding */
-    if ( index(url, ' ') != NULL || index(url, 0x0D) != NULL ) {
+    if ( strchr(url, ' ') != NULL || strchr(url, 0x0D) != NULL ) {
         return NULL;
     }
 

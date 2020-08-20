@@ -276,7 +276,7 @@ void process_buffer(struct iptrie *result, char *buffer, int buflen,
     char *lineptr = NULL;
     int linelen;
 
-    while ( index(buffer, '\n') != NULL ) {
+    while ( strchr(buffer, '\n') != NULL ) {
         /*
          * Always call strtok_r with all the parameters because we
          * modify buffer at the end of the loop.

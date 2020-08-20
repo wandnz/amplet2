@@ -57,7 +57,7 @@ static char* get_label(char *fqdn) {
     assert(fqdn);
 
     /* take the last label in the fqdn, we build the tree in reverse */
-    label = rindex(fqdn, '.');
+    label = strrchr(fqdn, '.');
 
     if ( label == NULL ) {
         /* no dot, must be the last element so the label is the whole fqdn */
