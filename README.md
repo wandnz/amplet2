@@ -34,6 +34,9 @@ and protocols. Tests currently available include:
  * UDP traceroute
  * TCP throughput
  * HTTP performance
+ * YouTube performance
+ * SIP/RTP performance
+ * Other simple, non-amplet2 programs
 
 
 ## Documentation
