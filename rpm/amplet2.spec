@@ -1,5 +1,5 @@
 Name: amplet2
-Version: 0.10.4
+Version: 0.10.5
 Release: 1%{?dist}
 Summary: AMP Network Performance Measurement Suite
 
@@ -176,6 +176,11 @@ fi
 
 
 %changelog
+* Wed Aug 26 2020 Brendon Jones <brendonj@waikato.ac.nz> 0.10.5-1
+- amplet2: Zero control struct before use, preventing a crash on exit.
+- amplet2: Check socket options exist before trying to compile them.
+- amplet2: Replace index() and rindex() with strchr() and strrchr().
+
 * Fri Jul  3 2020 Brendon Jones <brendonj@waikato.ac.nz> 0.10.4-1
 - sip: Allow test to take both a URI and a normal target.
 - sip: Update man page with new options.

@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.67])
-AC_INIT([amplet2], [0.10.4], [amp@wand.net.nz])
+AC_INIT([amplet2], [0.10.5], [amp@wand.net.nz])
 #AC_CONFIG_SRCDIR([src/measured/measured.c])
 AM_INIT_AUTOMAKE([subdir-objects])
 AC_CONFIG_HEADERS([config.h])
@@ -41,7 +41,8 @@ m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES([yes])])
 #   amplet2-0.10.2: 4:0:0 (ABI version 4)
 #   amplet2-0.10.3: 4:1:0 (ABI version 4)
 #   amplet2-0.10.4: 4:1:0 (ABI version 4)
-LIBAMP_LIBTOOL_VERSION=4:1:0
+#   amplet2-0.10.5: 4:2:0 (ABI version 4)
+LIBAMP_LIBTOOL_VERSION=4:2:0
 AC_SUBST(LIBAMP_LIBTOOL_VERSION)
 
 # Checks for programs.
