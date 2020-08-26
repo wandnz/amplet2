@@ -659,7 +659,7 @@ char *address_to_name(struct addrinfo *address) {
  * address b, respectively.
  */
 int compare_addresses(const struct sockaddr *a,
-        const struct sockaddr *b, int len) {
+        const struct sockaddr *b, uint8_t len) {
     if ( a == NULL || b == NULL ) {
         return -1;
     }
@@ -676,43 +676,49 @@ int compare_addresses(const struct sockaddr *a,
     if ( a->sa_family == AF_INET ) {
         struct sockaddr_in *a4 = (struct sockaddr_in*)a;
         struct sockaddr_in *b4 = (struct sockaddr_in*)b;
-        if ( len > 0 && len <= 32 ) {
+
+        if ( len > 0 && len < 32 ) {
             uint32_t mask = ntohl(0xffffffff << (32 - len));
+            assert(mask > 0);
             if ( (a4->sin_addr.s_addr & mask) ==
                     (b4->sin_addr.s_addr & mask) ) {
                 return 0;
             }
+
             return ((a4->sin_addr.s_addr & mask) >
                     (b4->sin_addr.s_addr & mask)) ? 1 : -1;
         }
+
         return memcmp(&a4->sin_addr, &b4->sin_addr, sizeof(struct in_addr));
     }
 
     if ( a->sa_family == AF_INET6 ) {
         struct sockaddr_in6 *a6 = (struct sockaddr_in6*)a;
         struct sockaddr_in6 *b6 = (struct sockaddr_in6*)b;
-        if ( len > 0 && len <= 128 ) {
-            uint32_t mask[4];
-            int i;
-            for ( i = 0; i < 4; i++ ) {
-                if ( len >= ((i + 1) * 32) ) {
-                    mask[i] = 0xffffffff;
-                } else if ( len < ((i + 1) * 32) && len > (i * 32) ) {
-                    mask[i] = ntohl(0xffffffff << (((i + 1) * 32) - len));
-                } else {
-                    mask[i] = 0;
+
+        if ( len > 0 && len < 128 ) {
+            uint16_t mask = 0xffff;
+            uint8_t i;
+
+            /*
+             * masks must be contiguous, so only the last field checked will
+             * have any unset bits
+             */
+            for ( i = 0; i < 8 && mask == 0xffff; i++ ) {
+                if ( len < ((i + 1) * 16) ) {
+                    mask = ntohs(0xffff << (((i + 1) * 16) - len));
+                }
+
+                if ( (a6->sin6_addr.s6_addr16[i] & mask) !=
+                        (b6->sin6_addr.s6_addr16[i] & mask) ) {
+                    return ((a6->sin6_addr.s6_addr16[i] & mask) >
+                            (b6->sin6_addr.s6_addr16[i] & mask)) ? 1 : -1;
                 }
             }
 
-            for ( i = 0; i < 4; i++ ) {
-                if ( (a6->sin6_addr.s6_addr32[i] & mask[i]) !=
-                        (b6->sin6_addr.s6_addr32[i] & mask[i]) ) {
-                    return ((a6->sin6_addr.s6_addr32[i] & mask[i]) >
-                            (b6->sin6_addr.s6_addr32[i] & mask[i])) ? 1 : -1;
-                }
-            }
             return 0;
         }
+
         return memcmp(&a6->sin6_addr, &b6->sin6_addr, sizeof(struct in6_addr));
     }
 

@@ -75,12 +75,12 @@ static int get_bit_at_index(struct sockaddr *address, int index) {
         }
 
         /* determine which 32bit block of the IPv6 address we need to check */
-        field = index / 32;
+        field = index / 16;
 
         /* line up the one set bit with the index we want within the block */
-        offset = ntohl(0x80000000 >> (index % 32));
+        offset = ntohs(0x8000 >> (index % 16));
         return (((struct sockaddr_in6*)
-                address)->sin6_addr.s6_addr32[field] & offset)?1:0;
+                address)->sin6_addr.s6_addr16[field] & offset)?1:0;
 
     }
 
@@ -121,21 +121,21 @@ static int get_matching_prefix_length(struct sockaddr *a, struct sockaddr *b) {
     } else if ( a->sa_family == AF_INET6 ) {
         struct sockaddr_in6 *a6 = (struct sockaddr_in6*)a;
         struct sockaddr_in6 *b6 = (struct sockaddr_in6*)b;
-        int mask = 0x80000000;
+        int mask = 0x8000;
         int maxlen = 128;
         int i;
 
-        for ( i = 0; i < 4; i++ ) {
-            if ( a6->sin6_addr.s6_addr32[i] == b6->sin6_addr.s6_addr32[i] ) {
+        for ( i = 0; i < 8; i++ ) {
+            if ( a6->sin6_addr.s6_addr16[i] == b6->sin6_addr.s6_addr16[i] ) {
                 /* skip a whole block if it's the same, don't need to count */
-                count += 32;
+                count += 16;
             } else {
                 /* count bits that are the same, from the left */
                 while ( count < maxlen &&
-                        (a6->sin6_addr.s6_addr32[i] & ntohl(mask)) ==
-                        (b6->sin6_addr.s6_addr32[i] & ntohl(mask)) ) {
+                        (a6->sin6_addr.s6_addr16[i] & ntohs(mask)) ==
+                        (b6->sin6_addr.s6_addr16[i] & ntohs(mask)) ) {
                     count++;
-                    mask = (mask >> 1) | 0x80000000;
+                    mask = (mask >> 1) | 0x8000;
                 }
                 break;
             }
