@@ -203,59 +203,13 @@ size_t parse_headers(void *ptr, size_t size, size_t nmemb, void *data) {
  *
  * Check lexer.l to see how they are extracted from the page source.
  */
+extern void* yy_scan_bytes(const char *, size_t len);
+void yy_delete_buffer(void *b);
+int yylex(void);
+
 size_t parse_response(void *ptr, size_t size, size_t nmemb, void *data) {
-    int pipefd[2];
-    FILE *writer;
-    int written = 0;
-    int total = size * nmemb;
-    extern FILE *yyin;
-    int yylex(void);
-
-    if ( pipe(pipefd) == -1 ) {
-        Log(LOG_ERR, "error creating pipe\n");
-        exit(EXIT_FAILURE);
-    }
-
-    /* open a pipe for writing data to the lexer */
-    fcntl(pipefd[1], F_SETFL, O_NONBLOCK);
-    if ( (writer = fdopen(pipefd[1], "w")) == NULL ) {
-        Log(LOG_ERR, "error opening pipe for writing: %d\n", errno);
-        exit(EXIT_FAILURE);
-    }
-
-    /* open pipe for reading data into the lexer */
-    if ( (yyin = fdopen(pipefd[0], "r")) == NULL ) {
-        Log(LOG_ERR, "error opening pipe for reading: %d\n", errno);
-        exit(EXIT_FAILURE);
-    }
-
-    /*
-     * Send everything curl gave us on to the lexer, which will create objects
-     * and queue them as it finds them
-     */
-    do {
-        written += fwrite(ptr, size, nmemb, (FILE*)writer);
-
-        if ( written < total ) {
-            if ( ferror(writer) && errno != EAGAIN ) {
-                /* breaking here will return < total, which will error */
-                fclose(writer);
-                writer = NULL;
-                break;
-            }
-        }
-
-        /* finished, make sure all the data has got through */
-        if ( written == total) {
-            fflush(writer);
-            fclose(writer);
-            writer = NULL;
-        }
-
-        yylex();
-    } while ( !ferror(data) && written < total );
-
-    fclose(yyin);
-
-    return written;
+    void *buffer = yy_scan_bytes(ptr, size * nmemb);
+    yylex();
+    yy_delete_buffer(buffer);
+    return size * nmemb;
 }
