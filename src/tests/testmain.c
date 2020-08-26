@@ -92,7 +92,6 @@ int main(int argc, char *argv[]) {
     int opt;
     int i;
     char *nameserver = NULL;
-    int remaining = 0;
     pthread_mutex_t addrlist_lock;
     int forcev4 = 0;
     int forcev6 = 0;
@@ -227,13 +226,14 @@ int main(int argc, char *argv[]) {
             family = AF_UNSPEC;
         }
 
+        /* TODO update max targets and pass through to the resolver? */
         amp_resolve_add(vars.ctx, &addrlist, &addrlist_lock, argv[i],
-                family, -1, &remaining);
+                family, -1);
     }
 
-    if ( remaining > 0 ) {
+    if ( optind < argc ) {
         /* wait for all the responses to come in */
-        amp_resolve_wait(vars.ctx, &addrlist_lock, &remaining);
+        ub_wait(vars.ctx);
     }
 
     /* add all the results of to the list of destinations */

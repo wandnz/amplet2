@@ -129,7 +129,6 @@ static void amp_resolve_callback(void *d, int err, struct ub_result *result) {
     pthread_mutex_lock(data->lock);
 
     assert(data->qcount > 0);
-    assert(*data->remaining > 0);
 
     if ( err != 0 || result == NULL || !result->havedata ) {
         if ( err != 0 ) {
@@ -194,8 +193,6 @@ static void amp_resolve_callback(void *d, int err, struct ub_result *result) {
     }
 
 end:
-    /* shared counter to track outstanding queries for this test */
-    (*data->remaining)--;
 
     /* get outstanding queries for this name while we still have it locked */
     qcount = --data->qcount;
@@ -219,8 +216,7 @@ end:
  * TODO rename this? mostly used internally but testmain.c uses it too
  */
 void amp_resolve_add(struct ub_ctx *ctx, struct addrinfo **res,
-        pthread_mutex_t *addrlist_lock, char *name, int family, int max,
-        int *remaining) {
+        pthread_mutex_t *addrlist_lock, char *name, int family, int max) {
 
     struct amp_resolve_data *data;
     struct addrinfo *addr;
@@ -283,15 +279,6 @@ void amp_resolve_add(struct ub_ctx *ctx, struct addrinfo **res,
     }
 
     /*
-     * Track how many queries are outstanding for this test process. When they
-     * are all complete, the test itself can begin.
-     */
-    pthread_mutex_lock(data->lock);
-    data->remaining = remaining;
-    *data->remaining += data->qcount;
-    pthread_mutex_unlock(data->lock);
-
-    /*
      * Track a maximum number of address to resolve, shared between both IPv4
      * and IPv6 for this name. If the maximum is zero, there is no limit.
      */
@@ -314,65 +301,6 @@ void amp_resolve_add(struct ub_ctx *ctx, struct addrinfo **res,
         ub_resolve_async(ctx, name, 0x1c, 0x01, (void*)data,
                 amp_resolve_callback, NULL);
     }
-}
-
-
-
-/*
- * Wait for all names used by this test to be resolved.
- */
-void amp_resolve_wait(struct ub_ctx *ctx, pthread_mutex_t *lock,
-        int *remaining) {
-    int fd;
-    int ready;
-    fd_set readset;
-    struct timeval timeout;
-
-    assert(ctx);
-    assert(lock);
-    assert(remaining);
-
-    Log(LOG_DEBUG, "Waiting for outstanding DNS requests");
-
-    /* using the file descriptor directly lets us use select() for timeouts */
-    if ( (fd = ub_fd(ctx)) < 0 ) {
-        Log(LOG_WARNING, "Failed to get resolver file descriptor");
-        return;
-    }
-
-    do {
-	/* fd sets are undefined after an error, so set them every time */
-	FD_ZERO(&readset);
-        FD_SET(fd, &readset);
-
-        /*
-         * Reset the timeout, even if we had an error. Not worth the hassle
-         * of calculating how much time was left when error occurred.
-         */
-        timeout.tv_sec = 0;
-        timeout.tv_usec = MAX_DNS_POLL_USEC;
-
-        ready = select(fd+1, &readset, NULL, NULL, &timeout);
-
-        /* if the fd is available for reading, process the callbacks */
-        if ( ready > 0 ) {
-            ub_process(ctx);
-        }
-
-        /*
-         * Check if any of the threads have finished processing data for this
-         * particular test. We can stop waiting as soon as all of our names
-         * have been resolved.
-         */
-        pthread_mutex_lock(lock);
-        if ( *remaining <= 0 ) {
-            pthread_mutex_unlock(lock);
-            break;
-        }
-        pthread_mutex_unlock(lock);
-
-    } while ( ready >= 0 || (ready < 0 && errno == EINTR) );
-
 }
 
 

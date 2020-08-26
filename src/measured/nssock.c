@@ -66,7 +66,6 @@ static void *amp_resolver_worker_thread(void *thread_data) {
     uint8_t namelen;
     int bytes;
     pthread_mutex_t addrlist_lock;
-    int remaining = 0;
 
     Log(LOG_DEBUG, "Starting new name resolution thread");
 
@@ -95,13 +94,13 @@ static void *amp_resolver_worker_thread(void *thread_data) {
 
         /* add it to the list of names to resolve and go back for more */
         amp_resolve_add(data->ctx, &addrlist, &addrlist_lock, name,
-                info.family, info.count, &remaining);
+                info.family, info.count);
     }
 
     Log(LOG_DEBUG, "Got all requests, waiting for responses");
 
     /* when the remote end has finished sending names, wait for resolution */
-    amp_resolve_wait(data->ctx, &addrlist_lock, &remaining);
+    ub_wait(data->ctx);
 
     /* once we have all the responses then we don't need the addrlist lock */
     pthread_mutex_lock(&addrlist_lock);
