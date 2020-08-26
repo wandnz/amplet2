@@ -12,16 +12,6 @@ CHAR	    [a-zA-Z0-9_ ]
 
     static char url[MAX_URL_LEN];
     static int url_index = 0;
-
-    static void parsed_complete_object(char *url);
-
-    struct object_stats_t;
-    struct server_stats_t;
-
-    extern struct server_stats_t *add_object(char *url, int parse);
-    extern void* pipeline_next_object(CURLM *multi, struct server_stats_t *server);
-    extern CURLM *multi;
-
 %}
 
 %x script scriptbody noscript comment img dbquote squote linktag style
@@ -71,7 +61,7 @@ CHAR	    [a-zA-Z0-9_ ]
 <linktag>("rel=\"stylesheet\"")|("rel=\'stylesheet\'") {
 
 				    if ( url_index > 0 ) {
-					parsed_complete_object(url);
+					add_object(url, 0);
 				    } else {
 					yy_push_state(style);
                                     }
@@ -81,7 +71,7 @@ CHAR	    [a-zA-Z0-9_ ]
     ("rel=\'"{CHAR}*"icon"{CHAR}*"\'") {
 
 				    if ( url_index > 0 ) {
-					parsed_complete_object(url);
+					add_object(url, 0);
 				    } else {
 					yy_push_state(style);
                                     }
@@ -102,7 +92,7 @@ CHAR	    [a-zA-Z0-9_ ]
 				    url[url_index] = '\0';
 				    if ( yy_top_state() != linktag ) {
 					url_index = 0;
-					parsed_complete_object(url);
+					add_object(url, 0);
 				    }
 				    if ( yy_top_state() == style ) {
                                         yy_pop_state();
@@ -123,7 +113,7 @@ CHAR	    [a-zA-Z0-9_ ]
 				    url[url_index] = '\0';
 				    if ( yy_top_state() != linktag ) {
 					url_index = 0;
-					parsed_complete_object(url);
+					add_object(url, 0);
 				    }
 				    if ( yy_top_state() == style ) {
                                         yy_pop_state();
@@ -140,19 +130,7 @@ CHAR	    [a-zA-Z0-9_ ]
 
 
 
-
-static void parsed_complete_object(char *url) {
-    struct server_stats_t *server;
-
-    server = add_object(url, 0);
-
-    if ( server != NULL ) {
-	pipeline_next_object(multi, server);
-    }
-}
-
 int yyerror(char *s) {
     fprintf(stderr, "%s\n", s);
     return 0;
 }
-
