@@ -11,7 +11,6 @@ testdir=$(libdir)/$(PACKAGE)/tests
 bin_PROGRAMS=amp-sip
 amp_sip_SOURCES=../testmain.c
 amp_sip_LDADD=sip.la -L../../common/ -lamp -lprotobuf-c -lunbound
-amp_sip_LDFLAGS=-Wl,--no-as-needed
 
 test_LTLIBRARIES=sip.la
 sip_la_SOURCES=sip.c sip_common.c sip_server.c sip_client.c

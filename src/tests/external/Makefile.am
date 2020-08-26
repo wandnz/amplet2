@@ -10,7 +10,6 @@ testdir=$(libdir)/$(PACKAGE)/tests
 bin_PROGRAMS=amp-external
 amp_external_SOURCES=../testmain.c
 amp_external_LDADD=external.la -L../../common/ -lamp -lprotobuf-c -lunbound
-amp_external_LDFLAGS=-Wl,--no-as-needed
 
 test_LTLIBRARIES=external.la
 external_la_SOURCES=external.c

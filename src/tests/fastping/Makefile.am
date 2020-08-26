@@ -10,7 +10,6 @@ testdir=$(libdir)/$(PACKAGE)/tests
 bin_PROGRAMS=amp-fastping
 amp_fastping_SOURCES=../testmain.c
 amp_fastping_LDADD=fastping.la -L../../common/ -lamp -lprotobuf-c -lunbound
-amp_fastping_LDFLAGS=-Wl,--no-as-needed
 
 test_LTLIBRARIES=fastping.la
 fastping_la_SOURCES=fastping.c

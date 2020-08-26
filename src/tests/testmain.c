@@ -59,6 +59,8 @@
 #include "testlib.h"
 #include "../measured/control.h" /* just for CONTROL_PORT */
 
+/* function all test modules must define to register themselves */
+test_t *register_test(void);
 
 struct option standalone_long_options[] = {
     {"cacert", required_argument, 0, '0'},
@@ -102,8 +104,8 @@ int main(int argc, char *argv[]) {
     char **test_argv;
     int do_ssl;
 
-    /* load information about the test, including the callback functions */
-    test_info = register_one_test(NULL);
+    /* there should be only a single test linked, so register it directly */
+    test_info = register_test();
 
     /* suppress "invalid argument" errors from getopt */
     opterr = 0;
@@ -336,7 +338,6 @@ int main(int argc, char *argv[]) {
         ssl_cleanup();
     }
 
-    dlclose(test_info->dlhandle);
     free(test_info->name);
     free(test_info);
 

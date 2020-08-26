@@ -8,7 +8,6 @@ testdir=$(libdir)/$(PACKAGE)/tests
 bin_PROGRAMS=amp-throughput
 amp_throughput_SOURCES=../testmain.c
 amp_throughput_LDADD=throughput.la -L../../common/ -lamp -lprotobuf-c -lunbound
-amp_throughput_LDFLAGS=-Wl,--no-as-needed
 
 test_LTLIBRARIES=throughput.la
 throughput_la_SOURCES=throughput.c throughput_server.c throughput_common.c throughput_client.c
