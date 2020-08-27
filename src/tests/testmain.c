@@ -48,6 +48,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <pthread.h>
+#include <unbound.h>
 #include <sys/socket.h>
 
 #include "debug.h"
@@ -103,6 +104,7 @@ int main(int argc, char *argv[]) {
     int test_argc;
     char **test_argv;
     int do_ssl;
+    struct ub_ctx *dns_ctx;
 
     /* there should be only a single test linked, so register it directly */
     test_info = register_test();
@@ -192,12 +194,12 @@ int main(int argc, char *argv[]) {
     /* set the nameserver to our custom one if specified */
     if ( nameserver ) {
         /* TODO we could parse the string and get up to MAXNS servers */
-        vars.ctx = amp_resolver_context_init(&nameserver, 1, sourcev4,sourcev6);
+        dns_ctx = amp_resolver_context_init(&nameserver, 1, sourcev4,sourcev6);
     } else {
-        vars.ctx = amp_resolver_context_init(NULL, 0, sourcev4, sourcev6);
+        dns_ctx = amp_resolver_context_init(NULL, 0, sourcev4, sourcev6);
     }
 
-    if ( vars.ctx == NULL ) {
+    if ( dns_ctx == NULL ) {
         Log(LOG_ALERT, "Failed to configure resolver, aborting.");
         exit(EXIT_FAILURE);
     }
@@ -229,13 +231,13 @@ int main(int argc, char *argv[]) {
         }
 
         /* TODO update max targets and pass through to the resolver? */
-        amp_resolve_add(vars.ctx, &addrlist, &addrlist_lock, argv[i],
+        amp_resolve_add(dns_ctx, &addrlist, &addrlist_lock, argv[i],
                 family, -1);
     }
 
     if ( optind < argc ) {
         /* wait for all the responses to come in */
-        ub_wait(vars.ctx);
+        ub_wait(dns_ctx);
     }
 
     /* add all the results of to the list of destinations */
@@ -332,7 +334,7 @@ int main(int argc, char *argv[]) {
 
     free(test_argv);
 
-    ub_ctx_delete(vars.ctx);
+    ub_ctx_delete(dns_ctx);
 
     if ( ssl_ctx != NULL ) {
         ssl_cleanup();

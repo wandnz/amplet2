@@ -364,6 +364,7 @@ int main(int argc, char *argv[]) {
     struct event *signal_usr1 = NULL;
     struct event *signal_tmax = NULL;
     const char *event_noepoll = "1";
+    struct ub_ctx *dns_ctx;
 
     memset(&meta, 0, sizeof(meta));
     meta.inter_packet_delay = MIN_INTER_PACKET_DELAY;
@@ -494,7 +495,7 @@ int main(int argc, char *argv[]) {
     meta.ampname = vars.ampname;
 
     /* set up the dns resolver context */
-    if ( (vars.ctx = get_dns_context_config(cfg, &meta)) == NULL ) {
+    if ( (dns_ctx = get_dns_context_config(cfg, &meta)) == NULL ) {
         Log(LOG_ALERT, "Failed to configure resolver, aborting.");
 	cfg_free(cfg);
         exit(EXIT_FAILURE);
@@ -669,7 +670,7 @@ int main(int argc, char *argv[]) {
         exit(EXIT_FAILURE);
     }
     resolver_socket_event = event_new(meta.base, vars.nssock_fd,
-            EV_READ|EV_PERSIST, resolver_socket_event_callback, vars.ctx);
+            EV_READ|EV_PERSIST, resolver_socket_event_callback, dns_ctx);
     event_add(resolver_socket_event, NULL);
 
     /* create the asn lookup unix socket and add event listener for it */
@@ -771,7 +772,7 @@ int main(int argc, char *argv[]) {
 
     Log(LOG_DEBUG, "Shutting down DNS resolver");
     close(vars.nssock_fd);
-    amp_resolver_context_delete(vars.ctx);
+    amp_resolver_context_delete(dns_ctx);
 
     Log(LOG_DEBUG, "Cleaning up SSL");
     ssl_cleanup();
