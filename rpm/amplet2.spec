@@ -1,5 +1,5 @@
 Name: amplet2
-Version: 0.10.5
+Version: 0.10.6
 Release: 1%{?dist}
 Summary: AMP Network Performance Measurement Suite
 
@@ -176,6 +176,14 @@ fi
 
 
 %changelog
+* Fri Sep 11 2020 Brendon Jones <brendonj@waikato.ac.nz> 0.10.6-1
+- amplet2: Replace function that waits for DNS responses with ub_wait().
+- amplet2: Replace 32bit IPv6 accessors with 16bit when comparing addresses.
+- amplet2: Remove unbound DNS context from global variable structure.
+- http: Don't call libcurl functions from within libcurl callbacks.
+- http: Pass a string to the lexer rather than piping data to yyin.
+- standalone tests: Call register function directly rather than using dlsym.
+
 * Wed Aug 26 2020 Brendon Jones <brendonj@waikato.ac.nz> 0.10.5-1
 - amplet2: Zero control struct before use, preventing a crash on exit.
 - amplet2: Check socket options exist before trying to compile them.

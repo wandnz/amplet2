@@ -1,3 +1,14 @@
+amplet2 (0.10.6-1) unstable; urgency=low
+
+  * amplet2: Replace function that waits for DNS responses with ub_wait().
+  * amplet2: Replace 32bit IPv6 accessors with 16bit when comparing addresses.
+  * amplet2: Remove unbound DNS context from global variable structure.
+  * http: Don't call libcurl functions from within libcurl callbacks.
+  * http: Pass a string to the lexer rather than piping data to yyin.
+  * standalone tests: Call register function directly rather than using dlsym.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Fri, 11 Sep 2020 15:50:26 +1200
+
 amplet2 (0.10.5-1) unstable; urgency=low
 
   * amplet2: Zero control struct before use, preventing a crash on exit.
