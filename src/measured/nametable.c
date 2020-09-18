@@ -39,6 +39,7 @@
 
 #include <string.h>
 #include <sys/types.h>
+#include <unbound.h>
 #include <sys/socket.h>
 #include <netdb.h>
 #include <assert.h>
@@ -93,7 +94,10 @@ static void dump_nametable(void) {
     nametable_t *item;
     char address[INET6_ADDRSTRLEN];
 
-    Log(LOG_DEBUG, "====== NAMETABLE ======");
+    if ( name_table ) {
+        /* avoid printing the big deprecated banner if nametable isn't used */
+        Log(LOG_DEBUG, "====== DEPRECATED NAMETABLE ======");
+    }
 
     for ( item=name_table; item != NULL; item=item->next ) {
         for ( tmp=item->addr; tmp != NULL; tmp=tmp->ai_next ) {
@@ -183,7 +187,9 @@ static void read_nametable_file(char *filename) {
     struct addrinfo hint;
     struct addrinfo *addrinfo;
 
-    Log(LOG_INFO, "Loading nametable from %s", filename);
+    Log(LOG_WARNING,
+            "%s uses deprecated nametable format, and will take priority",
+            filename);
 
     if ( (in = fopen(filename, "r")) == NULL ) {
 	Log(LOG_WARNING, "Skipping nametable file: %s\n", strerror(errno));
@@ -232,7 +238,7 @@ static void read_nametable_file(char *filename) {
 /*
  *
  */
-void read_nametable_dir(char *directory) {
+void read_nametable_dir(struct ub_ctx *ctx, char *directory) {
     glob_t glob_buf;
     unsigned int i;
     char full_loc[MAX_PATH_LENGTH];
@@ -253,7 +259,11 @@ void read_nametable_dir(char *directory) {
 	    directory, glob_buf.gl_pathc);
 
     for ( i = 0; i < glob_buf.gl_pathc; i++ ) {
-	read_nametable_file(glob_buf.gl_pathv[i]);
+        Log(LOG_INFO, "Loading nametable from %s", glob_buf.gl_pathv[i]);
+        /* try loading using libunbound, if the format is wrong fallback */
+        if ( ub_ctx_hosts(ctx, glob_buf.gl_pathv[i]) != 0 ) {
+            read_nametable_file(glob_buf.gl_pathv[i]);
+        }
     }
 
     dump_nametable();

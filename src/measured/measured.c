@@ -215,7 +215,6 @@ static void reload(
         __attribute__((unused))evutil_socket_t evsock,
         __attribute__((unused))short flags,
         void *evdata) {
-    char nametable[PATH_MAX];
     char schedule[PATH_MAX];
     amp_test_meta_t *meta = (amp_test_meta_t*)evdata;
 
@@ -226,9 +225,6 @@ static void reload(
         /* cancel all scheduled tests (let running ones finish) */
         clear_test_schedule(meta->base, 0);
 
-        /* empty the nametable */
-        clear_nametable();
-
         /* unload all the test modules */
         unregister_tests();
     }
@@ -238,11 +234,6 @@ static void reload(
 	Log(LOG_ALERT, "Failed to register tests, aborting.");
 	exit(EXIT_FAILURE);
     }
-
-    /* re-read nametable files from the global and client specific dirs */
-    read_nametable_dir(NAMETABLE_DIR);
-    snprintf((char*)&nametable, PATH_MAX, "%s/%s", NAMETABLE_DIR,meta->ampname);
-    read_nametable_dir(nametable);
 
     /* re-read schedule files from the global and client specific dirs */
     read_schedule_dir(meta->base, SCHEDULE_DIR, meta);
@@ -365,6 +356,7 @@ int main(int argc, char *argv[]) {
     struct event *signal_tmax = NULL;
     const char *event_noepoll = "1";
     struct ub_ctx *dns_ctx;
+    char nametable[PATH_MAX];
 
     memset(&meta, 0, sizeof(meta));
     meta.inter_packet_delay = MIN_INTER_PACKET_DELAY;
@@ -702,7 +694,15 @@ int main(int argc, char *argv[]) {
         Log(LOG_DEBUG, "Control socket is disabled, skipping");
     }
 
-    /* register all test modules, load nametable, load schedules */
+    /* load /etc/hosts into unbound */
+    ub_ctx_hosts(dns_ctx, NULL);
+
+    /* load the nametable files into unbound */
+    read_nametable_dir(dns_ctx, NAMETABLE_DIR);
+    snprintf((char*)&nametable, PATH_MAX, "%s/%s", NAMETABLE_DIR, meta.ampname);
+    read_nametable_dir(dns_ctx, nametable);
+
+    /* register all test modules, load schedules */
     load_tests_and_schedules(&meta);
 
     /* get the default arguments that should be applied to each test */
