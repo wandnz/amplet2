@@ -99,7 +99,7 @@ int delay_send_packet(int sock, char *packet, int size, struct addrinfo *dest,
 char *address_to_name(struct addrinfo *address);
 int compare_addresses(const struct sockaddr *a,
         const struct sockaddr *b, uint8_t len);
-struct addrinfo *get_numeric_address(char *interface, char *port);
+struct addrinfo *get_numeric_address(char *address, char *port);
 int bind_socket_to_device(int sock, char *device);
 int bind_sockets_to_device(struct socket_t *sockets, char *device);
 int bind_socket_to_address(int sock, struct addrinfo *address);
