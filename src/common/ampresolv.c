@@ -100,11 +100,11 @@ struct ub_ctx *amp_resolver_context_init(char *servers[], int nscount,
 
     /* use only the given outgoing interfaces if they have been specified */
     if ( sourcev4 ) {
-        ub_ctx_set_option(ctx, "outgoing-interface", sourcev4);
+        ub_ctx_set_option(ctx, "outgoing-interface:", sourcev4);
     }
 
     if ( sourcev6 ) {
-        ub_ctx_set_option(ctx, "outgoing-interface", sourcev6);
+        ub_ctx_set_option(ctx, "outgoing-interface:", sourcev6);
     }
 
     return ctx;
