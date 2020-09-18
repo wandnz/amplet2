@@ -53,12 +53,19 @@
 #define UNIX_PATH_MAX 108
 #endif
 
+enum amp_resolve_status {
+    AMP_RESOLVE_WAITING = 0,
+    AMP_RESOLVE_OK = 1,
+};
+
 /* data block for callback function when name resolution is complete */
 struct amp_resolve_data {
     pthread_mutex_t *lock;
     int max;                    /* maximum number of results to return */
     int qcount;                 /* how many requests for name, shared max */
+    enum amp_resolve_status status; /* have we got a good response yet? */
     struct addrinfo **addrlist; /* list to store the results in */
+    uint8_t family;             /* address family that was queried */
 };
 
 /* data block used to transfer information about a query to be performed */

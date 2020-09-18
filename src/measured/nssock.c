@@ -115,10 +115,14 @@ static void *amp_resolver_worker_thread(void *thread_data) {
             goto end;
         }
 
-        if ( send(data->fd, item->ai_addr,item->ai_addrlen,MSG_NOSIGNAL) < 0 ) {
-            Log(LOG_WARNING, "Failed to send resolved address: %s",
-                    strerror(errno));
-            goto end;
+        /* there might not be an address for this name */
+        if ( item->ai_addrlen > 0 ) {
+            if ( send(data->fd, item->ai_addr, item->ai_addrlen,
+                        MSG_NOSIGNAL) < 0 ) {
+                Log(LOG_WARNING, "Failed to send resolved address: %s",
+                        strerror(errno));
+                goto end;
+            }
         }
 
         namelen = strlen(item->ai_canonname) + 1;
