@@ -1016,8 +1016,8 @@ int check_exists(char *path, int strict) {
 
     /* file exists */
     if ( stat_result == 0 ) {
-        /* check it's a normal file or a symbolic link */
-        if ( S_ISREG(statbuf.st_mode)
+        /* check it's a normal file with contents or a symbolic link */
+        if ( (S_ISREG(statbuf.st_mode) && statbuf.st_size > 0)
 #ifdef S_ISLNK
                 || S_ISLNK(statbuf.st_mode)
 #endif
@@ -1025,8 +1025,11 @@ int check_exists(char *path, int strict) {
             return 0;
         }
 
-        Log(LOG_WARNING, "File %s exists, but is not a regular file", path);
-        return -1;
+        /* non-normal files are errors, empty normal files count as missing */
+        if ( !S_ISREG(statbuf.st_mode) ) {
+            Log(LOG_WARNING, "File %s exists, but is not a regular file", path);
+            return -1;
+        }
     }
 
     /* file was manually specified, but doesn't exist, that's an error */
