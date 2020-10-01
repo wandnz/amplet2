@@ -43,6 +43,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <getopt.h>
+#include <inttypes.h>
 #if ! _WIN32
 #include <sys/socket.h>
 #include <netdb.h>
