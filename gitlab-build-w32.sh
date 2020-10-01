@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -x -e -o pipefail
+
 apt-get update
 apt-get -y upgrade
 apt-get install -y apt-transport-https automake autotools-dev ca-certificates flex libtool make mingw-w64 protobuf-compiler protobuf-c-compiler python wget wixl xz-utils zstd
