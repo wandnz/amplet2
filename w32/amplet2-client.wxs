@@ -1,0 +1,175 @@
+<?xml version='1.0' encoding='windows-1252'?>
+<Wix xmlns='http://schemas.microsoft.com/wix/2006/wi'>
+
+    <?define ProductName="amplet2-client" ?>
+    <?define ProductVersion="0.10.6" ?>
+    <?define UpgradeCode="D11C61E3-532E-4946-BE48-41B67A616CF7" ?>
+    <?define SourceDir='install' ?>
+    <?define MingwBinDir='mingw64/bin/' ?>
+    <?define HostSSLDir='/etc/ssl/' ?>
+
+    <Product Name='$(var.ProductName)' Manufacturer='University of Waikato WAND network research group'
+        Id='*'
+        UpgradeCode='$(var.UpgradeCode)'
+        Language='1033' Codepage='1252' Version='$(var.ProductVersion)'>
+    <Package Id='*' Keywords='Installer' Description="$(var.ProductName) $(var.ProductVersion) Installer"
+        Comments='.' Manufacturer='University of Waikato WAND network research group'
+        InstallerVersion='100' Languages='1033' Compressed='yes' SummaryCodepage='1252' />
+
+    <Media Id='1' Cabinet='$(var.ProductName).cab' EmbedCab='yes' DiskPrompt='CD-ROM #1' />
+    <Property Id='DiskPrompt' Value="$(var.ProductName) $(var.ProductVersion) Installation [1]" />
+
+    <Condition Message="You need to be an administrator to install this product.">
+        Privileged
+    </Condition>
+
+    <Condition Message='This application only runs on 64-bit Windows.'>
+        VersionNT64
+    </Condition>
+
+    <Directory Id="TARGETDIR" Name="SourceDir">
+        <Directory Id="ProgramFilesFolder" Name="PFiles">
+            <Directory Id="WAND" Name="WAND">
+                <Directory Id="INSTALLDIR" Name="$(var.ProductName)">
+
+    <Component Id='MainExecutable' Guid='20ACFA64-D3B8-45FF-AF43-847837DF18C7'>
+        <File Id='amplet2EXE' Name='amplet2.exe' DiskId='1' Source='$(var.SourceDir)/sbin/amplet2.exe' KeyPath='yes' />
+        <!-- can't start the service till it has amp client configuration -->
+        <ServiceInstall Id='ServiceInstaller'
+            Type="ownProcess" Vital="yes"
+            Name="amplet2" DisplayName="amplet2"
+            Description="amplet2 service" Start="disabled"
+            Account="LocalSystem" ErrorControl="normal"
+            Arguments=" -d -c &quot;[CLIENTDIR]default.conf&quot;"
+            Interactive="no" />
+        <!-- XXX need to remove the start parameter so it doesn't try and fail
+             to start during installation, but wixl thinks it's required -->
+        <ServiceControl Id="StartService"
+            Start="install"
+            Stop="both"
+            Remove="uninstall"
+            Name="amplet2"
+            Wait="no" />
+    </Component>
+
+    <Component Id="libamp" Guid="*">
+        <File Id="libampDLL" KeyPath="yes" Source="$(var.SourceDir)/bin/libamp-5.dll"/>
+    </Component>
+
+    <Component Id="standalone-dns" Guid="*">
+        <File Id="dnsEXE" KeyPath="yes" Source="$(var.SourceDir)/bin/amp-dns.exe"/>
+    </Component>
+
+    <Component Id="standalone-http" Guid="*">
+        <File Id="httpEXE" KeyPath="yes" Source="$(var.SourceDir)/bin/amp-http.exe"/>
+    </Component>
+
+    <Component Id="standalone-icmp" Guid="*">
+        <File Id="icmpEXE" KeyPath="yes" Source="$(var.SourceDir)/bin/amp-icmp.exe"/>
+    </Component>
+
+    <Component Id="dependencies" Guid="*">
+        <File Id="libwinpthread-1.dll" KeyPath="yes" Source="/usr/x86_64-w64-mingw32/lib/libwinpthread-1.dll"/>
+        <File Id="ca-certificates.crt" Source="$(var.HostSSLDir)/certs/ca-certificates.crt"/>
+        <File Id="libbrotlicommon.dll" Source="$(var.MingwBinDir)/libbrotlicommon.dll"/>
+        <File Id="libbrotlidec.dll" Source="$(var.MingwBinDir)/libbrotlidec.dll"/>
+        <File Id="libconfuse-2.dll" Source="$(var.MingwBinDir)/libconfuse-2.dll"/>
+        <File Id="libcrypto-1_1-x64.dll" Source="$(var.MingwBinDir)/libcrypto-1_1-x64.dll"/>
+        <File Id="libcurl-4.dll" Source="$(var.MingwBinDir)/libcurl-4.dll"/>
+        <File Id="libevent-2-1-7.dll" Source="$(var.MingwBinDir)/libevent-2-1-7.dll"/>
+        <File Id="libiconv-2.dll" Source="$(var.MingwBinDir)/libiconv-2.dll"/>
+        <File Id="libidn2-0.dll" Source="$(var.MingwBinDir)/libidn2-0.dll"/>
+        <File Id="libintl-8.dll" Source="$(var.MingwBinDir)/libintl-8.dll"/>
+        <File Id="libnghttp2-14.dll" Source="$(var.MingwBinDir)/libnghttp2-14.dll"/>
+        <File Id="libprotobuf-c-1.dll" Source="$(var.MingwBinDir)/libprotobuf-c-1.dll"/>
+        <File Id="libpsl-5.dll" Source="$(var.MingwBinDir)/libpsl-5.dll"/>
+        <File Id="librabbitmq.dll" Source="$(var.MingwBinDir)/librabbitmq.dll"/>
+        <File Id="libssh2-1.dll" Source="$(var.MingwBinDir)/libssh2-1.dll"/>
+        <File Id="libssl-1_1-x64.dll" Source="$(var.MingwBinDir)/libssl-1_1-x64.dll"/>
+        <File Id="libunbound-8.dll" Source="$(var.MingwBinDir)/libunbound-8.dll"/>
+        <File Id="libunistring-2.dll" Source="$(var.MingwBinDir)/libunistring-2.dll"/>
+        <File Id="libyaml-0-2.dll" Source="$(var.MingwBinDir)/libyaml-0-2.dll"/>
+        <File Id="zlib1.dll" Source="$(var.MingwBinDir)/zlib1.dll"/>
+    </Component>
+
+    <Directory Id="SCHEDULEDIR" Name="schedules">
+        <Component Id="schedules" Guid="*">
+            <File Id="schedule.example" Source="$(var.SourceDir)/etc/amplet2/schedules/schedule.example"/>
+        </Component>
+    </Directory>
+
+    <Directory Id="NAMETABLEDIR" Name="nametables">
+        <Component Id="nametables" Guid="*">
+            <File Id="nametable.example" Source="$(var.SourceDir)/etc/amplet2/nametables/nametable.example"/>
+        </Component>
+    </Directory>
+
+    <Directory Id="CLIENTDIR" Name="clients">
+        <Component Id="clients" Guid="*">
+            <File Id="client.example" Source="$(var.SourceDir)/etc/amplet2/clients/client.example"/>
+        </Component>
+    </Directory>
+
+<!--
+    <Directory Id="KEYDIR" Name="keys">
+        <Component Id="keys" Guid="*">
+            <CreateFolder/>
+        </Component>
+    </Directory>
+-->
+
+    <Directory Id="TESTDIR" Name="tests">
+        <Component Id="libdns" Guid="*">
+            <File Id="dnsDLL" KeyPath="yes" Source="$(var.SourceDir)/lib/amplet2/tests/dns.dll"/>
+        </Component>
+        <Component Id="libhttp" Guid="*">
+            <File Id="httpDLL" KeyPath="yes" Source="$(var.SourceDir)/lib/amplet2/tests/http.dll"/>
+        </Component>
+        <Component Id="libicmp" Guid="*">
+            <File Id="icmpDLL" KeyPath="yes" Source="$(var.SourceDir)/lib/amplet2/tests/icmp.dll"/>
+        </Component>
+    </Directory>
+
+                </Directory>
+            </Directory>
+        </Directory>
+    </Directory>
+
+    <Feature Id='Complete' Level='1'>
+        <ComponentRef Id='MainExecutable' />
+        <ComponentRef Id='libamp' />
+        <ComponentRef Id='standalone-dns' />
+        <ComponentRef Id='standalone-http' />
+        <ComponentRef Id='standalone-icmp' />
+        <ComponentRef Id='libdns' />
+        <ComponentRef Id='libhttp' />
+        <ComponentRef Id='libicmp' />
+        <ComponentRef Id='dependencies' />
+        <ComponentRef Id='schedules' />
+        <ComponentRef Id='nametables' />
+        <ComponentRef Id='clients' />
+        <!--<ComponentRef Id='keys' />-->
+    </Feature>
+
+    <Upgrade Id='$(var.UpgradeCode)'>
+        <UpgradeVersion OnlyDetect='yes' Property='SELFFOUND'
+            Minimum='$(var.ProductVersion)' IncludeMinimum='yes'
+            Maximum='$(var.ProductVersion)' IncludeMaximum='yes' />
+        <UpgradeVersion OnlyDetect='yes' Property='NEWERFOUND'
+            Minimum='$(var.ProductVersion)' IncludeMinimum='no' />
+    </Upgrade>
+
+    <!-- documentation suggests minor updates will trigger SELFFOUND? -->
+    <!-- wixl can't deal with custom actions? -->
+    <!--
+    <CustomAction Id='AlreadyUpdated' Error='$(var.ProductName) $(var.ProductVersion) has already been updated.' />
+    <CustomAction Id='NoDowngrade' Error='A later version of $(var.ProductName) is already installed.' />
+    -->
+
+    <InstallExecuteSequence>
+        <Custom Action='AlreadyUpdated' After='FindRelatedProducts'>SELFFOUND</Custom>
+        <Custom Action='NoDowngrade' After='FindRelatedProducts'>NEWERFOUND</Custom>
+    </InstallExecuteSequence>
+
+    </Product>
+</Wix>
