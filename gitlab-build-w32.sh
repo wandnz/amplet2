@@ -2,7 +2,7 @@
 
 apt-get update
 apt-get -y upgrade
-apt-get install -y apt-transport-https automake autotools-dev ca-certificates flex make mingw-w64 protobuf-compiler protobuf-c-compiler python wget wixl xz-utils zstd
+apt-get install -y apt-transport-https automake autotools-dev ca-certificates flex libtool make mingw-w64 protobuf-compiler protobuf-c-compiler python wget wixl xz-utils zstd
 
 VERSION=`grep -m 1 ProductVersion w32/amplet2-client.wxs | awk -F \" '{print $2}'`
 REPO="https://repo.msys2.org/mingw/x86_64/"
