@@ -31,6 +31,10 @@ for i in $DEPS; do
     tar xvf ${i}
 done
 
+if [ -x bootstrap.sh ]; then
+    ./bootstrap.sh;
+fi
+
 ./configure --host x86_64-w64-mingw32 --disable-tcpping --disable-udpstream --disable-throughput --disable-external --disable-fastping --disable-traceroute --disable-syslog CFLAGS=-I`pwd`/mingw64/include/ LDFLAGS=-L`pwd`/mingw64/lib/ --prefix=`pwd`/install
 make
 make install
