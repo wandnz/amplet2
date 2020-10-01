@@ -39,17 +39,21 @@
 
 #include <stdlib.h>
 #include <stdio.h>
-#include <dlfcn.h>
 #include <getopt.h>
 #include <string.h>
 #include <time.h>
-#include <arpa/inet.h>
 #include <sys/types.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <pthread.h>
 #include <unbound.h>
+
+#if _WIN32
+#else
+#include <dlfcn.h>
 #include <sys/socket.h>
+#include <arpa/inet.h>
+#endif
 
 #include "debug.h"
 #include "tests.h"
@@ -105,6 +109,20 @@ int main(int argc, char *argv[]) {
     char **test_argv;
     int do_ssl;
     struct ub_ctx *dns_ctx;
+
+#if _WIN32
+    WORD wVersionRequested;
+    WSADATA wsaData;
+    int err;
+
+    wVersionRequested = MAKEWORD(2, 2);
+
+    err = WSAStartup(wVersionRequested, &wsaData);
+    if (err != 0) {
+        fprintf(stderr, "WSAStartup failed with error: %d\n", err);
+        exit(EXIT_FAILURE);
+    }
+#endif
 
     /* there should be only a single test linked, so register it directly */
     test_info = register_test();
@@ -342,6 +360,10 @@ int main(int argc, char *argv[]) {
 
     free(test_info->name);
     free(test_info);
+
+#if _WIN32
+    WSACleanup();
+#endif
 
     return EXIT_SUCCESS;
 }

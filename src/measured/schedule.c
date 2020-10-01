@@ -41,7 +41,6 @@
 #include <stdlib.h>
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <sys/socket.h>
 #include <unistd.h>
 #include <time.h>
 #include <string.h>
@@ -49,12 +48,18 @@
 #include <limits.h>
 #include <signal.h>
 #include <assert.h>
-#include <glob.h>
 #include <curl/curl.h>
 #include <yaml.h>
 #include <stdint.h>
 #include <inttypes.h>
 #include <event2/event.h>
+
+#ifdef _WIN32
+#include "w32-compat.h"
+#else
+#include <sys/socket.h>
+#include <glob.h>
+#endif
 
 #include "config.h"
 #include "schedule.h"
@@ -582,12 +587,19 @@ static inline struct timeval get_next_schedule_time_internal(
         struct timeval *now, schedule_period_t period, uint64_t start,
         uint64_t end, uint64_t frequency, int run, struct timeval *abstime) {
 
-    time_t period_start, period_end;
+    time_t period_start, period_end, now_sec;
     struct timeval next = {0, 0};
     int64_t diff, test_end;
     int next_repeat;
 
-    period_start = get_period_start(period, &now->tv_sec);
+    /*
+     * Windows apparently has 4 byte timeval fields and an 8 byte time_t, so
+     * convert to the larger one before taking the address. Linux seems to
+     * be consistent between the types (size depends on architecture).
+     */
+    now_sec = now->tv_sec;
+
+    period_start = get_period_start(period, &now_sec);
     test_end = (period_start * INT64_C(1000000)) + end;
 
     /* get difference in us between the first event of this period and now */
@@ -621,7 +633,7 @@ static inline struct timeval get_next_schedule_time_internal(
 
         /* save the absolute time this test was meant to be run */
         if ( abstime ) {
-            timeradd(now, &next, abstime);
+            evutil_timeradd(now, &next, abstime);
         }
 
         Log(LOG_DEBUG, "test triggered early, rescheduling for: %d.%d\n",
@@ -689,7 +701,7 @@ static inline struct timeval get_next_schedule_time_internal(
 
     /* save the absolute time this test was meant to be run */
     if ( abstime ) {
-        timeradd(now, &next, abstime);
+        evutil_timeradd(now, &next, abstime);
     }
 
     Log(LOG_DEBUG, "next test run scheduled at: %d.%d\n", (int)next.tv_sec,
@@ -1411,6 +1423,16 @@ static int update_remote_schedule(fetch_schedule_item_t *fetch, int clobber) {
                 Log(LOG_DEBUG, "CACERT=%s", fetch->cacert);
                 curl_easy_setopt(curl, CURLOPT_CAINFO, fetch->cacert);
             }
+#if _WIN32
+            /*
+             * XXX having issues with CURLSSLOPT_NATIVE_CA, so set this
+             * manually for now
+             */
+            else {
+                curl_easy_setopt(curl, CURLOPT_CAINFO,
+                        AMP_CONFIG_DIR "ca-certificates.crt");
+            }
+#endif
 
             /* set the client cert and key that we present the server */
             if ( fetch->cert != NULL && fetch->key != NULL ) {
@@ -1508,6 +1530,31 @@ static int update_remote_schedule(fetch_schedule_item_t *fetch, int clobber) {
 
 
 
+#if _WIN32
+/*
+ * CreateThread only allows a single argument to the target function, so
+ * provide a single argument version of update_remote_schedule. Alternatively
+ * could combine the arguments into a single structure but this seemed easier?
+ */
+static long unsigned int update_remote_schedule_clobber(void *fetch) {
+    if ( update_remote_schedule(fetch, 1) > 0 ) {
+        event_active(signal_usr1, 0, 0);
+    }
+
+    ExitThread(0);
+}
+
+static long unsigned int update_remote_schedule_noclobber(void *fetch) {
+    if ( update_remote_schedule(fetch, 0) > 0 ) {
+        event_active(signal_usr1, 0, 0);
+    }
+
+    ExitThread(0);
+}
+#endif
+
+
+
 /*
  * Fork a process to check for a more up to date schedule file from a remote
  * server.
@@ -1515,6 +1562,16 @@ static int update_remote_schedule(fetch_schedule_item_t *fetch, int clobber) {
 static void fork_and_fetch(fetch_schedule_item_t *fetch, int clobber) {
     pid_t pid;
 
+#if _WIN32
+    /* start up a thread to do the check */
+    CreateThread(NULL,
+            0,
+            clobber ? update_remote_schedule_clobber :
+            update_remote_schedule_noclobber,
+            fetch,
+            0,
+            NULL);
+#else
     /* fork off a process to do the actual check */
     if ( (pid = fork()) < 0 ) {
         Log(LOG_WARNING, "Failed to fork for fetching remote schedule: %s",
@@ -1548,6 +1605,7 @@ static void fork_and_fetch(fetch_schedule_item_t *fetch, int clobber) {
 
         exit(EXIT_SUCCESS);
     }
+#endif
 }
 
 

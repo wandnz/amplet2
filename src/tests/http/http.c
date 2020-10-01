@@ -41,14 +41,17 @@
 #include <getopt.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <sys/socket.h>
 #include <sys/types.h>
-#include <netdb.h>
 #include <sys/time.h>
 #include <errno.h>
 #include <assert.h>
 #include <string.h>
 #include <curl/curl.h>
+
+#ifndef _WIN32
+#include <sys/socket.h>
+#include <netdb.h>
+#endif
 
 #include "config.h"
 #include "testlib.h"

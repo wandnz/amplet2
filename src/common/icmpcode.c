@@ -37,9 +37,14 @@
  * along with amplet2. If not, see <http://www.gnu.org/licenses/>.
  */
 
+#if _WIN32
+#include <winsock2.h>
+#include "w32-net.h"
+#else
 #include <netinet/ip_icmp.h>
 #include <netinet/icmp6.h>
 #include <sys/socket.h>
+#endif
 
 #include "icmpcode.h"
 

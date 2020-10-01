@@ -39,14 +39,19 @@
 
 #include <unistd.h>
 #include <stdlib.h>
-#include <sys/socket.h>
 #include <sys/types.h>
 #include <pthread.h>
 #include <errno.h>
-#include <arpa/inet.h>
 #include <string.h>
-#include <netinet/in.h>
 #include <sys/time.h>
+
+#if _WIN32
+#include "w32-compat.h"
+#else
+#include <sys/socket.h>
+#include <arpa/inet.h>
+#include <netinet/in.h>
+#endif
 
 #include "asn.h"
 #include "asnsock.h"
@@ -462,7 +467,7 @@ end:
 
     Log(LOG_DEBUG, "asn resolution thread completed, exiting");
 
-    pthread_exit(NULL);
+    return NULL;
 }
 
 

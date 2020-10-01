@@ -47,6 +47,10 @@
 #include <string.h>
 #include <stdio.h>
 
+#if _WIN32
+#include "w32-compat.h"
+#endif
+
 #include "config.h"
 #include "debug.h"
 #include "ssl.h"
@@ -329,6 +333,17 @@ static char *get_csr_string(X509_REQ *request) {
         Log(LOG_WARNING, "Failed to write X509_REQ");
         return NULL;
     }
+
+#if _WIN32
+    rewind(out);
+    csrstr = malloc(4096);
+    fread(csrstr, 1, 4096, out);
+
+    if ( ferror(out) ) {
+        Log(LOG_WARNING, "Failed to read X509_REQ");
+        return NULL;
+    }
+#endif
 
     fclose(out);
     return csrstr;

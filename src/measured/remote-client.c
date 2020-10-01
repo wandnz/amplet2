@@ -38,13 +38,15 @@
  */
 
 #include <sys/types.h>
-#include <sys/socket.h>
-#include <netdb.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
 #include <getopt.h>
+#if ! _WIN32
+#include <sys/socket.h>
+#include <netdb.h>
+#endif
 
 #include "debug.h"
 #include "control.h"
@@ -258,7 +260,8 @@ int main(int argc, char *argv[]) {
                 }
 
                 if ( test->id != in_msg->result->test_type ) {
-                    printf("Unexpected test type, got %ld expected %ld\n",
+                    printf("Unexpected test type, got %" PRIu64
+                            " expected %" PRIu64 "\n",
                             in_msg->result->test_type, test->id);
                     break;
                 }

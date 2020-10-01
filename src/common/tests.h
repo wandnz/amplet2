@@ -41,8 +41,12 @@
 #define _COMMON_TESTS_H
 
 #include <stdint.h>
-#include <netdb.h>
 #include <openssl/bio.h>
+#if _WIN32
+#include <winsock2.h>
+#else
+#include <netdb.h>
+#endif
 
 /* TODO move elsewhere to more global config file */
 #define MAX_PATH_LENGTH 10000
@@ -153,7 +157,7 @@ typedef struct test {
      * This can be useful to report partial results from a test that tests to
      * multiple locations.
      */
-     int sigint;
+    int sigint;
 
     /*
      * Each client can have default parameters applied to all tests of a type.

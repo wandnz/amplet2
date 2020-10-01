@@ -40,11 +40,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <sys/socket.h>
 #include <errno.h>
 #include <assert.h>
 #include <string.h>
+
+#ifndef _WIN32
+#include <sys/socket.h>
 #include <netdb.h>
+#endif
 
 #include "debug.h"
 #include "ssl.h"

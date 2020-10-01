@@ -74,7 +74,6 @@ static void print_global_info(Amplet2__Http__Report *report) {
     printf("\tuseragent:\t\t\t\t\"%s\"\n", report->header->useragent);
     printf("\tproxy:\t\t\t\t\t%s\n",
             report->header->proxy ? report->header->proxy : "none");
-
 }
 
 

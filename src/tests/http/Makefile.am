@@ -12,7 +12,11 @@ amp_http_LDADD=http.la -L../../common/ -lamp -lcurl -lprotobuf-c -lunbound
 test_LTLIBRARIES=http.la
 http_la_SOURCES=http.c servers.c parsers.c output.c lexer.l
 nodist_http_la_SOURCES=http.pb-c.c
-http_la_LDFLAGS=-module -avoid-version -L../../common/ -lamp -lcurl -lprotobuf-c
+http_la_LDFLAGS=-module -avoid-version -L../../common/ -lamp -lcurl -lprotobuf-c $(AM_LDFLAGS)
+
+if MINGW
+amp_http_LDFLAGS=-static
+endif
 
 INCLUDES=-I../ -I../../common/
 

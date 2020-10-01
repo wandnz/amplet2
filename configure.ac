@@ -11,6 +11,12 @@ AC_CONFIG_MACRO_DIR([m4])
 
 m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES([yes])])
 
+AC_CANONICAL_HOST
+case $host_os in
+  *mingw*) mingw=true ;;
+  *) mingw=false ;;
+esac
+AM_CONDITIONAL([MINGW], [test x$mingw = xtrue])
 
 # libtool will do what it wants with the values given for CURRENT:REVISION:AGE
 # but it should all work out ok even if it looks wrong. See:
@@ -71,9 +77,21 @@ fi
 # TODO might be able to tidy up some of these? If every program links with the
 # same library then just leave the action-if-found empty so it gets added to
 # the global $LIBS
-AC_CHECK_LIB([rt], [timer_create],lrt_found=1,lrt_found=0)
-if test "$lrt_found" = 0; then
-    AC_MSG_ERROR(Required library librt not found; use LDFLAGS to specify library location)
+if test x"$mingw" != xtrue; then
+    AC_CHECK_LIB([rt], [timer_create],lrt_found=1,lrt_found=0)
+    if test "$lrt_found" = 0; then
+        AC_MSG_ERROR(Required library librt not found; use LDFLAGS to specify library location)
+    fi
+
+    AC_CHECK_LIB(cap, cap_set_proc, libcap_found=1, libcap_found=0)
+    if test "$libcap_found" = 0; then
+        AC_MSG_ERROR(Required library libcap not found; use LDFLAGS to specify library location)
+    fi
+
+    AC_CHECK_HEADER(sys/capability.h, capability_h_found=1, capability_h_found=0)
+    if test "$capability_h_found" = 0; then
+        AC_MSG_ERROR(Required headers for libcap not found; use CFLAGS to specify header location)
+    fi
 fi
 
 AC_CHECK_LIB([crypto], [EVP_DigestInit_ex],crypto_found=1,crypto_found=0)
@@ -156,14 +174,6 @@ if test "$protobuf_h_found" = 0; then
     AC_MSG_ERROR(Required headers for protobuf-c not found; use CFLAGS to specify header location)
 fi
 
-AC_CHECK_LIB(cap, cap_set_proc, libcap_found=1, libcap_found=0)
-if test "$libcap_found" = 0; then
-    AC_MSG_ERROR(Required library libcap not found; use LDFLAGS to specify library location)
-fi
-AC_CHECK_HEADER(sys/capability.h, capability_h_found=1, capability_h_found=0)
-if test "$capability_h_found" = 0; then
-    AC_MSG_ERROR(Required headers for libcap not found; use CFLAGS to specify header location)
-fi
 
 # Debian Jessie doesn't have all the newer timestamping options available, so
 # use the presence of SOF_TIMESTAMPING_OPT_ID to determine how we do timestamps
@@ -190,6 +200,11 @@ if test x"$want_python" = xtrue; then
     AM_PATH_PYTHON([2.6])
 fi
 
+AC_CHECK_HEADER([syslog.h], [have_syslog=true], [have_syslog=false])
+if test x"$have_syslog" = xtrue; then
+    AC_DEFINE([HAVE_SYSLOG], [1], [Define to 1 if you have syslog.h])
+fi
+
 # Enable logging via syslog
 AC_ARG_ENABLE(syslog,
     AC_HELP_STRING([--enable-syslog],
@@ -205,7 +220,11 @@ AC_ARG_ENABLE(syslog,
 # using AM_CONDITIONAL propagates this value through to all Makefile.am files
 AM_CONDITIONAL(WANT_SYSLOG, [test x"$want_syslog" = xtrue])
 if test x"$want_syslog" = xtrue; then
-    AC_DEFINE([LOG_TO_SYSLOG], [1], [Define to 1 if you want to log via syslog])
+    if test x"$have_syslog" = xtrue; then
+        AC_DEFINE([LOG_TO_SYSLOG], [1], [Define to 1 if you want to log via syslog])
+    else
+        AC_MSG_ERROR(syslog is enabled but can't find syslog.h)
+    fi
 fi
 
 
@@ -458,7 +477,13 @@ fi
 
 
 # Set default CFLAGS including the AMP_CONFIG_DIR and AMP_TEST_DIR
-AC_SUBST([AM_CFLAGS], ["-rdynamic -g -Wall -W -D_GNU_SOURCE -DAMP_CONFIG_DIR=\\\"\$(sysconfdir)/\$(PACKAGE)\\\" -DAMP_TEST_DIRECTORY=\\\"\$(libdir)/\$(PACKAGE)/tests\\\" -DAMP_LOG_DIR=\\\"\$(localstatedir)/log/\\\" -DAMP_EXTERNAL_BIN_DIRECTORY=\\\"\$(libdir)/\$(PACKAGE)/external\\\" -DAMP_EXTRA_DIRECTORY=\\\"\$(libdir)/\$(PACKAGE)/extra\\\""])
+if test x"$mingw" = xtrue; then
+    # __USE_MINGW_ANSI_STDIO fixes missing printf format strings
+    AC_SUBST([AM_CFLAGS], ["-g -Wall -W -D_GNU_SOURCE -DAMP_CONFIG_DIR=\\\"c:/Program\\ Files\\ \(x86\)/WAND/amplet2-client/\\\" -DAMP_TEST_DIRECTORY=AMP_CONFIG_DIR\\\"/tests\\\" -DAMP_LOG_DIR=AMP_CONFIG_DIR -DAMP_EXTERNAL_BIN_DIRECTORY=\\\"external\\\" -DAMP_EXTRA_DIRECTORY=\\\"extra\\\" -DAMP_RUN_DIR=\\\"run\\\" -DWIN32_LEAN_AND_MEAN -DWINVER=_WIN32_WINNT_LONGHORN -D_WIN32_WINNT=_WIN32_WINNT_LONGHORN -D__USE_MINGW_ANSI_STDIO=1"])
+    AC_SUBST([AM_LDFLAGS], ["-static-libgcc -no-undefined -lws2_32"])
+else
+    AC_SUBST([AM_CFLAGS], ["-rdynamic -g -Wall -W -D_GNU_SOURCE -DAMP_CONFIG_DIR=\\\"\$(sysconfdir)/\$(PACKAGE)\\\" -DAMP_TEST_DIRECTORY=\\\"\$(libdir)/\$(PACKAGE)/tests\\\" -DAMP_LOG_DIR=\\\"\$(localstatedir)/log/\\\" -DAMP_EXTERNAL_BIN_DIRECTORY=\\\"\$(libdir)/\$(PACKAGE)/external\\\" -DAMP_EXTRA_DIRECTORY=\\\"\$(libdir)/\$(PACKAGE)/extra\\\" -DAMP_RUN_DIR=\\\"\$(localstatedir)/run/\$(PACKAGE)\\\""])
+fi
 
 
 AC_CONFIG_FILES([Makefile

@@ -40,14 +40,17 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <sys/socket.h>
-#include <netdb.h>
 #include <sys/time.h>
 #include <errno.h>
 #include <assert.h>
 #include <string.h>
 #include <sys/types.h>
 #include <google/protobuf-c/protobuf-c.h>
+
+#ifndef _WIN32
+#include <sys/socket.h>
+#include <netdb.h>
+#endif
 
 #include "debug.h"
 #include "controlmsg.h"

@@ -39,13 +39,18 @@
 
 #include <unistd.h>
 #include <stdlib.h>
-#include <sys/socket.h>
 #include <sys/types.h>
 #include <unbound.h>
 #include <pthread.h>
 #include <assert.h>
 #include <errno.h>
 #include <string.h>
+
+#if _WIN32
+#include "w32-compat.h"
+#else
+#include <sys/socket.h>
+#endif
 
 #include "nssock.h"
 #include "ampresolv.h"

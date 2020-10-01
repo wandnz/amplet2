@@ -38,16 +38,21 @@
  */
 
 #include <sys/types.h>
-#include <sys/socket.h>
-#include <netdb.h>
 #include <errno.h>
 #include <string.h>
 #include <assert.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <fcntl.h>
-#include <arpa/inet.h>
 #include <pthread.h>
+
+#if _WIN32
+#include "w32-compat.h"
+#else
+#include <sys/socket.h>
+#include <netdb.h>
+#include <arpa/inet.h>
+#endif
 
 #include "debug.h"
 #include "asn.h"
@@ -367,13 +372,28 @@ int connect_to_whois_server(void) {
         return WHOIS_UNAVAILABLE;
     }
 
+    flags = SOCK_STREAM;
+#ifndef _WIN32
+    flags |= SOCK_NONBLOCK;
+#endif
+
     /* make this a non-blocking socket so we can give up connecting earlier */
-    if ( (fd = socket(AF_INET, SOCK_STREAM|SOCK_NONBLOCK, IPPROTO_TCP)) < 0 ) {
+    if ( (fd = socket(AF_INET, flags, IPPROTO_TCP)) < 0 ) {
         Log(LOG_WARNING, "Failed to create socket for whois server: %s",
                 strerror(errno));
         freeaddrinfo(result);
         return WHOIS_UNAVAILABLE;
     }
+
+#if _WIN32
+    long unsigned int blocking = 0;
+    if ( ioctlsocket(fd, FIONBIO, &blocking) != NO_ERROR ) {
+        Log(LOG_WARNING, "Failed to set whois socket non-blocking");
+        close(fd);
+        freeaddrinfo(result);
+        return WHOIS_UNAVAILABLE;
+    }
+#endif
 
     /*
      * Set low timeouts for sending on this socket - give up quickly in case
@@ -428,6 +448,14 @@ int connect_to_whois_server(void) {
 
     freeaddrinfo(result);
 
+#if _WIN32
+    blocking = 1;
+    if ( ioctlsocket(fd, FIONBIO, &blocking) != NO_ERROR ) {
+        Log(LOG_WARNING, "Failed to set whois socket blocking");
+        close(fd);
+        return WHOIS_UNAVAILABLE;
+    }
+#else
     /* get the current socket flags so we don't clobber any accidentally */
     if ( (flags = fcntl(fd, F_GETFL, NULL)) < 0 ) {
         Log(LOG_WARNING, "Failed to get flags for whois socket");
@@ -444,6 +472,7 @@ int connect_to_whois_server(void) {
         close(fd);
         return WHOIS_UNAVAILABLE;
     }
+#endif
 
     /* enable bulk input mode */
     if ( send(fd, "begin\n", strlen("begin\n"), 0) < 0 ) {

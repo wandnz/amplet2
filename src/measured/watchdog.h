@@ -45,6 +45,10 @@
 
 #include "tests.h"
 
+#if _WIN32
+#define timer_t void*
+#endif
+
 /* number of seconds a test has between a warning SIGINT and the SIGKILL */
 #define WATCHDOG_GRACE_PERIOD 30
 

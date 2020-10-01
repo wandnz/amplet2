@@ -41,19 +41,25 @@
 #include <getopt.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <netinet/in.h>
-#include <netinet/ip6.h>
-#include <sys/socket.h>
 #include <sys/types.h>
-#include <netdb.h>
 #include <sys/time.h>
 #include <errno.h>
 #include <assert.h>
-#include <arpa/inet.h>
 #include <string.h>
 #include <signal.h>
 #include <ctype.h>
 #include <event2/event.h>
+
+#if _WIN32
+#include <iphlpapi.h>
+#include "w32-compat.h"
+#else
+#include <netinet/in.h>
+#include <netinet/ip6.h>
+#include <sys/socket.h>
+#include <netdb.h>
+#include <arpa/inet.h>
+#endif
 
 #include "config.h"
 #include "tests.h"
@@ -92,6 +98,7 @@ static struct option long_options[] = {
  * if running standalone, or sent by the watchdog if running as part of
  * measured) and report the results that have been collected so far.
  */
+#ifndef _WIN32
 static void interrupt_test(
         __attribute__((unused))evutil_socket_t evsock,
         __attribute__((unused))short flags,
@@ -101,6 +108,7 @@ static void interrupt_test(
     Log(LOG_INFO, "Received SIGINT, halting DNS test");
     event_base_loopbreak(base);
 }
+#endif
 
 
 /*
@@ -974,6 +982,113 @@ static char *get_status_string(uint8_t status) {
 }
 
 
+#if _WIN32
+/*
+ * See:
+ * https://docs.microsoft.com/en-us/windows/win32/api/iphlpapi/nf-iphlpapi-getnetworkparams
+ * XXX Is GetAdaptersAddresses() required to get IPv6 DNS on Windows?
+ */
+static struct addrinfo **get_system_resolvers(int *count) {
+    FIXED_INFO *pFixedInfo;
+    ULONG ulOutBufLen;
+    DWORD dwRetVal;
+    IP_ADDR_STRING *pIPAddr;
+    struct addrinfo **dests;
+    struct addrinfo *addr;
+
+    assert(*count == 0);
+
+    pFixedInfo = (FIXED_INFO *) malloc(sizeof(FIXED_INFO));
+    if ( pFixedInfo == NULL ) {
+        printf("Error allocating memory needed to call GetNetworkParams\n");
+        return NULL;
+    }
+    ulOutBufLen = sizeof(FIXED_INFO);
+
+    /* Make an initial call to GetAdaptersInfo to get the size */
+    if ( GetNetworkParams(pFixedInfo, &ulOutBufLen) == ERROR_BUFFER_OVERFLOW ) {
+        free(pFixedInfo);
+        pFixedInfo = (FIXED_INFO *) malloc(ulOutBufLen);
+        if ( pFixedInfo == NULL ) {
+            printf("Error allocating memory needed to call GetNetworkParams\n");
+            return NULL;
+        }
+    }
+
+    dests = NULL;
+    if ( (dwRetVal = GetNetworkParams(pFixedInfo, &ulOutBufLen)) == NO_ERROR ) {
+        pIPAddr = &pFixedInfo->DnsServerList;
+        do {
+            addr = get_numeric_address(pIPAddr->IpAddress.String, NULL);
+            if ( addr ) {
+                // XXX changing ai_canonname breaks freeaddrinfo in windows
+                /* need a name to report the results under, use the address */
+                addr->ai_canonname = strdup(LOCALDNS_REPORT_NAME);
+
+                /* just put the first resolved address in the dest list */
+                dests = realloc(dests, (*count + 1) * sizeof(struct addrinfo*));
+                dests[*count] = addr;
+                (*count)++;
+            }
+            pIPAddr = pIPAddr->Next;
+        } while ( pIPAddr );
+
+        if ( pFixedInfo ) {
+            free(pFixedInfo);
+        }
+    }
+
+    return dests;
+}
+#else
+static struct addrinfo **get_system_resolvers(int *count) {
+    struct addrinfo **dests;
+    FILE *resolv;
+    char line[MAX_RESOLV_CONF_LINE];
+    char nameserver[MAX_DNS_NAME_LEN];
+    struct addrinfo *addr;
+
+    assert(*count == 0);
+
+    // TODO on linux use res_ninit() rather than reading the file directly
+
+    /* There is a define _PATH_RESCONF in resolv.h should we use it? */
+    if ( (resolv = fopen("/etc/resolv.conf", "r")) == NULL ) {
+        Log(LOG_WARNING, "Failed to open /etc/resolv.conf for reading: %s",
+                strerror(errno));
+        return NULL;
+    }
+
+    /*
+     * Read each line of /etc/resolv.conf and extract just the nameserver
+     * lines as our destinations to query.
+     */
+    dests = NULL;
+    while ( fgets(line, MAX_RESOLV_CONF_LINE, resolv) != NULL ) {
+        if ( sscanf(line, "nameserver %s\n", (char*)&nameserver) == 1 ) {
+            Log(LOG_DEBUG, "Got nameserver: %s", nameserver);
+
+            if ( (addr = get_numeric_address(nameserver, NULL)) == NULL ) {
+                continue;
+            }
+
+            /* need a name to report the results under, use the address */
+            addr->ai_canonname = strdup(LOCALDNS_REPORT_NAME);
+
+            /* just put the first resolved address in the dest list */
+            dests = realloc(dests, (*count + 1) * sizeof(struct addrinfo*));
+            dests[*count] = addr;
+            (*count)++;
+        }
+    }
+
+    fclose(resolv);
+
+    return dests;
+}
+#endif
+
+
 
 /*
  * The usage statement when the test is run standalone. All of these options
@@ -1117,45 +1232,16 @@ amp_test_result_t* run_dns(int argc, char *argv[], int count,
 
     /* if no destinations have been set then try to use /etc/resolv.conf */
     if ( count == 0 && dests == NULL ) {
-        FILE *resolv;
-        char line[MAX_RESOLV_CONF_LINE];
-        char nameserver[MAX_DNS_NAME_LEN];
-        struct addrinfo *addr;
-
         Log(LOG_DEBUG, "No destinations set, checking /etc/resolve.conf");
 
-        /* There is a define _PATH_RESCONF in resolv.h should we use it? */
-        if ( (resolv = fopen("/etc/resolv.conf", "r")) == NULL ) {
-            Log(LOG_WARNING, "Failed to open /etc/resolv.conf for reading: %s",
-                    strerror(errno));
+        dests = get_system_resolvers(&count);
+
+        if ( dests == NULL ) {
             return NULL;
-        }
-
-        /*
-         * Read each line of /etc/resolv.conf and extract just the nameserver
-         * lines as our destinations to query.
-         */
-        while ( fgets(line, MAX_RESOLV_CONF_LINE, resolv) != NULL ) {
-            if ( sscanf(line, "nameserver %s\n", (char*)&nameserver) == 1 ) {
-                Log(LOG_DEBUG, "Got nameserver: %s", nameserver);
-
-                if ( (addr = get_numeric_address(nameserver, NULL)) == NULL ) {
-                    continue;
-                }
-
-                /* need a name to report the results under, use the address */
-                addr->ai_canonname = strdup(LOCALDNS_REPORT_NAME);
-
-                /* just put the first resolved address in the dest list */
-                dests = realloc(dests, (count + 1) * sizeof(struct addrinfo*));
-                dests[count] = addr;
-                count++;
-            }
         }
 
         /* mark it so we know that we have to free dests ourselves later */
         local_resolv = 1;
-        fclose(resolv);
     }
 
     /* delay the start by a random amount of perturbate is set */
@@ -1178,10 +1264,12 @@ amp_test_result_t* run_dns(int argc, char *argv[], int count,
         exit(EXIT_FAILURE);
     }
 
+#ifndef _WIN32
     if ( set_dscp_socket_options(&globals->sockets, options->dscp) < 0 ) {
         Log(LOG_ERR, "Failed to set DSCP socket options, aborting test");
         exit(EXIT_FAILURE);
     }
+#endif
 
     if ( device && bind_sockets_to_device(&globals->sockets, device) < 0 ) {
         Log(LOG_ERR, "Unable to bind raw ICMP socket to device, aborting test");
@@ -1214,10 +1302,14 @@ amp_test_result_t* run_dns(int argc, char *argv[], int count,
     globals->dests = dests;
     globals->losstimer = NULL;
 
+#if _WIN32
+    signal_int = NULL;
+#else
     /* catch a SIGINT and end the test early */
     signal_int = event_new(globals->base, SIGINT,
             EV_SIGNAL|EV_PERSIST, interrupt_test, globals->base);
     event_add(signal_int, NULL);
+#endif
 
     /* set up callbacks for receiving packets */
     socket = event_new(globals->base, globals->sockets.socket,
@@ -1282,6 +1374,11 @@ amp_test_result_t* run_dns(int argc, char *argv[], int count,
     free(globals->info);
     free(globals);
 
+#ifndef _WIN32
+    /*
+     * XXX for now we won't do this on windows, as changing ai_canonname
+     * breaks freeaddrinfo.
+     */
     /* free any addresses we've had to make ourselves */
     if ( local_resolv && dests ) {
         while ( count > 0 ) {
@@ -1290,6 +1387,7 @@ amp_test_result_t* run_dns(int argc, char *argv[], int count,
         }
         free(dests);
     }
+#endif
 
     return result;
 }

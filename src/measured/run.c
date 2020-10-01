@@ -45,11 +45,16 @@
 #include <sys/time.h>
 #include <string.h>
 #include <sys/types.h>
-#include <ifaddrs.h>
 #include <event2/event.h>
 #include <fcntl.h>
 #include <stdint.h>
+
+#if _WIN32
+#include "w32-compat.h"
+#else
+#include <ifaddrs.h>
 #include <sys/socket.h>
+#endif
 
 #include "config.h"
 #include "schedule.h"
@@ -159,9 +164,9 @@ void run_test(const test_schedule_item_t * const item, BIO *ctrl) {
     }
 
     /* set the outgoing interface if configured at the global level */
-    if ( item->meta->interface != NULL ) {
+    if ( item->meta->iface != NULL ) {
         argv[argc++] = "-I";
-        argv[argc++] = item->meta->interface;
+        argv[argc++] = item->meta->iface;
     }
 
     /* set the outgoing source v4 address if configured at the global level */
@@ -215,10 +220,15 @@ void run_test(const test_schedule_item_t * const item, BIO *ctrl) {
 	struct addrinfo *tmp;
         int resolver_fd;
         struct ifaddrs *ifaddrlist;
-        int seen_ipv4, seen_ipv6;
+        int seen_ipv4 = 0;
+        int seen_ipv6 = 0;
 
 	Log(LOG_DEBUG, "test has destinations to resolve!\n");
 
+#if _WIN32
+        /* TODO determine if ipv6 is available */
+        seen_ipv4 = 1;
+#else
         /*
          * Check what address families we have available, as there is no
          * point in asking for AAAA records if we can't do IPv6. This looks
@@ -238,8 +248,6 @@ void run_test(const test_schedule_item_t * const item, BIO *ctrl) {
             seen_ipv6 = 1;
         } else {
             struct ifaddrs *ifa;
-            seen_ipv4 = 0;
-            seen_ipv6 = 0;
             for ( ifa = ifaddrlist; ifa != NULL; ifa = ifa->ifa_next ) {
                 /* some interfaces (e.g. ppp) sometimes won't have an address */
                 if ( ifa->ifa_addr == NULL ) {
@@ -247,8 +255,8 @@ void run_test(const test_schedule_item_t * const item, BIO *ctrl) {
                 }
 
                 /* ignore other interfaces if the source interface is set */
-                if ( item->meta->interface != NULL &&
-                        strcmp(item->meta->interface, ifa->ifa_name) != 0 ) {
+                if ( item->meta->iface != NULL &&
+                        strcmp(item->meta->iface, ifa->ifa_name) != 0 ) {
                     continue;
                 }
 
@@ -261,6 +269,7 @@ void run_test(const test_schedule_item_t * const item, BIO *ctrl) {
             }
             freeifaddrs(ifaddrlist);
         }
+#endif
 
         /* connect to the local amp resolver/cache */
         if ( (resolver_fd = amp_resolver_connect(vars.nssock)) < 0 ) {
@@ -383,8 +392,41 @@ void run_test(const test_schedule_item_t * const item, BIO *ctrl) {
     /* free the environment duped by set_proc_name() */
     free_duped_environ();
 
+#if _WIN32
+    ExitThread(EXIT_SUCCESS);
+#else
     exit(EXIT_SUCCESS);
+#endif
 }
+
+
+
+#if _WIN32
+static long unsigned int run_test_w32(void *data) {
+    test_schedule_item_t *item = (test_schedule_item_t*)data;
+
+#if 0
+    /* XXX threads probably don't want to do this? */
+    close(vars.asnsock_fd);
+    close(vars.nssock_fd);
+
+    /* unblock signals and remove handlers that the parent process added */
+    if ( unblock_signals() < 0 ) {
+        Log(LOG_WARNING, "Failed to unblock signals, aborting");
+        exit(EXIT_FAILURE);
+    }
+
+    /* XXX threads probably don't want to do this? */
+    clear_test_schedule(item->meta->base, 1);
+    event_base_free(item->meta->base);
+#endif
+
+    run_test(item, NULL);
+
+    Log(LOG_WARNING, "%s test failed to run", item->test->name);
+    ExitThread(EXIT_FAILURE);
+}
+#endif
 
 
 
@@ -408,7 +450,7 @@ static int fork_test(test_schedule_item_t *item) {
      */
     gettimeofday(&now, NULL);
     if ( timercmp(&now, &item->abstime, <) ) {
-        timersub(&item->abstime, &now, &now);
+        evutil_timersub(&item->abstime, &now, &now);
         /* run too soon, don't run it now - let it get rescheduled */
         if ( now.tv_sec != 0 || now.tv_usec > SCHEDULE_CLOCK_FUDGE ) {
             Log(LOG_DEBUG, "%s test triggered early, will reschedule",
@@ -417,7 +459,14 @@ static int fork_test(test_schedule_item_t *item) {
         }
     }
 
-
+#if _WIN32
+    CreateThread(NULL,
+            0,
+            run_test_w32,
+            item,
+            0,
+            NULL);
+#else
     /*
      * man fork:
      * "Under Linux, fork() is implemented using copy-on-write pages..."
@@ -455,6 +504,7 @@ static int fork_test(test_schedule_item_t *item) {
         Log(LOG_WARNING, "%s test failed to run", item->test->name);
         exit(EXIT_FAILURE);
     }
+#endif
 
     return 1;
 }

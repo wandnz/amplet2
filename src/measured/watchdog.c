@@ -42,9 +42,12 @@
 #include <errno.h>
 #include <assert.h>
 #include <sys/types.h>
-#include <sys/wait.h>
 #include <string.h>
 #include <sys/time.h>
+
+#ifndef _WIN32
+#include <sys/wait.h>
+#endif
 
 #include "watchdog.h"
 #include "debug.h"
@@ -68,7 +71,11 @@ int start_test_watchdog(test_t *test, timer_t *timerid) {
     }
 #endif
 
+#if _WIN32
+    return 0;
+#else
     return start_watchdog(test->max_duration, SIGKILL, timerid);
+#endif
 }
 
 
@@ -79,6 +86,7 @@ int start_test_watchdog(test_t *test, timer_t *timerid) {
  * running (fetching remote test schedules etc).
  */
 int start_watchdog(time_t duration, int signal, timer_t *timerid) {
+#ifndef _WIN32
     struct sigevent sevp;
     struct itimerspec when;
 
@@ -105,6 +113,7 @@ int start_watchdog(time_t duration, int signal, timer_t *timerid) {
         Log(LOG_WARNING, "Failed to set watchdog timer:%s", strerror(errno));
         return -1;
     }
+#endif
 
     return 0;
 }
@@ -115,10 +124,12 @@ int start_watchdog(time_t duration, int signal, timer_t *timerid) {
  * Disarm and delete the timer that was set up to kill this test process.
  */
 int stop_watchdog(timer_t timerid) {
+#ifndef _WIN32
     if ( timer_delete(timerid) < 0 ) {
         Log(LOG_WARNING, "Failed to stop watchdog timer: %s", strerror(errno));
         return -1;
     }
+#endif
 
     return 0;
 }
@@ -136,6 +147,7 @@ void child_reaper(
         __attribute__((unused))short flags,
         __attribute__((unused))void *evdata) {
 
+#ifndef _WIN32
     siginfo_t infop;
 
     while ( 1 ) {
@@ -185,4 +197,5 @@ void child_reaper(
                      break;
         };
     }
+#endif
 }

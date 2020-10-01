@@ -40,11 +40,16 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <sys/types.h>
-#include <sys/wait.h>
 #include <stdio.h>
 #include <errno.h>
 #include <assert.h>
 #include <string.h>
+
+#if _WIN32
+#include "w32-compat.h"
+#else
+#include <sys/wait.h>
+#endif
 
 #include "rabbitcfg.h"
 #include "debug.h"
@@ -55,6 +60,12 @@
  * We fork and call rabbitmqctl a few times to configure parts of the local
  * rabbitmq broker.
  */
+#if _WIN32
+static int run_rabbitmqctl(char *args[]) {
+    Log(LOG_WARNING, "rabbitmqctl commands not implemented in windows");
+    return 0;
+}
+#else
 static int run_rabbitmqctl(char *args[]) {
     int pid;
     int status;
@@ -114,6 +125,7 @@ static int run_rabbitmqctl(char *args[]) {
 
     return -1;
 }
+#endif
 
 
 

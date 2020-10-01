@@ -43,19 +43,24 @@
  */
 
 #include <sys/types.h>
-#include <sys/socket.h>
-#include <netdb.h>
 #include <string.h>
 #include <unistd.h>
 #include <errno.h>
 #include <assert.h>
 #include <stdlib.h>
-#include <arpa/inet.h>
 #include <event2/event.h>
-#include <net/if.h>
-#include <netinet/in.h>
 #include <stdint.h>
 #include <time.h>
+
+#if _WIN32
+#include <iphlpapi.h>
+#else
+#include <sys/socket.h>
+#include <netdb.h>
+#include <arpa/inet.h>
+#include <net/if.h>
+#include <netinet/in.h>
+#endif
 
 #include "global.h"
 #include "debug.h"
@@ -178,6 +183,7 @@ static int parse_single_test(void *data, uint32_t len,
  * Validate a server start message and start the appropriate test server if
  * it is successful.
  */
+#ifndef _WIN32
 static void do_start_server(BIO *ctrl, void *data, uint32_t len) {
     timer_t watchdog;
     uint64_t test_type;
@@ -307,6 +313,7 @@ static void do_start_server(BIO *ctrl, void *data, uint32_t len) {
         free(test_params);
     }
 }
+#endif
 
 
 
@@ -335,6 +342,7 @@ static void do_single_test(BIO *ctrl, void *data, uint32_t len) {
  * Establish an SSL connection and read control messages from it, acting on
  * each message.
  */
+#ifndef _WIN32
 static void process_control_message(int fd, struct acl_root *acl) {
     BIO *ctrl;
     SSL *ssl;
@@ -434,6 +442,7 @@ static void process_control_message(int fd, struct acl_root *acl) {
 
     exit(EXIT_SUCCESS);
 }
+#endif
 
 
 
@@ -455,6 +464,7 @@ static void control_read_callback(evutil_socket_t evsock,
     event_free(acl_e->control_read);
     free(acl_e);
 
+#ifndef _WIN32
     /* Fork to validate SSL cert and actually run the server */
     if ( (pid = fork()) < 0 ) {
         Log(LOG_WARNING, "Failed to fork for control connection: %s",
@@ -479,6 +489,7 @@ static void control_read_callback(evutil_socket_t evsock,
         process_control_message(evsock, acl);
         exit(EXIT_SUCCESS);
     }
+#endif
 
     /* the parent process doesn't need the client file descriptor */
     close(evsock);
@@ -596,8 +607,8 @@ int initialise_control_socket(struct event_base *base, amp_control_t *control) {
     }
 
     /* bind them to interfaces and addresses if required */
-    if ( control->interface &&
-            bind_sockets_to_device(&sockets, control->interface) < 0 ) {
+    if ( control->iface &&
+            bind_sockets_to_device(&sockets, control->iface) < 0 ) {
         Log(LOG_ERR, "Unable to bind control socket to device, disabling");
         if ( addr4 ) {
             freeaddrinfo(addr4);
@@ -686,7 +697,7 @@ void free_control_config(amp_control_t *control) {
         return;
     }
 
-    if ( control->interface ) free(control->interface);
+    if ( control->iface ) free(control->iface);
     if ( control->ipv4 ) free(control->ipv4);
     if ( control->ipv6 ) free(control->ipv6);
     if ( control->port ) free(control->port);

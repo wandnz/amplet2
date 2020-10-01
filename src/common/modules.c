@@ -38,20 +38,29 @@
  */
 
 #include <stdlib.h>
-#include <glob.h>
-#include <dlfcn.h>
 #include <string.h>
 #include <assert.h>
 #include <stdint.h>
+
+#if _WIN32
+#include "w32-compat.h"
+#else
+#include <glob.h>
+#include <dlfcn.h>
+#endif
 
 #include "debug.h"
 #include "modules.h"
 
 
+
 test_t *register_one_test(char *filename) {
+#if _WIN32
+    HINSTANCE hdl;
+#else
     void *hdl;
+#endif
     test_t *test_info;
-    const char *error = NULL;
 
     hdl = dlopen(filename, RTLD_LAZY);
 
@@ -61,7 +70,7 @@ test_t *register_one_test(char *filename) {
     }
 
     test_reg_ptr r_func = (test_reg_ptr)dlsym(hdl, "register_test");
-    if ( (error = dlerror()) != NULL ) {
+    if ( !r_func ) {
         /* it doesn't have this function, it's not one of ours, ignore */
         Log(LOG_WARNING, "Failed to find register_test function in %s",
                 filename);
@@ -92,6 +101,7 @@ test_t *register_one_test(char *filename) {
 }
 
 
+
 /*
  * Register all the tests in the given directory as being available.
  */
@@ -116,11 +126,14 @@ int register_tests(char *location) {
 
     /* find all the .so files that exist in the directory */
     strcpy(full_loc, location);
+#if _WIN32
+    strcat(full_loc, "/*.dll");
+#else
     strcat(full_loc, "/*.so");
+#endif
+    Log(LOG_INFO, "Loading test modules from %s", location);
     glob(full_loc, 0, NULL, &glob_buf);
-
-    Log(LOG_INFO, "Loading test modules from %s (found %zd candidates)",
-	    location, glob_buf.gl_pathc);
+    Log(LOG_INFO, "Found %zd candidates)", glob_buf.gl_pathc);
 
     for ( i=0; i<glob_buf.gl_pathc; i++ ) {
         new_test = register_one_test(glob_buf.gl_pathv[i]);

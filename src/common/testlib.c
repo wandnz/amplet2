@@ -37,22 +37,27 @@
  * along with amplet2. If not, see <http://www.gnu.org/licenses/>.
  */
 
+#if _WIN32
+#include <ws2tcpip.h>
+#else
+#include <sys/socket.h>
+#include <netdb.h>
+#include <sys/ioctl.h>
+#include <linux/net_tstamp.h>
+#include <linux/errqueue.h>
+#endif
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <sys/socket.h>
-#include <netdb.h>
 #include <sys/time.h>
 #include <errno.h>
 #include <assert.h>
 #include <string.h>
-#include <sys/ioctl.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <signal.h>
 #include <getopt.h>
-#include <linux/net_tstamp.h>
-#include <linux/errqueue.h>
 
 #include <google/protobuf-c/protobuf-c.h>
 
@@ -83,6 +88,7 @@
  * by default and is limited to 16 characters (probably won't fit an ampname).
  */
 void set_proc_name(char *testname) {
+#ifndef _WIN32
     char *end;
     int buflen;
     int i;
@@ -158,6 +164,7 @@ void set_proc_name(char *testname) {
     memset(argv[0] + strlen(argv[0]) + 1, 0, buflen - strlen(argv[0]) - 1);
 
     Log(LOG_DEBUG, "Set name of process %d to '%s'", getpid(), argv[0]);
+#endif
 }
 
 
@@ -166,6 +173,7 @@ void set_proc_name(char *testname) {
  * Free the memory allocated by the backup of the environment in set_proc_name()
  */
 void free_duped_environ(void) {
+#ifndef _WIN32
     extern char **environ;
     int i;
 
@@ -175,6 +183,7 @@ void free_duped_environ(void) {
 
     free(environ);
     environ = NULL;
+#endif
 }
 
 
@@ -185,6 +194,7 @@ void free_duped_environ(void) {
  * TODO maintain the list of signals dynamically?
  */
 int unblock_signals(void) {
+#ifndef _WIN32
     unsigned int i;
     sigset_t sigset;
     struct sigaction action;
@@ -209,6 +219,7 @@ int unblock_signals(void) {
         Log(LOG_WARNING, "Failed to unblock signals: %s", strerror(errno));
         return -1;
     }
+#endif
 
     return 0;
 }
@@ -271,6 +282,7 @@ inline static int retrieve_timestamp(struct cmsghdr *c, struct timeval *now) {
  * in order of preference:
  * SO_TIMESTAMPING (HW then SW), SO_TIMESTAMP, SIOCGSTAMP and gettimeofday().
  */
+#ifndef _WIN32
 static void get_timestamp(int sock, struct msghdr *msg, struct timeval *now) {
     struct cmsghdr *c;
 
@@ -306,6 +318,7 @@ static void get_timestamp(int sock, struct msghdr *msg, struct timeval *now) {
     }
 #endif
 }
+#endif
 
 
 
@@ -502,9 +515,14 @@ int get_packet(struct socket_t *sockets, char *buf, int buflen,
     int sock;
     int family;
     socklen_t addrlen;
+    char ans_data[4096];
+#if _WIN32
+    WSABUF iov;
+    WSAMSG msg;
+#else
     struct iovec iov;
     struct msghdr msg;
-    char ans_data[4096];
+#endif
 
     assert(sockets);
     assert(sockets->socket || sockets->socket6);
@@ -527,9 +545,42 @@ int get_packet(struct socket_t *sockets, char *buf, int buflen,
     };
 
     /* set up the message structure, including the user supplied packet */
+    memset(&msg, 0, sizeof(msg));
+
+#if _WIN32
+    iov.buf = buf;
+    iov.len = buflen;
+    msg.name = (struct sockaddr *) saddr;
+    msg.namelen = saddr ? addrlen : 0;
+    msg.lpBuffers = &iov;
+    msg.dwBufferCount = 1;
+    msg.Control.buf = (char *) ans_data;
+    msg.Control.len = sizeof(ans_data);
+
+    LPFN_WSARECVMSG WSARecvMsg = NULL;
+
+    /*
+     * TODO if we don't actually use the returned message, perhaps we don't
+     * need to use recvmsg under windows?
+     */
+    /* load the WSARecvMsg function, because it isn't available by default */
+    GUID g = WSAID_WSARECVMSG;
+    DWORD dwBytesReturned = 0;
+    if ( WSAIoctl(sock, SIO_GET_EXTENSION_FUNCTION_POINTER, &g, sizeof(g),
+                &WSARecvMsg, sizeof(WSARecvMsg),
+                &dwBytesReturned, NULL, NULL) != 0 ) {
+        Log(LOG_ERR, "Failed to load recvmsg()");
+        exit(EXIT_FAILURE);
+    }
+
+    /* receive the packet that we know is ready on one of our sockets */
+    if ( WSARecvMsg(sock, &msg, &bytes, NULL, NULL) < 0 ) {
+        Log(LOG_ERR, "Failed to recvmsg()");
+        exit(EXIT_FAILURE);
+    }
+#else
     iov.iov_base = buf;
     iov.iov_len = buflen;
-    memset(&msg, 0, sizeof(msg));
     msg.msg_name = saddr;
     msg.msg_namelen = saddr ? addrlen : 0;
     msg.msg_iov = &iov;
@@ -542,10 +593,20 @@ int get_packet(struct socket_t *sockets, char *buf, int buflen,
         Log(LOG_ERR, "Failed to recvmsg()");
         exit(EXIT_FAILURE);
     }
+#endif
 
     /* populate the timestamp argument with the receive time of packet */
     if ( now ) {
+#if _WIN32
+        /*
+         * XXX mingw appears to use GetSystemTimeAsFileTime(), which has a
+         * lower resolution than GetSystemTimePreciseAsFileTime(). Should I
+         * write my own code to use the better timer?
+         */
+        gettimeofday(now, NULL);
+#else
         get_timestamp(sock, &msg, now);
+#endif
     }
 
     return bytes;

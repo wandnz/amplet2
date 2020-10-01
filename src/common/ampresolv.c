@@ -42,11 +42,13 @@
 #include <errno.h>
 #include <assert.h>
 #include <unbound.h>
-#include <sys/socket.h>
-#include <sys/un.h>
 #include <pthread.h>
 #include <unistd.h>
 #include <stdio.h>
+#ifndef _WIN32
+#include <sys/socket.h>
+#include <sys/un.h>
+#endif
 
 #include "ampresolv.h"
 #include "debug.h"
@@ -368,23 +370,33 @@ void amp_resolve_freeaddr(struct addrinfo *addrlist) {
 /*
  * Create a connection to the local resolver/cache for a test to use.
  */
-int amp_resolver_connect(char *path) {
-    struct sockaddr_un addr;
+int amp_resolver_connect(char *target) {
     int sock;
+    struct sockaddr_storage *addr;
+    socklen_t addrlen;
+#if _WIN32
+    struct addrinfo *tmp;
+    Log(LOG_DEBUG, "Connecting to 127.0.0.1:%s for name resolution", target);
+    tmp = get_numeric_address("127.0.0.1", target);
+    addr = (struct sockaddr_storage*)tmp->ai_addr;
+    addrlen = tmp->ai_addrlen;
+#else
+    struct sockaddr_un tmp;
+    Log(LOG_DEBUG, "Connecting to socket '%s' for name resolution", target);
+    tmp.sun_family = AF_UNIX;
+    snprintf(tmp.sun_path, UNIX_PATH_MAX, "%s", target);
+    addr = (struct sockaddr_storage*)&tmp;
+    addrlen = sizeof(tmp);
+#endif
 
-    Log(LOG_DEBUG, "Connecting to local socket '%s' for name resolution", path);
-
-    addr.sun_family = AF_UNIX;
-    snprintf(addr.sun_path, UNIX_PATH_MAX, "%s", path);
-
-    /* connect to the unix socket the cache is listening on */
-    if ( (sock = socket(AF_UNIX, SOCK_STREAM, 0)) < 0 ) {
+    /* connect to the unix socket or local port the cache is listening on */
+    if ( (sock = socket(addr->ss_family, SOCK_STREAM, 0)) < 0 ) {
         Log(LOG_WARNING, "Failed to open local socket for name resolution: %s",
                 strerror(errno));
         return -1;
     }
 
-    if ( connect(sock, (struct sockaddr*)&addr, sizeof(addr)) < 0 ) {
+    if ( connect(sock, (struct sockaddr*)addr, addrlen) < 0 ) {
         if ( errno != ENOENT ) {
             Log(LOG_WARNING,
                     "Failed to open local socket for name resolution: %s",

@@ -40,8 +40,15 @@
 #ifndef _COMMON_TESTLIB_H
 #define _COMMON_TESTLIB_H
 
-#include <stdint.h>
+#if _WIN32
+#include <mswsock.h>
+#include <ws2tcpip.h>
+#include "w32-compat.h"
+#else
 #include <netdb.h>
+#endif
+
+#include <stdint.h>
 #include <sys/time.h>
 #include <google/protobuf-c/protobuf-c.h>
 

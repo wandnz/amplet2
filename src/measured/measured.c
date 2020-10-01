@@ -53,6 +53,12 @@
 #include <limits.h>
 #include <time.h>
 
+#if _WIN32
+#include <event2/thread.h>
+#include "w32-compat.h"
+#include "w32-service.h"
+#endif
+
 #include "config.h"
 #include "schedule.h"
 #include "watchdog.h"
@@ -130,9 +136,11 @@ static void print_measured_version(char *prog) {
  * so that another instance of the program can easily tell that it is already
  * running.
  */
+#ifndef _WIN32
 static int create_pidfile(char *pidfile) {
     int fd;
     char buf[128] = {0};
+    int flags = O_RDWR | O_CREAT;
 
     assert(pidfile);
 
@@ -143,8 +151,13 @@ static int create_pidfile(char *pidfile) {
      * truncate it or anything similar, as we don't want to touch it until
      * after we have got a lock on it.
      */
-    if ( (fd = open(pidfile, O_RDWR | O_CREAT | O_CLOEXEC,
-                    S_IRUSR | S_IWUSR)) < 0 ) {
+#if _WIN32
+    flags |= _O_NOINHERIT;
+#else
+    flags |= O_CLOEXEC;
+#endif
+
+    if ( (fd = open(pidfile, flags, S_IRUSR | S_IWUSR)) < 0 ) {
         Log(LOG_WARNING, "Failed to open pidfile '%s': %s", pidfile,
                 strerror(errno));
         return -1;
@@ -187,6 +200,7 @@ static int create_pidfile(char *pidfile) {
 
     return 0;
 }
+#endif
 
 
 
@@ -297,7 +311,7 @@ static void free_local_meta_vars(amp_test_meta_t *meta) {
         return;
     }
 
-    if ( meta->interface ) free(meta->interface);
+    if ( meta->iface ) free(meta->iface);
     if ( meta->sourcev4 ) free(meta->sourcev4);
     if ( meta->sourcev6 ) free(meta->sourcev6);
     /* meta->ampname is a pointer to the global variable, leave it */;
@@ -330,10 +344,34 @@ static void free_global_vars(struct amp_global_t *vars) {
 
 
 
-/*
- *
- */
+#if _WIN32
 int main(int argc, char *argv[]) {
+    SERVICE_TABLE_ENTRY servicetable[] = {
+        {AMP_SERVICE_NAME, (LPSERVICE_MAIN_FUNCTION)service_main},
+        {NULL,NULL}
+    };
+
+    /* hand over to the service main function if running as a service */
+    if ( !StartServiceCtrlDispatcher(servicetable) ) {
+        int error = GetLastError();
+        if ( error != ERROR_FAILED_SERVICE_CONTROLLER_CONNECT ) {
+            Log(LOG_WARNING, "Could not start service! (%s)\n", sockerr(error));
+            return -1;
+        }
+
+        /* otherwise run it standalone */
+        Log(LOG_DEBUG, "Running standalone, not as a service");
+        actual_main(argc, argv);
+    }
+}
+
+
+
+int actual_main(int argc, char *argv[]) {
+#else
+int main(int argc, char *argv[]) {
+    struct event *signal_usr1 = NULL;
+#endif
     char *config_file = NULL;
     char *pidfile = NULL;
     int fetch_remote = 1;
@@ -352,11 +390,24 @@ int main(int argc, char *argv[]) {
     struct event *resolver_socket_event = NULL;
     struct event *asn_socket_event = NULL;
     struct event *signal_hup = NULL;
-    struct event *signal_usr1 = NULL;
     struct event *signal_tmax = NULL;
     const char *event_noepoll = "1";
     struct ub_ctx *dns_ctx;
     char nametable[PATH_MAX];
+
+#if _WIN32
+    WORD wVersionRequested;
+    WSADATA wsaData;
+    int err;
+
+    wVersionRequested = MAKEWORD(2, 2);
+
+    err = WSAStartup(wVersionRequested, &wsaData);
+    if (err != 0) {
+        fprintf(stderr, "WSAStartup failed with error: %d\n", err);
+        exit(EXIT_FAILURE);
+    }
+#endif
 
     memset(&meta, 0, sizeof(meta));
     meta.inter_packet_delay = MIN_INTER_PACKET_DELAY;
@@ -366,14 +417,18 @@ int main(int argc, char *argv[]) {
 
         switch ( opt ) {
             case 'd':
+#if _WIN32
+                assert(0);
+#else
                 /* daemonise, detach, close stdin/out/err, etc */
                 if ( daemon(0, 0) < 0 ) {
                     perror("daemon");
                     exit(EXIT_FAILURE);
                 }
                 backgrounded = 1;
+#endif
                 break;
-                case 'v':
+            case 'v':
                 /* print version and build info */
                 print_measured_version(argv[0]);
                 exit(EXIT_SUCCESS);
@@ -396,7 +451,7 @@ int main(int argc, char *argv[]) {
                 break;
             case 'I':
                 /* override config settings and set the source interface */
-                meta.interface = optarg;
+                meta.iface = optarg;
                 break;
             case 'Z':
                 /* override config settings and set the interpacket delay */
@@ -476,11 +531,13 @@ int main(int argc, char *argv[]) {
      * real work -- especially important that it is before checking SSL keys
      * and certs, which can block waiting on them to be signed.
      */
+#ifndef _WIN32
     if ( pidfile && create_pidfile(pidfile) < 0 ) {
         Log(LOG_WARNING, "Failed to create pidfile %s, aborting", pidfile);
         cfg_free(cfg);
         exit(EXIT_FAILURE);
     }
+#endif
 
     /* update the iface structure with any interface config from config file */
     get_interface_config(cfg, &meta);
@@ -592,21 +649,36 @@ int main(int argc, char *argv[]) {
         exit(EXIT_FAILURE);
     }
 
+#if _WIN32
+    /* we want to manually generate events from multiple threads */
+    if ( evthread_use_windows_threads() < 0 ) {
+        Log(LOG_WARNING, "Failed to initialise libevent threading");
+        exit(EXIT_FAILURE);
+    }
+#endif
+
     /*
      * stop libevent using epoll due to the way it handles signals in only
      * one event_base at a time. Resetting it after forking appears to fix
      * the behaviour, but still triggers scary looking warning messages.
      */
+#ifndef _WIN32
     if ( setenv("EVENT_NOEPOLL", event_noepoll, 0) < 0 ) {
         Log(LOG_WARNING, "Failed to disable libevent epoll");
         cfg_free(cfg);
         exit(EXIT_FAILURE);
     }
+#endif
 
     /* set up event handlers */
     meta.base = event_base_new();
     assert(meta.base);
 
+#if _WIN32
+    // TODO figure out what ports to use
+    vars.nssock = strdup("6653");
+    vars.asnsock = strdup("6654");
+#else
     /* construct our custom, per-client nameserver socket */
     if ( asprintf(&vars.nssock, "%s/%s.sock", AMP_RUN_DIR, vars.ampname) < 0 ) {
         Log(LOG_ALERT, "Failed to build local resolve socket path");
@@ -620,6 +692,7 @@ int main(int argc, char *argv[]) {
 	cfg_free(cfg);
         exit(EXIT_FAILURE);
     }
+#endif
 
     /* if remote fetching is enabled, try to get the config for it */
     if ( fetch_remote && (fetch = get_remote_schedule_config(cfg)) ) {
@@ -630,16 +703,19 @@ int main(int argc, char *argv[]) {
             exit(EXIT_FAILURE);
         }
 
+#ifndef _WIN32
         /* SIGUSR2 should trigger a refetch of any remote schedule files */
         signal_load = event_new(meta.base, SIGUSR2,
                 EV_SIGNAL|EV_PERSIST, signal_fetch_callback, fetch);
         event_add(signal_load, NULL);
-
+#endif
     } else {
+#ifndef _WIN32
         /* if fetching isn't enabled then just reload the current schedule */
         signal_load = event_new(meta.base, SIGUSR2,
                 EV_SIGNAL|EV_PERSIST, reload, &meta);
         event_add(signal_load, NULL);
+#endif
     }
 
     /* set up a handler to deal with SIGINT/SIGTERM so we can shutdown nicely */
@@ -650,10 +726,12 @@ int main(int argc, char *argv[]) {
             EV_SIGNAL|EV_PERSIST, stop_running, meta.base);
     event_add(signal_term, NULL);
 
+#ifndef _WIN32
     /* set up handler to deal with SIGCHLD so we can tidy up after tests */
     signal_chld = event_new(meta.base, SIGCHLD,
             EV_SIGNAL|EV_PERSIST, child_reaper, NULL);
     event_add(signal_chld, NULL);
+#endif
 
     /* create the resolver/cache unix socket and add event listener for it */
     if ( (vars.nssock_fd = initialise_local_socket(vars.nssock)) < 0 ) {
@@ -711,6 +789,10 @@ int main(int argc, char *argv[]) {
     /* configuration is done, free the object */
     cfg_free(cfg);
 
+#ifdef _WIN32
+    /* create but don't add this event so that it can be triggered manually */
+    signal_usr1 = event_new(meta.base, SIGUSR1, 0, reload, &meta);
+#else
     /*
      * Set up handler to deal with SIGHUP to reload available tests if running
      * without a TTY. With a TTY we want SIGHUP to terminate measured.
@@ -730,6 +812,7 @@ int main(int argc, char *argv[]) {
     signal_tmax = event_new(meta.base, SIGRTMAX,
             EV_SIGNAL|EV_PERSIST, debug_dump, meta.base);
     event_add(signal_tmax, NULL);
+#endif
 
     /* give up control to libevent */
     event_base_dispatch(meta.base);
@@ -792,6 +875,10 @@ int main(int argc, char *argv[]) {
                     strerror(errno));
         }
     }
+
+#if _WIN32
+    WSACleanup();
+#endif
 
     Log(LOG_DEBUG, "Shutdown complete");
 
