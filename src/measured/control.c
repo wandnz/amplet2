@@ -561,8 +561,8 @@ int initialise_control_socket(struct event_base *base, amp_control_t *control) {
     if ( control->ipv4 ) {
         addr4 = get_numeric_address(control->ipv4, control->port);
         if ( (sockets.socket=socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) > 0 ) {
-            if ( setsockopt(sockets.socket, SOL_SOCKET, SO_REUSEADDR, &one,
-                        sizeof(int)) < 0 ) {
+            if ( setsockopt(sockets.socket, SOL_SOCKET, SO_REUSEADDR,
+                        (void*)&one, sizeof(int)) < 0 ) {
                 close(sockets.socket);
                 sockets.socket = -1;
             }
@@ -577,13 +577,13 @@ int initialise_control_socket(struct event_base *base, amp_control_t *control) {
         addr6 = get_numeric_address(control->ipv6, control->port);
         if ( (sockets.socket6=socket(AF_INET6, SOCK_STREAM, IPPROTO_TCP)) > 0 ){
             /* IPV6_V6ONLY prevents it trying to listen on IPv4 as well */
-            if ( setsockopt(sockets.socket6, IPPROTO_IPV6, IPV6_V6ONLY, &one,
-                        sizeof(one)) < 0 ) {
+            if ( setsockopt(sockets.socket6, IPPROTO_IPV6, IPV6_V6ONLY,
+                        (void*)&one, sizeof(one)) < 0 ) {
                 close(sockets.socket6);
                 sockets.socket6 = -1;
             } else {
-                if ( setsockopt(sockets.socket6, SOL_SOCKET, SO_REUSEADDR, &one,
-                            sizeof(int)) < 0 ) {
+                if ( setsockopt(sockets.socket6, SOL_SOCKET, SO_REUSEADDR,
+                            (void*)&one, sizeof(int)) < 0 ) {
                     close(sockets.socket6);
                     sockets.socket6 = -1;
                 }

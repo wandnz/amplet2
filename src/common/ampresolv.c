@@ -423,7 +423,7 @@ int amp_resolve_add_new(int fd, resolve_dest_t *resolve) {
     info.family = resolve->family;
 
     /* send the supporting metadata about name length, family etc */
-    if ( send(fd, &info, sizeof(info), 0) < 0 ) {
+    if ( send(fd, (void*)&info, sizeof(info), 0) < 0 ) {
         Log(LOG_WARNING, "Failed to send resolution query info: %s",
                 strerror(errno));
         return -1;
@@ -452,7 +452,7 @@ int amp_resolve_flag_done(int fd) {
     info.family = 0;
 
     /* send the supporting metadata about name length, family etc */
-    if ( send(fd, &info, sizeof(info), 0) < 0 ) {
+    if ( send(fd, (void*)&info, sizeof(info), 0) < 0 ) {
         Log(LOG_WARNING, "Failed to send resolution query info: %s",
                 strerror(errno));
         return -1;
@@ -480,7 +480,7 @@ struct addrinfo *amp_resolve_get_list(int fd) {
     /* everything we read should be the result of a name lookup */
     while ( 1 ) {
         struct addrinfo *tmp;
-        if ( recv(fd, &item, sizeof(struct addrinfo), 0) <= 0 ) {
+        if ( recv(fd, (void*)&item, sizeof(struct addrinfo), 0) <= 0 ) {
             break;
         }
 
@@ -494,13 +494,13 @@ struct addrinfo *amp_resolve_get_list(int fd) {
         /* there might not be an address for this name */
         if ( tmp->ai_addrlen > 0 ) {
             tmp->ai_addr = calloc(1, tmp->ai_addrlen);
-            if ( recv(fd, tmp->ai_addr, tmp->ai_addrlen, 0) <= 0 ) {
+            if ( recv(fd, (void*)tmp->ai_addr, tmp->ai_addrlen, 0) <= 0 ) {
                 free(tmp);
                 break;
             }
         }
 
-        if ( recv(fd, &namelen, sizeof(namelen), 0) <= 0 ) {
+        if ( recv(fd, (void*)&namelen, sizeof(namelen), 0) <= 0 ) {
             free(tmp);
             break;
         }
@@ -514,7 +514,7 @@ struct addrinfo *amp_resolve_get_list(int fd) {
         tmp->ai_canonname = strdup(name);
         assert(tmp->ai_canonname);
 
-        if ( recv(fd, &more, sizeof(more), 0) <= 0 ) {
+        if ( recv(fd, (void*)&more, sizeof(more), 0) <= 0 ) {
             free(tmp->ai_canonname);
             free(tmp);
             break;

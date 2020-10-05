@@ -413,7 +413,7 @@ static int send_csr(X509_REQ *request, char *collector, char *cacert) {
     curl_easy_setopt(curl, CURLOPT_URL, url);
     curl_easy_setopt(curl, CURLOPT_USERAGENT, PACKAGE_STRING);
     curl_easy_setopt(curl, CURLOPT_POST, 1);
-    curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, strlen(csrstr));
+    curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, (long)strlen(csrstr));
     curl_easy_setopt(curl, CURLOPT_READDATA, csrfile);
     set_curl_ssl_opts(curl, cacert);
 

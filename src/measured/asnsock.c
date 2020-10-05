@@ -75,23 +75,23 @@ static int return_asn_list(iptrie_node_t *root, void *data) {
                  return -1;
     };
 
-    if ( send(fd, &root->as, sizeof(root->as), MSG_NOSIGNAL) < 0 ) {
+    if ( send(fd, (void*)&root->as, sizeof(root->as), MSG_NOSIGNAL) < 0 ) {
         Log(LOG_WARNING, "Failed to return ASN number: %s", strerror(errno));
         return -1;
     }
 
-    if ( send(fd, &root->prefix, sizeof(root->prefix), MSG_NOSIGNAL) < 0 ) {
+    if ( send(fd, (void*)&root->prefix, sizeof(root->prefix), MSG_NOSIGNAL) < 0 ) {
         Log(LOG_WARNING, "Failed to return prefix: %s", strerror(errno));
         return -1;
     }
 
-    if ( send(fd, &root->address->sa_family, sizeof(uint16_t),
+    if ( send(fd, (void*)&root->address->sa_family, sizeof(uint16_t),
                 MSG_NOSIGNAL) < 0 ) {
         Log(LOG_WARNING, "Failed to return family: %s", strerror(errno));
         return -1;
     }
 
-    if ( send(fd, root->address, addrlen, MSG_NOSIGNAL) < 0 ) {
+    if ( send(fd, (void*)root->address, addrlen, MSG_NOSIGNAL) < 0 ) {
         Log(LOG_WARNING, "Failed to return address: %s", strerror(errno));
         return -1;
     }
@@ -289,7 +289,7 @@ static int fill_request_trie(int fd, struct iptrie *requests) {
 
         if ( FD_ISSET(fd, &readset) ) {
             /* read address family */
-            if ( recv(fd, &addr.ss_family, sizeof(uint16_t), 0) <= 0 ) {
+            if ( recv(fd, (void*)&addr.ss_family, sizeof(uint16_t), 0) <= 0 ) {
                 Log(LOG_WARNING, "Error reading address family: %s",
                         strerror(errno));
                 return -1;

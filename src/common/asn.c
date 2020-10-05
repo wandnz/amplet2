@@ -120,7 +120,7 @@ void add_parsed_line(struct iptrie *result, char *line,
 static int amp_asn_flag_done_local(int fd) {
     uint16_t flag = AF_UNSPEC;
 
-    if ( send(fd, &flag, sizeof(flag), MSG_NOSIGNAL) < 0 ) {
+    if ( send(fd, (void*)&flag, sizeof(flag), MSG_NOSIGNAL) < 0 ) {
         Log(LOG_WARNING, "Failed to send asn end flag: %s", strerror(errno));
         return -1;
     }
@@ -163,15 +163,15 @@ static struct iptrie *amp_asn_fetch_results_local(int fd,
         size_t addrlen;
         struct sockaddr_storage addr;
 
-        if ( recv(fd, &asn, sizeof(asn), 0) <= 0 ) {
+        if ( recv(fd, (void*)&asn, sizeof(asn), 0) <= 0 ) {
             break;
         }
 
-        if ( recv(fd, &prefix, sizeof(prefix), 0) <= 0 ) {
+        if ( recv(fd, (void*)&prefix, sizeof(prefix), 0) <= 0 ) {
             break;
         }
 
-        if ( recv(fd, &family, sizeof(family), 0) <= 0 ) {
+        if ( recv(fd, (void*)&family, sizeof(family), 0) <= 0 ) {
             break;
         }
 
@@ -183,7 +183,7 @@ static struct iptrie *amp_asn_fetch_results_local(int fd,
             break;
         }
 
-        if ( recv(fd, &addr, addrlen, 0) <= 0 ) {
+        if ( recv(fd, (void*)&addr, addrlen, 0) <= 0 ) {
             break;
         }
 
@@ -216,7 +216,7 @@ static int amp_asn_add_query_local(int fd, struct sockaddr *address) {
     };
 
     Log(LOG_DEBUG, "Sending ASN address family");
-    if ( send(fd, &address->sa_family, sizeof(uint16_t), MSG_NOSIGNAL) < 0 ) {
+    if ( send(fd, (void*)&address->sa_family, sizeof(uint16_t), MSG_NOSIGNAL) < 0 ) {
         Log(LOG_WARNING, "Failed to send asn address family: %s",
                 strerror(errno));
         return -1;
@@ -403,7 +403,7 @@ int connect_to_whois_server(void) {
      * enough room for a full message (after a partial write we will block
      * forever if the peer doesn't consume any more data).
      */
-    if ( setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &socktimeout,
+    if ( setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, (void*)&socktimeout,
                 sizeof(socktimeout)) < 0 ) {
         Log(LOG_WARNING, "Failed to set send timeout on whois socket: %s",
                 strerror(errno));

@@ -1470,7 +1470,7 @@ static int update_remote_schedule(fetch_schedule_item_t *fetch, int clobber) {
             /* we have a file already, only fetch if there is a newer one */
             curl_easy_setopt(curl, CURLOPT_TIMECONDITION,
                     CURL_TIMECOND_IFMODSINCE);
-            curl_easy_setopt(curl, CURLOPT_TIMEVALUE, statbuf.st_mtime);
+            curl_easy_setopt(curl, CURLOPT_TIMEVALUE, (long)statbuf.st_mtime);
             Log(LOG_DEBUG, "Local schedule Last-Modified:%d", statbuf.st_mtime);
         }
 
@@ -1560,8 +1560,6 @@ static long unsigned int update_remote_schedule_noclobber(void *fetch) {
  * server.
  */
 static void fork_and_fetch(fetch_schedule_item_t *fetch, int clobber) {
-    pid_t pid;
-
 #if _WIN32
     /* start up a thread to do the check */
     CreateThread(NULL,
@@ -1572,6 +1570,8 @@ static void fork_and_fetch(fetch_schedule_item_t *fetch, int clobber) {
             0,
             NULL);
 #else
+    pid_t pid;
+
     /* fork off a process to do the actual check */
     if ( (pid = fork()) < 0 ) {
         Log(LOG_WARNING, "Failed to fork for fetching remote schedule: %s",
