@@ -166,9 +166,24 @@
     <CustomAction Id='NoDowngrade' Error='A later version of $(var.ProductName) is already installed.' />
     -->
 
+    <!-- wixl doesn't yet to extensions, so rather than use the ServiceConfig
+         element to set FirstFailureActionType etc, call sc.exe directly
+     -->
+    <Property Id='cmd' Value='cmd.exe'/>
+    <CustomAction
+        Id='SetServiceFailureMode'
+        Property='cmd'
+        Execute='deferred'
+        ExeCommand='/c sc.exe failure amplet2 reset= 86400 actions= restart/30000/restart/60000/restart/60000'
+        Return='ignore'
+        Impersonate='no' />
+
     <InstallExecuteSequence>
+    <!--
         <Custom Action='AlreadyUpdated' After='FindRelatedProducts'>SELFFOUND</Custom>
         <Custom Action='NoDowngrade' After='FindRelatedProducts'>NEWERFOUND</Custom>
+    -->
+        <Custom Action='SetServiceFailureMode' After='InstallServices'>NOT REMOVE</Custom>
     </InstallExecuteSequence>
 
     </Product>
