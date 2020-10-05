@@ -963,6 +963,22 @@ CURL *pipeline_next_object(CURLM *multi, struct server_stats_t *server) {
     curl_easy_setopt(object->handle, CURLOPT_USERAGENT, options.useragent);
     curl_easy_setopt(object->handle, CURLOPT_SSLVERSION, options.sslversion);
 
+#if 0
+    /* use the native windows CA store if possible */
+#if _WIN32 && LIBCURL_VERSION_NUM >= 0x074700
+    curl_easy_setopt(object->handle, CURLOPT_SSL_OPTIONS, CURLSSLOPT_NATIVE_CA);
+#endif
+#endif
+
+#if _WIN32
+    /*
+     * set this manually for now, as CURLSSLOPT_NATIVE_CA doesn't seem to do
+     * what we need/expect?
+     */
+    curl_easy_setopt(object->handle, CURLOPT_CAINFO,
+            AMP_CONFIG_DIR "ca-certificates.crt");
+#endif
+
     /* save the time that fetching started for this object */
     gettimeofday(&object->start, NULL);
 
