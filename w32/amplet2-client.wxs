@@ -56,39 +56,39 @@
         <File Id="libampDLL" KeyPath="yes" Source="$(var.SourceDir)/bin/libamp-5.dll"/>
     </Component>
 
-    <Component Id="standalone-dns" Guid="*">
+    <Component Id="standalone_dns" Guid="*">
         <File Id="dnsEXE" KeyPath="yes" Source="$(var.SourceDir)/bin/amp-dns.exe"/>
     </Component>
 
-    <Component Id="standalone-http" Guid="*">
+    <Component Id="standalone_http" Guid="*">
         <File Id="httpEXE" KeyPath="yes" Source="$(var.SourceDir)/bin/amp-http.exe"/>
     </Component>
 
-    <Component Id="standalone-icmp" Guid="*">
+    <Component Id="standalone_icmp" Guid="*">
         <File Id="icmpEXE" KeyPath="yes" Source="$(var.SourceDir)/bin/amp-icmp.exe"/>
     </Component>
 
     <Component Id="dependencies" Guid="*">
-        <File Id="libwinpthread-1.dll" KeyPath="yes" Source="/usr/x86_64-w64-mingw32/lib/libwinpthread-1.dll"/>
-        <File Id="ca-certificates.crt" Source="$(var.HostSSLDir)/certs/ca-certificates.crt"/>
+        <File Id="libwinpthread_1.dll" KeyPath="yes" Source="/usr/x86_64-w64-mingw32/lib/libwinpthread-1.dll"/>
+        <File Id="ca_certificates.crt" Source="$(var.HostSSLDir)/certs/ca-certificates.crt"/>
         <File Id="libbrotlicommon.dll" Source="$(var.MingwBinDir)/libbrotlicommon.dll"/>
         <File Id="libbrotlidec.dll" Source="$(var.MingwBinDir)/libbrotlidec.dll"/>
-        <File Id="libconfuse-2.dll" Source="$(var.MingwBinDir)/libconfuse-2.dll"/>
-        <File Id="libcrypto-1_1-x64.dll" Source="$(var.MingwBinDir)/libcrypto-1_1-x64.dll"/>
-        <File Id="libcurl-4.dll" Source="$(var.MingwBinDir)/libcurl-4.dll"/>
-        <File Id="libevent-2-1-7.dll" Source="$(var.MingwBinDir)/libevent-2-1-7.dll"/>
-        <File Id="libiconv-2.dll" Source="$(var.MingwBinDir)/libiconv-2.dll"/>
-        <File Id="libidn2-0.dll" Source="$(var.MingwBinDir)/libidn2-0.dll"/>
-        <File Id="libintl-8.dll" Source="$(var.MingwBinDir)/libintl-8.dll"/>
-        <File Id="libnghttp2-14.dll" Source="$(var.MingwBinDir)/libnghttp2-14.dll"/>
-        <File Id="libprotobuf-c-1.dll" Source="$(var.MingwBinDir)/libprotobuf-c-1.dll"/>
-        <File Id="libpsl-5.dll" Source="$(var.MingwBinDir)/libpsl-5.dll"/>
+        <File Id="libconfuse_2.dll" Source="$(var.MingwBinDir)/libconfuse-2.dll"/>
+        <File Id="libcrypto_1_1_x64.dll" Source="$(var.MingwBinDir)/libcrypto-1_1-x64.dll"/>
+        <File Id="libcurl_4.dll" Source="$(var.MingwBinDir)/libcurl-4.dll"/>
+        <File Id="libevent_2_1_7.dll" Source="$(var.MingwBinDir)/libevent-2-1-7.dll"/>
+        <File Id="libiconv_2.dll" Source="$(var.MingwBinDir)/libiconv-2.dll"/>
+        <File Id="libidn2_0.dll" Source="$(var.MingwBinDir)/libidn2-0.dll"/>
+        <File Id="libintl_8.dll" Source="$(var.MingwBinDir)/libintl-8.dll"/>
+        <File Id="libnghttp2_14.dll" Source="$(var.MingwBinDir)/libnghttp2-14.dll"/>
+        <File Id="libprotobuf_c_1.dll" Source="$(var.MingwBinDir)/libprotobuf-c-1.dll"/>
+        <File Id="libpsl_5.dll" Source="$(var.MingwBinDir)/libpsl-5.dll"/>
         <File Id="librabbitmq.dll" Source="$(var.MingwBinDir)/librabbitmq.dll"/>
-        <File Id="libssh2-1.dll" Source="$(var.MingwBinDir)/libssh2-1.dll"/>
-        <File Id="libssl-1_1-x64.dll" Source="$(var.MingwBinDir)/libssl-1_1-x64.dll"/>
-        <File Id="libunbound-8.dll" Source="$(var.MingwBinDir)/libunbound-8.dll"/>
-        <File Id="libunistring-2.dll" Source="$(var.MingwBinDir)/libunistring-2.dll"/>
-        <File Id="libyaml-0-2.dll" Source="$(var.MingwBinDir)/libyaml-0-2.dll"/>
+        <File Id="libssh2_1.dll" Source="$(var.MingwBinDir)/libssh2-1.dll"/>
+        <File Id="libssl_1_1_x64.dll" Source="$(var.MingwBinDir)/libssl-1_1-x64.dll"/>
+        <File Id="libunbound_8.dll" Source="$(var.MingwBinDir)/libunbound-8.dll"/>
+        <File Id="libunistring_2.dll" Source="$(var.MingwBinDir)/libunistring-2.dll"/>
+        <File Id="libyaml_0_2.dll" Source="$(var.MingwBinDir)/libyaml-0-2.dll"/>
         <File Id="zlib1.dll" Source="$(var.MingwBinDir)/zlib1.dll"/>
     </Component>
 
@@ -138,9 +138,9 @@
     <Feature Id='Complete' Level='1'>
         <ComponentRef Id='MainExecutable' />
         <ComponentRef Id='libamp' />
-        <ComponentRef Id='standalone-dns' />
-        <ComponentRef Id='standalone-http' />
-        <ComponentRef Id='standalone-icmp' />
+        <ComponentRef Id='standalone_dns' />
+        <ComponentRef Id='standalone_http' />
+        <ComponentRef Id='standalone_icmp' />
         <ComponentRef Id='libdns' />
         <ComponentRef Id='libhttp' />
         <ComponentRef Id='libicmp' />
