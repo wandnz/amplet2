@@ -68,27 +68,67 @@
         <File Id="icmpEXE" KeyPath="yes" Source="$(var.SourceDir)/bin/amp-icmp.exe"/>
     </Component>
 
-    <Component Id="dependencies" Guid="*">
+    <Component Id="libwinpthread" Guid="*">
         <File Id="libwinpthread_1.dll" KeyPath="yes" Source="/usr/x86_64-w64-mingw32/lib/libwinpthread-1.dll"/>
+    </Component>
+    <Component Id="ca_certificates" Guid="*">
         <File Id="ca_certificates.crt" Source="$(var.HostSSLDir)/certs/ca-certificates.crt"/>
+    </Component>
+    <Component Id="libbrotlicommon" Guid="*">
         <File Id="libbrotlicommon.dll" Source="$(var.MingwBinDir)/libbrotlicommon.dll"/>
+    </Component>
+    <Component Id="libbrotlidec" Guid="*">
         <File Id="libbrotlidec.dll" Source="$(var.MingwBinDir)/libbrotlidec.dll"/>
+    </Component>
+    <Component Id="libconfuse" Guid="*">
         <File Id="libconfuse_2.dll" Source="$(var.MingwBinDir)/libconfuse-2.dll"/>
+    </Component>
+    <Component Id="libcrypto" Guid="*">
         <File Id="libcrypto_1_1_x64.dll" Source="$(var.MingwBinDir)/libcrypto-1_1-x64.dll"/>
+    </Component>
+    <Component Id="libcurl" Guid="*">
         <File Id="libcurl_4.dll" Source="$(var.MingwBinDir)/libcurl-4.dll"/>
+    </Component>
+    <Component Id="libevent" Guid="*">
         <File Id="libevent_2_1_7.dll" Source="$(var.MingwBinDir)/libevent-2-1-7.dll"/>
+    </Component>
+    <Component Id="libiconv" Guid="*">
         <File Id="libiconv_2.dll" Source="$(var.MingwBinDir)/libiconv-2.dll"/>
+    </Component>
+    <Component Id="libidn2" Guid="*">
         <File Id="libidn2_0.dll" Source="$(var.MingwBinDir)/libidn2-0.dll"/>
+    </Component>
+    <Component Id="libintl" Guid="*">
         <File Id="libintl_8.dll" Source="$(var.MingwBinDir)/libintl-8.dll"/>
+    </Component>
+    <Component Id="libnghttp2" Guid="*">
         <File Id="libnghttp2_14.dll" Source="$(var.MingwBinDir)/libnghttp2-14.dll"/>
+    </Component>
+    <Component Id="libprotobuf" Guid="*">
         <File Id="libprotobuf_c_1.dll" Source="$(var.MingwBinDir)/libprotobuf-c-1.dll"/>
+    </Component>
+    <Component Id="libpsl" Guid="*">
         <File Id="libpsl_5.dll" Source="$(var.MingwBinDir)/libpsl-5.dll"/>
+    </Component>
+    <Component Id="librabbitmq" Guid="*">
         <File Id="librabbitmq.dll" Source="$(var.MingwBinDir)/librabbitmq.dll"/>
+    </Component>
+    <Component Id="libssh2" Guid="*">
         <File Id="libssh2_1.dll" Source="$(var.MingwBinDir)/libssh2-1.dll"/>
+    </Component>
+    <Component Id="libssl" Guid="*">
         <File Id="libssl_1_1_x64.dll" Source="$(var.MingwBinDir)/libssl-1_1-x64.dll"/>
+    </Component>
+    <Component Id="libunbound" Guid="*">
         <File Id="libunbound_8.dll" Source="$(var.MingwBinDir)/libunbound-8.dll"/>
+    </Component>
+    <Component Id="libunistring" Guid="*">
         <File Id="libunistring_2.dll" Source="$(var.MingwBinDir)/libunistring-2.dll"/>
+    </Component>
+    <Component Id="libyaml" Guid="*">
         <File Id="libyaml_0_2.dll" Source="$(var.MingwBinDir)/libyaml-0-2.dll"/>
+    </Component>
+    <Component Id="zlib1" Guid="*">
         <File Id="zlib1.dll" Source="$(var.MingwBinDir)/zlib1.dll"/>
     </Component>
 
@@ -144,7 +184,27 @@
         <ComponentRef Id='libdns' />
         <ComponentRef Id='libhttp' />
         <ComponentRef Id='libicmp' />
-        <ComponentRef Id='dependencies' />
+        <ComponentRef Id='libwinpthread' />
+        <ComponentRef Id='ca_certificates' />
+        <ComponentRef Id='libbrotlicommon' />
+        <ComponentRef Id='libbrotlidec' />
+        <ComponentRef Id='libconfuse' />
+        <ComponentRef Id='libcrypto' />
+        <ComponentRef Id='libcurl' />
+        <ComponentRef Id='libevent' />
+        <ComponentRef Id='libiconv' />
+        <ComponentRef Id='libidn2' />
+        <ComponentRef Id='libintl' />
+        <ComponentRef Id='libnghttp2' />
+        <ComponentRef Id='libprotobuf' />
+        <ComponentRef Id='libpsl' />
+        <ComponentRef Id='librabbitmq' />
+        <ComponentRef Id='libssh2' />
+        <ComponentRef Id='libssl' />
+        <ComponentRef Id='libunbound' />
+        <ComponentRef Id='libunistring' />
+        <ComponentRef Id='libyaml' />
+        <ComponentRef Id='zlib1' />
         <ComponentRef Id='schedules' />
         <ComponentRef Id='nametables' />
         <ComponentRef Id='clients' />
