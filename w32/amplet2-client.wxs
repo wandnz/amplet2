@@ -16,7 +16,7 @@
         Comments='.' Manufacturer='University of Waikato WAND network research group'
         InstallerVersion='100' Languages='1033' Compressed='yes' SummaryCodepage='1252' />
 
-    <Media Id='1' Cabinet='$(var.ProductName).cab' EmbedCab='yes' DiskPrompt='CD-ROM #1' />
+    <Media Id='1' Cabinet='amplet2.cab' EmbedCab='yes' DiskPrompt='CD-ROM #1' />
     <Property Id='DiskPrompt' Value="$(var.ProductName) $(var.ProductVersion) Installation [1]" />
 
     <Condition Message="You need to be an administrator to install this product.">
