@@ -594,6 +594,7 @@ int main(int argc, char *argv[]) {
         exit(EXIT_FAILURE);
     }
 
+#ifndef _WIN32
     /*
      * Try to configure the local rabbitmq broker. The easiest way to deal
      * with this at the moment is to check every time we run - this could be
@@ -648,6 +649,7 @@ int main(int argc, char *argv[]) {
         cfg_free(cfg);
         exit(EXIT_FAILURE);
     }
+#endif
 
 #if _WIN32
     /* we want to manually generate events from multiple threads */

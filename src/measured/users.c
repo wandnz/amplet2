@@ -37,14 +37,12 @@
  * along with amplet2. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef _WIN32
 #include <sys/capability.h>
 #include <sys/prctl.h>
 #include <sys/types.h>
 #include <pwd.h>
 #include <unistd.h>
 #include <grp.h>
-#endif
 
 #include "users.h"
 #include "debug.h"
@@ -60,7 +58,6 @@
  * https://github.com/the-tcpdump-group/libpcap/issues/689
  */
 int change_user(char *username) {
-#ifndef _WIN32
     struct passwd *pwd;
     cap_t caps;
     cap_value_t cap_list[3] = {
@@ -131,7 +128,6 @@ int change_user(char *username) {
     if ( cap_free(caps) == -1 ) {
         return -1;
     }
-#endif
 
     return 0;
 }

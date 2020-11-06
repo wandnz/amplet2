@@ -4,7 +4,7 @@ SUBDIRS=. etc test
 sbin_PROGRAMS=amplet2
 bin_PROGRAMS=amplet2-remote
 
-amplet2_SOURCES=measured.c schedule.c watchdog.c run.c nametable.c control.c rabbitcfg.c nssock.c asnsock.c localsock.c certs.c parseconfig.c acl.c messaging.c users.c libevent_foreach.c
+amplet2_SOURCES=measured.c schedule.c watchdog.c run.c nametable.c control.c nssock.c asnsock.c localsock.c certs.c parseconfig.c acl.c messaging.c libevent_foreach.c
 amplet2_LDFLAGS=-L../tests/ -L../common/ -lamp -lcurl -levent -lconfuse -lpthread -lunbound -lyaml -lssl -lcrypto -lrabbitmq $(AM_LDFLAGS)
 
 amplet2_remote_SOURCES=remote-client.c
@@ -14,6 +14,7 @@ if MINGW
 amplet2_SOURCES+=w32-service.c
 amplet2_LDFLAGS+=-liphlpapi
 else
+amplet2_SOURCES+=users.c rabbitcfg.c
 amplet2_LDFLAGS+=-lrt -lcap
 endif
 
