@@ -50,6 +50,7 @@
 #include <stdint.h>
 
 #if _WIN32
+#include <iphlpapi.h>
 #include "w32-compat.h"
 #else
 #include <ifaddrs.h>
@@ -219,16 +220,11 @@ void run_test(const test_schedule_item_t * const item, BIO *ctrl) {
     if ( item->resolve != NULL ) {
 	struct addrinfo *tmp;
         int resolver_fd;
-        struct ifaddrs *ifaddrlist;
         int seen_ipv4 = 0;
         int seen_ipv6 = 0;
 
 	Log(LOG_DEBUG, "test has destinations to resolve!\n");
 
-#if _WIN32
-        /* TODO determine if ipv6 is available */
-        seen_ipv4 = 1;
-#else
         /*
          * Check what address families we have available, as there is no
          * point in asking for AAAA records if we can't do IPv6. This looks
@@ -236,38 +232,94 @@ void run_test(const test_schedule_item_t * const item, BIO *ctrl) {
          * when AI_ADDRCONFIG is set. Might be nice to do this inside the
          * amp_resolve_add() function, but then it's harder to keep state.
          */
+        // TODO check for a usable ipv6 address beyond a link-local?
         if ( forcev4 && !forcev6 ) {
             seen_ipv4 = 1;
             seen_ipv6 = 0;
         } else if ( forcev6 && !forcev4 ) {
             seen_ipv4 = 0;
             seen_ipv6 = 1;
-        } else if ( getifaddrs(&ifaddrlist) < 0 ) {
-            /* error getting interfaces, assume we can do both IPv4 and 6 */
-            seen_ipv4 = 1;
-            seen_ipv6 = 1;
+#if _WIN32
         } else {
-            struct ifaddrs *ifa;
-            for ( ifa = ifaddrlist; ifa != NULL; ifa = ifa->ifa_next ) {
-                /* some interfaces (e.g. ppp) sometimes won't have an address */
-                if ( ifa->ifa_addr == NULL ) {
-                    continue;
-                }
+            /* https://docs.microsoft.com/en-us/windows/win32/api/iphlpapi/nf-iphlpapi-getadaptersaddresses */
+            DWORD dwRetVal = 0;
+            PIP_ADAPTER_ADDRESSES pAddresses = NULL;
+            PIP_ADAPTER_ADDRESSES ifa = NULL;
+            ULONG outBufLen = 15000;
+            ULONG family = AF_UNSPEC;
+            ULONG flags = 0;
 
-                /* ignore other interfaces if the source interface is set */
-                if ( item->meta->iface != NULL &&
-                        strcmp(item->meta->iface, ifa->ifa_name) != 0 ) {
-                    continue;
-                }
+            pAddresses = (IP_ADAPTER_ADDRESSES *) malloc(outBufLen);
+            dwRetVal = GetAdaptersAddresses(family, flags, NULL, pAddresses, &outBufLen);
 
-                /* otherwise, flag the family as one that we can use */
-                if ( ifa->ifa_addr->sa_family == AF_INET ) {
-                    seen_ipv4 = 1;
-                } else if ( ifa->ifa_addr->sa_family == AF_INET6 ) {
-                    seen_ipv6 = 1;
+            if ( dwRetVal == NO_ERROR ) {
+                for ( ifa = pAddresses; ifa != NULL; ifa = ifa->Next ) {
+                    /* ignore other interfaces if the source interface is set */
+                    if ( item->meta->iface != NULL &&
+                            strcmp(item->meta->iface, ifa->AdapterName) != 0 ) {
+                        continue;
+                    }
+
+                    /* ignore interfaces that aren't up */
+                    if ( ifa->OperStatus != IfOperStatusUp ) {
+                        continue;
+                    }
+
+                    /* otherwise, flag the family as one that we can use */
+                    if ( ifa->IfIndex != 0 ) {
+                        seen_ipv4 = 1;
+                    }
+
+                    if ( ifa->Ipv6IfIndex != 0 ) {
+                        seen_ipv6 = 1;
+                    }
                 }
+            } else {
+                /* error getting interfaces, assume we can do both IPv4 and 6 */
+                Log(LOG_WARNING, "Failed to fetch adapter addresses");
+                seen_ipv4 = 1;
+                seen_ipv6 = 1;
             }
-            freeifaddrs(ifaddrlist);
+
+            if ( pAddresses ) {
+                free(pAddresses);
+            }
+        }
+#else
+        } else {
+            struct ifaddrs *ifaddrlist;
+
+            if ( getifaddrs(&ifaddrlist) < 0 ) {
+                struct ifaddrs *ifa;
+                for ( ifa = ifaddrlist; ifa != NULL; ifa = ifa->ifa_next ) {
+                    /* some interfaces (e.g. ppp) won't have an address */
+                    if ( ifa->ifa_addr == NULL ) {
+                        continue;
+                    }
+
+                    /* ignore other interfaces if the source interface is set */
+                    if ( item->meta->iface != NULL &&
+                            strcmp(item->meta->iface, ifa->ifa_name) != 0 ) {
+                        continue;
+                    }
+
+                    /* otherwise, flag the family as one that we can use */
+                    if ( ifa->ifa_addr->sa_family == AF_INET ) {
+                        seen_ipv4 = 1;
+                    } else if ( ifa->ifa_addr->sa_family == AF_INET6 ) {
+                        seen_ipv6 = 1;
+                    }
+                }
+            } else {
+                /* error getting interfaces, assume we can do both IPv4 and 6 */
+                Log(LOG_WARNING, "Failed to fetch adapter addresses");
+                seen_ipv4 = 1;
+                seen_ipv6 = 1;
+            }
+
+            if ( ifaddrlist ) {
+                freeifaddrs(ifaddrlist);
+            }
         }
 #endif
 

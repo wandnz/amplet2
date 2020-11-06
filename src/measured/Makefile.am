@@ -12,6 +12,7 @@ amplet2_remote_LDFLAGS=-L../common/ -lamp -lssl -lcrypto -lprotobuf-c $(AM_LDFLA
 
 if MINGW
 amplet2_SOURCES+=w32-service.c
+amplet2_LDFLAGS+=-liphlpapi
 else
 amplet2_LDFLAGS+=-lrt -lcap
 endif
