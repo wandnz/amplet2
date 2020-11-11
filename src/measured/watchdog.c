@@ -53,6 +53,78 @@
 #include "debug.h"
 
 
+#if _WIN32
+/*
+ * Callback triggered when timer expires or thread exits. The boolean
+ * TimerOrWaitFired is true if the timer expired, false otherwise.
+ */
+static void callback(void *data, BOOLEAN TimerOrWaitFired) {
+    struct watchdog_context *context = (struct watchdog_context*)data;
+
+    if ( TimerOrWaitFired ) {
+        Log(LOG_WARNING, "Terminating test thread that ran too long");
+        TerminateThread(context->thread_handle, ERROR_TIMEOUT);
+    }
+
+    // always need to tidy up watchdog even after it has triggered
+    stop_watchdog(context);
+}
+
+
+
+/*
+ * Start a watchdog to kill a test that runs over time.
+ */
+int start_test_watchdog(test_t *test, struct watchdog_context *context) {
+    assert(test);
+    assert(context);
+
+    Log(LOG_DEBUG, "Creating watchdog timer of %d seconds for %s test",
+            test->max_duration, test->name);
+
+    if ( RegisterWaitForSingleObject(&context->wait_handle,
+                context->thread_handle, callback, context,
+                test->max_duration * 1000, WT_EXECUTEONLYONCE) == 0 ) {
+        return -1;
+    }
+
+    return 0;
+}
+
+
+
+/*
+ * Disarm and delete the timer that was set up to kill this test process.
+ */
+int stop_watchdog(struct watchdog_context *context) {
+    int result = 0;
+
+    if ( context ) {
+        /* even when using WT_EXECUTEONLYONE it always needs to be removed */
+        if ( context->wait_handle ) {
+            // UnregisterWaitEx vs UnregisterWait, avoid deadlocks?
+            result = UnregisterWaitEx(context->wait_handle, NULL);
+            context->wait_handle = NULL;
+        }
+
+        /* and I think the thread handle persists even after termination too */
+        if ( context->thread_handle ) {
+            CloseHandle(context->thread_handle);
+            context->thread_handle = NULL; // or ERROR_INVALID_HANDLE?
+        }
+
+        free(context);
+        context = NULL;
+    }
+
+    return result;
+}
+
+
+
+#else
+
+
 
 /*
  * Start a watchdog to kill a test that runs over time.
@@ -71,12 +143,9 @@ int start_test_watchdog(test_t *test, timer_t *timerid) {
     }
 #endif
 
-#if _WIN32
-    return 0;
-#else
     return start_watchdog(test->max_duration, SIGKILL, timerid);
-#endif
 }
+
 
 
 
@@ -86,7 +155,6 @@ int start_test_watchdog(test_t *test, timer_t *timerid) {
  * running (fetching remote test schedules etc).
  */
 int start_watchdog(time_t duration, int signal, timer_t *timerid) {
-#ifndef _WIN32
     struct sigevent sevp;
     struct itimerspec when;
 
@@ -113,7 +181,6 @@ int start_watchdog(time_t duration, int signal, timer_t *timerid) {
         Log(LOG_WARNING, "Failed to set watchdog timer:%s", strerror(errno));
         return -1;
     }
-#endif
 
     return 0;
 }
@@ -124,12 +191,10 @@ int start_watchdog(time_t duration, int signal, timer_t *timerid) {
  * Disarm and delete the timer that was set up to kill this test process.
  */
 int stop_watchdog(timer_t timerid) {
-#ifndef _WIN32
     if ( timer_delete(timerid) < 0 ) {
         Log(LOG_WARNING, "Failed to stop watchdog timer: %s", strerror(errno));
         return -1;
     }
-#endif
 
     return 0;
 }
@@ -147,7 +212,6 @@ void child_reaper(
         __attribute__((unused))short flags,
         __attribute__((unused))void *evdata) {
 
-#ifndef _WIN32
     siginfo_t infop;
 
     while ( 1 ) {
@@ -197,5 +261,5 @@ void child_reaper(
                      break;
         };
     }
-#endif
 }
+#endif

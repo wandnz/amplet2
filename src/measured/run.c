@@ -87,11 +87,15 @@ void run_test(const test_schedule_item_t * const item, BIO *ctrl) {
     struct addrinfo **destinations = NULL;
     int total_resolve_count = 0;
     char *packet_delay_str = NULL;
-    timer_t watchdog;
     char *dscp_str = NULL;
     char *port_str = NULL;
     int forcev4 = 0;
     int forcev6 = 0;
+#if _WIN32
+    struct watchdog_context *watchdog;
+#else
+    timer_t watchdog;
+#endif
 
     assert(item);
     assert(item->test);
@@ -99,7 +103,19 @@ void run_test(const test_schedule_item_t * const item, BIO *ctrl) {
 
     /* Start the timer so the test will be killed if it runs too long */
     /* XXX should this start before or after DNS resolution, maybe after? */
+#if _WIN32
+    /*
+     * Windows watchdog context needs to be allocated on the heap otherwise
+     * it goes out of scope before the callback gets called on termination.
+     */
+    watchdog = malloc(sizeof(struct watchdog_context));
+    watchdog->thread_handle = OpenThread(SYNCHRONIZE|THREAD_TERMINATE,
+            FALSE, GetCurrentThreadId());
+
+    if ( start_test_watchdog(item->test, watchdog) < 0 ) {
+#else
     if ( start_test_watchdog(item->test, &watchdog) < 0 ) {
+#endif
         Log(LOG_WARNING, "Aborting %s test run", item->test->name);
         return;
     }
