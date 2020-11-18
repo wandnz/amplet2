@@ -47,6 +47,10 @@
 #include <string.h>
 #include <stdio.h>
 
+#if _WIN32
+#include "w32-compat.h"
+#endif
+
 #include "config.h"
 #include "debug.h"
 #include "ssl.h"
@@ -330,6 +334,17 @@ static char *get_csr_string(X509_REQ *request) {
         return NULL;
     }
 
+#if _WIN32
+    rewind(out);
+    csrstr = malloc(4096);
+    fread(csrstr, 1, 4096, out);
+
+    if ( ferror(out) ) {
+        Log(LOG_WARNING, "Failed to read X509_REQ");
+        return NULL;
+    }
+#endif
+
     fclose(out);
     return csrstr;
 }
@@ -398,7 +413,7 @@ static int send_csr(X509_REQ *request, char *collector, char *cacert) {
     curl_easy_setopt(curl, CURLOPT_URL, url);
     curl_easy_setopt(curl, CURLOPT_USERAGENT, PACKAGE_STRING);
     curl_easy_setopt(curl, CURLOPT_POST, 1);
-    curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, strlen(csrstr));
+    curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, (long)strlen(csrstr));
     curl_easy_setopt(curl, CURLOPT_READDATA, csrfile);
     set_curl_ssl_opts(curl, cacert);
 

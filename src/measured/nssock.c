@@ -39,13 +39,18 @@
 
 #include <unistd.h>
 #include <stdlib.h>
-#include <sys/socket.h>
 #include <sys/types.h>
 #include <unbound.h>
 #include <pthread.h>
 #include <assert.h>
 #include <errno.h>
 #include <string.h>
+
+#if _WIN32
+#include "w32-compat.h"
+#else
+#include <sys/socket.h>
+#endif
 
 #include "nssock.h"
 #include "ampresolv.h"
@@ -75,7 +80,7 @@ static void *amp_resolver_worker_thread(void *thread_data) {
     while ( 1 ) {
 
         /* read name length, address count, family etc */
-        if ( recv(data->fd, &info, sizeof(info), 0) <= 0 ) {
+        if ( recv(data->fd, (void*)&info, sizeof(info), 0) <= 0 ) {
             Log(LOG_WARNING, "Error reading name info, aborting");
             break;
         }
@@ -85,7 +90,7 @@ static void *amp_resolver_worker_thread(void *thread_data) {
             break;
         }
 
-        if ( (bytes = recv(data->fd, name, info.namelen, 0)) <= 0 ) {
+        if ( (bytes = recv(data->fd, (void*)name, info.namelen, 0)) <= 0 ) {
             Log(LOG_WARNING, "Error reading name, aborting");
             break;
         }
@@ -109,7 +114,7 @@ static void *amp_resolver_worker_thread(void *thread_data) {
 
     /* send back all the results of name resolution */
     for ( item = addrlist; item != NULL; item = item->ai_next) {
-        if ( send(data->fd, item, sizeof(*item), MSG_NOSIGNAL) < 0 ) {
+        if ( send(data->fd, (void*)item, sizeof(*item), MSG_NOSIGNAL) < 0 ) {
             Log(LOG_WARNING, "Failed to send resolved address info: %s",
                     strerror(errno));
             goto end;
@@ -117,7 +122,7 @@ static void *amp_resolver_worker_thread(void *thread_data) {
 
         /* there might not be an address for this name */
         if ( item->ai_addrlen > 0 ) {
-            if ( send(data->fd, item->ai_addr, item->ai_addrlen,
+            if ( send(data->fd, (void*)item->ai_addr, item->ai_addrlen,
                         MSG_NOSIGNAL) < 0 ) {
                 Log(LOG_WARNING, "Failed to send resolved address: %s",
                         strerror(errno));
@@ -127,21 +132,21 @@ static void *amp_resolver_worker_thread(void *thread_data) {
 
         namelen = strlen(item->ai_canonname) + 1;
         assert(namelen > 1);
-        if ( send(data->fd, &namelen, sizeof(namelen), MSG_NOSIGNAL) < 0 ) {
+        if ( send(data->fd, (void*)&namelen, sizeof(namelen), MSG_NOSIGNAL) < 0 ) {
             Log(LOG_WARNING, "Failed to send resolved canonical name: %s",
                     strerror(errno));
             goto end;
         }
 
         assert(item->ai_canonname);
-        if ( send(data->fd, item->ai_canonname, namelen, MSG_NOSIGNAL) < 0 ) {
+        if ( send(data->fd, (void*)item->ai_canonname, namelen, MSG_NOSIGNAL) < 0 ) {
             Log(LOG_WARNING, "Failed to send resolved canonical name: %s",
                     strerror(errno));
             goto end;
         }
 
         more = (item->ai_next) ? 1 : 0;
-        if ( send(data->fd, &more, sizeof(uint8_t), MSG_NOSIGNAL) < 0 ) {
+        if ( send(data->fd, (void*)&more, sizeof(uint8_t), MSG_NOSIGNAL) < 0 ) {
             Log(LOG_WARNING, "Failed to send more flag: %s", strerror(errno));
             goto end;
         }
@@ -156,7 +161,7 @@ end:
     pthread_mutex_destroy(&addrlist_lock);
     free(data);
 
-    pthread_exit(NULL);
+    return NULL;
 }
 
 

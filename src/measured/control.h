@@ -64,7 +64,7 @@ struct acl_event {
 typedef struct amp_control {
     int enabled;
     char *port;
-    char *interface;
+    char *iface;
     char *ipv4;
     char *ipv6;
     struct event *socket;

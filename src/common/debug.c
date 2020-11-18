@@ -42,10 +42,18 @@
 #include <stdarg.h>
 #include <time.h>
 #include <string.h>
-#include <syslog.h>
 #include <unistd.h>
+#if HAVE_SYSLOG
+#include <syslog.h>
+#endif
+
+#if _WIN32
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#else
 #include <arpa/inet.h>
 #include <netdb.h>
+#endif
 
 #include "config.h"
 #include "debug.h"
@@ -131,7 +139,12 @@ void Log(int priority, const char *fmt, ...)
 
     /* format date and chop newline from end of formatted string */
     ts = time(NULL);
-    ctime_r(&ts, date);
+#if _WIN32
+    assert(ctime_s(date, sizeof(date), &ts) == 0);
+#else
+    assert(ctime_r(&ts, date) != NULL);
+#endif
+
     date[strlen(date)-1] = '\0';
 
     /*

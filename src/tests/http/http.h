@@ -42,12 +42,14 @@
 
 #include <sys/time.h>
 #include <sys/types.h>
-#include <sys/socket.h>
-#include <netdb.h>
 #include <stdint.h>
 #include <curl/curl.h>
 #include "tests.h"
 
+#ifndef _WIN32
+#include <sys/socket.h>
+#include <netdb.h>
+#endif
 
 #define MAX_DNS_NAME_LEN 256
 #define MAX_PATH_LEN 2048

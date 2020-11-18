@@ -38,16 +38,21 @@
  */
 
 #include <sys/types.h>
-#include <sys/socket.h>
-#include <netdb.h>
 #include <errno.h>
 #include <string.h>
 #include <assert.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <fcntl.h>
-#include <arpa/inet.h>
 #include <pthread.h>
+
+#if _WIN32
+#include "w32-compat.h"
+#else
+#include <sys/socket.h>
+#include <netdb.h>
+#include <arpa/inet.h>
+#endif
 
 #include "debug.h"
 #include "asn.h"
@@ -115,7 +120,7 @@ void add_parsed_line(struct iptrie *result, char *line,
 static int amp_asn_flag_done_local(int fd) {
     uint16_t flag = AF_UNSPEC;
 
-    if ( send(fd, &flag, sizeof(flag), MSG_NOSIGNAL) < 0 ) {
+    if ( send(fd, (void*)&flag, sizeof(flag), MSG_NOSIGNAL) < 0 ) {
         Log(LOG_WARNING, "Failed to send asn end flag: %s", strerror(errno));
         return -1;
     }
@@ -158,15 +163,15 @@ static struct iptrie *amp_asn_fetch_results_local(int fd,
         size_t addrlen;
         struct sockaddr_storage addr;
 
-        if ( recv(fd, &asn, sizeof(asn), 0) <= 0 ) {
+        if ( recv(fd, (void*)&asn, sizeof(asn), 0) <= 0 ) {
             break;
         }
 
-        if ( recv(fd, &prefix, sizeof(prefix), 0) <= 0 ) {
+        if ( recv(fd, (void*)&prefix, sizeof(prefix), 0) <= 0 ) {
             break;
         }
 
-        if ( recv(fd, &family, sizeof(family), 0) <= 0 ) {
+        if ( recv(fd, (void*)&family, sizeof(family), 0) <= 0 ) {
             break;
         }
 
@@ -178,7 +183,7 @@ static struct iptrie *amp_asn_fetch_results_local(int fd,
             break;
         }
 
-        if ( recv(fd, &addr, addrlen, 0) <= 0 ) {
+        if ( recv(fd, (void*)&addr, addrlen, 0) <= 0 ) {
             break;
         }
 
@@ -211,7 +216,7 @@ static int amp_asn_add_query_local(int fd, struct sockaddr *address) {
     };
 
     Log(LOG_DEBUG, "Sending ASN address family");
-    if ( send(fd, &address->sa_family, sizeof(uint16_t), MSG_NOSIGNAL) < 0 ) {
+    if ( send(fd, (void*)&address->sa_family, sizeof(uint16_t), MSG_NOSIGNAL) < 0 ) {
         Log(LOG_WARNING, "Failed to send asn address family: %s",
                 strerror(errno));
         return -1;
@@ -367,13 +372,28 @@ int connect_to_whois_server(void) {
         return WHOIS_UNAVAILABLE;
     }
 
+    flags = SOCK_STREAM;
+#ifndef _WIN32
+    flags |= SOCK_NONBLOCK;
+#endif
+
     /* make this a non-blocking socket so we can give up connecting earlier */
-    if ( (fd = socket(AF_INET, SOCK_STREAM|SOCK_NONBLOCK, IPPROTO_TCP)) < 0 ) {
+    if ( (fd = socket(AF_INET, flags, IPPROTO_TCP)) < 0 ) {
         Log(LOG_WARNING, "Failed to create socket for whois server: %s",
                 strerror(errno));
         freeaddrinfo(result);
         return WHOIS_UNAVAILABLE;
     }
+
+#if _WIN32
+    long unsigned int blocking = 0;
+    if ( ioctlsocket(fd, FIONBIO, &blocking) != NO_ERROR ) {
+        Log(LOG_WARNING, "Failed to set whois socket non-blocking");
+        close(fd);
+        freeaddrinfo(result);
+        return WHOIS_UNAVAILABLE;
+    }
+#endif
 
     /*
      * Set low timeouts for sending on this socket - give up quickly in case
@@ -383,7 +403,7 @@ int connect_to_whois_server(void) {
      * enough room for a full message (after a partial write we will block
      * forever if the peer doesn't consume any more data).
      */
-    if ( setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &socktimeout,
+    if ( setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, (void*)&socktimeout,
                 sizeof(socktimeout)) < 0 ) {
         Log(LOG_WARNING, "Failed to set send timeout on whois socket: %s",
                 strerror(errno));
@@ -428,6 +448,14 @@ int connect_to_whois_server(void) {
 
     freeaddrinfo(result);
 
+#if _WIN32
+    blocking = 1;
+    if ( ioctlsocket(fd, FIONBIO, &blocking) != NO_ERROR ) {
+        Log(LOG_WARNING, "Failed to set whois socket blocking");
+        close(fd);
+        return WHOIS_UNAVAILABLE;
+    }
+#else
     /* get the current socket flags so we don't clobber any accidentally */
     if ( (flags = fcntl(fd, F_GETFL, NULL)) < 0 ) {
         Log(LOG_WARNING, "Failed to get flags for whois socket");
@@ -444,6 +472,7 @@ int connect_to_whois_server(void) {
         close(fd);
         return WHOIS_UNAVAILABLE;
     }
+#endif
 
     /* enable bulk input mode */
     if ( send(fd, "begin\n", strlen("begin\n"), 0) < 0 ) {

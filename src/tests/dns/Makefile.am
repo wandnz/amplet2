@@ -12,7 +12,12 @@ amp_dns_LDADD=dns.la -L../../common/ -lamp -lprotobuf-c -lunbound -levent
 test_LTLIBRARIES=dns.la
 dns_la_SOURCES=dns.c
 nodist_dns_la_SOURCES=dns.pb-c.c
-dns_la_LDFLAGS=-module -avoid-version -L../../common/ -lamp -lprotobuf-c -levent
+dns_la_LDFLAGS=-module -avoid-version -L../../common/ -lamp -lprotobuf-c -levent $(AM_LDFLAGS)
+
+if MINGW
+amp_dns_LDFLAGS=-static
+dns_la_LDFLAGS+=-liphlpapi
+endif
 
 INCLUDES=-I../ -I../../common/
 

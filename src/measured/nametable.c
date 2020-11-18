@@ -39,14 +39,19 @@
 
 #include <string.h>
 #include <sys/types.h>
+#include <assert.h>
+#include <errno.h>
 #include <unbound.h>
+
+#ifdef _WIN32
+#include "w32-compat.h"
+#else
 #include <sys/socket.h>
 #include <netdb.h>
-#include <assert.h>
 #include <arpa/inet.h>
-#include <errno.h>
 #include <glob.h>
 #include <netinet/in.h>
+#endif
 
 #include "schedule.h"
 #include "nametable.h"
@@ -115,7 +120,7 @@ static void dump_nametable(void) {
                         address, INET6_ADDRSTRLEN);
 
             } else {
-                Log(LOG_WARNING, "unknown address family: %d\n",
+                Log(LOG_DEBUG, "unknown address family: %d\n",
                         tmp->ai_addr->sa_family);
                 continue;
             }
@@ -271,7 +276,6 @@ void read_nametable_dir(struct ub_ctx *ctx, char *directory) {
     globfree(&glob_buf);
     return;
 }
-
 
 
 

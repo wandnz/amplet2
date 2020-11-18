@@ -41,7 +41,10 @@
 #define _COMMON_IPTRIE_H
 
 #include <stdint.h>
+
+#ifndef _WIN32
 #include <netinet/in.h>
+#endif
 
 
 #define iptrie_node_t struct iptrie_node

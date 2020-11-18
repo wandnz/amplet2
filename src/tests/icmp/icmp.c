@@ -41,19 +41,26 @@
 #include <getopt.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <sys/types.h>
+#include <sys/time.h>
+#include <assert.h>
+#include <string.h>
+#include <signal.h>
+#include <event2/event.h>
+
+#if _WIN32
+#include "w32-compat.h"
+#include "w32-net.h"
+#define exit(status) exit_test(status)
+#else
 #include <netinet/in.h>
 #include <netinet/ip_icmp.h>
 #include <netinet/ip6.h>
 #include <netinet/icmp6.h>
-#include <sys/socket.h>
-#include <sys/types.h>
-#include <netdb.h>
-#include <sys/time.h>
-#include <assert.h>
 #include <arpa/inet.h>
-#include <string.h>
-#include <signal.h>
-#include <event2/event.h>
+#include <sys/socket.h>
+#include <netdb.h>
+#endif
 
 #include "config.h"
 #include "tests.h"
@@ -94,6 +101,7 @@ static struct option long_options[] = {
  * if running standalone, or sent by the watchdog if running as part of
  * measured) and report the results that have been collected so far.
  */
+#ifndef _WIN32
 static void interrupt_test(
         __attribute__((unused))evutil_socket_t evsock,
         __attribute__((unused))short flags,
@@ -103,6 +111,7 @@ static void interrupt_test(
     Log(LOG_INFO, "Received SIGINT, halting ICMP test");
     event_base_loopbreak(base);
 }
+#endif
 
 
 
@@ -532,6 +541,7 @@ static int open_sockets(struct socket_t *sockets) {
     if ( (sockets->socket6 = socket(AF_INET6, SOCK_RAW, IPPROTO_ICMPV6)) < 0 ) {
 	Log(LOG_WARNING, "Failed to open raw socket for ICMPv6");
     } else {
+#ifndef _WIN32
 	/* configure ICMPv6 filters to only pass through ICMPv6 echo reply */
 	struct icmp6_filter filter;
 	ICMP6_FILTER_SETBLOCKALL(&filter);
@@ -540,6 +550,7 @@ static int open_sockets(struct socket_t *sockets) {
 		    &filter, sizeof(struct icmp6_filter)) < 0 ) {
 	    Log(LOG_WARNING, "Could not set ICMPv6 filter");
 	}
+#endif
     }
 
     /* make sure at least one type of socket was opened */
@@ -742,12 +753,12 @@ amp_test_result_t* run_icmp(int argc, char *argv[], int count,
             case 'p': globals->options.perturbate = atoi(optarg); break;
             case 'r': globals->options.random = 1; break;
             case 's': globals->options.packet_size = atoi(optarg); break;
-            case 'v': print_package_version(argv[0]); exit(EXIT_SUCCESS);
+            case 'v': print_package_version(argv[0]); exit(EXIT_SUCCESS); break;
             case 'x': log_level = LOG_DEBUG;
                       log_level_override = 1;
                       break;
-            case 'h': usage(); exit(EXIT_SUCCESS);
-            default: usage(); exit(EXIT_FAILURE);
+            case 'h': usage(); exit(EXIT_SUCCESS); break;
+            default: usage(); exit(EXIT_FAILURE); break;
 	};
     }
 
@@ -790,10 +801,12 @@ amp_test_result_t* run_icmp(int argc, char *argv[], int count,
 	exit(EXIT_FAILURE);
     }
 
+#ifndef _WIN32
     if ( set_dscp_socket_options(&globals->sockets,globals->options.dscp) < 0 ){
         Log(LOG_ERR, "Failed to set DSCP socket options, aborting test");
 	exit(EXIT_FAILURE);
     }
+#endif
 
     if ( device && bind_sockets_to_device(&globals->sockets, device) < 0 ) {
         Log(LOG_ERR, "Unable to bind raw ICMP socket to device, aborting test");
@@ -824,10 +837,14 @@ amp_test_result_t* run_icmp(int argc, char *argv[], int count,
     globals->dests = dests;
     globals->losstimer = NULL;
 
+#if _WIN32
+    signal_int = NULL;
+#else
     /* catch a SIGINT and end the test early */
     signal_int = event_new(globals->base, SIGINT,
             EV_SIGNAL|EV_PERSIST, interrupt_test, globals->base);
     event_add(signal_int, NULL);
+#endif
 
     /* set up callbacks for receiving packets */
     socket = event_new(globals->base, globals->sockets.socket,

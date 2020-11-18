@@ -40,9 +40,12 @@
 #ifndef _TESTS_DNS_H
 #define _TESTS_DNS_H
 
-#include <endian.h>
 #include <stdint.h>
 #include <sys/time.h>
+
+#ifndef _WIN32
+#include <endian.h>
+#endif
 
 #include "testlib.h"
 

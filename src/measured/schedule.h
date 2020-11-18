@@ -106,7 +106,7 @@ typedef enum schedule_period {
  * Test meta information - interfaces, timing, addresses etc to use.
  */
 typedef struct amp_test_meta {
-    char *interface;
+    char *iface;
     char *sourcev4;
     char *sourcev6;
     char *ampname;

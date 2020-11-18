@@ -40,9 +40,12 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include <arpa/inet.h>
 #include <string.h>
+
+#ifndef _WIN32
+#include <arpa/inet.h>
 #include <sys/socket.h>
+#endif
 
 #include "iptrie.h"
 #include "testlib.h"

@@ -159,6 +159,14 @@ build-centos7-amd64:
   script:
     - ./gitlab-build-rpm.sh
 
+build-w32-amd64:
+  <<: *build_template
+  image: debian:buster
+  script:
+    - *generic_apt_setup
+    - ./gitlab-build-w32.sh
+  allow_failure: true
+
 
 test-xenial-packages:
   stage: test

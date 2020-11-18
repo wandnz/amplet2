@@ -41,13 +41,18 @@
 #define _TESTS_ICMP_H
 
 #include <sys/types.h>
+#include <stdint.h>
+#include <sys/time.h>
+
+#if _WIN32
+#include "w32-net.h"
+#else
 #include <sys/socket.h>
 #include <netdb.h>
 #include <netinet/ip.h>
 #include <netinet/ip6.h>
 #include <netinet/ip_icmp.h>
-#include <stdint.h>
-#include <sys/time.h>
+#endif
 
 #include "testlib.h"
 
@@ -123,6 +128,7 @@ struct icmpglobals_t {
     struct event *nextpackettimer;
     struct event *losstimer;
 };
+
 
 
 amp_test_result_t* run_icmp(int argc, char *argv[], int count,

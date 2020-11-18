@@ -1,7 +1,7 @@
 /*
  * This file is part of amplet2.
  *
- * Copyright (c) 2013-2016 The University of Waikato, Hamilton, New Zealand.
+ * Copyright (c) 2013-2020 The University of Waikato, Hamilton, New Zealand.
  *
  * Author: Brendon Jones
  *
@@ -37,42 +37,12 @@
  * along with amplet2. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef _COMMON_DEBUG_H_
-#define _COMMON_DEBUG_H_
+#ifndef _MEASURED_W32_SERVICE_H
+#define _MEASURED_W32_SERVICE_H
 
-#if HAVE_SYSLOG
-#include <syslog.h>
-#else
-#define LOG_EMERG   0
-#define LOG_ALERT   1
-#define LOG_CRIT    2
-#define LOG_ERR     3
-#define LOG_WARNING 4
-#define LOG_NOTICE  5
-#define LOG_INFO    6
-#define LOG_DEBUG   7
-#endif
+#define AMP_SERVICE_NAME "amplet2-client"
 
-#if _WIN32
-#include <ws2tcpip.h>
-#else
-#include <netdb.h>
-#endif
-
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-extern int log_level;
-extern int log_level_override;
-
-void Log(int priority, const char *fmt, ...);
-const char *amp_inet_ntop(struct addrinfo *addr, char *buffer);
-const char *family_to_string(int family);
-
-#ifdef __cplusplus
-}
-#endif
+int actual_main(int argc, char *argv[]);
+void service_main(DWORD argc, LPTSTR *argv);
 
 #endif

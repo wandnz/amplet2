@@ -40,11 +40,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <sys/socket.h>
 #include <errno.h>
 #include <assert.h>
 #include <string.h>
+
+#ifndef _WIN32
+#include <sys/socket.h>
 #include <netdb.h>
+#endif
 
 #include "debug.h"
 #include "ssl.h"
@@ -69,7 +72,7 @@ static struct addrinfo *get_socket_address(int sock) {
     addr->ai_addrlen = sizeof(struct sockaddr_storage);
 
     /* ask to fill in the ai_addr portion for our socket */
-    getsockname(sock, addr->ai_addr, &addr->ai_addrlen);
+    getsockname(sock, addr->ai_addr, (void*)&addr->ai_addrlen);
 
     /* we already know most of the rest, so fill that in too */
     addr->ai_family = ((struct sockaddr*)addr->ai_addr)->sa_family;
@@ -94,14 +97,14 @@ static int set_and_verify_sockopt(int sock, int value, int proto,
     int verify;
 
     /* try setting the sockopt */
-    if ( setsockopt(sock, proto, opt, &value, size) < 0 ) {
+    if ( setsockopt(sock, proto, opt, (void*)&value, size) < 0 ) {
         Log(LOG_WARNING, "setsockopt failed to set the %s option to %d: %s",
                 optname,  value, strerror(errno));
         return -1;
     }
 
     /* and then verify that it worked */
-    if ( getsockopt(sock, proto, opt, &verify, &size) < 0 ) {
+    if ( getsockopt(sock, proto, opt, (void*)&verify, &size) < 0 ) {
         Log(LOG_WARNING, "getsockopt failed to get the %s option: %s",
                 optname, strerror(errno));
         return -1;
@@ -289,7 +292,7 @@ int start_listening(struct socket_t *sockets, int port,
          * If we dont set IPV6_V6ONLY this socket will try to do IPv4 as well
          * and it will fail.
          */
-        setsockopt(sockets->socket6, IPPROTO_IPV6, IPV6_V6ONLY, &one,
+        setsockopt(sockets->socket6, IPPROTO_IPV6, IPV6_V6ONLY, (void*)&one,
                 sizeof(one));
         ((struct sockaddr_in6*)
          (sockopts->sourcev6->ai_addr))->sin6_port = ntohs(port);

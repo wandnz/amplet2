@@ -45,11 +45,17 @@
 #include <sys/time.h>
 #include <string.h>
 #include <sys/types.h>
-#include <ifaddrs.h>
 #include <event2/event.h>
 #include <fcntl.h>
 #include <stdint.h>
+
+#if _WIN32
+#include <iphlpapi.h>
+#include "w32-compat.h"
+#else
+#include <ifaddrs.h>
 #include <sys/socket.h>
+#endif
 
 #include "config.h"
 #include "schedule.h"
@@ -81,11 +87,15 @@ void run_test(const test_schedule_item_t * const item, BIO *ctrl) {
     struct addrinfo **destinations = NULL;
     int total_resolve_count = 0;
     char *packet_delay_str = NULL;
-    timer_t watchdog;
     char *dscp_str = NULL;
     char *port_str = NULL;
     int forcev4 = 0;
     int forcev6 = 0;
+#if _WIN32
+    struct watchdog_context *watchdog;
+#else
+    timer_t watchdog;
+#endif
 
     assert(item);
     assert(item->test);
@@ -93,7 +103,19 @@ void run_test(const test_schedule_item_t * const item, BIO *ctrl) {
 
     /* Start the timer so the test will be killed if it runs too long */
     /* XXX should this start before or after DNS resolution, maybe after? */
+#if _WIN32
+    /*
+     * Windows watchdog context needs to be allocated on the heap otherwise
+     * it goes out of scope before the callback gets called on termination.
+     */
+    watchdog = malloc(sizeof(struct watchdog_context));
+    watchdog->thread_handle = OpenThread(SYNCHRONIZE|THREAD_TERMINATE,
+            FALSE, GetCurrentThreadId());
+
+    if ( start_test_watchdog(item->test, watchdog) < 0 ) {
+#else
     if ( start_test_watchdog(item->test, &watchdog) < 0 ) {
+#endif
         Log(LOG_WARNING, "Aborting %s test run", item->test->name);
         return;
     }
@@ -159,9 +181,9 @@ void run_test(const test_schedule_item_t * const item, BIO *ctrl) {
     }
 
     /* set the outgoing interface if configured at the global level */
-    if ( item->meta->interface != NULL ) {
+    if ( item->meta->iface != NULL ) {
         argv[argc++] = "-I";
-        argv[argc++] = item->meta->interface;
+        argv[argc++] = item->meta->iface;
     }
 
     /* set the outgoing source v4 address if configured at the global level */
@@ -214,8 +236,8 @@ void run_test(const test_schedule_item_t * const item, BIO *ctrl) {
     if ( item->resolve != NULL ) {
 	struct addrinfo *tmp;
         int resolver_fd;
-        struct ifaddrs *ifaddrlist;
-        int seen_ipv4, seen_ipv6;
+        int seen_ipv4 = 0;
+        int seen_ipv6 = 0;
 
 	Log(LOG_DEBUG, "test has destinations to resolve!\n");
 
@@ -226,41 +248,96 @@ void run_test(const test_schedule_item_t * const item, BIO *ctrl) {
          * when AI_ADDRCONFIG is set. Might be nice to do this inside the
          * amp_resolve_add() function, but then it's harder to keep state.
          */
+        // TODO check for a usable ipv6 address beyond a link-local?
         if ( forcev4 && !forcev6 ) {
             seen_ipv4 = 1;
             seen_ipv6 = 0;
         } else if ( forcev6 && !forcev4 ) {
             seen_ipv4 = 0;
             seen_ipv6 = 1;
-        } else if ( getifaddrs(&ifaddrlist) < 0 ) {
-            /* error getting interfaces, assume we can do both IPv4 and 6 */
-            seen_ipv4 = 1;
-            seen_ipv6 = 1;
+#if _WIN32
         } else {
-            struct ifaddrs *ifa;
-            seen_ipv4 = 0;
-            seen_ipv6 = 0;
-            for ( ifa = ifaddrlist; ifa != NULL; ifa = ifa->ifa_next ) {
-                /* some interfaces (e.g. ppp) sometimes won't have an address */
-                if ( ifa->ifa_addr == NULL ) {
-                    continue;
-                }
+            /* https://docs.microsoft.com/en-us/windows/win32/api/iphlpapi/nf-iphlpapi-getadaptersaddresses */
+            DWORD dwRetVal = 0;
+            PIP_ADAPTER_ADDRESSES pAddresses = NULL;
+            PIP_ADAPTER_ADDRESSES ifa = NULL;
+            ULONG outBufLen = 15000;
+            ULONG family = AF_UNSPEC;
+            ULONG flags = 0;
 
-                /* ignore other interfaces if the source interface is set */
-                if ( item->meta->interface != NULL &&
-                        strcmp(item->meta->interface, ifa->ifa_name) != 0 ) {
-                    continue;
-                }
+            pAddresses = (IP_ADAPTER_ADDRESSES *) malloc(outBufLen);
+            dwRetVal = GetAdaptersAddresses(family, flags, NULL, pAddresses, &outBufLen);
 
-                /* otherwise, flag the family as one that we can use */
-                if ( ifa->ifa_addr->sa_family == AF_INET ) {
-                    seen_ipv4 = 1;
-                } else if ( ifa->ifa_addr->sa_family == AF_INET6 ) {
-                    seen_ipv6 = 1;
+            if ( dwRetVal == NO_ERROR ) {
+                for ( ifa = pAddresses; ifa != NULL; ifa = ifa->Next ) {
+                    /* ignore other interfaces if the source interface is set */
+                    if ( item->meta->iface != NULL &&
+                            strcmp(item->meta->iface, ifa->AdapterName) != 0 ) {
+                        continue;
+                    }
+
+                    /* ignore interfaces that aren't up */
+                    if ( ifa->OperStatus != IfOperStatusUp ) {
+                        continue;
+                    }
+
+                    /* otherwise, flag the family as one that we can use */
+                    if ( ifa->IfIndex != 0 ) {
+                        seen_ipv4 = 1;
+                    }
+
+                    if ( ifa->Ipv6IfIndex != 0 ) {
+                        seen_ipv6 = 1;
+                    }
                 }
+            } else {
+                /* error getting interfaces, assume we can do both IPv4 and 6 */
+                Log(LOG_WARNING, "Failed to fetch adapter addresses");
+                seen_ipv4 = 1;
+                seen_ipv6 = 1;
             }
-            freeifaddrs(ifaddrlist);
+
+            if ( pAddresses ) {
+                free(pAddresses);
+            }
         }
+#else
+        } else {
+            struct ifaddrs *ifaddrlist;
+
+            if ( getifaddrs(&ifaddrlist) < 0 ) {
+                struct ifaddrs *ifa;
+                for ( ifa = ifaddrlist; ifa != NULL; ifa = ifa->ifa_next ) {
+                    /* some interfaces (e.g. ppp) won't have an address */
+                    if ( ifa->ifa_addr == NULL ) {
+                        continue;
+                    }
+
+                    /* ignore other interfaces if the source interface is set */
+                    if ( item->meta->iface != NULL &&
+                            strcmp(item->meta->iface, ifa->ifa_name) != 0 ) {
+                        continue;
+                    }
+
+                    /* otherwise, flag the family as one that we can use */
+                    if ( ifa->ifa_addr->sa_family == AF_INET ) {
+                        seen_ipv4 = 1;
+                    } else if ( ifa->ifa_addr->sa_family == AF_INET6 ) {
+                        seen_ipv6 = 1;
+                    }
+                }
+            } else {
+                /* error getting interfaces, assume we can do both IPv4 and 6 */
+                Log(LOG_WARNING, "Failed to fetch adapter addresses");
+                seen_ipv4 = 1;
+                seen_ipv6 = 1;
+            }
+
+            if ( ifaddrlist ) {
+                freeifaddrs(ifaddrlist);
+            }
+        }
+#endif
 
         /* connect to the local amp resolver/cache */
         if ( (resolver_fd = amp_resolver_connect(vars.nssock)) < 0 ) {
@@ -383,8 +460,41 @@ void run_test(const test_schedule_item_t * const item, BIO *ctrl) {
     /* free the environment duped by set_proc_name() */
     free_duped_environ();
 
+#if _WIN32
+    ExitThread(EXIT_SUCCESS);
+#else
     exit(EXIT_SUCCESS);
+#endif
 }
+
+
+
+#if _WIN32
+static long unsigned int run_test_w32(void *data) {
+    test_schedule_item_t *item = (test_schedule_item_t*)data;
+
+#if 0
+    /* XXX threads probably don't want to do this? */
+    close(vars.asnsock_fd);
+    close(vars.nssock_fd);
+
+    /* unblock signals and remove handlers that the parent process added */
+    if ( unblock_signals() < 0 ) {
+        Log(LOG_WARNING, "Failed to unblock signals, aborting");
+        exit(EXIT_FAILURE);
+    }
+
+    /* XXX threads probably don't want to do this? */
+    clear_test_schedule(item->meta->base, 1);
+    event_base_free(item->meta->base);
+#endif
+
+    run_test(item, NULL);
+
+    Log(LOG_WARNING, "%s test failed to run", item->test->name);
+    ExitThread(EXIT_FAILURE);
+}
+#endif
 
 
 
@@ -395,7 +505,6 @@ void run_test(const test_schedule_item_t * const item, BIO *ctrl) {
  */
 static int fork_test(test_schedule_item_t *item) {
     struct timeval now;
-    pid_t pid;
 
     assert(item);
     assert(item->test);
@@ -408,7 +517,7 @@ static int fork_test(test_schedule_item_t *item) {
      */
     gettimeofday(&now, NULL);
     if ( timercmp(&now, &item->abstime, <) ) {
-        timersub(&item->abstime, &now, &now);
+        evutil_timersub(&item->abstime, &now, &now);
         /* run too soon, don't run it now - let it get rescheduled */
         if ( now.tv_sec != 0 || now.tv_usec > SCHEDULE_CLOCK_FUDGE ) {
             Log(LOG_DEBUG, "%s test triggered early, will reschedule",
@@ -417,7 +526,14 @@ static int fork_test(test_schedule_item_t *item) {
         }
     }
 
-
+#if _WIN32
+    CreateThread(NULL,
+            0,
+            run_test_w32,
+            item,
+            0,
+            NULL);
+#else
     /*
      * man fork:
      * "Under Linux, fork() is implemented using copy-on-write pages..."
@@ -425,6 +541,7 @@ static int fork_test(test_schedule_item_t *item) {
      * unless we are modifying it. We shouldn't be modifying it, so should be
      * fine.
      */
+    pid_t pid;
     if ( (pid = fork()) < 0 ) {
         perror("fork");
         return 0;
@@ -455,6 +572,7 @@ static int fork_test(test_schedule_item_t *item) {
         Log(LOG_WARNING, "%s test failed to run", item->test->name);
         exit(EXIT_FAILURE);
     }
+#endif
 
     return 1;
 }

@@ -42,12 +42,87 @@
 #include <errno.h>
 #include <assert.h>
 #include <sys/types.h>
-#include <sys/wait.h>
 #include <string.h>
 #include <sys/time.h>
 
+#ifndef _WIN32
+#include <sys/wait.h>
+#endif
+
 #include "watchdog.h"
 #include "debug.h"
+
+
+#if _WIN32
+/*
+ * Callback triggered when timer expires or thread exits. The boolean
+ * TimerOrWaitFired is true if the timer expired, false otherwise.
+ */
+static void callback(void *data, BOOLEAN TimerOrWaitFired) {
+    struct watchdog_context *context = (struct watchdog_context*)data;
+
+    if ( TimerOrWaitFired ) {
+        Log(LOG_WARNING, "Terminating test thread that ran too long");
+        TerminateThread(context->thread_handle, ERROR_TIMEOUT);
+    }
+
+    // always need to tidy up watchdog even after it has triggered
+    stop_watchdog(context);
+}
+
+
+
+/*
+ * Start a watchdog to kill a test that runs over time.
+ */
+int start_test_watchdog(test_t *test, struct watchdog_context *context) {
+    assert(test);
+    assert(context);
+
+    Log(LOG_DEBUG, "Creating watchdog timer of %d seconds for %s test",
+            test->max_duration, test->name);
+
+    if ( RegisterWaitForSingleObject(&context->wait_handle,
+                context->thread_handle, callback, context,
+                test->max_duration * 1000, WT_EXECUTEONLYONCE) == 0 ) {
+        return -1;
+    }
+
+    return 0;
+}
+
+
+
+/*
+ * Disarm and delete the timer that was set up to kill this test process.
+ */
+int stop_watchdog(struct watchdog_context *context) {
+    int result = 0;
+
+    if ( context ) {
+        /* even when using WT_EXECUTEONLYONE it always needs to be removed */
+        if ( context->wait_handle ) {
+            // UnregisterWaitEx vs UnregisterWait, avoid deadlocks?
+            result = UnregisterWaitEx(context->wait_handle, NULL);
+            context->wait_handle = NULL;
+        }
+
+        /* and I think the thread handle persists even after termination too */
+        if ( context->thread_handle ) {
+            CloseHandle(context->thread_handle);
+            context->thread_handle = NULL; // or ERROR_INVALID_HANDLE?
+        }
+
+        free(context);
+        context = NULL;
+    }
+
+    return result;
+}
+
+
+
+#else
 
 
 
@@ -70,6 +145,7 @@ int start_test_watchdog(test_t *test, timer_t *timerid) {
 
     return start_watchdog(test->max_duration, SIGKILL, timerid);
 }
+
 
 
 
@@ -186,3 +262,4 @@ void child_reaper(
         };
     }
 }
+#endif

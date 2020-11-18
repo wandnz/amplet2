@@ -41,14 +41,19 @@
 #include <getopt.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <sys/socket.h>
 #include <sys/types.h>
-#include <netdb.h>
 #include <sys/time.h>
 #include <errno.h>
 #include <assert.h>
 #include <string.h>
 #include <curl/curl.h>
+
+#if _WIN32
+#define exit(status) exit_test(status)
+#else
+#include <sys/socket.h>
+#include <netdb.h>
+#endif
 
 #include "config.h"
 #include "testlib.h"
@@ -960,6 +965,22 @@ CURL *pipeline_next_object(CURLM *multi, struct server_stats_t *server) {
     curl_easy_setopt(object->handle, CURLOPT_USERAGENT, options.useragent);
     curl_easy_setopt(object->handle, CURLOPT_SSLVERSION, options.sslversion);
 
+#if 0
+    /* use the native windows CA store if possible */
+#if _WIN32 && LIBCURL_VERSION_NUM >= 0x074700
+    curl_easy_setopt(object->handle, CURLOPT_SSL_OPTIONS, CURLSSLOPT_NATIVE_CA);
+#endif
+#endif
+
+#if _WIN32
+    /*
+     * set this manually for now, as CURLSSLOPT_NATIVE_CA doesn't seem to do
+     * what we need/expect?
+     */
+    curl_easy_setopt(object->handle, CURLOPT_CAINFO,
+            AMP_CONFIG_DIR "ca-certificates.crt");
+#endif
+
     /* save the time that fetching started for this object */
     gettimeofday(&object->start, NULL);
 
@@ -1464,12 +1485,12 @@ amp_test_result_t* run_http(int argc, char *argv[],
                       strncat(options.url, options.path, MAX_PATH_LEN);
                       break;
             case 'z': options.pipe_size_before_skip = atoi(optarg); break;
-            case 'v': print_package_version(argv[0]); exit(EXIT_SUCCESS);
+            case 'v': print_package_version(argv[0]); exit(EXIT_SUCCESS); break;
             case 'x': log_level = LOG_DEBUG;
                       log_level_override = 1;
                       break;
-	    case 'h': usage(); exit(EXIT_SUCCESS);
-	    default: usage(); exit(EXIT_FAILURE);
+	    case 'h': usage(); exit(EXIT_SUCCESS); break;
+	    default: usage(); exit(EXIT_FAILURE); break;
 	};
     }
 

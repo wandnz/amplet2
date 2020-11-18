@@ -48,6 +48,17 @@
 /* number of seconds a test has between a warning SIGINT and the SIGKILL */
 #define WATCHDOG_GRACE_PERIOD 30
 
+#if _WIN32
+struct watchdog_context {
+    HANDLE thread_handle;
+    HANDLE wait_handle;
+};
+
+int start_test_watchdog(test_t *test, struct watchdog_context *watchdog);
+int stop_watchdog(struct watchdog_context *watchdog);
+
+#else
+
 int start_test_watchdog(test_t *test, timer_t *timerid);
 int start_watchdog(time_t duration, int signal, timer_t *timerid);
 int stop_watchdog(timer_t timerid);
@@ -56,5 +67,6 @@ void child_reaper(
         __attribute__((unused))evutil_socket_t evsock,
         __attribute__((unused))short flags,
         __attribute__((unused))void *evdata);
+#endif
 
 #endif

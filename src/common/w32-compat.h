@@ -1,7 +1,7 @@
 /*
  * This file is part of amplet2.
  *
- * Copyright (c) 2013-2016 The University of Waikato, Hamilton, New Zealand.
+ * Copyright (c) 2013-2020 The University of Waikato, Hamilton, New Zealand.
  *
  * Author: Brendon Jones
  *
@@ -37,42 +37,48 @@
  * along with amplet2. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef _COMMON_DEBUG_H_
-#define _COMMON_DEBUG_H_
+#ifndef _COMMON_W32COMPAT_H
+#define _COMMON_W32COMPAT_H
 
-#if HAVE_SYSLOG
-#include <syslog.h>
-#else
-#define LOG_EMERG   0
-#define LOG_ALERT   1
-#define LOG_CRIT    2
-#define LOG_ERR     3
-#define LOG_WARNING 4
-#define LOG_NOTICE  5
-#define LOG_INFO    6
-#define LOG_DEBUG   7
+#include "fmemopen.h"
+
+#define dlopen(filename, flags) LoadLibrary(filename)
+#define dlsym(hdl, func) GetProcAddress(hdl, func)
+#define dlclose(hdl) FreeLibrary(hdl)
+
+#define random() rand()
+#define srandom(seed) srand(seed)
+
+//#define ctime_r(timep, buf) ctime_s(buf, sizeof(buf), timep)
+#define timegm(tm) _mkgmtime(tm)
+#define mkdir(pathname, mode) mkdir(pathname)
+
+/* rename on windows won't overwrite an existing file, so make it */
+#define rename(oldpath, newpath) MoveFileEx(oldpath, newpath, MOVEFILE_REPLACE_EXISTING)
+
+#ifndef MSG_NOSIGNAL
+#define MSG_NOSIGNAL 0
 #endif
 
-#if _WIN32
-#include <ws2tcpip.h>
-#else
-#include <netdb.h>
+#ifndef SIGUSR1
+#define SIGUSR1 10
 #endif
 
-
-#ifdef __cplusplus
-extern "C" {
+#ifndef s6_addr16
+#define s6_addr16       u.Word
 #endif
 
-extern int log_level;
-extern int log_level_override;
+/* global reference to this event so that threads can fake sending a SIGUSR1 */
+struct event *signal_usr1;
 
-void Log(int priority, const char *fmt, ...);
-const char *amp_inet_ntop(struct addrinfo *addr, char *buffer);
-const char *family_to_string(int family);
+/* reimplement glob using _findfirst and _findnext */
+typedef struct {
+    size_t gl_pathc;
+    char **gl_pathv;
+} glob_t;
 
-#ifdef __cplusplus
-}
-#endif
-
+int glob(const char *pattern, int flags, void *errfunc, glob_t *pglob);
+void globfree(glob_t *pglob);
+char* sockerr(int errcode);
+void exit_test(int status);
 #endif

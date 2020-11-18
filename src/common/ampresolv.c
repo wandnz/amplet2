@@ -42,11 +42,13 @@
 #include <errno.h>
 #include <assert.h>
 #include <unbound.h>
-#include <sys/socket.h>
-#include <sys/un.h>
 #include <pthread.h>
 #include <unistd.h>
 #include <stdio.h>
+#ifndef _WIN32
+#include <sys/socket.h>
+#include <sys/un.h>
+#endif
 
 #include "ampresolv.h"
 #include "debug.h"
@@ -368,23 +370,33 @@ void amp_resolve_freeaddr(struct addrinfo *addrlist) {
 /*
  * Create a connection to the local resolver/cache for a test to use.
  */
-int amp_resolver_connect(char *path) {
-    struct sockaddr_un addr;
+int amp_resolver_connect(char *target) {
     int sock;
+    struct sockaddr_storage *addr;
+    socklen_t addrlen;
+#if _WIN32
+    struct addrinfo *tmp;
+    Log(LOG_DEBUG, "Connecting to 127.0.0.1:%s for name resolution", target);
+    tmp = get_numeric_address("127.0.0.1", target);
+    addr = (struct sockaddr_storage*)tmp->ai_addr;
+    addrlen = tmp->ai_addrlen;
+#else
+    struct sockaddr_un tmp;
+    Log(LOG_DEBUG, "Connecting to socket '%s' for name resolution", target);
+    tmp.sun_family = AF_UNIX;
+    snprintf(tmp.sun_path, UNIX_PATH_MAX, "%s", target);
+    addr = (struct sockaddr_storage*)&tmp;
+    addrlen = sizeof(tmp);
+#endif
 
-    Log(LOG_DEBUG, "Connecting to local socket '%s' for name resolution", path);
-
-    addr.sun_family = AF_UNIX;
-    snprintf(addr.sun_path, UNIX_PATH_MAX, "%s", path);
-
-    /* connect to the unix socket the cache is listening on */
-    if ( (sock = socket(AF_UNIX, SOCK_STREAM, 0)) < 0 ) {
+    /* connect to the unix socket or local port the cache is listening on */
+    if ( (sock = socket(addr->ss_family, SOCK_STREAM, 0)) < 0 ) {
         Log(LOG_WARNING, "Failed to open local socket for name resolution: %s",
                 strerror(errno));
         return -1;
     }
 
-    if ( connect(sock, (struct sockaddr*)&addr, sizeof(addr)) < 0 ) {
+    if ( connect(sock, (struct sockaddr*)addr, addrlen) < 0 ) {
         if ( errno != ENOENT ) {
             Log(LOG_WARNING,
                     "Failed to open local socket for name resolution: %s",
@@ -411,7 +423,7 @@ int amp_resolve_add_new(int fd, resolve_dest_t *resolve) {
     info.family = resolve->family;
 
     /* send the supporting metadata about name length, family etc */
-    if ( send(fd, &info, sizeof(info), 0) < 0 ) {
+    if ( send(fd, (void*)&info, sizeof(info), 0) < 0 ) {
         Log(LOG_WARNING, "Failed to send resolution query info: %s",
                 strerror(errno));
         return -1;
@@ -440,7 +452,7 @@ int amp_resolve_flag_done(int fd) {
     info.family = 0;
 
     /* send the supporting metadata about name length, family etc */
-    if ( send(fd, &info, sizeof(info), 0) < 0 ) {
+    if ( send(fd, (void*)&info, sizeof(info), 0) < 0 ) {
         Log(LOG_WARNING, "Failed to send resolution query info: %s",
                 strerror(errno));
         return -1;
@@ -468,7 +480,7 @@ struct addrinfo *amp_resolve_get_list(int fd) {
     /* everything we read should be the result of a name lookup */
     while ( 1 ) {
         struct addrinfo *tmp;
-        if ( recv(fd, &item, sizeof(struct addrinfo), 0) <= 0 ) {
+        if ( recv(fd, (void*)&item, sizeof(struct addrinfo), 0) <= 0 ) {
             break;
         }
 
@@ -482,13 +494,13 @@ struct addrinfo *amp_resolve_get_list(int fd) {
         /* there might not be an address for this name */
         if ( tmp->ai_addrlen > 0 ) {
             tmp->ai_addr = calloc(1, tmp->ai_addrlen);
-            if ( recv(fd, tmp->ai_addr, tmp->ai_addrlen, 0) <= 0 ) {
+            if ( recv(fd, (void*)tmp->ai_addr, tmp->ai_addrlen, 0) <= 0 ) {
                 free(tmp);
                 break;
             }
         }
 
-        if ( recv(fd, &namelen, sizeof(namelen), 0) <= 0 ) {
+        if ( recv(fd, (void*)&namelen, sizeof(namelen), 0) <= 0 ) {
             free(tmp);
             break;
         }
@@ -502,7 +514,7 @@ struct addrinfo *amp_resolve_get_list(int fd) {
         tmp->ai_canonname = strdup(name);
         assert(tmp->ai_canonname);
 
-        if ( recv(fd, &more, sizeof(more), 0) <= 0 ) {
+        if ( recv(fd, (void*)&more, sizeof(more), 0) <= 0 ) {
             free(tmp->ai_canonname);
             free(tmp);
             break;

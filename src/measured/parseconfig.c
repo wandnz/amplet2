@@ -58,6 +58,9 @@
 #include "rabbitcfg.h"
 #include "modules.h"
 
+#ifndef HOST_NAME_MAX
+#define HOST_NAME_MAX 64
+#endif
 
 
 /*
@@ -321,11 +324,11 @@ amp_control_t* get_control_config(cfg_t *cfg, amp_test_meta_t *meta) {
          * interface (if that is set). Otherwise don't set the interface.
          */
         if ( cfg_getstr(cfg_sub, "interface") != NULL ) {
-            control->interface = strdup(cfg_getstr(cfg_sub, "interface"));
-        } else if ( meta->interface != NULL ) {
-            control->interface = strdup(meta->interface);
+            control->iface = strdup(cfg_getstr(cfg_sub, "interface"));
+        } else if ( meta->iface != NULL ) {
+            control->iface = strdup(meta->iface);
         } else {
-            control->interface = NULL;
+            control->iface = NULL;
         }
 
         /*
@@ -492,8 +495,8 @@ amp_test_meta_t* get_interface_config(cfg_t *cfg, amp_test_meta_t *meta) {
     assert(meta);
 
     /* should we be testing using a particular interface */
-    if ( meta->interface == NULL && cfg_getstr(cfg, "interface") != NULL ) {
-        meta->interface = strdup(cfg_getstr(cfg, "interface"));
+    if ( meta->iface == NULL && cfg_getstr(cfg, "interface") != NULL ) {
+        meta->iface = strdup(cfg_getstr(cfg, "interface"));
     }
 
     /* should we be testing using a particular source ipv4 address */
@@ -552,7 +555,7 @@ struct ub_ctx* get_dns_context_config(cfg_t *cfg, amp_test_meta_t *meta) {
  */
 void get_default_test_args(cfg_t *cfg) {
     cfg_t *cfg_defaults;
-    int i;
+    unsigned int i;
 
     for ( i = 0; i < cfg_size(cfg, "defaults"); i++ ) {
         test_t *test;

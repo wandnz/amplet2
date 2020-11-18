@@ -12,12 +12,14 @@ amp_tcpping_LDADD=tcpping.la -L../../common/ -lamp -lpcap -lprotobuf-c -lunbound
 test_LTLIBRARIES=tcpping.la
 tcpping_la_SOURCES=pcapcapture.c tcpping.c
 nodist_tcpping_la_SOURCES=tcpping.pb-c.c
-tcpping_la_LDFLAGS=-module -avoid-version -L../../common/ -lamp -lpcap -lprotobuf-c -levent
+tcpping_la_LDFLAGS=-module -avoid-version -L../../common/ -lamp -lpcap -lprotobuf-c -levent $(AM_LDFLAGS)
 
 INCLUDES=-I../ -I../../common/
 
+if !MINGW
 install-exec-hook:
 	setcap 'CAP_NET_ADMIN=ep CAP_NET_RAW=ep' $(DESTDIR)/$(bindir)/amp-tcpping
+endif
 
 tcpping.pb-c.c: tcpping.proto
 	protoc-c --c_out=. tcpping.proto
