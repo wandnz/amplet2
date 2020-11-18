@@ -63,6 +63,9 @@ struct amp_global_t {
     int asnsock_fd;
     char **argv;
     int argc;
+#if _WIN32
+    int standalone;
+#endif
 };
 
 struct amp_global_t vars;

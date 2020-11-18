@@ -37,16 +37,6 @@
  * along with amplet2. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#if _WIN32
-#include <ws2tcpip.h>
-#else
-#include <sys/socket.h>
-#include <netdb.h>
-#include <sys/ioctl.h>
-#include <linux/net_tstamp.h>
-#include <linux/errqueue.h>
-#endif
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -60,6 +50,18 @@
 #include <getopt.h>
 
 #include <google/protobuf-c/protobuf-c.h>
+
+#if _WIN32
+#include <ws2tcpip.h>
+#include "w32-compat.h"
+#define exit(status) exit_test(status)
+#else
+#include <sys/socket.h>
+#include <netdb.h>
+#include <sys/ioctl.h>
+#include <linux/net_tstamp.h>
+#include <linux/errqueue.h>
+#endif
 
 #include "config.h"
 #include "testlib.h"

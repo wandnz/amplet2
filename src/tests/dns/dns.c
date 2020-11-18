@@ -53,6 +53,7 @@
 #if _WIN32
 #include <iphlpapi.h>
 #include "w32-compat.h"
+#define exit(status) exit_test(status)
 #else
 #include <netinet/in.h>
 #include <netinet/ip6.h>
@@ -1200,12 +1201,12 @@ amp_test_result_t* run_dns(int argc, char *argv[], int count,
             case 's': options->dnssec = 1; break;
             case 't': options->query_type = get_query_type(optarg); break;
             case 'z': options->udp_payload_size = atoi(optarg); break;
-            case 'v': print_package_version(argv[0]); exit(EXIT_SUCCESS);
+            case 'v': print_package_version(argv[0]); exit(EXIT_SUCCESS); break;
             case 'x': log_level = LOG_DEBUG;
                       log_level_override = 1;
                       break;
-            case 'h': usage(); exit(EXIT_SUCCESS);
-            default: usage(); exit(EXIT_FAILURE);
+            case 'h': usage(); exit(EXIT_SUCCESS); break;
+            default: usage(); exit(EXIT_FAILURE); break;
         };
     }
 

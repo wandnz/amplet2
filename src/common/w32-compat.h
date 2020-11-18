@@ -80,5 +80,5 @@ typedef struct {
 int glob(const char *pattern, int flags, void *errfunc, glob_t *pglob);
 void globfree(glob_t *pglob);
 char* sockerr(int errcode);
-
+void exit_test(int status);
 #endif

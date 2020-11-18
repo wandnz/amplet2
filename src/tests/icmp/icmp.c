@@ -51,6 +51,7 @@
 #if _WIN32
 #include "w32-compat.h"
 #include "w32-net.h"
+#define exit(status) exit_test(status)
 #else
 #include <netinet/in.h>
 #include <netinet/ip_icmp.h>
@@ -752,12 +753,12 @@ amp_test_result_t* run_icmp(int argc, char *argv[], int count,
             case 'p': globals->options.perturbate = atoi(optarg); break;
             case 'r': globals->options.random = 1; break;
             case 's': globals->options.packet_size = atoi(optarg); break;
-            case 'v': print_package_version(argv[0]); exit(EXIT_SUCCESS);
+            case 'v': print_package_version(argv[0]); exit(EXIT_SUCCESS); break;
             case 'x': log_level = LOG_DEBUG;
                       log_level_override = 1;
                       break;
-            case 'h': usage(); exit(EXIT_SUCCESS);
-            default: usage(); exit(EXIT_FAILURE);
+            case 'h': usage(); exit(EXIT_SUCCESS); break;
+            default: usage(); exit(EXIT_FAILURE); break;
 	};
     }
 

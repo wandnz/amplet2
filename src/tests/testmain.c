@@ -197,6 +197,10 @@ int main(int argc, char *argv[]) {
     /* null terminate the new argv for the test */
     test_argv[test_argc] = NULL;
 
+#if _WIN32
+    vars.standalone = 1;
+#endif
+
     /* make sure all or none of the SSL settings are set */
     if ( vars.amqp_ssl.cacert || vars.amqp_ssl.cert || vars.amqp_ssl.key ) {
         if ( !vars.amqp_ssl.cacert || !vars.amqp_ssl.cert ||

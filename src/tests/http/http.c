@@ -48,7 +48,9 @@
 #include <string.h>
 #include <curl/curl.h>
 
-#ifndef _WIN32
+#if _WIN32
+#define exit(status) exit_test(status)
+#else
 #include <sys/socket.h>
 #include <netdb.h>
 #endif
@@ -1483,12 +1485,12 @@ amp_test_result_t* run_http(int argc, char *argv[],
                       strncat(options.url, options.path, MAX_PATH_LEN);
                       break;
             case 'z': options.pipe_size_before_skip = atoi(optarg); break;
-            case 'v': print_package_version(argv[0]); exit(EXIT_SUCCESS);
+            case 'v': print_package_version(argv[0]); exit(EXIT_SUCCESS); break;
             case 'x': log_level = LOG_DEBUG;
                       log_level_override = 1;
                       break;
-	    case 'h': usage(); exit(EXIT_SUCCESS);
-	    default: usage(); exit(EXIT_FAILURE);
+	    case 'h': usage(); exit(EXIT_SUCCESS); break;
+	    default: usage(); exit(EXIT_FAILURE); break;
 	};
     }
 

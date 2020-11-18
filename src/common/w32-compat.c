@@ -43,6 +43,7 @@
 #include <stdio.h>
 #include <fcntl.h>
 
+#include "global.h"
 #include "w32-compat.h"
 
 
@@ -126,4 +127,19 @@ void globfree(glob_t *pglob) {
 
     pglob->gl_pathc = 0;
     pglob->gl_pathv = NULL;
+}
+
+
+
+/*
+ * Exit a running test in a way that works regardless of how it is being run.
+ * Linux tests are always processes and can simply exit(), but Windows tests
+ * are threads and only want to exit the whole process when run standalone.
+ */
+void exit_test(int status) {
+    if ( vars.standalone ) {
+        exit(status);
+    }
+
+    ExitThread(status);
 }
