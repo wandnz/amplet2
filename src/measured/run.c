@@ -505,7 +505,6 @@ static long unsigned int run_test_w32(void *data) {
  */
 static int fork_test(test_schedule_item_t *item) {
     struct timeval now;
-    pid_t pid;
 
     assert(item);
     assert(item->test);
@@ -542,6 +541,7 @@ static int fork_test(test_schedule_item_t *item) {
      * unless we are modifying it. We shouldn't be modifying it, so should be
      * fine.
      */
+    pid_t pid;
     if ( (pid = fork()) < 0 ) {
         perror("fork");
         return 0;

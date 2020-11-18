@@ -267,6 +267,7 @@ static void load_tests_and_schedules(amp_test_meta_t *meta) {
 
 
 
+#ifndef _WIN32
 /*
  * Dump internal scheduling information to a file for later analysis. We need
  * to be able to see the current state of the schedule to diagnose scheduling
@@ -299,6 +300,7 @@ static void debug_dump(evutil_socket_t evsock,
     fclose(out);
     free(filename);
 }
+#endif
 
 
 
@@ -371,11 +373,11 @@ int actual_main(int argc, char *argv[]) {
 #else
 int main(int argc, char *argv[]) {
     struct event *signal_usr1 = NULL;
+    int backgrounded = 0;
 #endif
     char *config_file = NULL;
     char *pidfile = NULL;
     int fetch_remote = 1;
-    int backgrounded = 0;
     struct amp_asn_info *asn_info;
     amp_test_meta_t meta;
     amp_control_t *control;
@@ -391,7 +393,6 @@ int main(int argc, char *argv[]) {
     struct event *asn_socket_event = NULL;
     struct event *signal_hup = NULL;
     struct event *signal_tmax = NULL;
-    const char *event_noepoll = "1";
     struct ub_ctx *dns_ctx;
     char nametable[PATH_MAX];
 
@@ -665,6 +666,7 @@ int main(int argc, char *argv[]) {
      * the behaviour, but still triggers scary looking warning messages.
      */
 #ifndef _WIN32
+    const char *event_noepoll = "1";
     if ( setenv("EVENT_NOEPOLL", event_noepoll, 0) < 0 ) {
         Log(LOG_WARNING, "Failed to disable libevent epoll");
         cfg_free(cfg);

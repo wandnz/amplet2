@@ -161,7 +161,7 @@ end:
     pthread_mutex_destroy(&addrlist_lock);
     free(data);
 
-    pthread_exit(NULL);
+    return NULL;
 }
 
 
