@@ -1,5 +1,5 @@
 Name: amplet2
-Version: 0.10.6
+Version: 0.11.0
 Release: 1%{?dist}
 Summary: AMP Network Performance Measurement Suite
 
@@ -176,6 +176,12 @@ fi
 
 
 %changelog
+* Thu Nov 19 2020 Brendon Jones <brendonj@waikato.ac.nz> 0.11.0-1
+- all tests: keep destinations that don't resolve (#4).
+- amplet2: add trailing ':' when setting interface using ub_ctx_set_option.
+- amplet2: use libunbound to manage the nametable (#45).
+- amplet2: count empty files as missing, so certificates will be fetched.
+
 * Fri Sep 11 2020 Brendon Jones <brendonj@waikato.ac.nz> 0.10.6-1
 - amplet2: Replace function that waits for DNS responses with ub_wait().
 - amplet2: Replace 32bit IPv6 accessors with 16bit when comparing addresses.

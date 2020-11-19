@@ -1,3 +1,12 @@
+amplet2 (0.11.0-1) unstable; urgency=low
+
+  * all tests: keep destinations that don't resolve (#4).
+  * amplet2: add trailing ':' when setting interface using ub_ctx_set_option.
+  * amplet2: use libunbound to manage the nametable (#45).
+  * amplet2: count empty files as missing, so certificates will be fetched.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Thu, 19 Nov 2020 13:58:58 +1300
+
 amplet2 (0.10.6-1) unstable; urgency=low
 
   * amplet2: Replace function that waits for DNS responses with ub_wait().
