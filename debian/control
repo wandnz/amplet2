@@ -2,7 +2,7 @@ Source: amplet2
 Section: net
 Priority: optional
 Maintainer: Brendon Jones <brendonj@waikato.ac.nz>
-Build-Depends: debhelper (>= 9~), autotools-dev, python, libunbound-dev, libssl-dev, libpcap-dev (>= 1.7.4), libyaml-dev, libprotobuf-c-dev, protobuf-c-compiler, protobuf-compiler, dh-systemd, libconfuse-dev, libcurl4-openssl-dev, librabbitmq-dev (>= 0.7.1), libevent-dev (>= 2.0.21), python-setuptools, flex, automake, libtool, libcap2-bin, libcap-dev, dh-exec, libpjproject-dev <!buster>, clang <pkg.amplet2.build-youtube>, lld <pkg.amplet2.build-youtube>, libnss3 <pkg.amplet2.build-youtube>, libglib2.0-dev <pkg.amplet2.build-youtube>
+Build-Depends: debhelper (>= 9~), autotools-dev, python-all, python3-all, libunbound-dev, libssl-dev, libpcap-dev (>= 1.7.4), libyaml-dev, libprotobuf-c-dev, protobuf-c-compiler, protobuf-compiler, dh-systemd, libconfuse-dev, libcurl4-openssl-dev, librabbitmq-dev (>= 0.7.1), libevent-dev (>= 2.0.21), python-setuptools, python3-setuptools, flex, automake, libtool, libcap2-bin, libcap-dev, dh-exec, dh-python, libpjproject-dev <!buster>, clang <pkg.amplet2.build-youtube>, lld <pkg.amplet2.build-youtube>, libnss3 <pkg.amplet2.build-youtube>, libglib2.0-dev <pkg.amplet2.build-youtube>
 Standards-Version: 3.8.4
 Homepage: http://amp.wand.net.nz
 Vcs-Git: https://github.com/wanduow/amplet2.git
@@ -42,9 +42,23 @@ Description: AMP Network Performance Measurement Suite - YouTube test
 
 Package: amplet2-server
 Architecture: all
-Depends: ${shlibs:Depends}, ${misc:Depends}, rabbitmq-server (>= 3.1.5), python-protobuf
+Depends: ${shlibs:Depends}, ${misc:Depends}, rabbitmq-server (>= 3.1.5), python-protobuf, python-ampsave
 Conflicts: amp-server
 Description: AMP Network Performance Measurement Suite - Collector Server
  This package contains the server tools used to run an AMP collector.
  Typically your collector will accept lots of measurement results from a
  set of amplets running the software found in the amplet-client package.
+
+Package: python-ampsave
+Architecture: all
+Replaces: amplet2-server (<< 0.11.0)
+Breaks: amplet2-server (<< 0.11.0)
+Depends: ${python:Depends}, ${misc:Depends}, python-protobuf
+Description: AMP Network Performance Suite - Test data extraction (Python 2)
+ This package contains modules for extracting data from test result messages.
+
+Package: python3-ampsave
+Architecture: all
+Depends: ${python3:Depends}, ${misc:Depends}, python3-protobuf
+Description: AMP Network Performance Suite - Test data extraction (Python 3)
+ This package contains modules for extracting data from test result messages.
