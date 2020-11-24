@@ -48,6 +48,7 @@
 #include <event2/event.h>
 #include <fcntl.h>
 #include <stdint.h>
+#include <errno.h>
 
 #if _WIN32
 #include <iphlpapi.h>
@@ -305,7 +306,7 @@ void run_test(const test_schedule_item_t * const item, BIO *ctrl) {
         } else {
             struct ifaddrs *ifaddrlist;
 
-            if ( getifaddrs(&ifaddrlist) < 0 ) {
+            if ( getifaddrs(&ifaddrlist) == 0 ) {
                 struct ifaddrs *ifa;
                 for ( ifa = ifaddrlist; ifa != NULL; ifa = ifa->ifa_next ) {
                     /* some interfaces (e.g. ppp) won't have an address */
@@ -328,7 +329,8 @@ void run_test(const test_schedule_item_t * const item, BIO *ctrl) {
                 }
             } else {
                 /* error getting interfaces, assume we can do both IPv4 and 6 */
-                Log(LOG_WARNING, "Failed to fetch adapter addresses");
+                Log(LOG_WARNING, "Failed to fetch adapter addresses: %s",
+                        strerror(errno));
                 seen_ipv4 = 1;
                 seen_ipv6 = 1;
             }
