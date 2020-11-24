@@ -46,6 +46,26 @@ stages:
     - tags
     - web
 
+build-focal-amd64:
+  <<: *build_template
+  image: ubuntu:focal
+
+build-focal-armhf:
+  <<: *build_template
+  image: multiarch/ubuntu-debootstrap:armhf-focal
+  script:
+    - *fix_ubuntu_multiarch_apt
+    - *generic_apt_setup
+    - *generic_apt_build
+
+build-focal-arm64:
+  <<: *build_template
+  image: multiarch/ubuntu-debootstrap:arm64-focal
+  script:
+    - *fix_ubuntu_multiarch_apt
+    - *generic_apt_setup
+    - *generic_apt_build
+
 build-bionic-amd64:
   <<: *build_template
   image: ubuntu:bionic
@@ -182,6 +202,16 @@ test-xenial-packages:
 test-bionic-packages:
   stage: test
   image: ubuntu:bionic
+  script:
+    - *generic_apt_setup
+    - ./gitlab-test-deb.sh
+  only:
+    - web
+    - tags
+
+test-focal-packages:
+  stage: test
+  image: ubuntu:focal
   script:
     - *generic_apt_setup
     - ./gitlab-test-deb.sh

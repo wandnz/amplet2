@@ -11,6 +11,9 @@ test_lint() {
         bionic)
             run_lintian
             ;;
+        focal)
+            run_lintian
+            ;;
         jessie)
             run_lintian
             ;;
