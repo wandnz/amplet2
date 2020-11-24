@@ -2,7 +2,7 @@ Source: amplet2
 Section: net
 Priority: optional
 Maintainer: Brendon Jones <brendonj@waikato.ac.nz>
-Build-Depends: debhelper (>= 9~), autotools-dev, python-all, python3-all, libunbound-dev, libssl-dev, libpcap-dev (>= 1.7.4), libyaml-dev, libprotobuf-c-dev, protobuf-c-compiler, protobuf-compiler, dh-systemd, libconfuse-dev, libcurl4-openssl-dev, librabbitmq-dev (>= 0.7.1), libevent-dev (>= 2.0.21), python-setuptools, python3-setuptools, flex, automake, libtool, libcap2-bin, libcap-dev, dh-exec, dh-python, libpjproject-dev <!buster>, clang <pkg.amplet2.build-youtube>, lld <pkg.amplet2.build-youtube>, libnss3 <pkg.amplet2.build-youtube>, libglib2.0-dev <pkg.amplet2.build-youtube>
+Build-Depends: debhelper (>= 9~), autotools-dev, python-all, python3-all, libunbound-dev, libssl-dev, libpcap-dev (>= 1.7.4), libyaml-dev, libprotobuf-c-dev, protobuf-c-compiler, protobuf-compiler, dh-systemd, libconfuse-dev, libcurl4-openssl-dev, librabbitmq-dev (>= 0.7.1), libevent-dev (>= 2.0.21), python-setuptools, python3-setuptools, flex, automake, libtool, libcap2-bin, libcap-dev, dh-exec, dh-python, libpjproject-dev <pkg.amplet2.build-sip>, clang <pkg.amplet2.build-youtube>, lld <pkg.amplet2.build-youtube>, libnss3 <pkg.amplet2.build-youtube>, libglib2.0-dev <pkg.amplet2.build-youtube>
 Standards-Version: 3.8.4
 Homepage: http://amp.wand.net.nz
 Vcs-Git: https://github.com/wanduow/amplet2.git
@@ -16,7 +16,7 @@ Breaks: amplet2-client-lite (<< 0.8.0)
 Conflicts: amplet2-chromium-libs
 Depends: ${shlibs:Depends}, ${misc:Depends}, libevent-2.0-5 (>= 2.0.21)|libevent-2.1-6, libcurl3|libcurl4, librabbitmq4 (>= 0.7.1), libunbound2|libunbound8, libpcap0.8 (>= 1.7.4), rsyslog, libprotobuf-c1, lsb-base (>= 3.0-6), init-system-helpers (>= 1.22), adduser, libcap2-bin
 Recommends: rabbitmq-server (>= 3.4.0)
-Suggests: amplet2-client-sip, amplet2-client-youtube
+Suggests: amplet2-client-sip <pkg.amplet2.build-sip>, amplet2-client-youtube <pkg.amplet2.build-youtube>
 Description: AMP Network Performance Measurement Suite - Client Tools
  This package contains the client tools for the AMP Measurement Suite. These
  tools read a schedule file and measure the network performance to specified
@@ -25,7 +25,7 @@ Description: AMP Network Performance Measurement Suite - Client Tools
 
 Package: amplet2-client-sip
 Architecture: any
-Build-Profiles: <!buster>
+Build-Profiles: <pkg.amplet2.build-sip>
 Depends: ${shlibs:Depends}, ${misc:Depends}, amplet2-client (= ${source:Version}), libpj2, libpjmedia2, libpjsip2, libpjsua2, libmirclient9 <bionic>
 Description: AMP Network Performance Measurement Suite - SIP test
  This package contains the SIP test for the AMP Measurement Suite.

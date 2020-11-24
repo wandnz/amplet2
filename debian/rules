@@ -22,8 +22,8 @@ export DH_OPTIONS
 # currently hardcoded...
 export DEB_PYTHON_INSTALL_ARGS = --install-layout=deb
 
-# only build sip test if buster isn't in the build profiles
-ifeq ($(filter buster,$(DEB_BUILD_PROFILES)),)
+# only build sip test if set in the build profiles
+ifneq ($(filter pkg.amplet2.build-sip,$(DEB_BUILD_PROFILES)),)
 	ENABLE_SIP=--enable-sip
 else
 	ENABLE_SIP=--disable-sip
