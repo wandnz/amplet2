@@ -230,7 +230,7 @@ static iptrie_node_t *iptrie_add_internal(iptrie_node_t *root,
             node->left = iptrie_add_internal(node->left, address, prefix, as);
             /* and put the existing node on the right branch */
             node->right = root;
-        } else if ( cmp != 0 ) {
+        } else {
             /* the next bit is a one, add it down the right branch */
             node->right = iptrie_add_internal(node->right, address, prefix, as);
             /* and put the existing node on the left branch */
@@ -247,7 +247,7 @@ static iptrie_node_t *iptrie_add_internal(iptrie_node_t *root,
     if ( cmp == 0 ) {
         /* the next bit is a zero, go down the left branch */
         root->left = iptrie_add_internal(root->left, address, prefix, as);
-    } else if ( cmp != 0 ) {
+    } else {
         /* the next bit is a one, go down the right branch */
         root->right = iptrie_add_internal(root->right, address, prefix, as);
     }
