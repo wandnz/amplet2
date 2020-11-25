@@ -53,7 +53,7 @@
     </Component>
 
     <Component Id="libamp" Guid="*">
-        <File Id="libampDLL" KeyPath="yes" Source="$(var.SourceDir)/bin/libamp-5.dll"/>
+        <File Id="libampDLL" KeyPath="yes" Source="$(var.SourceDir)/bin/libamp-6.dll"/>
     </Component>
 
     <Component Id="standalone_dns" Guid="*">
