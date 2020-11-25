@@ -12,6 +12,7 @@ stages:
   /bin/sed -i 's/main$/main restricted universe/' /etc/apt/sources.list
 
 .generic_apt_setup_template: &generic_apt_setup
+  export DEBIAN_FRONTEND=noninteractive &&
   echo 'APT::Install-Recommends "0";' > /etc/apt/apt.conf.d/10no-recommends &&
   echo 'APT::Install-Suggests "0";' > /etc/apt/apt.conf.d/10no-suggests &&
   apt-get update && apt-get -y upgrade &&
