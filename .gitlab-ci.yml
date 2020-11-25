@@ -51,21 +51,23 @@ build-focal-amd64:
   <<: *build_template
   image: ubuntu:focal
 
-build-focal-armhf:
-  <<: *build_template
-  image: multiarch/ubuntu-debootstrap:armhf-focal
-  script:
-    - *fix_ubuntu_multiarch_apt
-    - *generic_apt_setup
-    - *generic_apt_build
-
-build-focal-arm64:
-  <<: *build_template
-  image: multiarch/ubuntu-debootstrap:arm64-focal
-  script:
-    - *fix_ubuntu_multiarch_apt
-    - *generic_apt_setup
-    - *generic_apt_build
+# Temporarily disabled due to what appears to be issues in fakeroot and qemu
+# that is being triggered by equivs-build/mk-build-deps
+#build-focal-armhf:
+#  <<: *build_template
+#  image: multiarch/ubuntu-debootstrap:armhf-focal
+#  script:
+#    - *fix_ubuntu_multiarch_apt
+#    - *generic_apt_setup
+#    - *generic_apt_build
+#
+#build-focal-arm64:
+#  <<: *build_template
+#  image: multiarch/ubuntu-debootstrap:arm64-focal
+#  script:
+#    - *fix_ubuntu_multiarch_apt
+#    - *generic_apt_setup
+#    - *generic_apt_build
 
 build-bionic-amd64:
   <<: *build_template
