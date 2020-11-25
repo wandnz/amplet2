@@ -54,7 +54,7 @@ install -D amplet2-client.init %{buildroot}%{_initrddir}/amplet2-client
 install -m 644 -D src/measured/rsyslog/10-amplet2.conf %{buildroot}%{_sysconfdir}/rsyslog.d/10-amplet2.conf
 install -m 644 -D amplet2-client.service %{buildroot}%{_unitdir}/amplet2-client.service
 install -m 644 -D src/measured/rabbitmq/client-rabbitmq.config %{buildroot}%{_docdir}/amplet2-client/examples/rabbitmq/client-rabbitmq.config
-rm -rf %{buildroot}/usr/lib/python2.6/
+rm -rf %{buildroot}/usr/lib/python*/
 rm -rf %{buildroot}%{_libdir}/*a
 rm -rf %{buildroot}%{_libdir}/%{name}/tests/*a
 rm -rf %{buildroot}/usr/share/%{name}/rsyslog/
@@ -109,8 +109,6 @@ rm -rf %{buildroot}
 %{_initrddir}/*
 %dir %{_localstatedir}/run/%{name}/
 %doc %{_docdir}/amplet2-client/examples/rabbitmq/*
-%{python2_sitelib}/ampsave-*.egg-info
-%{python2_sitelib}/ampsave/*
 %license COPYING
 %{_unitdir}/amplet2-client.service
 
