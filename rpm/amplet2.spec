@@ -1,5 +1,5 @@
 Name: amplet2
-Version: 0.11.0
+Version: 0.11.1
 Release: 1%{?dist}
 Summary: AMP Network Performance Measurement Suite
 
@@ -174,6 +174,10 @@ fi
 
 
 %changelog
+* Thu Nov 26 2020 Brendon Jones <brendonj@waikato.ac.nz> 0.11.1-1
+- amplet2: Fix checking getifaddrs() to correctly recognise success.
+- package: Remove ampsave python code from client RPM packages.
+
 * Thu Nov 19 2020 Brendon Jones <brendonj@waikato.ac.nz> 0.11.0-1
 - all tests: keep destinations that don't resolve (#4).
 - amplet2: add trailing ':' when setting interface using ub_ctx_set_option.
