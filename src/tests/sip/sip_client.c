@@ -139,8 +139,8 @@ void print_sip(amp_test_result_t *result) {
     }
 
     printf("\n");
-    printf("  SIP host:%s\n", header->hostname);
-    printf("  RTP address:%s\n", addrstr);
+    printf("  Hostname: %s\n", header->hostname);
+    printf("  RTP address: %s\n", addrstr);
 
     if ( msg->n_reports > 0 ) {
         Amplet2__Sip__Item *item;
@@ -395,7 +395,8 @@ static amp_test_result_t* report_results(struct timeval *start_time,
     header.dscp = options->dscp;
     header.has_family = 1;
     header.family = options->family;
-    header.hostname = get_host_from_uri(pool, options->uri);
+    header.hostname = options->hostname ?
+        options->hostname : get_host_from_uri(pool, options->uri);
     header.has_address = copy_pj_sockaddr_to_protobuf(&header.address,
             options->address);
 
@@ -458,7 +459,9 @@ static amp_test_result_t* report_results(struct timeval *start_time,
     free(header.uri);
     free(header.useragent);
     free(header.filename);
-    free(header.hostname);
+    if ( !options->hostname ) {
+        free(header.hostname);
+    }
 
     return result;
 }
@@ -694,14 +697,18 @@ amp_test_result_t* run_sip_client(int argc, char *argv[], int count,
     memcpy(cfg.outbound_proxy, options->outbound_proxy,
             sizeof(cfg.outbound_proxy));
 
-    /*
-     * if running standalone without an SSL context, check exactly one of a
-     * URI or an AMP destination address is specified
-     */
-    if ( count > 0 && dests && options->uri.slen > 0 && !ssl_ctx ) {
-        Log(LOG_WARNING, "Setting both -u and target address is not valid "
-                "without also having an SSL context");
-        exit(EXIT_FAILURE);
+    if ( count > 0 && dests ) {
+        /*
+         * if running standalone without an SSL context, check exactly one of a
+         * URI or an AMP destination address is specified
+         */
+        if ( options->uri.slen > 0 && !ssl_ctx ) {
+            Log(LOG_WARNING, "Setting both -u and target address is not valid "
+                    "without also having an SSL context");
+            exit(EXIT_FAILURE);
+        }
+
+        options->hostname = dests[0]->ai_canonname;
     }
 
     /*
