@@ -78,6 +78,9 @@ struct ub_ctx *amp_resolver_context_init(char *servers[], int nscount,
         return NULL;
     }
 
+    /* load /etc/hosts into unbound */
+    ub_ctx_hosts(ctx, NULL);
+
     /* use threads for asynchronous resolving */
     if ( ub_ctx_async(ctx, 1) < 0 ) {
         Log(LOG_WARNING, "error enabling threading in resolver\n");

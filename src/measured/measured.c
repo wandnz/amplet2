@@ -776,9 +776,6 @@ int main(int argc, char *argv[]) {
         Log(LOG_DEBUG, "Control socket is disabled, skipping");
     }
 
-    /* load /etc/hosts into unbound */
-    ub_ctx_hosts(dns_ctx, NULL);
-
     /* load the nametable files into unbound */
     read_nametable_dir(dns_ctx, NAMETABLE_DIR);
     snprintf((char*)&nametable, PATH_MAX, "%s/%s", NAMETABLE_DIR, meta.ampname);
