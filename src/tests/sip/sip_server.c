@@ -127,7 +127,7 @@ void run_sip_server(int argc, char *argv[], __attribute__((unused))BIO *ctrl) {
     pjsua_config cfg;
     pjsua_logging_config log_cfg;
     pjsua_media_config media_cfg;
-    struct opt_t *options;
+    struct opt_t *options = NULL;
 
     Log(LOG_DEBUG, "Running sip test as server");
 
@@ -144,6 +144,7 @@ void run_sip_server(int argc, char *argv[], __attribute__((unused))BIO *ctrl) {
     /* silence very noisy logging output during pjsua_create() */
     pj_log_set_level(0);
 
+    /* need to create this early to use pjsua functions while parsing options */
     if ( (status = pjsua_create()) != PJ_SUCCESS ) {
         pj_strerror(status, errmsg, sizeof(errmsg));
         Log(LOG_WARNING, "%s", errmsg);
@@ -209,6 +210,9 @@ void run_sip_server(int argc, char *argv[], __attribute__((unused))BIO *ctrl) {
     run_sip_server_loop();
 
 end:
-    free(options);
+    if ( options ) {
+        free(options);
+    }
+
     pjsua_destroy();
 }
