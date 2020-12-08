@@ -1,5 +1,5 @@
 Name: amplet2
-Version: 0.11.1
+Version: 0.11.2
 Release: 1%{?dist}
 Summary: AMP Network Performance Measurement Suite
 
@@ -174,6 +174,11 @@ fi
 
 
 %changelog
+* Tue Nov  8 2020 Brendon Jones <brendonj@waikato.ac.nz> 0.11.2-1
+- amplet2: Always load /etc/hosts as part of initialising the resolver.
+- sip: Use destination hostname if set rather than extracting from SIP URI.
+- sip: Check SIP options is not null before freeing at end of test.
+
 * Thu Nov 26 2020 Brendon Jones <brendonj@waikato.ac.nz> 0.11.1-1
 - amplet2: Fix checking getifaddrs() to correctly recognise success.
 - package: Remove ampsave python code from client RPM packages.
