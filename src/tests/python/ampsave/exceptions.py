@@ -44,3 +44,11 @@ class AmpTestVersionMismatch(Exception):
     def __str__(self):
         return "%d != %d" % (self.got, self.expected)
 
+
+class UnknownTestError(Exception):
+    def __init__(self, test):
+        super().__init__()
+        self.test = test
+
+    def __str__(self):
+        return "Unknown test: %s" % self.test

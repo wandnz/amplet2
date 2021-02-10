@@ -37,16 +37,15 @@
 # along with amplet2. If not, see <http://www.gnu.org/licenses/>.
 #
 
-import sys
-import ampsave.tests
+import warnings
+from . import _modules
 
 def import_data_functions():
     """
     Load all the available data parsing functions for the AMP tests.
     """
-    from ampsave.tests import *
-    modules = {}
-
-    for name in ampsave.tests.__all__:
-        modules[name] = sys.modules['ampsave.tests.' + name]
-    return modules
+    warnings.warn(
+        "import_data_functions() is deprecated, use ampsave.get_data(test, raw)",
+        DeprecationWarning,
+        stacklevel=2)
+    return _modules

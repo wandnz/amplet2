@@ -37,5 +37,29 @@
 # along with amplet2. If not, see <http://www.gnu.org/licenses/>.
 #
 """
-AMP xferd test data storage
+AMP test saving module
 """
+
+import sys
+from .tests import *
+from .exceptions import UnknownTestError
+
+def _import_data_functions():
+    """
+    Load all the available data parsing functions for the AMP tests.
+    """
+    modules = {}
+
+    for name in tests.__all__:
+        modules[name] = sys.modules['ampsave.tests.' + name]
+    return modules
+
+_modules = _import_data_functions()
+
+def get_data(test, raw):
+    if test in _modules:
+        return _modules[test].get_data(raw)
+    raise UnknownTestError(test)
+
+def list_modules():
+    return list(_modules.keys())
