@@ -42,7 +42,7 @@ Description: AMP Network Performance Measurement Suite - YouTube test
 
 Package: amplet2-server
 Architecture: all
-Depends: ${shlibs:Depends}, ${misc:Depends}, rabbitmq-server (>= 3.1.5), python-protobuf, python3-ampsave
+Depends: ${shlibs:Depends}, ${misc:Depends}, rabbitmq-server (>= 3.1.5), python3-ampsave
 Conflicts: amp-server
 Description: AMP Network Performance Measurement Suite - Collector Server
  This package contains the server tools used to run an AMP collector.
