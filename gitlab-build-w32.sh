@@ -4,7 +4,7 @@ set -x -e -o pipefail
 
 apt-get update
 apt-get -y upgrade
-apt-get install -y apt-transport-https automake autotools-dev ca-certificates flex libtool make mingw-w64 protobuf-compiler protobuf-c-compiler python wget wixl xz-utils zstd
+apt-get install -y apt-transport-https automake autotools-dev ca-certificates flex libtool make mingw-w64 protobuf-compiler protobuf-c-compiler wget wixl xz-utils zstd
 
 VERSION=`grep -m 1 ProductVersion w32/amplet2-client.wxs | awk -F \" '{print $2}'`
 # files originally from https://repo.msys2.org/mingw/x86_64/ but they only
@@ -39,7 +39,7 @@ if [ -x bootstrap.sh ]; then
     ./bootstrap.sh;
 fi
 
-./configure --host x86_64-w64-mingw32 --disable-tcpping --disable-udpstream --disable-throughput --disable-external --disable-fastping --disable-traceroute --disable-syslog CFLAGS=-I`pwd`/mingw64/include/ LDFLAGS=-L`pwd`/mingw64/lib/ --prefix=`pwd`/install
+./configure --host x86_64-w64-mingw32 --disable-python --disable-tcpping --disable-udpstream --disable-throughput --disable-external --disable-fastping --disable-traceroute --disable-syslog CFLAGS=-I`pwd`/mingw64/include/ LDFLAGS=-L`pwd`/mingw64/lib/ --prefix=`pwd`/install
 make
 make install
 
