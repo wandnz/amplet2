@@ -74,10 +74,12 @@ jobs:
         if: ${{ matrix.arch == 'amd64' }}
         run: |
           docker run --rm \
-            -e DIRNAME \
+            --sysctl net.ipv6.conf.all.disable_ipv6=0 \
+            -e DEBIAN_FRONTEND \
             -e CI \
             -e GITHUB_ACTIONS \
             -e GITHUB_WORKSPACE \
+            -e DIRNAME \
             -v "${GITHUB_WORKSPACE}:${GITHUB_WORKSPACE}" \
             -w "${GITHUB_WORKSPACE}" \
             --platform linux/${{ matrix.arch }} \
