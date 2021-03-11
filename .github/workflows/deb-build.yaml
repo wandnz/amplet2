@@ -1,0 +1,101 @@
+name: Packaging for Debian and Ubuntu
+
+on:
+  workflow_dispatch:
+  release:
+    types:
+      - published
+
+env:
+  DEBIAN_FRONTEND: noninteractive
+  DEBEMAIL: "brendonj@waikato.ac.nz"
+  DEBFULLNAME: "Brendon Jones"
+
+jobs:
+  debian-package:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        arch:
+          - amd64
+          - 386
+          - arm64
+          - arm/v7
+        target:
+          - { distro: debian, codename: jessie }
+          - { distro: debian, codename: stretch }
+          - { distro: debian, codename: buster }
+          - { distro: ubuntu, codename: xenial }
+          - { distro: ubuntu, codename: bionic }
+          - { distro: ubuntu, codename: focal }
+        exclude:
+          - arch: arm64
+            target: { distro: debian, codename: jessie }
+          - arch: arm64
+            target: { distro: ubuntu, codename: focal }
+          - arch: arm/v7
+            target: { distro: ubuntu, codename: focal }
+          - arch: 386
+            target: { distro: ubuntu, codename: focal }
+
+    env:
+      DIRNAME: ${{ matrix.target.distro }}_${{ matrix.target.codename }}
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v2
+
+      - name: Set up qemu
+        id: qemu
+        uses: docker/setup-qemu-action@v1
+        with:
+          platforms: all
+
+      - name: Build packages
+        run: |
+          docker run --rm \
+            --sysctl net.ipv6.conf.all.disable_ipv6=0 \
+            -e DEBIAN_FRONTEND \
+            -e CI \
+            -e GITHUB_ACTIONS \
+            -e GITHUB_WORKSPACE \
+            -e DEBEMAIL \
+            -e DEBFULLNAME \
+            -e DIRNAME \
+            -v "${GITHUB_WORKSPACE}:${GITHUB_WORKSPACE}" \
+            -w "${GITHUB_WORKSPACE}" \
+            --platform linux/${{ matrix.arch }} \
+            ${{ matrix.target.distro }}:${{ matrix.target.codename }} \
+            sh -c "./debpkg-setup.sh && ./debpkg-build.sh && mkdir -p packages/${DIRNAME} && cp ../*.deb packages/${DIRNAME}/"
+
+      # for now only run tests on amd64 packages
+      - name: Run packaging tests
+        if: ${{ matrix.arch == 'amd64' }}
+        run: |
+          docker run --rm \
+            -e DIRNAME \
+            -e CI \
+            -e GITHUB_ACTIONS \
+            -e GITHUB_WORKSPACE \
+            -v "${GITHUB_WORKSPACE}:${GITHUB_WORKSPACE}" \
+            -w "${GITHUB_WORKSPACE}" \
+            --platform linux/${{ matrix.arch }} \
+            ${{ matrix.target.distro }}:${{ matrix.target.codename }} \
+            sh -c "./debpkg-setup.sh && ./debpkg-test.sh"
+
+      - name: Store artifacts
+        uses: actions/upload-artifact@v2
+        with:
+          name: ${{ matrix.target.distro }} ${{ matrix.target.codename }} packages
+          path: packages/
+          retention-days: 7
+
+      - name: Publish packages to cloudsmith
+        if: ${{ github.event_name == 'release' }}
+        uses: wanduow/action-cloudsmith-upload-packages@v1
+        with:
+          path: packages/
+          repo: ${{ secrets.CLOUDSMITH_OWNER }}/amp
+          username: ${{ secrets.CLOUDSMITH_USERNAME }}
+          api_key: ${{ secrets.CLOUDSMITH_API_KEY }}

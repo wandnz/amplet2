@@ -1,0 +1,38 @@
+name: Packaging for Windows
+
+on:
+  workflow_dispatch:
+  release:
+    types:
+      - published
+
+env:
+  DEBIAN_FRONTEND: noninteractive
+
+jobs:
+  w32-package:
+    runs-on: ubuntu-latest
+    container:
+      image: debian:buster
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v2
+
+      - name: Install prereq packages
+        run: ./w32pkg-setup.sh
+
+      - name: Build packages
+        run: ./w32pkg-build.sh
+
+      - name: Store packages
+        run: |
+          mkdir -p packages/w32
+          cp *.msi packages/w32
+
+      - name: Store artifacts
+        uses: actions/upload-artifact@v2
+        with:
+          name: w32 packages
+          path: packages/
+          retention-days: 7

@@ -1,0 +1,56 @@
+name: Packaging for CentOS
+
+on:
+  workflow_dispatch:
+  release:
+    types:
+      - published
+
+jobs:
+  rpm-package:
+    runs-on: ubuntu-latest
+    container:
+      image: ${{ matrix.target.distro }}:${{ matrix.target.release }}
+      options: --sysctl net.ipv6.conf.all.disable_ipv6=0
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - { distro: centos, release: 7 }
+
+    env:
+      DIRNAME: ${{ matrix.target.distro }}_${{ matrix.target.release }}
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v2
+
+      - name: Install prereq packages
+        run: ./rpmpkg-setup.sh
+
+      - name: Build packages
+        run: ./rpmpkg-build.sh
+
+      - name: Store packages
+        run: |
+          mkdir -p packages/${DIRNAME}
+          cp ~/rpmbuild/RPMS/x86_64/*.rpm packages/${DIRNAME}/
+
+      - name: Run packaging tests
+        run: ./rpmpkg-test.sh
+
+      - name: Store artifacts
+        uses: actions/upload-artifact@v2
+        with:
+          name: ${{ matrix.target.distro }} ${{ matrix.target.release }} packages
+          path: packages/
+          retention-days: 7
+
+      - name: Publish packages to cloudsmith
+        if: ${{ github.event_name == 'release' }}
+        uses: wanduow/action-cloudsmith-upload-packages@v1
+        with:
+          path: packages/
+          repo: ${{ secrets.CLOUDSMITH_OWNER }}/amp
+          username: ${{ secrets.CLOUDSMITH_USERNAME }}
+          api_key: ${{ secrets.CLOUDSMITH_API_KEY }}
