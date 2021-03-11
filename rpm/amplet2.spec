@@ -1,5 +1,5 @@
 Name: amplet2
-Version: 0.11.2
+Version: 0.11.3
 Release: 1%{?dist}
 Summary: AMP Network Performance Measurement Suite
 
@@ -174,6 +174,9 @@ fi
 
 
 %changelog
+* Thu Mar 11 2021 Brendon Jones <brendonj@waikato.ac.nz> 0.11.3-1
+- standalone tests: add missing long options --ipv4 and --ipv6.
+
 * Tue Dec  8 2020 Brendon Jones <brendonj@waikato.ac.nz> 0.11.2-1
 - amplet2: Always load /etc/hosts as part of initialising the resolver.
 - sip: Use destination hostname if set rather than extracting from SIP URI.

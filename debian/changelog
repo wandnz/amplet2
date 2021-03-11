@@ -1,3 +1,13 @@
+amplet2 (0.11.3-1) unstable; urgency=low
+
+  * amplet2: add missing dependency on procps.
+  * server: remove unnecessary dependency on python-protobuf.
+  * server: depend on python3-ampsave rather than python-ampsave.
+  * server: add simpler interface to get data in ampsave.
+  * standalone tests: add missing long options --ipv4 and --ipv6.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Thu, 11 Mar 2021 21:32:32 +1300
+
 amplet2 (0.11.2-1) unstable; urgency=low
 
   * amplet2: Always load /etc/hosts as part of initialising the resolver.
