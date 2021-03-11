@@ -74,6 +74,8 @@ struct option standalone_long_options[] = {
     {"dns", required_argument, 0, '7'},
     {"dns-server", required_argument, 0, '7'},
     {"debug", no_argument, 0, 'x'},
+    {"ipv4", optional_argument, 0, '4'},
+    {"ipv6", optional_argument, 0, '6'},
     {"help", no_argument, 0, 'h'},
     {NULL, 0, 0, 0}
 };
