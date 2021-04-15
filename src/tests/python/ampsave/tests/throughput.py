@@ -93,7 +93,7 @@ def get_data(data):
         params = testparams.pop(0)
         results.append({
             "duration": params["duration"],
-            "runtime": i.duration/1000/1000 if i.HasField("duration") else None,
+            "runtime": i.duration//1000//1000 if i.HasField("duration") else None,
             "bytes": i.bytes if i.HasField("bytes") else None,
             "direction": direction_to_string(i.direction),
             "tcpreused": params["tcpreused"],
