@@ -40,6 +40,19 @@ fi
 
 
 #
+#
+#
+check_netns_exists()
+{
+    found=$(ip netns list | cut -d ' ' -f 1 | grep -c -x $1) > /dev/null 2>&1
+    if [ $found -gt 0 ]; then
+        return 0
+    fi
+    return 1
+}
+
+
+#
 # Wait for the pidfile to be populated and to contain a running pid
 #
 do_wait()
@@ -105,11 +118,20 @@ do_start()
         NAME=${client#$CONFDIR/}
         NAME=${NAME%.conf}
         PIDFILE=${PIDDIR}/${NAME%.conf}.pid
+        EXEC=$DAEMON
+
+        # run the amplet2-client in a network namespace if one exists with
+        # the same name as the configuration file. I had thought there were
+        # quite restrictive limits on the name for a namespace, but I've
+        # successfully tested names hundreds of bytes in length
+        if check_netns_exists $NAME; then
+            EXEC="/bin/ip netns exec $NAME $DAEMON"
+        fi
 
         # TODO return appropriate thing if already running
         log_daemon_msg "Starting ${DESC}" $NAME
         # use start-stop-daemon --test?
-        start-stop-daemon --start --quiet --exec $DAEMON \
+        start-stop-daemon --start --quiet --exec $EXEC \
                 --pidfile $PIDFILE -- $DAEMON_OPTS -c $client -p $PIDFILE
 
         # if the client was started right now then wait for the pidfile
