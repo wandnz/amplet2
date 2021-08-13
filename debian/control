@@ -31,7 +31,7 @@ Description: AMP Network Performance Measurement Suite - SIP test
  This package contains the SIP test for the AMP Measurement Suite.
 
 Package: amplet2-client-youtube
-Architecture: amd64
+Architecture: amd64 arm64 armhf
 Build-Profiles: <pkg.amplet2.build-youtube>
 Replaces: amplet2-chromium-libs
 Breaks: amplet2-chromium-libs
