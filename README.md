@@ -10,8 +10,8 @@ hosts. Each client independently schedules and runs tests, acts as a
 cooperative endpoint for tests run by other hosts, and reports test results to
 a central collector for analysis and display.
 
-Prebuilt .deb packages are available at https://dl.bintray.com/wand/amp/ and
-RPM packages for Centos 7 at https://dl.bintray.com/wand/amp-rpm/. The
+Prebuilt Debian/Ubuntu and CentOS 7 packages are hosted by
+[Cloudsmith](https://cloudsmith.io/~wand/repos/amp/packages/). The
 [amplet2 wiki](https://github.com/wanduow/amplet2/wiki) contains instructions
 on [installing the amplet2 client](https://github.com/wanduow/amplet2/wiki/Installing-the-Amplet2-Client) using these packages.
 
