@@ -73,6 +73,20 @@
           }
       }
 
+      function terminateIfHung() {
+          /*
+           * there should be at least a "ready" and an "unstarted" state,
+           * otherwise assume an error. This shouldn't be needed, but it
+           * looks like the onError callback is currently not triggering.
+           */
+          if ( timeline.length < 2 ) {
+              if ( debug ) {
+                  console.log("Stopping video due to no progress");
+              }
+              onPlayerError({"data": 999});
+          }
+      }
+
       function getStateName(state) {
           switch ( state ) {
               case YT.PlayerState.UNSTARTED: return "unstarted";
@@ -156,6 +170,13 @@
           if ( debug ) {
               console.log("onYouTubeIframeAPIReady() triggered");
           }
+
+          /*
+           * assume that if the video hasn't started after 20 seconds
+           * that it is never going to start and something is broken.
+           */
+          setTimeout(terminateIfHung, 20000);
+
           player = new YT.Player('player', {
           height: getQualityHeight(quality),
           width: getQualityWidth(quality),
