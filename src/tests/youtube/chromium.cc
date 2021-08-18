@@ -111,6 +111,7 @@ class HeadlessTest : public headless::HeadlessWebContents::Observer,
      int navigation_ok_;
      int outstanding_;
      int retry_count_;
+     int alerted_;
      std::string url_;
 };
 
@@ -162,7 +163,8 @@ HeadlessTest::HeadlessTest(headless::HeadlessBrowser* browser,
           weak_factory_(this),
           navigation_ok_(0),
           outstanding_(0),
-          retry_count_(0) {
+          retry_count_(0),
+          alerted_(0) {
     web_contents_->AddObserver(this);
 
     struct stat buf;
@@ -360,11 +362,16 @@ void HeadlessTest::OnJavascriptDialogOpening(
     /* acknowledge the alert popup */
     devtools_client_->GetPage()->HandleJavaScriptDialog(1);
 
-    /* query the javascript variable the youtube timing page creates */
-    devtools_client_->GetRuntime()->Evaluate(
-            "youtuberesults;",
-            base::Bind(&HeadlessTest::OnEvaluateResult,
-                weak_factory_.GetWeakPtr()));
+    /* only take action on the first alert */
+    if ( !alerted_ ) {
+        alerted_ = 1;
+
+        /* query the javascript variable the youtube timing page creates */
+        devtools_client_->GetRuntime()->Evaluate(
+                "youtuberesults;",
+                base::Bind(&HeadlessTest::OnEvaluateResult,
+                    weak_factory_.GetWeakPtr()));
+    }
 }
 
 
