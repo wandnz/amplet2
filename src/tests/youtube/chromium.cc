@@ -110,6 +110,7 @@ class HeadlessTest : public headless::HeadlessWebContents::Observer,
 
      int navigation_ok_;
      int outstanding_;
+     int retry_count_;
      std::string url_;
 };
 
@@ -160,7 +161,8 @@ HeadlessTest::HeadlessTest(headless::HeadlessBrowser* browser,
           devtools_client_(headless::HeadlessDevToolsClient::Create()),
           weak_factory_(this),
           navigation_ok_(0),
-          outstanding_(0) {
+          outstanding_(0),
+          retry_count_(0) {
     web_contents_->AddObserver(this);
 
     struct stat buf;
@@ -314,9 +316,14 @@ void HeadlessTest::OnConsoleAPICalled(
 void HeadlessTest::OnFrameStoppedLoading(
         const headless::page::FrameStoppedLoadingParams& params) {
     if ( !navigation_ok_ ) {
-        Log(LOG_WARNING, "Couldn't load YouTube iframe API, retrying");
-        devtools_client_->GetPage()->Reload(
-            headless::page::ReloadParams::Builder().SetIgnoreCache(1).Build());
+        if ( retry_count_ < 3 ) {
+            Log(LOG_WARNING, "Couldn't load YouTube iframe API, retrying");
+            retry_count_++;
+            devtools_client_->GetPage()->Reload(
+                    headless::page::ReloadParams::Builder().SetIgnoreCache(1).Build());
+        } else {
+            Shutdown();
+        }
     }
 }
 
