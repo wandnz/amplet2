@@ -1,5 +1,5 @@
 Name: amplet2
-Version: 0.11.3
+Version: 0.11.4
 Release: 1%{?dist}
 Summary: AMP Network Performance Measurement Suite
 
@@ -174,6 +174,11 @@ fi
 
 
 %changelog
+* Fri Aug 20 2021 Brendon Jones <brendonj@waikato.ac.nz> 0.11.4-1
+- youtube: stop the youtube test if video hasn't started after 20 seconds.
+- youtube: limit number of times youtube test will try to load iframe API.
+- youtube: only fetch test results on the first alert.
+
 * Thu Mar 11 2021 Brendon Jones <brendonj@waikato.ac.nz> 0.11.3-1
 - standalone tests: add missing long options --ipv4 and --ipv6.
 

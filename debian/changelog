@@ -1,3 +1,14 @@
+amplet2 (0.11.4-1) unstable; urgency=low
+
+  * amplet2: run clients in a network namespace if the name matches.
+  * throughput: restore integer division when calculating runtime in ampsave.
+  * youtube: allow building test for arm64 and armhf.
+  * youtube: stop the youtube test if video hasn't started after 20 seconds.
+  * youtube: limit number of times youtube test will try to load iframe API.
+  * youtube: only fetch test results on the first alert.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Fri, 20 Aug 2021 11:55:52 +1200
+
 amplet2 (0.11.3-1) unstable; urgency=low
 
   * amplet2: add missing dependency on procps.
