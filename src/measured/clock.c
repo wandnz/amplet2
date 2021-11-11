@@ -1,7 +1,7 @@
 /*
  * This file is part of amplet2.
  *
- * Copyright (c) 2013-2016 The University of Waikato, Hamilton, New Zealand.
+ * Copyright (c) 2021 The University of Waikato, Hamilton, New Zealand.
  *
  * Author: Brendon Jones
  *
@@ -37,25 +37,39 @@
  * along with amplet2. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef _MEASURED_PARSECONFIG_H
-#define _MEASURED_PARSECONFIG_H
+#include <errno.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/timex.h>
+#include <unistd.h>
 
-#include <confuse.h>
-#include <unbound.h>
+#include "debug.h"
+#include "clock.h"
 
-#include "global.h"
-#include "control.h"
-#include "schedule.h"
+/*
+ * systemd-time-wait-sync doesn't appear to notice the final adjustment that
+ * synchronises the clock, and ntpd doesn't appear to touch the file
+ * /run/systemd/timesync/synchronized when synchronised, so
+ * systemd-time-wait-sync ends up hanging indefinitely on boot. Let's just
+ * poll adjtimex() until the clock is sychronised.
+ */
+static int is_clock_synchronised(void) {
+    struct timex tx;
+    int r;
 
-int get_loglevel_config(cfg_t *cfg);
-int should_config_rabbit(cfg_t *cfg);
-int should_wait_for_cert(cfg_t *cfg);
-int should_wait_for_clock_sync(cfg_t *cfg);
-amp_control_t* get_control_config(cfg_t *cfg, amp_test_meta_t *meta);
-fetch_schedule_item_t* get_remote_schedule_config(cfg_t *cfg);
-amp_test_meta_t* get_interface_config(cfg_t *cfg, amp_test_meta_t *meta);
-struct ub_ctx* get_dns_context_config(cfg_t *cfg, amp_test_meta_t *meta);
-void get_default_test_args(cfg_t *cfg);
-cfg_t* parse_config(char *filename, struct amp_global_t *vars);
+    memset(&tx, 0, sizeof(struct timex));
+    r = adjtimex(&tx);
 
-#endif
+    if ( r < 0 ) {
+        Log(LOG_ALERT, "Failed to get clock sync state: %s", strerror(errno));
+        exit(EXIT_FAILURE);
+    }
+
+    return r != TIME_ERROR;
+}
+
+void wait_for_clock_sync(void) {
+    while ( !is_clock_synchronised() ) {
+        sleep(30);
+    }
+}

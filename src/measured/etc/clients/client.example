@@ -49,6 +49,9 @@
 # will be used.
 #nameservers = { 192.0.2.100, 192.0.2.101, 192.0.2.102 }
 
+# Wait for system clock to be synchronised via NTP before starting scheduler.
+#waitforclocksync = false
+
 # SSL settings used for reporting to the collector or communicating with other
 # amplet clients to start remote test servers (e.g. throughput).
 # cacert, cert and key don't need to be set (they will be automagically set)

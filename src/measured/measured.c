@@ -76,6 +76,7 @@
 #include "certs.h"
 #include "parseconfig.h"
 #include "users.h"
+#include "clock.h"
 
 #define AMP_CLIENT_CONFIG_DIR AMP_CONFIG_DIR "/clients"
 
@@ -582,6 +583,14 @@ int main(int argc, char *argv[]) {
 
     /* set up curl while we are still the only measured process running */
     curl_global_init(CURL_GLOBAL_ALL);
+
+#ifndef _WIN32
+    if ( should_wait_for_clock_sync(cfg) ) {
+        Log(LOG_DEBUG, "Waiting for clock synchronisation");
+        wait_for_clock_sync();
+        Log(LOG_DEBUG, "Got clock synchronisation");
+    }
+#endif
 
     /*
      * Make sure certs are valid and loaded. Do not proceed if there are any

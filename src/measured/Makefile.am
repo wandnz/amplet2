@@ -14,7 +14,7 @@ if MINGW
 amplet2_SOURCES+=w32-service.c
 amplet2_LDFLAGS+=-liphlpapi
 else
-amplet2_SOURCES+=users.c rabbitcfg.c
+amplet2_SOURCES+=users.c rabbitcfg.c clock.c
 amplet2_LDFLAGS+=-lrt -lcap
 endif
 

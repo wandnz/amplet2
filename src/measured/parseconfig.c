@@ -204,6 +204,18 @@ int get_loglevel_config(cfg_t *cfg) {
 
 
 /*
+ * Should the client wait for NTP synchronisation before starting to schedule
+ * and run tests?
+ */
+int should_wait_for_clock_sync(cfg_t *cfg) {
+    assert(cfg);
+
+    return cfg_getbool(cfg, "waitforclocksync");
+}
+
+
+
+/*
  * Should rabbitmq be configured on start up?
  */
 int should_config_rabbit(cfg_t *cfg) {
@@ -677,6 +689,7 @@ cfg_t* parse_config(char *filename, struct amp_global_t *vars) {
         CFG_INT_CB("loglevel", LOG_INFO, CFGF_NONE, &callback_verify_loglevel),
         CFG_INT_CB("dscp", DEFAULT_DSCP_VALUE, CFGF_NONE,&callback_verify_dscp),
         CFG_STR_LIST("nameservers", NULL, CFGF_NONE),
+        CFG_BOOL("waitforclocksync", cfg_false, CFGF_NONE),
 	CFG_SEC("ssl", opt_ssl, CFGF_NONE),
 	CFG_SEC("collector", opt_collector, CFGF_NONE),
         CFG_SEC("remotesched", opt_remotesched, CFGF_NONE),
