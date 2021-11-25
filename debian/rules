@@ -37,7 +37,7 @@ else
 endif
 
 %:
-	dh $@ --with python2,python3 --with=systemd
+	dh $@ --with python2,python3 --with=systemd --parallel
 
 override_dh_installinit:
 	dh_installinit --no-start

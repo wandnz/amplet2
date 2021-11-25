@@ -24,4 +24,4 @@ export ARCH=`dpkg-architecture -qDEB_HOST_ARCH`
 export DEB_BUILD_PROFILES="$CODENAME $YOUTUBE $SIP"
 
 mk-build-deps -i -r -t 'apt-get -f -y --force-yes'
-dpkg-buildpackage -b -us -uc -rfakeroot
+dpkg-buildpackage -b -us -uc -rfakeroot -jauto
