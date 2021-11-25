@@ -9,7 +9,7 @@ export ARCH=`dpkg-architecture -qDEB_HOST_ARCH`
 {
     wget -nv https://wand.net.nz/~brendonj/amp/youtube/chromium-libs_$CODENAME-$ARCH.tar.gz &&
     tar xzvf chromium-libs_$CODENAME-$ARCH.tar.gz &&
-    echo "deb http://apt.llvm.org/${CODENAME}/ llvm-toolchain-${CODENAME} main" > /etc/apt/sources.list.d/llvm-toolchain.list &&
+    echo "deb http://apt.llvm.org/${CODENAME}/ llvm-toolchain-${CODENAME}-12 main" > /etc/apt/sources.list.d/llvm-toolchain.list &&
     wget -O- https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add - &&
     apt-get update &&
     export YOUTUBE="pkg.amplet2.build-youtube" || true;
