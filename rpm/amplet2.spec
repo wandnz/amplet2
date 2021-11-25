@@ -1,5 +1,5 @@
 Name: amplet2
-Version: 0.11.4
+Version: 0.11.5
 Release: 1%{?dist}
 Summary: AMP Network Performance Measurement Suite
 
@@ -174,6 +174,9 @@ fi
 
 
 %changelog
+* Thu Nov 25 2021 Brendon Jones <brendonj@waikato.ac.nz> 0.11.5-1
+- amplet2: add option to wait for ntp time sync before starting.
+
 * Fri Aug 20 2021 Brendon Jones <brendonj@waikato.ac.nz> 0.11.4-1
 - youtube: stop the youtube test if video hasn't started after 20 seconds.
 - youtube: limit number of times youtube test will try to load iframe API.
