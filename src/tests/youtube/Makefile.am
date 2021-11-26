@@ -14,8 +14,8 @@ amp_youtube_CFLAGS=-I../../common/
 amp_youtube_LDADD=youtube.la
 amp_youtube_LDFLAGS=-Wl,--disable-new-dtags -L../../common/.libs/ -rdynamic -lrt -lnss3 -lnssutil3 -lsmime3 -lplds4 -lplc4 -lnspr4 -lstdc++ -ldl -lprotobuf-c -lssl -lamp -lunbound
 
-CXX=clang++
-CC=clang
+CXX=clang++-12
+CC=clang-12
 wrapperdir=$(libdir)/$(PACKAGE)/chromium
 wrapper_PROGRAMS=amp-youtube-wrapper
 amp_youtube_wrapper_SOURCES=wrapper.cc chromium.cc
