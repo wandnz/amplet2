@@ -23,4 +23,4 @@ dns_unresolved_target_test_SOURCES=dns_unresolved_target_test.c
 dns_unresolved_target_test_LDADD=testdns.la
 
 AM_CFLAGS=-g -Wall -W -rdynamic -DUNIT_TEST
-INCLUDES=-I../ -I../../ -I../../../common/
+AM_CPPFLAGS+=-I../

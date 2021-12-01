@@ -18,8 +18,6 @@ amplet2_SOURCES+=users.c rabbitcfg.c clock.c
 amplet2_LDFLAGS+=-lrt -lcap
 endif
 
-INCLUDES=-I../tests/ -I../common/
-
 syslogdir=$(pkgdatadir)/rsyslog
 dist_syslog_DATA=rsyslog/*
 

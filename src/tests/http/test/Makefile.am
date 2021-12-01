@@ -20,4 +20,4 @@ http_unresolved_target_test_SOURCES=http_unresolved_target_test.c
 http_unresolved_target_test_LDADD=testhttp.la
 
 AM_CFLAGS=-g -Wall -W -rdynamic -DUNIT_TEST
-INCLUDES=-I../ -I../../ -I../../../common/
+AM_CPPFLAGS+=-I../

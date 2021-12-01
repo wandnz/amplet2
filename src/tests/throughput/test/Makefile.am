@@ -26,4 +26,4 @@ throughput_unresolved_target_test_SOURCES=throughput_unresolved_target_test.c
 throughput_unresolved_target_test_LDADD=testthroughput.la
 
 AM_CFLAGS=-g -Wall -W -rdynamic -DUNIT_TEST
-INCLUDES=-I../ -I../../ -I../../../common/
+AM_CPPFLAGS+=-I../

@@ -17,4 +17,4 @@ acl_test_SOURCES=acl_test.c ../acl.c
 acl_test_LDFLAGS=-L../../common/ -lamp
 
 AM_CFLAGS=-g -Wall -W -rdynamic
-INCLUDES=-I../ -I../../common/
+AM_CPPFLAGS+=-I../

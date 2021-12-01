@@ -14,8 +14,6 @@ udpstream_la_SOURCES=udpstream.c udpstream_server.c udpstream_client.c udpstream
 nodist_udpstream_la_SOURCES=udpstream.pb-c.c
 udpstream_la_LDFLAGS=-module -avoid-version -L../../common/ -lamp -lprotobuf-c -lm
 
-INCLUDES=-I../ -I../../common/
-
 install-exec-hook:
 	setcap 'CAP_NET_BIND_SERVICE=ep' $(DESTDIR)/$(bindir)/amp-udpstream
 

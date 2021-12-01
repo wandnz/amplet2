@@ -14,4 +14,4 @@ external_report_test_SOURCES=external_report_test.c
 external_report_test_LDADD=testexternal.la
 
 AM_CFLAGS=-g -Wall -W -rdynamic -DUNIT_TEST
-INCLUDES=-I../ -I../../ -I../../../common/
+AM_CPPFLAGS+=-I../

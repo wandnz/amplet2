@@ -16,8 +16,6 @@ external_la_SOURCES=external.c
 nodist_external_la_SOURCES=external.pb-c.c
 external_la_LDFLAGS=-module -avoid-version -L../../common/ -lamp -lprotobuf-c
 
-INCLUDES=-I../ -I../../common/
-
 install-exec-local:
 	mkdir -p $(DESTDIR)/$(libdir)/$(PACKAGE)/external
 

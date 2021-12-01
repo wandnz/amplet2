@@ -20,4 +20,4 @@ traceroute_unresolved_target_test_SOURCES=traceroute_unresolved_target_test.c
 traceroute_unresolved_target_test_LDADD=testtraceroute.la
 
 AM_CFLAGS=-g -Wall -W -rdynamic -DUNIT_TEST
-INCLUDES=-I../ -I../../ -I../../../common/
+AM_CPPFLAGS+=-I../

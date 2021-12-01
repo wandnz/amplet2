@@ -18,8 +18,6 @@ nodist_sip_la_SOURCES=sip.pb-c.c
 sip_la_CFLAGS=$(AM_CFLAGS) -DPJ_AUTOCONF=1
 sip_la_LDFLAGS=-module -avoid-version -L../../common/ -lamp -lprotobuf-c -lpj -lpjsua -lpjsip -lpjmedia
 
-INCLUDES=-I../ -I../../common/
-
 install-exec-local:
 	mkdir -p $(DESTDIR)/$(libdir)/$(PACKAGE)/extra
 	cp extra/sip-test-8000.wav $(DESTDIR)/$(libdir)/$(PACKAGE)/extra

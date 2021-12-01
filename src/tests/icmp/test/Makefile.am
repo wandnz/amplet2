@@ -20,4 +20,4 @@ icmp_unresolved_target_test_SOURCES=icmp_unresolved_target_test.c
 icmp_unresolved_target_test_LDADD=testicmp.la
 
 AM_CFLAGS=-g -Wall -W -rdynamic -DUNIT_TEST
-INCLUDES=-I../ -I../../ -I../../../common/
+AM_CPPFLAGS+=-I../

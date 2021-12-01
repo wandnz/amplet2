@@ -14,8 +14,6 @@ tcpping_la_SOURCES=pcapcapture.c tcpping.c
 nodist_tcpping_la_SOURCES=tcpping.pb-c.c
 tcpping_la_LDFLAGS=-module -avoid-version -L../../common/ -lamp -lpcap -lprotobuf-c -levent $(AM_LDFLAGS)
 
-INCLUDES=-I../ -I../../common/
-
 if !MINGW
 install-exec-hook:
 	setcap 'CAP_NET_ADMIN=ep CAP_NET_RAW=ep' $(DESTDIR)/$(bindir)/amp-tcpping

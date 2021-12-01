@@ -14,4 +14,4 @@ fastping_unresolved_target_test_SOURCES=fastping_unresolved_target_test.c
 fastping_unresolved_target_test_LDADD=testfastping.la
 
 AM_CFLAGS=-g -Wall -W -rdynamic -DUNIT_TEST
-INCLUDES=-I../ -I../../../common/
+AM_CPPFLAGS+=-I../

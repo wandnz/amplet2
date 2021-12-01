@@ -26,5 +26,3 @@ compare_addresses_test_CFLAGS=-rdynamic -DUNIT_TEST
 compare_addresses_test_LDFLAGS=-L../ -lamp -lssl -lcrypto
 
 AM_CFLAGS=-g -Wall -W -rdynamic
-INCLUDES=-I../
-

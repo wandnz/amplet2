@@ -31,8 +31,6 @@ nodist_youtube_la_SOURCES=youtube.pb-c.c
 youtube_la_CFLAGS=-DAMP_YOUTUBE_WRAPPER_PATH=\"\$(libdir)/\$(PACKAGE)/chromium/\"
 youtube_la_LDFLAGS=-module -avoid-version -L../../common/ -lamp -lprotobuf-c
 
-INCLUDES=-I../ -I../../common/
-
 install-exec-local:
 	mkdir -p $(DESTDIR)/$(libdir)/$(PACKAGE)/extra
 	cp extra/yt.html $(DESTDIR)/$(libdir)/$(PACKAGE)/extra/

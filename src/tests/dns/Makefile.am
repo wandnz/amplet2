@@ -19,8 +19,6 @@ amp_dns_LDFLAGS=-static
 dns_la_LDFLAGS+=-liphlpapi
 endif
 
-INCLUDES=-I../ -I../../common/
-
 dns.pb-c.c: dns.proto
 	protoc-c --c_out=. dns.proto
 	protoc --python_out=../python/ampsave/tests/ dns.proto

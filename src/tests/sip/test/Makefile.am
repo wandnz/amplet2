@@ -17,4 +17,4 @@ sip_register_test_LDADD=testsip.la
 #sip_unresolved_target_test_LDADD=testsip.la
 
 AM_CFLAGS=-g -Wall -W -rdynamic -DUNIT_TEST
-INCLUDES=-I../ -I../../../common/
+AM_CPPFLAGS+=-I../

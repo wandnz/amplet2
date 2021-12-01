@@ -14,8 +14,6 @@ icmp_la_SOURCES=icmp.c
 nodist_icmp_la_SOURCES=icmp.pb-c.c
 icmp_la_LDFLAGS=-module -avoid-version -L../../common/ -lamp -lprotobuf-c -levent $(AM_LDFLAGS)
 
-INCLUDES=-I../ -I../../common/
-
 if MINGW
 amp_icmp_LDFLAGS=-static
 else

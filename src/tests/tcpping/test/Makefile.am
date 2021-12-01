@@ -17,4 +17,4 @@ tcpping_unresolved_target_test_SOURCES=tcpping_unresolved_target_test.c
 tcpping_unresolved_target_test_LDADD=testtcpping.la
 
 AM_CFLAGS=-g -Wall -W -rdynamic -DUNIT_TEST
-INCLUDES=-I../ -I../../ -I../../../common/
+AM_CPPFLAGS+=-I../

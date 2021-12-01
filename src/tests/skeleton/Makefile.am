@@ -14,8 +14,6 @@ skeleton_la_SOURCES=skeleton.c
 nodist_skeleton_la_SOURCES=skeleton.pb-c.c
 skeleton_la_LDFLAGS=-module -avoid-version -L../../common/ -lamp -lprotobuf-c
 
-INCLUDES=-I../ -I../../common/
-
 skeleton.pb-c.c: skeleton.proto
 	protoc-c --c_out=. skeleton.proto
 	protoc --python_out=../python/ampsave/tests/ skeleton.proto

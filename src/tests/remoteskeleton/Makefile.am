@@ -14,8 +14,6 @@ remoteskeleton_la_SOURCES=remoteskeleton.c
 nodist_remoteskeleton_la_SOURCES=remoteskeleton.pb-c.c
 remoteskeleton_la_LDFLAGS=-module -avoid-version -L../../common/ -lamp -lprotobuf-c
 
-INCLUDES=-I../ -I../../common/
-
 remoteskeleton.pb-c.c: remoteskeleton.proto
 	protoc-c --c_out=. remoteskeleton.proto
 	protoc --python_out=../python/ampsave/tests/ remoteskeleton.proto

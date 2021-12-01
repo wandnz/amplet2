@@ -23,4 +23,4 @@ udpstream_unresolved_target_test_SOURCES=udpstream_unresolved_target_test.c
 udpstream_unresolved_target_test_LDADD=testudpstream.la
 
 AM_CFLAGS=-g -Wall -W -rdynamic -DUNIT_TEST
-INCLUDES=-I../ -I../../ -I../../../common/
+AM_CPPFLAGS+=-I../
