@@ -83,7 +83,9 @@ static void do_receive(BIO *ctrl, int test_sock, struct opt_t *options) {
     receive_udp_stream(test_sock, options, times);
 
     /* build a protobuf message containing our side of the results */
-    result = report_stream(UDPSTREAM_TO_SERVER, NULL, times, options);
+    result = report_stream(
+            AMPLET2__UDPSTREAM__ITEM__DIRECTION__CLIENT_TO_SERVER,
+            NULL, times, options);
 
     /* pack the result for sending to the client */
     packed.len = amplet2__udpstream__item__get_packed_size(result);

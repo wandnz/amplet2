@@ -196,26 +196,32 @@ static struct test_request_t* build_schedule(struct opt_t *options) {
     switch ( options->direction ) {
         case CLIENT_TO_SERVER:
             schedule = calloc(1, sizeof(struct test_request_t));
-            schedule->direction = UDPSTREAM_TO_SERVER;
+            schedule->direction =
+                AMPLET2__UDPSTREAM__ITEM__DIRECTION__CLIENT_TO_SERVER;
             break;
 
         case SERVER_TO_CLIENT:
             schedule = calloc(1, sizeof(struct test_request_t));
-            schedule->direction = UDPSTREAM_TO_CLIENT;
+            schedule->direction =
+                AMPLET2__UDPSTREAM__ITEM__DIRECTION__SERVER_TO_CLIENT;
             break;
 
         case SERVER_THEN_CLIENT:
             schedule = calloc(2, sizeof(struct test_request_t));
-            schedule[0].direction = UDPSTREAM_TO_CLIENT;
+            schedule[0].direction =
+                AMPLET2__UDPSTREAM__ITEM__DIRECTION__SERVER_TO_CLIENT;
             schedule[0].next = &schedule[1];
-            schedule[1].direction = UDPSTREAM_TO_SERVER;
+            schedule[1].direction =
+                AMPLET2__UDPSTREAM__ITEM__DIRECTION__CLIENT_TO_SERVER;
             break;
 
         case CLIENT_THEN_SERVER:
             schedule = calloc(2, sizeof(struct test_request_t));
-            schedule[0].direction = UDPSTREAM_TO_SERVER;
+            schedule[0].direction =
+                AMPLET2__UDPSTREAM__ITEM__DIRECTION__CLIENT_TO_SERVER;
             schedule[0].next = &schedule[1];
-            schedule[1].direction = UDPSTREAM_TO_CLIENT;
+            schedule[1].direction =
+                AMPLET2__UDPSTREAM__ITEM__DIRECTION__SERVER_TO_CLIENT;
             break;
 
         default:
@@ -264,7 +270,7 @@ static amp_test_result_t* run_test(struct addrinfo *server,
     /* run the test schedule */
     for ( current = schedule; current != NULL; current = current->next ) {
         switch ( current->direction ) {
-            case UDPSTREAM_TO_SERVER:
+            case AMPLET2__UDPSTREAM__ITEM__DIRECTION__CLIENT_TO_SERVER:
                 if ( send_control_receive(AMP_TEST_UDPSTREAM, ctrl, NULL) < 0 ){
                     Log(LOG_WARNING, "Failed to send RECEIVE packet, aborting");
                     return NULL;
@@ -293,7 +299,7 @@ static amp_test_result_t* run_test(struct addrinfo *server,
                 free(rtt);
                 break;
 
-            case UDPSTREAM_TO_CLIENT:
+            case AMPLET2__UDPSTREAM__ITEM__DIRECTION__SERVER_TO_CLIENT:
                 in_times = calloc(options->packet_count,sizeof(struct timeval));
                 /* bind test socket to same address as the control socket */
                 getsockname(BIO_get_fd(ctrl, NULL), (struct sockaddr *)&ss,
@@ -319,10 +325,15 @@ static amp_test_result_t* run_test(struct addrinfo *server,
                 }
                 Log(LOG_DEBUG, "Merging remote RTT calculations with results");
                 remote_rtt = extract_summary(&data);
-                local_results = report_stream(UDPSTREAM_TO_CLIENT, remote_rtt,
-                        in_times, options);
+                local_results = report_stream(
+                        AMPLET2__UDPSTREAM__ITEM__DIRECTION__SERVER_TO_CLIENT,
+                        remote_rtt, in_times, options);
                 free(data.data);
                 free(remote_rtt);
+                break;
+
+            default:
+                Log(LOG_WARNING, "Direction not set, ignoring schedule item");
                 break;
         };
     }
@@ -564,10 +575,12 @@ end:
         struct timeval start_time;
         gettimeofday(&start_time, NULL);
         /* no valid destination, report an empty result */
-        local_results = report_stream(UDPSTREAM_TO_CLIENT, NULL, NULL,
-                &test_options);
-        remote_results = report_stream(UDPSTREAM_TO_SERVER, NULL, NULL,
-                &test_options);
+        local_results = report_stream(
+                AMPLET2__UDPSTREAM__ITEM__DIRECTION__SERVER_TO_CLIENT,
+                NULL, NULL, &test_options);
+        remote_results = report_stream(
+                AMPLET2__UDPSTREAM__ITEM__DIRECTION__CLIENT_TO_SERVER,
+                NULL, NULL, &test_options);
         result = report_results(&start_time, dests[0], &test_options,
                 local_results, remote_results);
     }

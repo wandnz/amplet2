@@ -81,13 +81,8 @@ enum udpstream_schedule_direction {
     SERVER_THEN_CLIENT = 3,
 };
 
-enum udpstream_direction {
-    UDPSTREAM_TO_CLIENT = 1,
-    UDPSTREAM_TO_SERVER = 2,
-};
-
 struct test_request_t {
-    enum udpstream_direction direction;
+    Amplet2__Udpstream__Item__Direction direction;
     struct test_request_t *next;
 };
 
@@ -161,7 +156,8 @@ struct summary_t* send_udp_stream(int sock, struct addrinfo *remote,
 int receive_udp_stream(int sock, struct opt_t *options, struct timeval *times);
 Amplet2__Udpstream__SummaryStats* report_summary(struct summary_t *rtt);
 Amplet2__Udpstream__Voip* report_voip(Amplet2__Udpstream__Item *item);
-Amplet2__Udpstream__Item* report_stream(enum udpstream_direction direction,
+Amplet2__Udpstream__Item* report_stream(
+        Amplet2__Udpstream__Item__Direction direction,
         struct summary_t *rtt, struct timeval *times, struct opt_t *options);
 
 ProtobufCBinaryData* build_hello(struct opt_t *options);

@@ -476,7 +476,8 @@ Amplet2__Udpstream__SummaryStats* report_summary(struct summary_t *summary) {
  * a single test flow, including packet interarrivals, RTT measurements,
  * VoIP statistics, loss periods etc.
  */
-Amplet2__Udpstream__Item* report_stream(enum udpstream_direction direction,
+Amplet2__Udpstream__Item* report_stream(
+        Amplet2__Udpstream__Item__Direction direction,
         struct summary_t *rtt, struct timeval *times, struct opt_t *options) {
 
     Amplet2__Udpstream__Item *item =
