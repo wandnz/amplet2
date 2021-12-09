@@ -57,8 +57,8 @@ static struct server_stats_t *create_server(char *name, int pipelines) {
     int i;
 
     memset(server, 0, sizeof(struct server_stats_t));
-    strncpy(server->server_name, name, MAX_DNS_NAME_LEN);
-    strcpy(server->address, "0.0.0.0");
+    snprintf(server->server_name, MAX_DNS_NAME_LEN, "%s", name);
+    snprintf(server->address, MAX_ADDR_LEN, "0.0.0.0");
 
     server->pipelining_maxrequests = 1;
     server->pipelines = malloc(pipelines * sizeof(struct object_stats_t*));

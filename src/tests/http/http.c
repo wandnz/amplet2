@@ -708,8 +708,8 @@ static struct object_stats_t *create_object(char *host, char *path,
             (struct object_stats_t *)malloc(sizeof(struct object_stats_t));
         memset(object, 0, sizeof(struct object_stats_t));
 
-        strncpy(object->server_name, host, MAX_DNS_NAME_LEN);
-        strncpy(object->path, path, MAX_PATH_LEN);
+        snprintf(object->server_name, MAX_DNS_NAME_LEN, "%s", host);
+        snprintf(object->path, MAX_PATH_LEN, "%s", path);
 
         object->parse = parse;
 
@@ -888,8 +888,8 @@ CURL *pipeline_next_object(CURLM *multi, struct server_stats_t *server) {
      * Set up curl to fetch the appropriate url. Note that we have to save
      * this because curl < 7.17.0 won't copy the strings for us...
      */
-    strncpy(object->url, object->server_name, MAX_DNS_NAME_LEN);
-    strncat(object->url, object->path, MAX_URL_LEN - strlen(object->url) - 1);
+    snprintf(object->url, MAX_URL_LEN, "%s%s", object->server_name,
+            object->path);
 
     /*
      * Set the HTTP headers for this request. It's possible for different
@@ -1034,7 +1034,7 @@ static struct object_stats_t *save_stats(CURL *handle) {
         char *address = NULL;
         curl_easy_getinfo(handle, CURLINFO_PRIMARY_IP, &address);
         if ( address != NULL && strlen(address) > 0 ) {
-            strncpy(server->address, address, MAX_ADDR_LEN);
+            snprintf(server->address, MAX_ADDR_LEN, "%s", address);
         }
     }
 #endif
