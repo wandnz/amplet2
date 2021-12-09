@@ -510,7 +510,7 @@ amp_test_result_t* run_throughput_client(int argc, char *argv[], int count,
     test_options.dscp = DEFAULT_DSCP_VALUE;
     test_options.write_size = DEFAULT_WRITE_SIZE;
     test_options.randomise = 0;
-    test_options.protocol = TPUT_PROTOCOL_NONE;
+    test_options.protocol = AMPLET2__THROUGHPUT__PROTOCOL__NONE;
     test_options.sock_rcvbuf = 0;
     test_options.sock_sndbuf = 0;
     test_options.sock_disable_nagle = 0;
@@ -565,7 +565,7 @@ amp_test_result_t* run_throughput_client(int argc, char *argv[], int count,
             case 'S': parseSchedule(&test_options, optarg); break;
             case 't': duration = atoi(optarg); break;
             case 'u': if ( strcasecmp(optarg, "http") == 0 ) {
-                          test_options.protocol = TPUT_PROTOCOL_HTTP_POST;
+                          test_options.protocol = AMPLET2__THROUGHPUT__PROTOCOL__HTTP_POST;
                       }
                       break;
             case 'z': test_options.write_size = atoi(optarg); break;
@@ -874,8 +874,9 @@ void print_throughput(amp_test_result_t *result) {
             msg->header->dscp);
 
     switch ( msg->header->protocol ) {
-        case TPUT_PROTOCOL_NONE: break;
-        case TPUT_PROTOCOL_HTTP_POST: printf(" as HTTP POST"); break;
+        case AMPLET2__THROUGHPUT__PROTOCOL__NONE: break;
+        case AMPLET2__THROUGHPUT__PROTOCOL__HTTP_POST: printf(" as HTTP POST");
+                                                       break;
         default: break;
     };
 

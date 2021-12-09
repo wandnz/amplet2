@@ -572,7 +572,7 @@ int sendStream(int sock_fd, struct test_request_t *test_opts,
 
         /* we can write to the test socket, do so */
         if ( FD_ISSET(sock_fd, &write_set) ) {
-            if ( test_opts->protocol == TPUT_PROTOCOL_HTTP_POST ) {
+            if ( test_opts->protocol == AMPLET2__THROUGHPUT__PROTOCOL__HTTP_POST ) {
                 if ( res->bytes == 0 ) {
                     /* start with an HTTP header to get proxies interested */
                     addHttpHeaders(packet_out, bytes_to_send);
