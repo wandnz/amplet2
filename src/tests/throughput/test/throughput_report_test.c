@@ -87,14 +87,14 @@ static void free_info(void) {
  *
  */
 static struct test_request_t* build_info(struct test_request_t *next,
-        enum tput_type direction, uint64_t start, uint64_t end,
-        uint64_t bytes) {
+        Amplet2__Throughput__Item__Direction direction,
+        uint64_t start, uint64_t end, uint64_t bytes) {
 
     struct test_request_t *item;
     struct test_result_t *result;
 
     item = (struct test_request_t*)malloc(sizeof(struct test_request_t)*count);
-    item->type = direction;
+    item->direction = direction;
     item->next = next;
 
     result = (struct test_result_t*)malloc(sizeof(struct test_result_t));
@@ -167,7 +167,7 @@ static void verify_response(struct test_request_t *a,
         Amplet2__Throughput__Item *b) {
 
     assert(b->has_direction);
-    assert((int)a->type == (int)b->direction);
+    assert((int)a->direction == (int)b->direction);
     assert(b->has_duration);
     assert(a->result->end_ns - a->result->start_ns == b->duration);
     assert(b->has_bytes);
@@ -221,45 +221,98 @@ int main(void) {
     count = 26;
 
     /* direction, start, end, bytes */
-    info = build_info(NULL, TPUT_2_CLIENT, 0, 1000, 12345);
-    info = build_info(info, TPUT_2_SERVER, 0, 0, 0);
-    info = build_info(info, TPUT_2_CLIENT, 0, 0, 1);
-    info = build_info(info, TPUT_2_SERVER, 1, 1, 0);
-    info = build_info(info, TPUT_2_CLIENT, 1, 1, 1);
-    info = build_info(info, TPUT_2_SERVER, 1, 2, 1);
+    info = build_info(NULL,
+            AMPLET2__THROUGHPUT__ITEM__DIRECTION__SERVER_TO_CLIENT,
+            0, 1000, 12345);
+    info = build_info(info,
+            AMPLET2__THROUGHPUT__ITEM__DIRECTION__CLIENT_TO_SERVER,
+            0, 0, 0);
+    info = build_info(info,
+            AMPLET2__THROUGHPUT__ITEM__DIRECTION__SERVER_TO_CLIENT,
+            0, 0, 1);
+    info = build_info(info,
+            AMPLET2__THROUGHPUT__ITEM__DIRECTION__CLIENT_TO_SERVER,
+            1, 1, 0);
+    info = build_info(info,
+            AMPLET2__THROUGHPUT__ITEM__DIRECTION__SERVER_TO_CLIENT,
+            1, 1, 1);
+    info = build_info(info,
+            AMPLET2__THROUGHPUT__ITEM__DIRECTION__CLIENT_TO_SERVER,
+            1, 2, 1);
+
     /* around the current time and date */
-    info = build_info(info, TPUT_2_CLIENT, 1439265634, 1439265634, 256);
-    info = build_info(info, TPUT_2_SERVER, 1439265634, 1439265664, 65536);
+    info = build_info(info,
+            AMPLET2__THROUGHPUT__ITEM__DIRECTION__SERVER_TO_CLIENT,
+            1439265634, 1439265634, 256);
+    info = build_info(info,
+            AMPLET2__THROUGHPUT__ITEM__DIRECTION__CLIENT_TO_SERVER,
+            1439265634, 1439265664, 65536);
+
     /* around 2^16 */
-    info = build_info(info, TPUT_2_CLIENT, 65536, 65536, 65536);
-    info = build_info(info, TPUT_2_SERVER, 65536, 65537, 65537);
-    info = build_info(info, TPUT_2_SERVER, 65535, 65597, 65535);
+    info = build_info(info,
+            AMPLET2__THROUGHPUT__ITEM__DIRECTION__SERVER_TO_CLIENT,
+            65536, 65536, 65536);
+    info = build_info(info,
+            AMPLET2__THROUGHPUT__ITEM__DIRECTION__CLIENT_TO_SERVER,
+            65536, 65537, 65537);
+    info = build_info(info,
+            AMPLET2__THROUGHPUT__ITEM__DIRECTION__CLIENT_TO_SERVER,
+            65535, 65597, 65535);
+
     /* around 2^31 */
-    info = build_info(info, TPUT_2_CLIENT, 2147483648, 2147483648, 2147483648);
-    info = build_info(info, TPUT_2_SERVER, 2147483648, 2147483649, 2147483649);
-    info = build_info(info, TPUT_2_SERVER, 2147483647, 2147483699, 2147483647);
+    info = build_info(info,
+            AMPLET2__THROUGHPUT__ITEM__DIRECTION__SERVER_TO_CLIENT,
+            2147483648, 2147483648, 2147483648);
+    info = build_info(info,
+            AMPLET2__THROUGHPUT__ITEM__DIRECTION__CLIENT_TO_SERVER,
+            2147483648, 2147483649, 2147483649);
+    info = build_info(info,
+            AMPLET2__THROUGHPUT__ITEM__DIRECTION__CLIENT_TO_SERVER,
+            2147483647, 2147483699, 2147483647);
+
     /* around 2^32 */
-    info = build_info(info, TPUT_2_CLIENT, 4294967296, 4294967296, 4294967296);
-    info = build_info(info, TPUT_2_SERVER, 4294967296, 4294967297, 4294967297);
-    info = build_info(info, TPUT_2_SERVER, 4294967295, 4294967397, 4294967295);
+    info = build_info(info,
+            AMPLET2__THROUGHPUT__ITEM__DIRECTION__SERVER_TO_CLIENT,
+            4294967296, 4294967296, 4294967296);
+    info = build_info(info,
+            AMPLET2__THROUGHPUT__ITEM__DIRECTION__CLIENT_TO_SERVER,
+            4294967296, 4294967297, 4294967297);
+    info = build_info(info,
+            AMPLET2__THROUGHPUT__ITEM__DIRECTION__CLIENT_TO_SERVER,
+            4294967295, 4294967397, 4294967295);
+
     /* around 2^33 */
-    info = build_info(info, TPUT_2_CLIENT, 8589934592, 8589934592, 8589934592);
-    info = build_info(info, TPUT_2_SERVER, 8589934592, 8589934593, 8589934593);
-    info = build_info(info, TPUT_2_SERVER, 8589934591, 8589934793, 8589934592);
+    info = build_info(info,
+            AMPLET2__THROUGHPUT__ITEM__DIRECTION__SERVER_TO_CLIENT,
+            8589934592, 8589934592, 8589934592);
+    info = build_info(info,
+            AMPLET2__THROUGHPUT__ITEM__DIRECTION__CLIENT_TO_SERVER,
+            8589934592, 8589934593, 8589934593);
+    info = build_info(info,
+            AMPLET2__THROUGHPUT__ITEM__DIRECTION__CLIENT_TO_SERVER,
+            8589934591, 8589934793, 8589934592);
+
     /* around 2^34 */
-    info = build_info(info, TPUT_2_CLIENT, 17179869184, 17179869184,
-            17179869184);
-    info = build_info(info, TPUT_2_SERVER, 17179869184, 17179869185,
-            17179869185);
-    info = build_info(info, TPUT_2_SERVER, 17179869183, 17179869884,
-            17179869183);
+    info = build_info(info,
+            AMPLET2__THROUGHPUT__ITEM__DIRECTION__SERVER_TO_CLIENT,
+            17179869184, 17179869184, 17179869184);
+    info = build_info(info,
+            AMPLET2__THROUGHPUT__ITEM__DIRECTION__CLIENT_TO_SERVER,
+            17179869184, 17179869185, 17179869185);
+    info = build_info(info,
+            AMPLET2__THROUGHPUT__ITEM__DIRECTION__CLIENT_TO_SERVER,
+            17179869183, 17179869884, 17179869183);
+
     /* around max value (2^64 / 1000000000 because times are in nanoseconds)) */
-    info = build_info(info, TPUT_2_CLIENT, 18446744073, 18446744073,
-            18446744073);
-    info = build_info(info, TPUT_2_SERVER, 18446744072, 18446744073,
-            9223372036854775808U);
-    info = build_info(info, TPUT_2_SERVER, 9223372036U, 18446744073,
-            18446744073709551615U);
+    info = build_info(info,
+            AMPLET2__THROUGHPUT__ITEM__DIRECTION__SERVER_TO_CLIENT,
+            18446744073, 18446744073, 18446744073);
+    info = build_info(info,
+            AMPLET2__THROUGHPUT__ITEM__DIRECTION__CLIENT_TO_SERVER,
+            18446744072, 18446744073, 9223372036854775808U);
+    info = build_info(info,
+            AMPLET2__THROUGHPUT__ITEM__DIRECTION__CLIENT_TO_SERVER,
+            9223372036U, 18446744073, 18446744073709551615U);
 
     options.schedule = info;
 

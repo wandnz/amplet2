@@ -191,7 +191,7 @@ Amplet2__Throughput__Item* report_schedule(struct test_request_t *info) {
     /* fill the report item with results of a test */
     amplet2__throughput__item__init(item);
     item->has_direction = 1;
-    item->direction = info->type;
+    item->direction = info->direction;
 
     if ( info->result == NULL ) {
         Log(LOG_DEBUG, "tput result: test did not run to %s",

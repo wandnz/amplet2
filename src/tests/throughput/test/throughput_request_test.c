@@ -51,15 +51,21 @@
 int main(void) {
     int pipefd[2];
     BIO *sendctrl, *recvctrl;
-    /* type X bytes duration write_size X X X */
+    /* direction X bytes duration write_size X X X */
     struct test_request_t *request;
     struct test_request_t requests[] = {
-        { TPUT_PKT_SEND, 0, 0, 0, 0, 0, 0, 0 },
-        { TPUT_PKT_SEND, 0, 1024, 0, 128, 0, 0, 0 },
-        { TPUT_PKT_SEND, 0, 10*1024*1024, 0, 1024, 0, 0, 0 },
-        { TPUT_PKT_SEND, 0, 0, 10, 4096, 0, 0, 0 },
-        { TPUT_PKT_SEND, 0, 0, 60, 4096, 0, 0, 0 },
-        { TPUT_PKT_SEND, 0, 0, 300, 12345, 0, 0, 0 },
+        { AMPLET2__THROUGHPUT__ITEM__DIRECTION__SERVER_TO_CLIENT,
+            0, 0, 0, 0, 0, 0, 0 },
+        { AMPLET2__THROUGHPUT__ITEM__DIRECTION__CLIENT_TO_SERVER,
+            0, 1024, 0, 128, 0, 0, 0 },
+        { AMPLET2__THROUGHPUT__ITEM__DIRECTION__SERVER_TO_CLIENT,
+            0, 10*1024*1024, 0, 1024, 0, 0, 0 },
+        { AMPLET2__THROUGHPUT__ITEM__DIRECTION__CLIENT_TO_SERVER,
+            0, 0, 10, 4096, 0, 0, 0 },
+        { AMPLET2__THROUGHPUT__ITEM__DIRECTION__SERVER_TO_CLIENT,
+            0, 0, 60, 4096, 0, 0, 0 },
+        { AMPLET2__THROUGHPUT__ITEM__DIRECTION__CLIENT_TO_SERVER,
+            0, 0, 300, 12345, 0, 0, 0 },
     };
     void *data;
     int bytes;

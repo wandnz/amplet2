@@ -72,11 +72,18 @@ static void printSchedule(struct test_request_t *schedule) {
    struct test_request_t *cur;
    Log(LOG_DEBUG, "Printing out schedule");
    for ( cur = schedule; cur != NULL ; cur = cur->next ) {
-       switch ( cur->type ) {
-           case TPUT_NULL: Log(LOG_DEBUG, "Found a TPUT_NULL"); break;
-           case TPUT_2_CLIENT: Log(LOG_DEBUG, "Found a TPUT_2_CLIENT"); break;
-           case TPUT_2_SERVER: Log(LOG_DEBUG, "Found a TPUT_2_SERVER"); break;
-           default : Log(LOG_DEBUG, "Found a bad type"); break;
+       switch ( cur->direction ) {
+           case AMPLET2__THROUGHPUT__ITEM__DIRECTION__NULL:
+                    Log(LOG_DEBUG, "direction: NULL");
+                    break;
+           case AMPLET2__THROUGHPUT__ITEM__DIRECTION__SERVER_TO_CLIENT:
+                    Log(LOG_DEBUG, "direction: SERVER TO CLIENT");
+                    break;
+           case AMPLET2__THROUGHPUT__ITEM__DIRECTION__CLIENT_TO_SERVER:
+                    Log(LOG_DEBUG, "direction: CLIENT TO SERVER");
+                    break;
+           default: Log(LOG_DEBUG, "direction: invalid");
+                    break;
        }
        Log(LOG_DEBUG, "bytes:%d duration:%d writesize:%d randomise:%d",
                cur->bytes, cur->duration, cur->write_size, cur->randomise);
@@ -126,11 +133,11 @@ static void parseSchedule(struct opt_t *options, char *request) {
     while ( pch != NULL ) {
         /*
          * We assume this is valid and if this isn't then it is marked with
-         * request type none anyway
+         * a null direction anyway
          */
         *current = (struct test_request_t *)
             malloc(sizeof(struct test_request_t));
-        (*current)->type = TPUT_NULL;
+        (*current)->direction = AMPLET2__THROUGHPUT__ITEM__DIRECTION__NULL;
         (*current)->bytes = 0;
         (*current)->duration = 0;
         (*current)->write_size = options->write_size;
@@ -146,14 +153,26 @@ static void parseSchedule(struct opt_t *options, char *request) {
 
         switch ( pch[0] ) {
             case 's':
+                (*current)->direction =
+                    AMPLET2__THROUGHPUT__ITEM__DIRECTION__SERVER_TO_CLIENT;
+                (*current)->bytes = arg;
+                break;
+
             case 'S':
-                (*current)->type = (pch[0] == 's')?TPUT_2_CLIENT:TPUT_2_SERVER;
+                (*current)->direction =
+                    AMPLET2__THROUGHPUT__ITEM__DIRECTION__CLIENT_TO_SERVER;
                 (*current)->bytes = arg;
                 break;
 
             case 't':
+                (*current)->direction =
+                    AMPLET2__THROUGHPUT__ITEM__DIRECTION__SERVER_TO_CLIENT;
+                (*current)->duration = arg;
+                break;
+
             case 'T':
-                (*current)->type = (pch[0] == 't')?TPUT_2_CLIENT:TPUT_2_SERVER;
+                (*current)->direction =
+                    AMPLET2__THROUGHPUT__ITEM__DIRECTION__CLIENT_TO_SERVER;
                 (*current)->duration = arg;
                 break;
 
@@ -172,9 +191,9 @@ static void parseSchedule(struct opt_t *options, char *request) {
         };
 
         /* Check test is valid and has a stopping condition*/
-        if ( (*current)->type != TPUT_NULL ) {
+        if ( (*current)->direction != AMPLET2__THROUGHPUT__ITEM__DIRECTION__NULL ) {
             if ( (*current)->bytes == 0 && (*current)->duration == 0 ) {
-                (*current)->type = TPUT_NULL;
+                (*current)->direction = AMPLET2__THROUGHPUT__ITEM__DIRECTION__NULL;
                 Log(LOG_WARNING,
                         "Invalid test found in schedule ignoring. "
                         "Are you using the correct format?");
@@ -250,7 +269,8 @@ static amp_test_result_t* report_results(uint64_t start_time,
     /* build up the repeated reports section with each of the results */
     for ( i = 0, item = options->schedule; item != NULL; item = item->next ) {
         /* only report on schedule items that can possibly send data */
-        if ( item->type != TPUT_2_CLIENT && item->type != TPUT_2_SERVER ) {
+        if ( item->direction != AMPLET2__THROUGHPUT__ITEM__DIRECTION__SERVER_TO_CLIENT &&
+                item->direction != AMPLET2__THROUGHPUT__ITEM__DIRECTION__CLIENT_TO_SERVER ) {
             continue;
         }
 
@@ -386,11 +406,11 @@ static amp_test_result_t* runSchedule(struct addrinfo *serv_addr,
             }
         }
 
-        switch ( cur->type ) {
-            case TPUT_NULL:
+        switch ( cur->direction ) {
+            case AMPLET2__THROUGHPUT__ITEM__DIRECTION__NULL:
                 continue;
 
-            case TPUT_2_CLIENT:
+            case AMPLET2__THROUGHPUT__ITEM__DIRECTION__SERVER_TO_CLIENT:
                 Log(LOG_DEBUG, "Starting Server to Client Throughput test");
                 /* Request a test from the server */
                 if ( send_control_send(AMP_TEST_THROUGHPUT, ctrl,
@@ -421,7 +441,7 @@ static amp_test_result_t* runSchedule(struct addrinfo *serv_addr,
                 Log(LOG_DEBUG, "Received results of test from server");
                 continue;
 
-            case TPUT_2_SERVER:
+            case AMPLET2__THROUGHPUT__ITEM__DIRECTION__CLIENT_TO_SERVER:
                 Log(LOG_DEBUG, "Starting Client to Server Throughput test");
                 cur->result = calloc(1, sizeof(struct test_result_t));
 
@@ -468,7 +488,7 @@ static amp_test_result_t* runSchedule(struct addrinfo *serv_addr,
 
             default:
                 Log(LOG_WARNING,
-                        "runSchedule found an invalid test_request_t->type");
+                        "runSchedule found an invalid test direction");
                 continue;
         };
     }

@@ -63,8 +63,7 @@
 
 /*
  * Used as shortcuts for scheduling common tests through the web interface.
- * Some degree of overlap with the tput_type enum which is annoying, and these
- * also have to be specified by number on the command line, which is why they
+ * These have to be specified by number on the command line, which is why they
  * are currently intended to be used only by generated schedule files.
  */
 enum tput_schedule_direction {
@@ -73,14 +72,6 @@ enum tput_schedule_direction {
     SERVER_TO_CLIENT = 1,
     CLIENT_THEN_SERVER = 2,
     SERVER_THEN_CLIENT = 3,
-};
-
-enum tput_type {
-    TPUT_NULL = 0,
-    TPUT_2_CLIENT,
-    TPUT_2_SERVER,
-    TPUT_PAUSE,
-    TPUT_NEW_CONNECTION,
 };
 
 
@@ -120,7 +111,7 @@ struct test_result_t {
 
 /* A single request */
 struct test_request_t {
-    enum tput_type type;
+    Amplet2__Throughput__Item__Direction direction;
     Amplet2__Throughput__Protocol protocol;
     uint64_t bytes;
     uint32_t duration;
@@ -152,17 +143,6 @@ struct opt_t {
     char *device;
     struct addrinfo *sourcev4;
     struct addrinfo *sourcev6;
-};
-
-/* All of our packet types */
-enum TPUT_PKT {
-    TPUT_PKT_DATA = 0,
-    TPUT_PKT_SEND = 1,
-    TPUT_PKT_RESULT = 2,
-    TPUT_PKT_CLOSE = 3,
-    TPUT_PKT_RENEW_CONNECTION = 4,
-    TPUT_PKT_HELLO = 5,
-    TPUT_PKT_READY = 6,
 };
 
 

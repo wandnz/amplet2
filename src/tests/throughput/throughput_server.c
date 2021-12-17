@@ -107,7 +107,7 @@ static int do_receive(BIO *ctrl, int test_sock) {
     }
 
     /* Send our result */
-    request.type = TPUT_2_SERVER;
+    request.direction = AMPLET2__THROUGHPUT__ITEM__DIRECTION__CLIENT_TO_SERVER;
     request.result = &result;
 
     item = report_schedule(&request);
@@ -157,7 +157,7 @@ static int do_send(BIO *ctrl, int test_sock, struct opt_t *options,
 
     /* Unlike old test, send result for either direction */
     memset(request, 0, sizeof(*request));
-    request->type = TPUT_2_CLIENT;
+    request->direction = AMPLET2__THROUGHPUT__ITEM__DIRECTION__SERVER_TO_CLIENT;
     request->result = &result;
     item = report_schedule(request);
 
