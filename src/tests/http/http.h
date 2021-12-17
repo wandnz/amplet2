@@ -105,14 +105,13 @@ struct cache_headers_t {
     } flags;
 } __attribute__((packed));
 
-struct globalStats_t {
+struct global_stats {
     struct timeval start;
     struct timeval end;
     uint32_t bytes;
-    uint32_t servers;
     uint32_t objects;
     uint32_t failed_objects;
-} global;//XXX move elsewhere?
+};
 
 /* TODO can these stats structs be reconciled with the report ones? */
 struct server_stats_t {

@@ -64,10 +64,11 @@
 #define LONG_PROXY_STRING "https://user:password@example.com:8080"
 #define LONG_USERAGENT_STRING "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:67.0) Gecko/20100101 Firefox/67.0"
 
-/* these are globals as we need to get them into the print callback */
+extern struct global_stats global;
 int option_count = 0;
+size_t server_count = 0;
 struct server_stats_t *servers = NULL;
-struct opt_t options[] = {
+struct opt_t test_options[] = {
     // XXX should host and path be formed based on url?
     {{"http://example.org"},
         {0}, {0}, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -410,9 +411,9 @@ static void verify_message(amp_test_result_t *result) {
 
     assert(msg);
     assert(msg->header);
-    assert(msg->n_servers == global.servers);
+    assert(msg->n_servers == server_count);
 
-    verify_header(&options[option_count++], msg->header);
+    verify_header(&test_options[option_count++], msg->header);
 
     /* check each of the servers in the result */
     for ( i = 0, tmpsrv = servers; i < msg->n_servers && tmpsrv != NULL;
@@ -498,7 +499,7 @@ static void build_server(void) {
     server->next = servers;
     servers = server;
 
-    global.servers++;
+    server_count++;
 
     for ( i = 0; i < server->objects + server->failed_objects; i++ ) {
         server->finished = build_object(server->finished);
@@ -550,7 +551,7 @@ static void free_servers(void) {
     }
 
     servers = NULL;
-    global.servers = 0;
+    server_count = 0;
     global.objects = 0;
 }
 
@@ -568,12 +569,13 @@ int main(void) {
     //srand(time(NULL));
     srand(1);
 
-    memset(&global, 0, sizeof(struct globalStats_t));
+    memset(&global, 0, sizeof(struct global_stats));
 
-    count = sizeof(options) / sizeof(struct opt_t);
+    count = sizeof(test_options) / sizeof(struct opt_t);
     for ( i = 0; i < count; i++ ) {
         build_servers();
-        verify_message(amp_test_report_results(&start, servers, &options[i]));
+        verify_message(
+                amp_test_report_results(&start, servers, &test_options[i]));
         free_servers();
     }
 

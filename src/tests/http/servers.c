@@ -70,8 +70,6 @@ static struct server_stats_t *create_server(char *name, int pipelines) {
         server->pipelen[i] = 0;
     }
 
-    global.servers++;
-
     return server;
 }
 

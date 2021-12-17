@@ -73,7 +73,7 @@ struct server_stats_t *server_list = NULL;
 int total_pipelines;
 int total_requests;
 struct opt_t options;
-
+struct global_stats global;
 
 
 static struct option long_options[] = {
@@ -313,25 +313,25 @@ static amp_test_result_t* report_results(struct timeval *start_time,
 
     Amplet2__Http__Report msg = AMPLET2__HTTP__REPORT__INIT;
     Amplet2__Http__Header header = AMPLET2__HTTP__HEADER__INIT;
-    Amplet2__Http__Server **servers;
+    Amplet2__Http__Server **servers = NULL;
 
     Log(LOG_DEBUG, "Building http report, url:%s\n", opt->url);
 
     report_header_results(&header, opt);
 
     /* add results for all the servers from which data was fetched */
-    servers = malloc(sizeof(Amplet2__Http__Server*) * global.servers);
-    for ( i = 0, tmpsrv = server_stats;
-            i < global.servers && tmpsrv != NULL; i++, tmpsrv = tmpsrv->next ) {
-        Log(LOG_DEBUG, "Reporting server %d of %d: %s\n", i+1, global.servers,
-                tmpsrv->address);
+    for ( i = 0, tmpsrv = server_stats; tmpsrv != NULL;
+            i++, tmpsrv = tmpsrv->next ) {
+        Log(LOG_DEBUG, "Reporting server %d: %s\n", i+1, tmpsrv->address);
+        // TODO what is the best way to recover if realloc fails?
+        servers = realloc(servers, (i+1) * sizeof(Amplet2__Http__Server*));
         servers[i] = report_server_results(tmpsrv);
     }
 
     /* populate the top level report object with the header and servers */
     msg.header = &header;
     msg.servers = servers;
-    msg.n_servers = global.servers;
+    msg.n_servers = i;
 
     /* pack all the results into a buffer for transmitting */
     result->timestamp = (uint64_t)start_time->tv_sec;
@@ -340,7 +340,7 @@ static amp_test_result_t* report_results(struct timeval *start_time,
     amplet2__http__report__pack(&msg, result->data);
 
     /* free up all the memory we had to allocate to report items */
-    for ( i = 0; i < global.servers; i++ ) {
+    for ( i = 0; i < msg.n_servers; i++ ) {
         for ( j = 0; j < servers[i]->n_objects; j++ ) {
             if ( servers[i]->objects[j]->cache_headers ) {
                 free(servers[i]->objects[j]->cache_headers);
@@ -351,7 +351,9 @@ static amp_test_result_t* report_results(struct timeval *start_time,
         free(servers[i]);
     }
 
-    free(servers);
+    if ( servers ) {
+        free(servers);
+    }
 
     return result;
 }
