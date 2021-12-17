@@ -60,12 +60,6 @@
 #define AMQP_LOCAL_EXCHANGE ""
 #define AMQP_LOCAL_ROUTING_KEY "report"
 
-/*
- * TODO: this should be maintained for the lifetime of the main process, but
- * is currently just created and set by the individual test processes.
- */
-amqp_connection_state_t conn;
-
 int report_to_broker(test_t *test, amp_test_result_t *result);
 
 #endif

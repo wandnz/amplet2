@@ -58,11 +58,12 @@
  * TODO create a connection that persists for the lifetime of the main process
  * that allocates channels within it for each test process.
  */
-static int connect_to_broker(void) {
+static amqp_connection_state_t connect_to_broker(void) {
     amqp_socket_t *sock;
     char *collector = vars.vialocal ? vars.local : vars.collector;
     int port = vars.vialocal ? AMQP_PORT : vars.port;
     char *vhost = vars.vialocal ? vars.ampname : vars.vhost;
+    amqp_connection_state_t conn;
 
     Log(LOG_DEBUG, "Opening new connection to broker %s:%d\n", collector, port);
 
@@ -72,18 +73,18 @@ static int connect_to_broker(void) {
 
         if ( (sock = amqp_ssl_socket_new(conn)) == NULL ) {
             Log(LOG_ERR, "Failed to create SSL socket\n");
-            return -1;
+            return NULL;
         }
 
         if ( amqp_ssl_socket_set_cacert(sock, vars.amqp_ssl.cacert) != 0 ) {
             Log(LOG_ERR, "Failed to set CA certificate\n");
-            return -1;
+            return NULL;
         }
 
         if ( amqp_ssl_socket_set_key(sock, vars.amqp_ssl.cert,
                     vars.amqp_ssl.key) != 0 ) {
             Log(LOG_ERR, "Failed to set client certificate\n");
-            return -1;
+            return NULL;
         }
 
 #if AMQP_VERSION >= AMQP_VERSION_CODE(0, 8, 0, 0)
@@ -95,7 +96,7 @@ static int connect_to_broker(void) {
 
         if ( amqp_socket_open(sock, collector, port) != 0 ) {
             Log(LOG_ERR, "Failed to open connection to %s:%d", collector, port);
-            return -1;
+            return NULL;
         }
 
         Log(LOG_DEBUG, "Logging in to vhost '%s' with EXTERNAL auth", vhost);
@@ -106,19 +107,19 @@ static int connect_to_broker(void) {
              ).reply_type != AMQP_RESPONSE_NORMAL ) {
             Log(LOG_ERR, "Failed to login to broker %s:%d using EXTERNAL auth",
                     collector, port);
-            return -1;
+            return NULL;
         }
 
     } else {
 
         if ( (sock = amqp_tcp_socket_new(conn)) == NULL ) {
             Log(LOG_ERR, "Failed to create TCP socket\n");
-            return -1;
+            return NULL;
         }
 
         if ( amqp_socket_open(sock, collector, port) != 0 ) {
             Log(LOG_ERR, "Failed to open connection to %s:%d", collector, port);
-            return -1;
+            return NULL;
         }
 
         Log(LOG_DEBUG, "Logging in to vhost '%s' as '%s' with PLAIN auth",
@@ -130,20 +131,19 @@ static int connect_to_broker(void) {
              ).reply_type != AMQP_RESPONSE_NORMAL ) {
             Log(LOG_ERR, "Failed to login to broker %s:%d using PLAIN auth",
                     collector, port);
-            return -1;
+            return NULL;
         }
     }
 
-    return 0;
+    return conn;
 }
 
 
 
 /*
- * Close the connection to the local broker. Should only be called when
- * measured is terminating.
+ * Close the connection to the local broker.
  */
-static void close_broker_connection(void) {
+static void close_broker_connection(amqp_connection_state_t conn) {
     amqp_connection_close(conn, AMQP_REPLY_SUCCESS);
     amqp_destroy_connection(conn);
 }
@@ -165,6 +165,7 @@ int report_to_broker(test_t *test, amp_test_result_t *result) {
     amqp_table_entry_t table_entries;
     char *exchange = vars.vialocal ? AMQP_LOCAL_EXCHANGE : vars.exchange;
     char *routingkey = vars.vialocal ? AMQP_LOCAL_ROUTING_KEY : vars.routingkey;
+    amqp_connection_state_t conn;
 
     /*
      * Ideally this would only happen once and the same connection would be
@@ -176,8 +177,8 @@ int report_to_broker(test_t *test, amp_test_result_t *result) {
      * to use.
      * TODO how to make this work with a single connection, multiple channels.
      */
-    if ( connect_to_broker() < 0 ) {
-	return -1;
+    if ( (conn = connect_to_broker()) == NULL ) {
+        return -1;
     }
 
     /*
@@ -189,7 +190,7 @@ int report_to_broker(test_t *test, amp_test_result_t *result) {
 
     if ( (amqp_get_rpc_reply(conn).reply_type) != AMQP_RESPONSE_NORMAL ) {
 	Log(LOG_ERR, "Failed to open channel");
-	close_broker_connection();
+	close_broker_connection(conn);
 	return -1;
     }
 
@@ -240,13 +241,13 @@ int report_to_broker(test_t *test, amp_test_result_t *result) {
 
 	Log(LOG_ERR, "Failed to publish message");
 	amqp_channel_close(conn, getpid(), AMQP_REPLY_SUCCESS);
-	close_broker_connection();
+	close_broker_connection(conn);
 	return -1;
     }
 
     Log(LOG_DEBUG, "Closing channel %d\n", getpid());
     amqp_channel_close(conn, getpid(), AMQP_REPLY_SUCCESS);
 
-    close_broker_connection();
+    close_broker_connection(conn);
     return 0;
 }
