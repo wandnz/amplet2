@@ -234,7 +234,7 @@ int initialise_ssl(amp_ssl_opt_t *sslopts, char *collector) {
  * Initialise the SSL context and load all the keys that we will be using.
  */
 SSL_CTX* initialise_ssl_context(amp_ssl_opt_t *sslopts) {
-    SSL_CTX *ssl_ctx = NULL;
+    SSL_CTX *ctx = NULL;
     EC_KEY *ecdh;
 
     Log(LOG_DEBUG, "Initialising SSL context");
@@ -249,22 +249,22 @@ SSL_CTX* initialise_ssl_context(amp_ssl_opt_t *sslopts) {
      * limit connections to using TLSv1.2 and above, we don't care about
      * backwards compatability with old clients as we control them all
      */
-    ssl_ctx = SSL_CTX_new(SSLv23_method());
-    SSL_CTX_set_options(ssl_ctx, SSL_OP_MIN_TLSv1_2);
+    ctx = SSL_CTX_new(SSLv23_method());
+    SSL_CTX_set_options(ctx, SSL_OP_MIN_TLSv1_2);
 
     /* disable compression to mitigate CRIME attack */
-    SSL_CTX_set_options(ssl_ctx, SSL_OP_NO_COMPRESSION);
+    SSL_CTX_set_options(ctx, SSL_OP_NO_COMPRESSION);
 
     /* use server cipher list ordering as we trust ourselves more than them */
-    SSL_CTX_set_options(ssl_ctx, SSL_OP_CIPHER_SERVER_PREFERENCE);
+    SSL_CTX_set_options(ctx, SSL_OP_CIPHER_SERVER_PREFERENCE);
 
     /* Make sure all clients provide a certificate, and that it is valid */
-    SSL_CTX_set_verify(ssl_ctx,
+    SSL_CTX_set_verify(ctx,
             SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT, NULL);
 
     Log(LOG_INFO, "Loading certificate from %s", sslopts->cert);
     /* Load our certificate */
-    if ( SSL_CTX_use_certificate_chain_file(ssl_ctx,sslopts->cert) != 1 ) {
+    if ( SSL_CTX_use_certificate_chain_file(ctx, sslopts->cert) != 1 ) {
         Log(LOG_WARNING, "Couldn't load certificate %s", sslopts->cert);
         ssl_cleanup();
         return NULL;
@@ -272,7 +272,7 @@ SSL_CTX* initialise_ssl_context(amp_ssl_opt_t *sslopts) {
 
     Log(LOG_INFO, "Loading private key from %s", sslopts->key);
     /* Load our private key */
-    if ( SSL_CTX_use_PrivateKey_file(ssl_ctx, sslopts->key,
+    if ( SSL_CTX_use_PrivateKey_file(ctx, sslopts->key,
                 SSL_FILETYPE_PEM) != 1 ) {
         Log(LOG_WARNING, "Couldn't load private key %s", sslopts->key);
         ssl_cleanup();
@@ -280,7 +280,7 @@ SSL_CTX* initialise_ssl_context(amp_ssl_opt_t *sslopts) {
     }
 
     /* Check that the certificate and key agree */
-    if ( SSL_CTX_check_private_key(ssl_ctx) != 1 ) {
+    if ( SSL_CTX_check_private_key(ctx) != 1 ) {
         Log(LOG_WARNING, "Private key does not match certificate");
         ssl_cleanup();
         return NULL;
@@ -288,7 +288,7 @@ SSL_CTX* initialise_ssl_context(amp_ssl_opt_t *sslopts) {
 
     Log(LOG_INFO, "Loading CA certificate from %s", sslopts->cacert);
     /* Load our cacert we will validate others against */
-    if (SSL_CTX_load_verify_locations(ssl_ctx,sslopts->cacert,NULL) != 1) {
+    if (SSL_CTX_load_verify_locations(ctx, sslopts->cacert, NULL) != 1) {
         Log(LOG_WARNING, "Couldn't load certificate trust store",
                 sslopts->cacert);
         ssl_cleanup();
@@ -296,7 +296,7 @@ SSL_CTX* initialise_ssl_context(amp_ssl_opt_t *sslopts) {
     }
 
     /* Only support ciphers we believe are secure */
-    if (SSL_CTX_set_cipher_list(ssl_ctx, SECURE_CIPHER_LIST) != 1) {
+    if (SSL_CTX_set_cipher_list(ctx, SECURE_CIPHER_LIST) != 1) {
         Log(LOG_WARNING, "Failed to set cipher list");
         ssl_cleanup();
         return NULL;
@@ -309,7 +309,7 @@ SSL_CTX* initialise_ssl_context(amp_ssl_opt_t *sslopts) {
     Log(LOG_DEBUG, "Setting up elliptic curve");
 
     /* always generate a new key when using ECDH ciphers */
-    SSL_CTX_set_options(ssl_ctx, SSL_OP_SINGLE_ECDH_USE);
+    SSL_CTX_set_options(ctx, SSL_OP_SINGLE_ECDH_USE);
 
     if ( (ecdh = EC_KEY_new_by_curve_name(NID_X9_62_prime256v1)) == NULL ) {
         Log(LOG_WARNING, "Failed to create elliptic curve");
@@ -317,7 +317,7 @@ SSL_CTX* initialise_ssl_context(amp_ssl_opt_t *sslopts) {
         return NULL;
     }
 
-    if ( SSL_CTX_set_tmp_ecdh(ssl_ctx, ecdh) != 1 ) {
+    if ( SSL_CTX_set_tmp_ecdh(ctx, ecdh) != 1 ) {
         Log(LOG_WARNING, "Failed to set elliptic curve");
         EC_KEY_free(ecdh);
         ssl_cleanup();
@@ -326,7 +326,7 @@ SSL_CTX* initialise_ssl_context(amp_ssl_opt_t *sslopts) {
 
     EC_KEY_free(ecdh);
 
-    return ssl_ctx;
+    return ctx;
 }
 
 
@@ -337,7 +337,7 @@ SSL_CTX* initialise_ssl_context(amp_ssl_opt_t *sslopts) {
  * establishment as directed, otherwise it will just wrap the file descriptor
  * in a BIO with no further action.
  */
-BIO* establish_control_socket(SSL_CTX *ssl_ctx, int fd, int client) {
+BIO* establish_control_socket(SSL_CTX *ctx, int fd, int client) {
     BIO *socket_bio, *top_bio;
 
     if ( (socket_bio = BIO_new_socket(fd, BIO_CLOSE)) == NULL ) {
@@ -345,14 +345,14 @@ BIO* establish_control_socket(SSL_CTX *ssl_ctx, int fd, int client) {
         return NULL;
     }
 
-    if ( ssl_ctx ) {
+    if ( ctx ) {
         BIO *ssl_bio;
         SSL *ssl;
 
         Log(LOG_DEBUG, "Active SSL context, using SSL BIO");
 
         /* 0 flags this as a server connection */
-        if ( (ssl_bio = BIO_new_ssl(ssl_ctx, client)) == NULL ) {
+        if ( (ssl_bio = BIO_new_ssl(ctx, client)) == NULL ) {
             log_ssl("Failed to create new SSL BIO");
             BIO_free(socket_bio);
             return NULL;
