@@ -5,38 +5,26 @@
 # run packaging linters over the built package
 test_lint() {
     case "$CODENAME" in
-        xenial)
-            run_lintian
-            ;;
-        bionic)
-            run_lintian
-            ;;
-        focal)
-            run_lintian
-            ;;
-        jessie)
-            run_lintian
-            ;;
-        stretch)
-            run_lintian
-            ;;
-        buster)
-            run_lintian
-            ;;
-
         centos_7)
             run_rpmlint
             ;;
 
+        bullseye)
+            run_lintian "--fail-on error"
+            ;;
+
         *)
-            fail "unknown system type $CODENAME"
+            run_lintian
             ;;
     esac
 }
 
+# from bullseye, lintian needs extra command line options if you want it
+# to exit non-0 when errors are found, and it doesn't look like they plan
+# to fix it: https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=962158
 run_lintian() {
     assertFileExists /usr/bin/lintian
-    /usr/bin/lintian --allow-root packages/${DIRNAME}/amplet2-client_*.deb
+    /usr/bin/lintian --allow-root $1 packages/${DIRNAME}/amplet2-client_*.deb
     assertTrue "linter errors" $?
 }
 
