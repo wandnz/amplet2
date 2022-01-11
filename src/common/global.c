@@ -1,7 +1,7 @@
 /*
  * This file is part of amplet2.
  *
- * Copyright (c) 2013-2016 The University of Waikato, Hamilton, New Zealand.
+ * Copyright (c) 2022 The University of Waikato, Hamilton, New Zealand.
  *
  * Author: Brendon Jones
  *
@@ -37,36 +37,6 @@
  * along with amplet2. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef _COMMON_GLOBAL_H
-#define _COMMON_GLOBAL_H
+#include "global.h"
 
-#include <stdint.h>
-
-#include "ssl.h"
-
-struct amp_global_t {
-    char *ampname;
-    char *collector;
-    uint16_t port;
-    int vialocal;
-    char *local;
-    char *vhost;
-    char *exchange;
-    char *routingkey;
-    int prefetch;
-    int ssl;
-    int control_port;
-    amp_ssl_opt_t amqp_ssl;
-    char *asnsock;
-    char *nssock;
-    int nssock_fd;
-    int asnsock_fd;
-    char **argv;
-    int argc;
-#if _WIN32
-    int standalone;
-#endif
-};
-
-extern struct amp_global_t vars;
-#endif
+struct amp_global_t vars;
