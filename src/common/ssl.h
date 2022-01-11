@@ -70,7 +70,7 @@ typedef struct amp_ssl_opt {
 } amp_ssl_opt_t;
 
 
-SSL_CTX *ssl_ctx;
+extern SSL_CTX *ssl_ctx;
 
 void reseed_openssl_rng(void);
 int initialise_ssl(amp_ssl_opt_t *sslopts, char *collector);

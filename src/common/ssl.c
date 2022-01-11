@@ -55,6 +55,8 @@
  * https://www.cs.auckland.ac.nz/~pgut001/pubs/book.pdf
  */
 
+/* XXX why do we use this in so many places that it needs to be global? */
+SSL_CTX *ssl_ctx = NULL;
 
 /*
  * XXX check that this is the right way to get errors, when should we use
