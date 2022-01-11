@@ -52,6 +52,7 @@
 #include "debug.h"
 #include "modules.h"
 
+test_t **amp_tests = NULL;
 
 
 test_t *register_one_test(char *filename) {
@@ -237,4 +238,13 @@ test_t *get_test_by_name(char *name) {
     }
 
     return NULL;
+}
+
+
+
+/*
+ * Return a pointer to the list of all test definitions.
+ */
+test_t **get_registered_tests(void) {
+    return amp_tests;
 }

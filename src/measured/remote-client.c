@@ -93,17 +93,19 @@ static void usage(char *prog) {
  * start.
  */
 static void list_all_tests(void) {
-    test_t **test;
+    test_t **tests;
 
     printf("Available tests (%s)\n", AMP_TEST_DIRECTORY);
 
-    if ( amp_tests == NULL ) {
+    tests = get_registered_tests();
+
+    if ( tests == NULL ) {
         printf("  none\n");
         return;
     }
 
-    for ( test = amp_tests; *test != NULL; test++ ) {
-        printf("  %s\n", (*test)->name);
+    for ( ; *tests != NULL; tests++ ) {
+        printf("  %s\n", (*tests)->name);
     }
 }
 

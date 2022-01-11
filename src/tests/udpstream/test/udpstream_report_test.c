@@ -193,8 +193,6 @@ static void verify_address(struct addrinfo *a, Amplet2__Udpstream__Header *b) {
 static void verify_response(struct test_request_t *a,
         Amplet2__Udpstream__Item *b) {
 
-    struct test_result_t *result;
-
     assert(b->has_direction);
     assert((int)a->type == (int)b->direction);
 
@@ -253,23 +251,15 @@ static void verify_message(amp_test_result_t *result) {
  *
  */
 int main(void) {
-    test_t udpstream_test;
-    amp_test_result_t *result;
-
     addr = get_numeric_address("192.168.0.254", NULL);
     addr->ai_canonname = strdup("foo.bar.baz");
-
-    /* replace the print function with one that will verify message contents */
-    udpstream_test.print_callback = verify_message;
-    /* use this stripped down test in place of the normal UDPSTREAM test */
-    amp_tests[AMP_TEST_UDPSTREAM] = &udpstream_test;
 
     /*
      * try some different combinations of header options, they don't need to
      * relate to the results reported (but maybe that should be enforced?)
      */
     for ( i = 0; i < count; i++ ) {
-        result = amp_test_report_results(0, addr, &options);
+        verify_message(amp_test_report_results(0, addr, &options));
     }
 
     freeaddrinfo(addr);

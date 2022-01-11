@@ -43,14 +43,12 @@
 #include <stdint.h>
 #include "tests.h"
 
-/* Array containing pointers to all the available tests. */
-test_t **amp_tests;
-
 
 test_t *register_one_test(char *filename);
 int register_tests(char *location);
 void unregister_tests(void);
 test_t *get_test_by_id(uint64_t id);
 test_t *get_test_by_name(char *name);
+test_t **get_registered_tests(void);
 
 #endif
