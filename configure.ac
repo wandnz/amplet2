@@ -393,22 +393,28 @@ AC_ARG_ENABLE(youtube,
     *) AC_MSG_ERROR(bad value ${enableval} for --enable-youtube) ;;
     esac],
     [want_youtube_test=false])
-
-AC_ARG_WITH(chromium-build,
-    AC_HELP_STRING([--with-chromium-build=DIR],
-        [Specify the base location of the built chromium libraries]),
-        [CHROMIUM_BUILD_DIR="${withval}" CHROMIUM_INCLUDES="-I${withval}/gen" want_youtube_test=true])
-AC_SUBST(CHROMIUM_BUILD_DIR)
-
-AC_ARG_WITH(chromium-includes,
-    AC_HELP_STRING([--with-chromium-includes=DIR],
-        [Specify the location of the chromium headers]),
-        [CHROMIUM_INCLUDES+=" -I${withval} -I${withval}/third_party/skia/include/config/" CHROMIUM_INCLUDE_DIR=${withval} want_youtube_test=true])
-AC_SUBST(CHROMIUM_INCLUDES)
-AC_SUBST(CHROMIUM_INCLUDE_DIR)
-
 # using AM_CONDITIONAL propagates this value through to all Makefile.am files
 AM_CONDITIONAL(WANT_YOUTUBE_TEST, [test x"$want_youtube_test" = xtrue])
+
+if test x"$want_youtube_test" = xtrue; then
+    AC_CHECK_LIB([websockets], [lws_create_context], lws_found=1, lws_found=0)
+    if test "$lws_found" = 0; then
+        AC_MSG_ERROR(libwebsockets is required for the youtube test but not found; use LDFLAGS to specify library location or disable the youtube test by setting --enable-youtube=no)
+    fi
+    AC_CHECK_HEADER(libwebsockets.h, lws_h_found=1, lws_h_found=0)
+    if test "$lws_h_found" = 0; then
+        AC_MSG_ERROR(Required headers for libwebsockets not found; use CFLAGS to specify header location)
+    fi
+
+    AC_CHECK_LIB([jansson], [json_loadb], jansson_found=1, jansson_found=0)
+    if test "$jansson_found" = 0; then
+        AC_MSG_ERROR(libjansson is required for the youtube test but not found; use LDFLAGS to specify library location or disable the youtube test by setting --enable-youtube=no)
+    fi
+    AC_CHECK_HEADER(jansson.h, jansson_h_found=1, jansson_h_found=0)
+    if test "$jansson_h_found" = 0; then
+        AC_MSG_ERROR(Required headers for libjansson not found; use CFLAGS to specify header location)
+    fi
+fi
 
 AC_ARG_ENABLE(fastping,
     AC_HELP_STRING([--enable-fastping],

@@ -21,5 +21,5 @@ if [ "$CODENAME" = "jessie" ]; then
 elif [ "$CODENAME" = "bionic" ]; then
     # bionic has debhelper 11.1 which breaks using rename to move debug
     # packages across filesystems
-    apt-get install -y debhelper/bionic-backports
+    apt-get install -y dwz/bionic-backports debhelper/bionic-backports
 fi

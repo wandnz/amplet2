@@ -189,6 +189,11 @@
             'rel': 0,
             /* mute to autoplay https://www.chromium.org/audio-video/autoplay */
             'mute': 1,
+            'suggestedQuality': quality,
+            /* XXX could use "end" to stop playback after a number of seconds
+             * of video, but using a timeout to stop after wall clock time is
+             * probably better - will run a consistent time even with stalls.
+             */
           },
           events: {
             'onReady': onPlayerReady,
@@ -206,6 +211,7 @@
               console.log("video state change: ready (t=0ms)");
           }
           /* XXX no guarantee, look for onPlaybackQualityChange event? */
+          /* XXX is this needed if already set in playerVars? */
           event.target.setPlaybackQuality(quality);
           event.target.playVideo();
           timeline.push({

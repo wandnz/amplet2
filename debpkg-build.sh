@@ -6,15 +6,16 @@ export CODENAME=`lsb_release -c -s`
 export ARCH=`dpkg-architecture -qDEB_HOST_ARCH`
 
 # check if chromium/youtube packages should be built
+# for now, only build using certain versions of libwebsockets, as the
+# API changes fairly often
 {
-    wget -nv https://wand.net.nz/~brendonj/amp/youtube/chromium-libs_$CODENAME-$ARCH.tar.gz &&
-    tar xzvf chromium-libs_$CODENAME-$ARCH.tar.gz &&
-    if [ "$CODENAME" = "xenial" -o "$CODENAME" = "stretch" ]; then
-        echo "deb http://apt.llvm.org/${CODENAME}/ llvm-toolchain-${CODENAME} main" > /etc/apt/sources.list.d/llvm-toolchain.list &&
-        wget -O- https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add - &&
-        apt-get update
-    fi &&
-    export YOUTUBE="pkg.amplet2.build-youtube" || true;
+    lws=`apt-cache show --no-all-versions libwebsockets-dev | grep Version | awk '{print $2}'` &&
+    jsn=`apt-cache show --no-all-versions libjansson-dev | grep Version | awk '{print $2}'` &&
+    if dpkg --compare-versions "$lws" gt "2.0.0" &&
+            dpkg --compare-versions "$lws" lt "3.0.0" &&
+            dpkg --compare-versions "$jsn" ge "2.10"; then
+        export YOUTUBE="pkg.amplet2.build-youtube"
+    fi || true;
 }
 
 # check if sip packages should be built
