@@ -9,13 +9,6 @@ export CODENAME=`lsb_release -c -s`
 ARCH=`dpkg --print-architecture`
 
 case "$CODENAME" in
-    jessie)
-        echo "deb http://archive.debian.org/debian jessie-backports main" > /etc/apt/sources.list.d/jessie-backports.list
-        echo "Acquire::Check-Valid-Until \"false\";" >> /etc/apt/apt.conf
-        apt-get update
-        apt-get -t jessie-backports install -y autopkgtest
-        ;;
-
     xenial)
         apt-get -t xenial-backports install -y autopkgtest
         ;;

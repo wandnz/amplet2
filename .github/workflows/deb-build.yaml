@@ -23,15 +23,12 @@ jobs:
           - arm64
           - arm/v7
         target:
-          - { distro: debian, codename: jessie }
           - { distro: debian, codename: stretch }
           - { distro: debian, codename: buster }
           - { distro: ubuntu, codename: xenial }
           - { distro: ubuntu, codename: bionic }
           - { distro: ubuntu, codename: focal }
         exclude:
-          - arch: arm64
-            target: { distro: debian, codename: jessie }
           - arch: arm64
             target: { distro: ubuntu, codename: focal }
           - arch: arm/v7
