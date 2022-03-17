@@ -1,3 +1,18 @@
+amplet2 (0.11.6-1) unstable; urgency=low
+
+  * amplet2: remove some unnecessary global variables.
+  * amplet2: fix linker errors from global variables in headers without extern.
+  * package: use parallel builds for Debian packages when possible.
+  * package: update package build dependencies for Debian Bullseye.
+  * package: update capabilities test to match new getcap output format.
+  * package: update lintian test to work with new lintian exit codes.
+  * package: no longer build packages for Debian Jessie
+  * throughput: use protobuf enums directly rather than duplicating within test.
+  * udpstream: use protobuf enums directly rather than duplicating within test.
+  * youtube: drive a chromium browser instance rather than being one.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Thu, 17 Mar 2022 14:55:39 +1300
+
 amplet2 (0.11.5-1) unstable; urgency=low
 
   * amplet2: add option to wait for ntp time sync before starting.

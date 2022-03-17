@@ -1,5 +1,5 @@
 Name: amplet2
-Version: 0.11.5
+Version: 0.11.6
 Release: 1%{?dist}
 Summary: AMP Network Performance Measurement Suite
 
@@ -174,6 +174,13 @@ fi
 
 
 %changelog
+* Thu Mar 17 2022 Brendon Jones <brendonj@waikato.ac.nz> 0.11.6-1
+- amplet2: remove some unnecessary global variables.
+- amplet2: fix linker errors from global variables in headers without extern.
+- throughput: use protobuf enums directly rather than duplicating within test.
+- udpstream: use protobuf enums directly rather than duplicating within test.
+- youtube: drive a chromium browser instance rather than being one.
+
 * Thu Nov 25 2021 Brendon Jones <brendonj@waikato.ac.nz> 0.11.5-1
 - amplet2: add option to wait for ntp time sync before starting.
 
