@@ -473,7 +473,7 @@ static int ws_send(struct lws *wsi, struct command *cmd) {
     }
 
     /* send to websocket, leaving LWS_PRE bytes valid before the buffer */
-    lws_write(wsi, &buf[LWS_PRE], size, LWS_WRITE_TEXT);
+    lws_write(wsi, (unsigned char *)&buf[LWS_PRE], size, LWS_WRITE_TEXT);
 
     free(buf);
     json_decref(msg);
@@ -654,7 +654,7 @@ static int callback_youtube(struct lws *wsi, enum lws_callback_reasons reason,
                 json_t *result2 = json_object_get(result, "result");
                 if ( result2 ) {
                     /* XXX track what message we are expecting a response to */
-                    char *type = JSON_STR(result2, "type");
+                    const char *type = JSON_STR(result2, "type");
                     if ( strcmp(type, "string") == 0 ) {
                         /* XXX for now, clobber options->useragent */
                         struct test_options *options =
@@ -871,8 +871,7 @@ static struct lws_client_connect_info* build_lws_connect_info(
 /*
  * Build websocket context info, and set appropriate callbacks.
  */
-static struct lws_context_creation_info* build_lws_context_info(
-        struct test_options *options) {
+static struct lws_context_creation_info* build_lws_context_info(void) {
     struct lws_context_creation_info *info;
     struct lws_protocols *protocols;
 
@@ -1172,7 +1171,6 @@ amp_test_result_t* run_youtube(int argc, char *argv[],
     struct test_options options;
     struct YoutubeTiming *stats = NULL;
     int attempts;
-    pid_t pid = 0;
 
     Log(LOG_DEBUG, "Starting YOUTUBE test");
 
@@ -1239,7 +1237,7 @@ amp_test_result_t* run_youtube(int argc, char *argv[],
 
     /* start the browser if required */
     if ( options.run_browser ) {
-        pid = start_browser(options.port, (log_level == LOG_DEBUG));
+        start_browser(options.port, (log_level == LOG_DEBUG));
     }
 
     if ( gettimeofday(&start_time, NULL) != 0 ) {
@@ -1266,7 +1264,7 @@ amp_test_result_t* run_youtube(int argc, char *argv[],
     struct lws_context_creation_info *context_info;
     struct lws_client_connect_info *connect_info;
     struct lws_context *context;
-    context_info = build_lws_context_info(&options);
+    context_info = build_lws_context_info();
 
     context = lws_create_context(context_info);
     if ( context == NULL ) {
@@ -1302,7 +1300,7 @@ amp_test_result_t* run_youtube(int argc, char *argv[],
     result = report_results(&start_time, stats, &options);
 
     free(ws_url);
-    free(connect_info->path);
+    free((char*)connect_info->path);
     free(connect_info);
     // TODO what does context destroy actually free? what do I need to free?
     //free(context_info->protocols);
