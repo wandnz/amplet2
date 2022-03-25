@@ -57,6 +57,7 @@
 char *chrome_paths[] = {
     "/usr/bin/chromium-browser",
     "/usr/bin/chromium",
+    "/usr/bin/google-chrome",
     NULL,
 };
 
