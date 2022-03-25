@@ -879,6 +879,7 @@ static struct lws_context_creation_info* build_lws_context_info(
     protocols = calloc(2, sizeof(struct lws_protocols));
     protocols[0].callback = callback_youtube;
     protocols[0].rx_buffer_size = 8192;
+    protocols[0].name = "devtools";
 
     info = calloc(1, sizeof(struct lws_context_creation_info));
     info->port = CONTEXT_PORT_NO_LISTEN;
