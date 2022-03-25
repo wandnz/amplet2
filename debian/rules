@@ -31,7 +31,7 @@ endif
 
 # only build youtube test if set in the build profiles
 ifneq ($(filter pkg.amplet2.build-youtube,$(DEB_BUILD_PROFILES)),)
-	ENABLE_YOUTUBE=--enable-youtube --with-chromium-build=`pwd`/chromium-libs_$(CODENAME)-$(ARCH)/ --with-chromium-includes=`pwd`/chromium-libs_$(CODENAME)-$(ARCH)/include/
+	ENABLE_YOUTUBE=--enable-youtube
 else
 	ENABLE_YOUTUBE=--disable-youtube
 endif

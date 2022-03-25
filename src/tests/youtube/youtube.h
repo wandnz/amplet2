@@ -72,7 +72,6 @@ struct test_options {
     char *device;                               /* source device name */
     char *sourcev4;                             /* source v4 address */
     char *sourcev6;                             /* source v6 address */
-    long sslversion;                            /* SSL version to use */
     uint8_t dscp;
     uint16_t maxruntime;                        /* max video duration */
     int run_browser;                            /* start a new browser */
