@@ -25,4 +25,8 @@ export ARCH=`dpkg-architecture -qDEB_HOST_ARCH`
 export DEB_BUILD_PROFILES="$CODENAME $YOUTUBE $SIP"
 
 mk-build-deps -i -r -t 'apt-get -f -y --force-yes'
-dpkg-buildpackage -b -us -uc -rfakeroot -jauto
+
+# sometime around 21.04 ubuntu appears to have introduced a bug that clobbers
+# the DEB_BUILD_PROFILES environment variable when they set <noudeb>, so pass
+# the build profiles in as a comma separated string argument instead
+dpkg-buildpackage -b -us -uc -rfakeroot -jauto -P"${DEB_BUILD_PROFILES// /,}"
