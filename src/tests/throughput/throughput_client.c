@@ -63,6 +63,7 @@
 #include "../../measured/control.h"//XXX just for control port define
 #include "dscp.h"
 #include "tcpinfo.h"
+#include "print.h"
 
 
 
@@ -799,65 +800,6 @@ done:
 
 
 
-/*
- * Print out a size value using sensible units.
- */
-static void printSize(uint64_t bytes) {
-    double scaled = (double)bytes;
-    char *units[] = {"bytes", "KiB", "MiB", "GiB", NULL};
-    char **unit;
-
-    for ( unit = units; *unit != NULL; unit++ ) {
-        if ( scaled < 1024 ) {
-            printf(" %.02lf %s", scaled, *unit);
-            return;
-        }
-        scaled = scaled / 1024.0;
-    }
-
-    printf(" %.02lf TiB", scaled);
-}
-
-
-
-/*
- * Print out a duration value using seconds.
- */
-static void printDuration(uint64_t time_ns) {
-    printf(" in %.02lf seconds", ((double)time_ns) / 1000000000);
-}
-
-
-
-/**
- * Print out a speed in a factor of bits per second
- * Kb = 1000 * b
- * Mb = 1000 * Kb etc
- */
-static void printSpeed(uint64_t bytes, uint64_t time_ns) {
-    double x_per_sec;
-    char *units[] = {"bits", "Kbits", "Mbits", "Gbits", NULL};
-    char **unit;
-
-    if ( bytes == 0 || time_ns == 0 ) {
-        x_per_sec = 0;
-    } else {
-        x_per_sec = ((double)bytes * 8.0) / ((double) time_ns / 1e9);
-    }
-
-    for ( unit = units; *unit != NULL; unit++ ) {
-        if ( x_per_sec < 1000 ) {
-            printf(" at %.02lf %s/sec", x_per_sec, *unit);
-            return;
-        }
-        x_per_sec = x_per_sec / 1000;
-    }
-
-    printf(" at %.02lf Tb/s", x_per_sec);
-}
-
-
-
 /**
  * Print throughput test results to stdout, nicely formatted for the
  * standalone test.
@@ -907,17 +849,19 @@ void print_throughput(amp_test_result_t *result) {
         item = msg->reports[i];
         if ( item->direction ==
                 AMPLET2__THROUGHPUT__ITEM__DIRECTION__SERVER_TO_CLIENT ) {
-            printf("  * server -> client:");
+            printf("  * server -> client: ");
         } else if ( item->direction ==
                 AMPLET2__THROUGHPUT__ITEM__DIRECTION__CLIENT_TO_SERVER ) {
-            printf("  * client -> server:");
+            printf("  * client -> server: ");
         } else {
             continue;
         }
 
-        printSize(item->bytes);
-        printDuration(item->duration);
-        printSpeed(item->bytes, item->duration);
+        print_formatted_bytes(item->bytes);
+        printf(" in ");
+        print_formatted_duration(item->duration / 1000);
+        printf(" at ");
+        print_formatted_speed(item->bytes, item->duration / 1000);
         printf("\n");
 
         if ( item->tcpinfo ) {
