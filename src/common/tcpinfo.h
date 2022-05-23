@@ -36,10 +36,26 @@
  * You should have received a copy of the GNU General Public License
  * along with amplet2. If not, see <http://www.gnu.org/licenses/>.
  */
-#ifndef _TESTS_THROUGHPUT_TCPINFO_H
-#define _TESTS_THROUGHPUT_TCPINFO_H
+#ifndef _COMMON_TCPINFO_H
+#define _COMMON_TCPINFO_H
 
+#include <stdint.h>
 #include <linux/types.h>
+
+/*
+ * Structure used for report messages involving tcpinfo, with just the
+ * particular information we are interested in.
+ */
+struct tcpinfo_result {
+    uint64_t delivery_rate;
+    uint64_t busy_time;
+    uint64_t rwnd_limited;
+    uint64_t sndbuf_limited;
+    uint32_t total_retrans;
+    uint32_t rtt;
+    uint32_t rttvar;
+    uint32_t min_rtt;
+};
 
 /*
  * Based on linux/include/uapi/linux/tcp.h.
@@ -108,5 +124,7 @@ struct amp_tcp_info {
         __u64   tcpi_rwnd_limited;   /* Time (usec) limited by receive window */
         __u64   tcpi_sndbuf_limited; /* Time (usec) limited by send buffer */
 };
+
+struct tcpinfo_result *get_tcp_info(int sock_fd);
 
 #endif

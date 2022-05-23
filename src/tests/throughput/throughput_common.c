@@ -61,6 +61,7 @@
 #include "throughput.h"
 #include "serverlib.h"
 #include "debug.h"
+#include "tcpinfo.h"
 
 
 
@@ -339,67 +340,6 @@ static void addHttpHeaders(void *data, unsigned int size) {
     }
 }
 
-
-
-/*
- * Query the socket for some more in-depth information about the TCP state
- * at the end of the throughput test.
- */
-static struct tcpinfo_result_t *get_tcp_info(int sock_fd) {
-    struct tcpinfo_result_t *result;
-    struct amp_tcp_info *tcp_info = calloc(1, sizeof(struct amp_tcp_info));
-    int tcp_info_len = sizeof(struct amp_tcp_info);
-    int attempts = 10;
-
-    do {
-        /* get the tcp info block */
-        if ( getsockopt(sock_fd, IPPROTO_TCP, TCP_INFO, (void *)tcp_info,
-                    (socklen_t *)&tcp_info_len) < 0 ) {
-            perror("getsockopt");
-            free(tcp_info);
-            return NULL;
-        }
-        /* delay until all bytes have been sent or we've waited long enough */
-        attempts--;
-    } while ( attempts > 0 && tcp_info->tcpi_notsent_bytes > 0 &&
-            usleep(100000) == 0 );
-
-    /*
-     * don't try to parse any results that don't match our expected format -
-     * new fields get added at any point in the structure so we can't be sure
-     * that we are getting the correct data.
-     */
-    if ( tcp_info_len != sizeof(struct amp_tcp_info) ) {
-        free(tcp_info);
-        return NULL;
-    }
-
-    result = calloc(1, sizeof(struct tcpinfo_result_t));
-
-    /*
-     * if the connection isn't app limited then the delivery rate is the most
-     * recent value rather than the maximum
-     * TODO why isn't it always app limited when we have no data left to send?
-     * https://github.com/torvalds/linux/commit/eb8329e0a04db0061f714f033b4454
-     * https://github.com/torvalds/linux/commit/b9f64820fb226a4e8ab10591f46cec
-     * https://github.com/torvalds/linux/commit/d7722e8570fc0f1e003cee7cf37694
-     */
-    if ( tcp_info->tcpi_delivery_rate_app_limited ) {
-        result->delivery_rate = tcp_info->tcpi_delivery_rate;
-    }
-
-    result->total_retrans = tcp_info->tcpi_total_retrans;
-    result->rtt = tcp_info->tcpi_rtt;
-    result->rttvar = tcp_info->tcpi_rttvar;
-    result->min_rtt = tcp_info->tcpi_min_rtt;
-    result->busy_time = tcp_info->tcpi_busy_time;
-    result->rwnd_limited = tcp_info->tcpi_rwnd_limited;
-    result->sndbuf_limited = tcp_info->tcpi_sndbuf_limited;
-
-    free(tcp_info);
-
-    return result;
-}
 
 
 /**

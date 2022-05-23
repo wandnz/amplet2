@@ -85,18 +85,6 @@ void print_throughput(amp_test_result_t *result);
 void usage(void);
 
 
-/* internal format for holding tcpinfo results if present */
-struct tcpinfo_result_t {
-    uint64_t delivery_rate;
-    uint64_t busy_time;
-    uint64_t rwnd_limited;
-    uint64_t sndbuf_limited;
-    uint32_t total_retrans;
-    uint32_t rtt;
-    uint32_t rttvar;
-    uint32_t min_rtt;
-};
-
 /**
  * A internal format for holding a test result
  */
@@ -105,7 +93,7 @@ struct test_result_t {
     uint64_t bytes; /* Bytes seen */
     uint64_t start_ns; /* Start time in nanoseconds */
     uint64_t end_ns; /* End time in nanoseconds */
-    struct tcpinfo_result_t *tcpinfo;
+    struct tcpinfo_result *tcpinfo;
 };
 
 

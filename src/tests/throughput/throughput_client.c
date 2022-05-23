@@ -62,6 +62,7 @@
 #include "debug.h"
 #include "../../measured/control.h"//XXX just for control port define
 #include "dscp.h"
+#include "tcpinfo.h"
 
 
 
@@ -305,15 +306,15 @@ static amp_test_result_t* report_results(uint64_t start_time,
 
 
 
-static struct tcpinfo_result_t *extract_tcpinfo(ProtobufCBinaryData *data) {
-    struct tcpinfo_result_t *tcpinfo = NULL;
+static struct tcpinfo_result *extract_tcpinfo(ProtobufCBinaryData *data) {
+    struct tcpinfo_result *tcpinfo = NULL;
     Amplet2__Throughput__Item *item = amplet2__throughput__item__unpack(
             NULL, data->len, data->data);
 
     Log(LOG_DEBUG, "Extracting tcpinfo information from results");
 
     if ( item->tcpinfo ) {
-        tcpinfo = malloc(sizeof(struct tcpinfo_result_t));
+        tcpinfo = malloc(sizeof(struct tcpinfo_result));
         tcpinfo->delivery_rate = item->tcpinfo->delivery_rate;
         tcpinfo->total_retrans = item->tcpinfo->total_retrans;
         tcpinfo->rtt = item->tcpinfo->rtt;
