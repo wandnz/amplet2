@@ -58,6 +58,7 @@
 #include "testlib.h"
 #include "youtube.h"
 #include "youtube.pb-c.h"
+#include "getinmemory.h"
 #include "debug.h"
 #include "dscp.h"
 #include "usage.h"
@@ -90,28 +91,6 @@ static struct option long_options[] = {
 
 static struct lws *wsi_yt = NULL;
 static volatile int force_exit;
-
-// XXX straight from curl example https://curl.se/libcurl/c/getinmemory.html
-static size_t WriteMemoryCallback(void *contents, size_t size, size_t nmemb,
-        void *userp) {
-
-    size_t realsize = size * nmemb;
-    struct MemoryStruct *mem = (struct MemoryStruct *)userp;
-
-    char *ptr = realloc(mem->memory, mem->size + realsize + 1);
-    if ( !ptr ) {
-        /* out of memory! */
-        Log(LOG_WARNING, "not enough memory (realloc returned NULL)");
-        return 0;
-    }
-
-    mem->memory = ptr;
-    memcpy(&(mem->memory[mem->size]), contents, realsize);
-    mem->size += realsize;
-    mem->memory[mem->size] = 0;
-
-    return realsize;
-}
 
 
 

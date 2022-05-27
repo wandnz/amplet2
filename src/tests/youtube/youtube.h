@@ -79,11 +79,6 @@ struct test_options {
     int port;                                   /* devtools port */
 };
 
-struct MemoryStruct {
-    char *memory;
-    size_t size;
-};
-
 /* command queue for messages to the browser */
 struct command {
     char *method;
