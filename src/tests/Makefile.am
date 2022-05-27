@@ -44,6 +44,7 @@ SUBDIRS+=youtube
 SUBDIRS+=fastping
 SUBDIRS+=external
 SUBDIRS+=sip
+SUBDIRS+=ndt
 
 if WANT_PYTHON
 SUBDIRS+=python

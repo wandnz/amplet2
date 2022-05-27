@@ -1,0 +1,95 @@
+/**
+ * Data reporting messages for the AMP NDT throughput test.
+ *
+ * This test measures TCP throughput between an AMP probe and a
+ * Measurement Lab (M-Lab) NDT server.
+ *
+ * Each message contains one Report.
+ * Each Report contains one Header and one Item per result.
+ * Each Item contains information on a test result.
+ */
+syntax = "proto2";
+package amplet2.ndt;
+
+
+/**
+ * An instance of the test will generate one Report message.
+ */
+message Report {
+    /** Describes the test settings used in this test instance */
+    optional Header header = 1;
+    /** Results for all test targets */
+    repeated Item reports = 2;
+}
+
+
+/**
+ * The test header describes all of the settings that the test was configured
+ * to run with. These settings are the same for every result contained within
+ * the Report message.
+ */
+message Header {
+    /** The socket receive buffer size in bytes used for this test */
+    optional uint32 sock_rcvbuf = 1;
+    /** The socket send buffer size in bytes used for this test */
+    optional uint32 sock_sndbuf = 2;
+    /** Differentiated Services Code Point (DSCP) used */
+    optional uint32 dscp = 3 [default = 0];
+    /** The test url, if specified by the user */
+    optional string url = 4;
+}
+
+
+/**
+ * A report will be generated for each item direction tested, describing
+ * how much data was transferred and how long it took.
+ */
+message Item {
+    enum Direction {
+        DOWNLOAD = 0;
+        UPLOAD = 1;
+    }
+
+    /** Duration that this test ran (usec) */
+    optional uint64 duration = 1;
+    /** The number of bytes transferred during the test */
+    optional uint64 bytes = 2;
+    /** The direction of the data flow during the test */
+    optional Direction direction = 3;
+    /** Extra information about the internal TCP connection state */
+    optional TCPInfo tcpinfo = 4;
+    /** The address that was tested to */
+    optional bytes address = 5;
+    /** The family the tested address belongs to (AF_INET/AF_INET6) */
+    optional int32 family = 6;
+    /** The name of the test server */
+    optional string name = 7;
+    /** The city the test server is located in */
+    optional string city = 8;
+    /** The country the test server is located in */
+    optional string country = 9;
+}
+
+
+/**
+ * Extra information that was extracted from the tcp_info struct. Only really
+ * interesting in kernels >= 4.10, will otherwise be left empty.
+ */
+message TCPInfo {
+    /** Highest goodput measurement (Bps) if app limited, otherwise zero */
+    optional uint64 delivery_rate = 1;
+    /** Total count of retransmitted packets sent */
+    optional uint32 total_retrans = 2;
+    /** Smoothed round trip time (usec) */
+    optional uint32 rtt = 3;
+    /** Round trip time variance (usec) */
+    optional uint32 rttvar = 4;
+    /** Time (usec) busy sending data */
+    optional uint64 busy_time = 5;
+    /** Time (usec) limited by receive window */
+    optional uint64 rwnd_limited = 6;
+    /** Time (usec) limited by send buffer */
+    optional uint64 sndbuf_limited = 7;
+    /* Minimum round trip time (usec) */
+    optional uint32 min_rtt = 8;
+}

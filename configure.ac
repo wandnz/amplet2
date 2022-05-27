@@ -488,6 +488,40 @@ if test x"$want_sip_test" = xtrue; then
     fi
 fi
 
+AC_ARG_ENABLE(ndt,
+    AC_HELP_STRING([--enable-ndt],
+        [Enable the ndt test (default: no)]),
+    [case "${enableval}" in
+    true) ;&
+    yes) want_ndt_test=true ;;
+    false) ;&
+    no)  want_ndt_test=false ;;
+    *) AC_MSG_ERROR(bad value ${enableval} for --enable-ndt) ;;
+    esac],
+    [want_ndt_test=false])
+# using AM_CONDITIONAL propagates this value through to all Makefile.am files
+AM_CONDITIONAL(WANT_NDT_TEST, [test x"$want_ndt_test" = xtrue])
+
+if test x"$want_ndt_test" = xtrue; then
+    AC_CHECK_LIB([websockets], [lws_create_context], lws_found=1, lws_found=0)
+    if test "$lws_found" = 0; then
+        AC_MSG_ERROR(libwebsockets is required for the ndt test but not found; use LDFLAGS to specify library location or disable the ndt test by setting --enable-ndt=no)
+    fi
+    AC_CHECK_HEADER(libwebsockets.h, lws_h_found=1, lws_h_found=0)
+    if test "$lws_h_found" = 0; then
+        AC_MSG_ERROR(Required headers for libwebsockets not found; use CFLAGS to specify header location)
+    fi
+
+    AC_CHECK_LIB([jansson], [json_loadb], jansson_found=1, jansson_found=0)
+    if test "$jansson_found" = 0; then
+        AC_MSG_ERROR(libjansson is required for the ndt test but not found; use LDFLAGS to specify library location or disable the ndt test by setting --enable-ndt=no)
+    fi
+    AC_CHECK_HEADER(jansson.h, jansson_h_found=1, jansson_h_found=0)
+    if test "$jansson_h_found" = 0; then
+        AC_MSG_ERROR(Required headers for libjansson not found; use CFLAGS to specify header location)
+    fi
+fi
+
 
 # Set default CFLAGS including the AMP_CONFIG_DIR and AMP_TEST_DIR
 if test x"$mingw" = xtrue; then
@@ -533,7 +567,8 @@ AC_CONFIG_FILES([Makefile
                  src/tests/external/Makefile
                  src/tests/external/test/Makefile
                  src/tests/sip/Makefile
-                 src/tests/sip/test/Makefile])
+                 src/tests/sip/test/Makefile
+                 src/tests/ndt/Makefile])
                  #src/tests/youtube/test/Makefile
 AC_OUTPUT
 
@@ -560,3 +595,4 @@ reportopt "Compiled with youtube test support" $want_youtube_test
 reportopt "Compiled with fastping test support" $want_fastping_test
 reportopt "Compiled with external test support" $want_external_test
 reportopt "Compiled with sip test support" $want_sip_test
+reportopt "Compiled with ndt test support" $want_ndt_test
