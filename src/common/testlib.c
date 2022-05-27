@@ -48,6 +48,7 @@
 #include <sys/stat.h>
 #include <signal.h>
 #include <getopt.h>
+#include <netinet/tcp.h>
 
 #include <google/protobuf-c/protobuf-c.h>
 
@@ -1167,4 +1168,161 @@ char *parse_optional_argument(char *argv[]) {
     }
 
     return argument;
+}
+
+
+
+/*
+ * Set a socket option using setsockopt() and then immediately call
+ * getsockopt() to make sure that the value was set correctly.
+ */
+int set_and_verify_sockopt(int sock, int value, int proto,
+        int opt, const char *optname) {
+
+    socklen_t size = sizeof(value);
+    int verify;
+
+    /* try setting the sockopt */
+    if ( setsockopt(sock, proto, opt, (void*)&value, size) < 0 ) {
+        Log(LOG_WARNING, "setsockopt failed to set the %s option to %d: %s",
+                optname,  value, strerror(errno));
+        return -1;
+    }
+
+    /* and then verify that it worked */
+    if ( getsockopt(sock, proto, opt, (void*)&verify, &size) < 0 ) {
+        Log(LOG_WARNING, "getsockopt failed to get the %s option: %s",
+                optname, strerror(errno));
+        return -1;
+    }
+
+#ifdef SO_SNDBUF
+    if ( proto == SOL_SOCKET && (opt == SO_RCVBUF || opt == SO_SNDBUF
+#ifdef SO_SNDBUFFORCE
+                || opt == SO_RCVBUFFORCE || opt == SO_SNDBUFFORCE
+#endif
+                ) ) {
+        /* buffer sizes will be set to twice what was asked for */
+        if ( value != verify / 2 ) {
+            Log(LOG_WARNING,
+                    "getsockopt() reports incorrect value for %s after setting:"
+                    "got %d, expected %d", optname, verify, value);
+            return -1;
+        }
+    } else
+#endif
+    if ( value != verify ) {
+        /* all other values should match what was requested */
+        Log(LOG_WARNING,
+                "getsockopt() reports incorrect value for %s after setting:"
+                "got %d, expected %d", optname, verify, value);
+        return -1;
+    }
+
+    /* Success */
+    return 0;
+}
+
+
+
+/*
+ * Set all the relevant socket options that the test is requesting be set
+ * (e.g. set buffer sizes, set MSS, disable Nagle).
+ */
+void do_socket_setup(int sock, int family, struct sockopt_t *options) {
+
+    if ( options == NULL ) {
+        return;
+    }
+
+    /* set TCP_MAXSEG option */
+    if ( options->sock_mss > 0 ) {
+        Log(LOG_DEBUG, "Setting TCP_MAXSEG to %d", options->sock_mss);
+#ifdef TCP_MAXSEG
+        set_and_verify_sockopt(sock, options->sock_mss, IPPROTO_TCP,
+                TCP_MAXSEG, "TCP_MAXSEG");
+#else
+        Log(LOG_WARNING, "TCP_MAXSEG undefined, can not set it");
+#endif
+    }
+
+    /* set TCP_NODELAY option */
+    if ( options->sock_disable_nagle ) {
+        Log(LOG_DEBUG, "Setting TCP_NODELAY to %d",options->sock_disable_nagle);
+#ifdef TCP_NODELAY
+        set_and_verify_sockopt(sock, options->sock_disable_nagle, IPPROTO_TCP,
+                TCP_NODELAY, "TCP_NODELAY");
+#else
+        Log(LOG_WARNING, "TCP_NODELAY undefined, can not set it");
+#endif
+    }
+
+    /* set SO_RCVBUF option */
+    if ( options->sock_rcvbuf > 0 ) {
+        Log(LOG_DEBUG, "Setting SO_RCVBUF to %d", options->sock_rcvbuf);
+#ifdef SO_RCVBUF
+        if (  set_and_verify_sockopt(sock, options->sock_rcvbuf, SOL_SOCKET,
+                SO_RCVBUF, "SO_RCVBUF") < 0 ) {
+#ifdef SO_RCVBUFFORCE
+            /*
+             * Like SO_RCVBUF but if user has CAP_ADMIN privilage ignores
+             * /proc/max size
+             */
+            set_and_verify_sockopt(sock, options->sock_rcvbuf, SOL_SOCKET,
+                    SO_RCVBUFFORCE, "SO_RCVBUFFORCE");
+#endif /* SO_RCVBUFFORCE */
+        }
+#else
+        Log(LOG_WARNING, "SO_RCVBUF undefined, can not set it");
+#endif /* SO_RCVBUF */
+    }
+
+    /* set SO_SNDBUF option */
+    if ( options->sock_sndbuf > 0 ) {
+        Log(LOG_DEBUG, "Setting SO_SNDBUF to %d", options->sock_sndbuf);
+#ifdef SO_SNDBUF
+        if ( set_and_verify_sockopt(sock, options->sock_sndbuf, SOL_SOCKET,
+                SO_SNDBUF, "SO_SNDBUF") < 0 ) {
+#ifdef SO_SNDBUFFORCE
+            /*
+             * Like SO_RCVBUF but if user has CAP_ADMIN privilage ignores
+             * /proc/max size
+             */
+            set_and_verify_sockopt(sock, options->sock_sndbuf, SOL_SOCKET,
+                    SO_SNDBUFFORCE, "SO_SNDBUFFORCE");
+#endif /* SO_SNDBUFFORCE */
+        }
+#else
+        Log(LOG_WARNING, "SO_SNDBUF undefined, can not set it");
+#endif /* SO_SNDBUF */
+    }
+
+    /* set SO_REUSEADDR option */
+    if (options->reuse_addr ) {
+        Log(LOG_DEBUG, "Setting SO_REUSEADDR to %d", options->reuse_addr);
+#ifdef SO_REUSEADDR
+        set_and_verify_sockopt(sock, options->reuse_addr, SOL_SOCKET,
+                SO_REUSEADDR, "SO_REUSEADDR");
+#else
+        Log(LOG_WARNING, "SO_REUSEADDR undefined, can not set it");
+#endif
+    }
+
+    if ( options->dscp ) {
+        struct socket_t sockets;
+        /* wrap the socket in a socket_t so we can call other amp functions */
+        memset(&sockets, 0, sizeof(sockets));
+        switch ( family ) {
+            case AF_INET: sockets.socket = sock; break;
+            case AF_INET6: sockets.socket6 = sock; break;
+            default: Log(LOG_ERR,"Unknown address family %d when setting DSCP",
+                             family);
+                     return;
+        };
+
+        if ( set_dscp_socket_options(&sockets, options->dscp) < 0 ) {
+            Log(LOG_ERR, "Failed to set DSCP socket options");
+            return;
+        }
+    }
 }

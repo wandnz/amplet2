@@ -88,6 +88,21 @@ struct socket_t {
     int socket6;                /* ipv6 socket, if available */
 };
 
+struct sockopt_t {
+    struct addrinfo *sourcev4;
+    struct addrinfo *sourcev6;
+    int socktype;
+    int protocol;
+    char *device;
+
+    int32_t sock_mss;
+    uint8_t sock_disable_nagle;
+    uint8_t reuse_addr;
+    int32_t sock_rcvbuf;
+    int32_t sock_sndbuf;
+    uint8_t dscp;
+};
+
 /* Structure representing the SO_TIMESTAMPING return value within CMSG. */
 struct timestamping_t {
     struct timespec software;   /* software timestamp, if avaliabe */
@@ -118,4 +133,7 @@ int check_exists(char *path, int strict);
 int copy_address_to_protobuf(ProtobufCBinaryData *dst,
         const struct addrinfo *src);
 char *parse_optional_argument(char *argv[]);
+int set_and_verify_sockopt(int sock, int value, int proto, int opt,
+        const char *optname);
+void do_socket_setup(int sock, int family, struct sockopt_t *options);
 #endif

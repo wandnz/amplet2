@@ -47,24 +47,10 @@
 #include "testlib.h"
 #include "measured.pb-c.h"
 
+#ifndef MIN
 #define MIN(X,Y) (((X) < (Y)) ? (X) : (Y))
+#endif
 #define MAXIMUM_SERVER_WAIT_TIME 60000000
-
-
-struct sockopt_t {
-    struct addrinfo *sourcev4;
-    struct addrinfo *sourcev6;
-    int socktype;
-    int protocol;
-    char *device;
-
-    int32_t sock_mss;
-    uint8_t sock_disable_nagle;
-    uint8_t reuse_addr;
-    int32_t sock_rcvbuf;
-    int32_t sock_sndbuf;
-    uint8_t dscp;
-};
 
 
 int start_listening(struct socket_t *sockets, int port,
