@@ -1,3 +1,16 @@
+amplet2 (0.11.7-1) unstable; urgency=low
+
+  * amplet2: make tcpinfo functions available for all tests to use.
+  * ndt: add new NDT test client code (temporarily disabled).
+  * package: ensure DEB_BUILD_PROFILES reaches dpkg-buildpackage.
+  * package: add Debian Bullseye to the list of build targets.
+  * youtube: set protocol name so test can build with new libwebsockets.
+  * youtube: add another possible chrome binary location.
+  * youtube: fixed compiler warnings, removed dead code.
+  * youtube: updated package dependencies.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Wed,  1 Jun 2022 11:01:28 +1200
+
 amplet2 (0.11.6-1) unstable; urgency=low
 
   * amplet2: remove some unnecessary global variables.

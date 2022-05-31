@@ -1,5 +1,5 @@
 Name: amplet2
-Version: 0.11.6
+Version: 0.11.7
 Release: 1%{?dist}
 Summary: AMP Network Performance Measurement Suite
 
@@ -174,6 +174,13 @@ fi
 
 
 %changelog
+* Wed Jun  1 2022 Brendon Jones <brendonj@waikato.ac.nz> 0.11.7-1
+- amplet2: make tcpinfo functions available for all tests to use.
+- ndt: add new NDT test client code (temporarily disabled).
+- youtube: set protocol name so test can build with new libwebsockets.
+- youtube: add another possible chrome binary location.
+- youtube: fixed compiler warnings, removed dead code.
+
 * Thu Mar 17 2022 Brendon Jones <brendonj@waikato.ac.nz> 0.11.6-1
 - amplet2: remove some unnecessary global variables.
 - amplet2: fix linker errors from global variables in headers without extern.
