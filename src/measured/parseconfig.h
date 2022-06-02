@@ -48,6 +48,7 @@
 #include "schedule.h"
 
 int get_loglevel_config(cfg_t *cfg);
+char *get_change_user_config(cfg_t *cfg);
 int should_config_rabbit(cfg_t *cfg);
 int should_wait_for_cert(cfg_t *cfg);
 int should_wait_for_clock_sync(cfg_t *cfg);

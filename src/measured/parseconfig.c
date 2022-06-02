@@ -57,6 +57,7 @@
 #include "dscp.h"
 #include "rabbitcfg.h"
 #include "modules.h"
+#include "users.h"
 
 #ifndef HOST_NAME_MAX
 #define HOST_NAME_MAX 64
@@ -199,6 +200,17 @@ static char* guess_ampname(void) {
 int get_loglevel_config(cfg_t *cfg) {
     assert(cfg);
     return cfg_getint(cfg, "loglevel");
+}
+
+
+
+/*
+ * Get the username that the client should run as after dropping root
+ * privileges.
+ */
+char *get_change_user_config(cfg_t *cfg) {
+    assert(cfg);
+    return cfg_getstr(cfg, "user");
 }
 
 
@@ -696,6 +708,7 @@ cfg_t* parse_config(char *filename, struct amp_global_t *vars) {
         CFG_SEC("control", opt_control, CFGF_NONE),
         CFG_SEC("defaults", opt_defaults, CFGF_TITLE | CFGF_MULTI),
         CFG_FUNC("include", &cfg_include),
+        CFG_STR("user", DEFAULT_AMPLET_USER, CFGF_NONE),
 	CFG_END()
     };
 

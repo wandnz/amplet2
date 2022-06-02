@@ -43,6 +43,7 @@
 #include <pwd.h>
 #include <unistd.h>
 #include <grp.h>
+#include <string.h>
 
 #include "users.h"
 #include "debug.h"
@@ -65,6 +66,11 @@ int change_user(char *username) {
         CAP_NET_ADMIN,
         CAP_NET_BIND_SERVICE
     };
+
+    if ( !username || strcmp(username, "root") == 0 ) {
+        Log(LOG_INFO, "Continuing as root, not dropping permissions");
+        return 0;
+    }
 
     Log(LOG_INFO, "Dropping permissions from root to %s", username);
 

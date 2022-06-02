@@ -40,6 +40,7 @@
 #ifndef _MEASURED_USERS_H
 #define _MEASURED_USERS_H
 
+#define DEFAULT_AMPLET_USER "amplet"
 
 int change_user(char *username);
 

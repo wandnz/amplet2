@@ -396,6 +396,7 @@ int main(int argc, char *argv[]) {
     struct event *signal_tmax = NULL;
     struct ub_ctx *dns_ctx;
     char nametable[PATH_MAX];
+    char *username = NULL;
 
 #if _WIN32
     WORD wVersionRequested;
@@ -652,12 +653,13 @@ int main(int argc, char *argv[]) {
         Log(LOG_DEBUG, "vialocal = false, no local configuration");
     }
 
-    /* TODO allow username to be configured */
     /* drop root permissions now that we no longer need them to set up rabbit */
-    if ( change_user("amplet") < 0 ) {
-        Log(LOG_ALERT, "Failed to change to user 'amplet', aborting");
-        cfg_free(cfg);
-        exit(EXIT_FAILURE);
+    if ( (username = get_change_user_config(cfg)) ) {
+        if ( change_user(username) < 0 ) {
+            Log(LOG_ALERT, "Failed to change to user '%s', aborting", username);
+            cfg_free(cfg);
+            exit(EXIT_FAILURE);
+        }
     }
 #endif
 

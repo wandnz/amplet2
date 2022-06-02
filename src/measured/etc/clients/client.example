@@ -130,6 +130,9 @@ remotesched {
 #    key = /etc/amplet2/keys/key.pem
 }
 
+# The username that the client should run as after dropping root privileges.
+#user = amplet
+
 # Set any default arguments that should be applied to test servers. You can
 # have multiple "defaults" blocks, one per test type. Ignored for tests that
 # don't start their own server.
