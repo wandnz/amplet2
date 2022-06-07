@@ -146,7 +146,7 @@
 
     <Directory Id="CLIENTDIR" Name="clients">
         <Component Id="clients" Guid="*">
-            <File Id="client.example" Source="$(var.SourceDir)/etc/amplet2/clients/client.example"/>
+            <File Id="client.example" Source="$(var.SourceDir)/etc/amplet2/clients/client-example.conf"/>
         </Component>
     </Directory>
 

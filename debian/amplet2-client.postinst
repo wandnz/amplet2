@@ -21,6 +21,7 @@ CONFDIR="/etc/amplet2"
 CLIENTDIR="$CONFDIR/clients"
 KEYDIR="$CONFDIR/keys"
 LOGDIR="/var/log/amplet2"
+EXAMPLEDIR="/usr/share/doc/amplet2-client/examples"
 USER="amplet"
 
 case "$1" in
@@ -32,9 +33,6 @@ case "$1" in
         # Make sure keys directory exists and has the appropriate permissions
         mkdir -p ${KEYDIR}
         chmod 2750 ${KEYDIR}
-
-        # the amplet user should own everything in the config directory
-        chown -R ${USER}: ${CONFDIR}
 
         # some systems expect syslog to own the log files/directories
         mkdir -p ${LOGDIR}
@@ -57,8 +55,15 @@ case "$1" in
         # ready to go for new users without breaking anything that might
         # already be in place.
         if [ `ls -lah ${CLIENTDIR} | grep -c "\.conf$"` -eq 0 ]; then
-            cp ${CLIENTDIR}/client.example ${CLIENTDIR}/default.conf
+            ACTUAL="${CLIENTDIR}/default.conf"
+            EXAMPLE="${EXAMPLEDIR}/client-example.conf"
+            if [ -f ${EXAMPLE} ]; then
+                cp ${EXAMPLE} ${ACTUAL}
+            fi
         fi
+
+        # the amplet user should own everything in the config directory
+        chown -R ${USER}: ${CONFDIR}
 
         # Copy a default rabbitmq configuration file into place if there
         # isn't already one there. We'll assume if there is one then the
@@ -67,7 +72,7 @@ case "$1" in
         if dpkg -s rabbitmq-server 2>/dev/null | \
                 grep -qx "Status: .* installed"; then
             ACTUAL="/etc/rabbitmq/rabbitmq.config"
-            EXAMPLE="/usr/share/doc/amplet2-client/examples/client-rabbitmq.config"
+            EXAMPLE="${EXAMPLEDIR}/client-rabbitmq.config"
 
             # Also need to check that the example config even exists - some
             # docker images are stripping docs (/etc/dpkg/dpkg.cfg.d/excludes)

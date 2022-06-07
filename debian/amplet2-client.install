@@ -23,7 +23,6 @@ usr/lib/*/amplet2/tests/throughput.so
 usr/lib/*/amplet2/tests/trace.so
 usr/lib/*/amplet2/tests/udpstream.so
 
-etc/amplet2/clients/*
 etc/amplet2/nametables/*
 etc/amplet2/schedules/*
 usr/share/amplet2/rsyslog/* etc/rsyslog.d

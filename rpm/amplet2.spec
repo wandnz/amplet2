@@ -53,7 +53,8 @@ make install DESTDIR=%{buildroot}
 install -D amplet2-client.init %{buildroot}%{_initrddir}/amplet2-client
 install -m 644 -D src/measured/rsyslog/10-amplet2.conf %{buildroot}%{_sysconfdir}/rsyslog.d/10-amplet2.conf
 install -m 644 -D amplet2-client.service %{buildroot}%{_unitdir}/amplet2-client.service
-install -m 644 -D src/measured/rabbitmq/client-rabbitmq.config %{buildroot}%{_docdir}/amplet2-client/examples/rabbitmq/client-rabbitmq.config
+install -m 644 -D src/measured/rabbitmq/client-rabbitmq.config %{buildroot}%{_docdir}/amplet2-client/examples/client-rabbitmq.config
+install -m 644 -D src/measured/etc/clients/client-example.conf %{buildroot}%{_docdir}/amplet2-client/examples/client-example.conf
 rm -rf %{buildroot}/usr/lib/python*/
 rm -rf %{buildroot}%{_libdir}/*a
 rm -rf %{buildroot}%{_libdir}/%{name}/tests/*a
@@ -104,11 +105,14 @@ rm -rf %{buildroot}
 %{_libdir}/amplet2/tests/throughput.so
 %{_libdir}/amplet2/tests/trace.so
 %{_libdir}/amplet2/tests/udpstream.so
-%config(noreplace) %{_sysconfdir}/%{name}/*
+%dir %{_sysconfdir}/%{name}/clients/
+%exclude %{_sysconfdir}/%{name}/clients/client-example.conf
+%config(noreplace) %{_sysconfdir}/%{name}/schedules/
+%config(noreplace) %{_sysconfdir}/%{name}/nametables/
 %config(noreplace) %{_sysconfdir}/rsyslog.d/10-amplet2.conf
 %{_initrddir}/*
 %dir %{_localstatedir}/run/%{name}/
-%doc %{_docdir}/amplet2-client/examples/rabbitmq/*
+%doc %{_docdir}/amplet2-client/examples/*
 %license COPYING
 %{_unitdir}/amplet2-client.service
 
@@ -136,8 +140,13 @@ chown -R amplet: %{_sysconfdir}/%{name}/
 mkdir -p /var/log/amplet2
 
 CLIENTDIR=%{_sysconfdir}/%{name}/clients
+EXAMPLEDIR=%{_docdir}/amplet2-client/examples
 if [ `ls -lah ${CLIENTDIR} | grep -c "\.conf$"` -eq 0 ]; then
-    cp ${CLIENTDIR}/client.example ${CLIENTDIR}/default.conf
+    ACTUAL="${CLIENTDIR}/default.conf"
+    EXAMPLE="${EXAMPLEDIR}/client-example.conf"
+    if [ -f ${EXAMPLE} ]; then
+        cp ${EXAMPLE} ${ACTUAL}
+    fi
 fi
 
 # Copy a default rabbitmq configuration file into place if there
@@ -147,7 +156,7 @@ fi
 # TODO looks like rabbitmq-server RPMs ship with a sample file already in place?
 if rpm -q rabbitmq-server >/dev/null; then
     ACTUAL="/etc/rabbitmq/rabbitmq.config"
-    EXAMPLE="/usr/share/doc/amplet2-client/examples/client-rabbitmq.config"
+    EXAMPLE=%{_docdir}/amplet2-client/examples/client-rabbitmq.config
 
     # Also need to check that the example config even exists - some
     # docker images are stripping docs (see /etc/yum.conf)

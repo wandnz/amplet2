@@ -1,1 +1,2 @@
 src/measured/rabbitmq/client-rabbitmq.config
+src/measured/etc/clients/client-example.conf
