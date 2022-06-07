@@ -60,7 +60,7 @@ struct option long_options[] =
         {"test-port", required_argument, 0, 'P'},
         {"randomise", no_argument, 0, 'r'},
         {"server", no_argument, 0, 's'},
-        {"sequence", required_argument, 0, 'S'},
+        {"schedule", required_argument, 0, 'S'},
         {"time", required_argument, 0, 't'},
         {"protocol", required_argument, 0, 'u'},
         {"write-size", required_argument, 0, 'z'},
