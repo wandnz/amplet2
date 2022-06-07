@@ -1,6 +1,6 @@
 --- a/amplet2-client.init      1970-01-01 00:00:00.000000000 +0000
-+++ b/amplet2-client.init      2019-07-04 04:13:58.000000000 +0000
-@@ -0,0 +1,271 @@
++++ b/amplet2-client.init      2022-06-07 06:22:31.000000000 +0000
+@@ -0,0 +1,266 @@
 +#!/bin/sh
 +### BEGIN INIT INFO
 +# Provides:          amplet2
@@ -27,7 +27,6 @@
 +DAEMON_NAME=amplet2             # Introduce the short server's name here
 +DAEMON=/usr/sbin/$DAEMON_NAME   # Introduce the server's location here
 +DAEMON_OPTS="-d"
-+USER=amplet
 +SCRIPTNAME=/etc/init.d/$PKG_NAME
 +CONFDIR=/etc/amplet2/clients
 +PIDDIR=/var/run/amplet2
@@ -67,10 +66,6 @@
 +#
 +do_local_config()
 +{
-+    # Make sure that the pid dir exists
-+    mkdir -p ${PIDDIR}
-+    chown ${USER}: ${PIDDIR}
-+
 +    # If using a local rabbitmq broker then check that it is configured. For
 +    # now we'll make the assumption that if the user and control program exist
 +    # then we should probably be using rabbitmq.

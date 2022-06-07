@@ -43,6 +43,6 @@
 #define DEFAULT_AMPLET_USER "amplet"
 
 int change_user(char *username);
-
+int mkdir_and_chown(char *username, const char *dir, mode_t mode);
 
 #endif

@@ -39,11 +39,14 @@
 
 #include <sys/capability.h>
 #include <sys/prctl.h>
+#include <sys/stat.h>
 #include <sys/types.h>
 #include <pwd.h>
 #include <unistd.h>
 #include <grp.h>
 #include <string.h>
+#include <assert.h>
+#include <errno.h>
 
 #include "users.h"
 #include "debug.h"
@@ -75,6 +78,7 @@ int change_user(char *username) {
     Log(LOG_INFO, "Dropping permissions from root to %s", username);
 
     if ( (pwd = getpwnam(username)) == NULL ) {
+        Log(LOG_WARNING, "Failed to lookup user %s", username);
         return -1;
     }
 
@@ -133,6 +137,42 @@ int change_user(char *username) {
 
     if ( cap_free(caps) == -1 ) {
         return -1;
+    }
+
+    return 0;
+}
+
+
+int mkdir_and_chown(char *username, const char *dir, mode_t mode) {
+    assert(dir);
+
+    Log(LOG_DEBUG, "Creating directory %s", dir);
+
+    /* try to create the directory, do nothing if it already exists */
+    if ( mkdir(dir, mode) != 0 ) {
+        if ( errno != EEXIST ) {
+            Log(LOG_WARNING, "Failed to create directory %s: %s", dir,
+                    strerror(errno));
+            return -1;
+        }
+    }
+
+    /* if a username is given then change ownership of the directory */
+    if ( username ) {
+        struct passwd *pwd;
+
+        Log(LOG_DEBUG, "Changing directory ownership to %s", username);
+
+        if ( (pwd = getpwnam(username)) == NULL ) {
+            Log(LOG_WARNING, "Failed to lookup user %s", username);
+            return -1;
+        }
+
+        if ( chown(dir, pwd->pw_uid, pwd->pw_gid) != 0 ) {
+            Log(LOG_WARNING, "Failed to change ownership of dir %s to %s: %s",
+                    dir, username, strerror(errno));
+            return -1;
+        }
     }
 
     return 0;

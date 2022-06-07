@@ -528,13 +528,24 @@ int main(int argc, char *argv[]) {
         log_level = get_loglevel_config(cfg);
     }
 
+#ifndef _WIN32
+    /*
+     * Create AMP_RUN_DIR before pidfiles are written or local sockets
+     * are configured. They both expect AMP_RUN_DIR to exist, and it may
+     * not if the run directory is mounted on a tmpfs.
+     */
+    username = get_change_user_config(cfg);
+    if ( mkdir_and_chown(username, AMP_RUN_DIR, 0755) != 0 ) {
+        Log(LOG_WARNING, "Failed to create run directory, aborting");
+        exit(EXIT_FAILURE);
+    }
+
     /*
      * TODO is this the best location to create the pidfile? After parsing
      * configuration so we can log at the right level, but before doing any
      * real work -- especially important that it is before checking SSL keys
      * and certs, which can block waiting on them to be signed.
      */
-#ifndef _WIN32
     if ( pidfile && create_pidfile(pidfile) < 0 ) {
         Log(LOG_WARNING, "Failed to create pidfile %s, aborting", pidfile);
         cfg_free(cfg);
@@ -654,7 +665,7 @@ int main(int argc, char *argv[]) {
     }
 
     /* drop root permissions now that we no longer need them to set up rabbit */
-    if ( (username = get_change_user_config(cfg)) ) {
+    if ( username ) {
         if ( change_user(username) < 0 ) {
             Log(LOG_ALERT, "Failed to change to user '%s', aborting", username);
             cfg_free(cfg);
