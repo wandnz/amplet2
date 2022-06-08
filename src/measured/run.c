@@ -210,9 +210,11 @@ void run_test(const test_schedule_item_t * const item, BIO *ctrl) {
 	for ( offset=0; item->params[offset] != NULL; offset++ ) {
 	    argv[argc++] = item->params[offset];
             /* limit resolving address family if the test requires */
-            if ( strcmp(item->params[offset], "-4") == 0 ) {
+            if ( strcmp(item->params[offset], "-4") == 0 ||
+                    strcmp(item->params[offset], "--ipv4") == 0 ) {
                 forcev4 = 1;
-            } else if ( strcmp(item->params[offset], "-6") == 0 ) {
+            } else if ( strcmp(item->params[offset], "-6") == 0 ||
+                    strcmp(item->params[offset], "--ipv6") == 0 ) {
                 forcev6 = 1;
             }
 	}
