@@ -1,4 +1,4 @@
-.TH AMP-HTTP 8 "2019-07-02" "amplet2-client" "The Active Measurement Project"
+.TH AMP-HTTP 8 "2022-07-08" "amplet2-client" "The Active Measurement Project"
 
 .SH NAME
 amp-http \- AMP standalone HTTP fetch test
@@ -50,12 +50,12 @@ Disable keep-alives. The default is enabled.
 
 .TP
 \fB-m, --max-con \fIcount\fR
-Set the maximum number of connections to \fIcount\fR. The default is 24.
+Set the maximum number of connections to \fIcount\fR. The default is 256.
 
 
 .TP
 \fB-o, --max-persistent-con-per-server \fIcount\fR
-Set the maximum number of persistent connections per server to \fIcount\fR. The default is 2.
+Set the maximum number of persistent connections per server to \fIcount\fR. The default is 6.
 
 
 .TP
@@ -85,7 +85,7 @@ Set the maximum number of pipelined requests to \fIcount\fR. The default is 4.
 
 .TP
 \fB-s, --max-con-per-server \fIcount\fR
-Set the maximum number of connections per server to \fIcount\fR. The default is 8.
+Set the maximum number of connections per server to \fIcount\fR. The default is 15.
 
 
 .TP

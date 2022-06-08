@@ -59,6 +59,10 @@
 
 #define DEFAULT_HTTP_USERAGENT "AMP HTTP test agent"
 
+#define DEFAULT_HTTP_MAX_CONN 256
+#define DEFAULT_HTTP_MAX_CONN_PER_SERVER 15
+#define DEFAULT_HTTP_MAX_PERSISTENT 6
+#define DEFAULT_HTTP_PIPELINING_MAXREQUESTS 4
 
 /*
  * User defined test options that control packet size and timing.

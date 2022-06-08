@@ -1384,17 +1384,21 @@ static void usage(void) {
     fprintf(stderr, "  -k, --no-keep-alive            "
             "Disable keep-alives (def:enabled)\n");
     fprintf(stderr, "  -m, --max-con        <max>     "
-            "Maximum number of connections (def:24)\n");
+            "Maximum number of connections (def:%d)\n",
+            DEFAULT_HTTP_MAX_CONN);
     fprintf(stderr, "  -o, --max-persistent <max>     "
-            "Max persistent connections per server (def:2)\n");
+            "Max persistent connections per server (def:%d)\n",
+            DEFAULT_HTTP_MAX_PERSISTENT);
     fprintf(stderr, "  -p, --pipeline                 "
             "Enable pipelining (def:disabled)\n");
     fprintf(stderr, "  -P, --proxy          <proxy>   "
             "[protocol://][user:password@]proxyhost[:port]\n");
     fprintf(stderr, "  -r, --max-pipelined  <max>     "
-            "Maximum number of requests per pipeline (def:4)\n");
+            "Maximum number of requests per pipeline (def:%d)\n",
+            DEFAULT_HTTP_PIPELINING_MAXREQUESTS);
     fprintf(stderr, "  -s, --max-per-server <max>     "
-            "Maximum connections per server (def:8)\n");
+            "Maximum connections per server (def:%d)\n",
+            DEFAULT_HTTP_MAX_CONN_PER_SERVER);
     /* TODO libcurl 7.34.0 or newer opens up other ssl version options */
     fprintf(stderr, "  -S, --sslversion     <version> "
             "Force SSL version (sslv3, tlsv1, etc)\n");
@@ -1426,11 +1430,11 @@ amp_test_result_t* run_http(int argc, char *argv[],
     /* set some sensible defaults */
     options.url[0] = '\0';
     options.keep_alive = 1;
-    options.max_connections = 24;
-    options.max_connections_per_server = 8;
-    options.max_persistent_connections_per_server = 2;
+    options.max_connections = DEFAULT_HTTP_MAX_CONN;
+    options.max_connections_per_server = DEFAULT_HTTP_MAX_CONN_PER_SERVER;
+    options.max_persistent_connections_per_server = DEFAULT_HTTP_MAX_PERSISTENT;
     options.pipelining = 0;
-    options.pipelining_maxrequests = 4;
+    options.pipelining_maxrequests = DEFAULT_HTTP_PIPELINING_MAXREQUESTS;
     options.caching = 0;
     options.parse = 1;
     options.pipe_size_before_skip = 2;
