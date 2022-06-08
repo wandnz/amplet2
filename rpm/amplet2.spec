@@ -149,22 +149,24 @@ if [ `ls -lah ${CLIENTDIR} | grep -c "\.conf$"` -eq 0 ]; then
     fi
 fi
 
-# Copy a default rabbitmq configuration file into place if there
-# isn't already one there. We'll assume if there is one then the
-# user knows what they are doing.
 # TODO this doesn't help if the user later installs rabbitmq-server
 # TODO looks like rabbitmq-server RPMs ship with a sample file already in place?
 if rpm -q rabbitmq-server >/dev/null; then
-    ACTUAL="/etc/rabbitmq/rabbitmq.config"
-    EXAMPLE=%{_docdir}/amplet2-client/examples/client-rabbitmq.config
+    # Copy a default rabbitmq configuration file into place if there
+    # isn't already one there. We'll assume if there is one then the
+    # user knows what they are doing.
+    if [ `ls --ignore=rabbitmq-env.conf /etc/rabbitmq/ | grep -c "\.conf"` -eq 0 ]; then
+        ACTUAL="/etc/rabbitmq/rabbitmq.config"
+        EXAMPLE=%{_docdir}/amplet2-client/examples/client-rabbitmq.config
 
-    # Also need to check that the example config even exists - some
-    # docker images are stripping docs (see /etc/yum.conf)
-    if [ -d /etc/rabbitmq/ -a ! -f ${ACTUAL} -a -f ${EXAMPLE} ]; then
-        cp ${EXAMPLE} ${ACTUAL}
-        chown rabbitmq:rabbitmq ${ACTUAL}
-        # restart rabbitmq-server so the new config takes effect
-        systemctl restart rabbitmq.service
+        # Also need to check that the example config even exists - some
+        # docker images are stripping docs (see /etc/yum.conf)
+        if [ -d /etc/rabbitmq/ -a ! -f ${ACTUAL} -a -f ${EXAMPLE} ]; then
+            cp ${EXAMPLE} ${ACTUAL}
+            chown rabbitmq:rabbitmq ${ACTUAL}
+            # restart rabbitmq-server so the new config takes effect
+            systemctl restart rabbitmq.service
+        fi
     fi
 fi
 

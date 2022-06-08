@@ -65,25 +65,27 @@ case "$1" in
         # the amplet user should own everything in the config directory
         chown -R ${USER}: ${CONFDIR}
 
-        # Copy a default rabbitmq configuration file into place if there
-        # isn't already one there. We'll assume if there is one then the
-        # user knows what they are doing.
         # TODO this doesn't help if the user later installs rabbitmq-server
         if dpkg -s rabbitmq-server 2>/dev/null | \
                 grep -qx "Status: .* installed"; then
-            ACTUAL="/etc/rabbitmq/rabbitmq.config"
-            EXAMPLE="${EXAMPLEDIR}/client-rabbitmq.config"
 
-            # Also need to check that the example config even exists - some
-            # docker images are stripping docs (/etc/dpkg/dpkg.cfg.d/excludes)
-            if [ -d /etc/rabbitmq/ -a ! -f ${ACTUAL} -a -f ${EXAMPLE} ]; then
-                cp ${EXAMPLE} ${ACTUAL}
-                chown rabbitmq:rabbitmq ${ACTUAL}
-                # restart rabbitmq-server so the new config takes effect
-                if [ -x "`which invoke-rc.d 2>/dev/null`" ]; then
-                    invoke-rc.d rabbitmq-server restart || exit $?
-                else
-                    /etc/init.d/rabbitmq-server restart || exit $?
+            # Copy a default rabbitmq configuration file into place if there
+            # isn't already one there. We'll assume if there is one then the
+            # user knows what they are doing.
+            if [ `ls --ignore=rabbitmq-env.conf /etc/rabbitmq/ | grep -c "\.conf"` -eq 0 ]; then
+                # Also check that the example config even exists as some
+                # docker images strip docs (/etc/dpkg/dpkg.cfg.d/excludes)
+                ACTUAL="/etc/rabbitmq/rabbitmq.config"
+                EXAMPLE="${EXAMPLEDIR}/client-rabbitmq.config"
+                if [ -d /etc/rabbitmq/ -a ! -f ${ACTUAL} -a -f ${EXAMPLE} ]; then
+                    cp ${EXAMPLE} ${ACTUAL}
+                    chown rabbitmq:rabbitmq ${ACTUAL}
+                    # restart rabbitmq-server so the new config takes effect
+                    if [ -x "`which invoke-rc.d 2>/dev/null`" ]; then
+                        invoke-rc.d rabbitmq-server restart || exit $?
+                    else
+                        /etc/init.d/rabbitmq-server restart || exit $?
+                    fi
                 fi
             fi
         fi
