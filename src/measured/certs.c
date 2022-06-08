@@ -365,7 +365,7 @@ static int send_csr(X509_REQ *request, char *collector, char *cacert) {
     unsigned char *hashstr;
     unsigned int length;
     unsigned int i;
-    char fingerprint[33];
+    char fingerprint[65];
 
     /* try to read the CSR into a string so we have it in textual form */
     if ( (csrstr = get_csr_string(request)) == NULL ) {
@@ -381,12 +381,11 @@ static int send_csr(X509_REQ *request, char *collector, char *cacert) {
     }
 
     /*
-     * Display the MD5 hash for the CSR that is being sent, in case someone
-     * wants to double check the request. Using just the MD5 for now, because
-     * the SHA256 is too long to easily look at.
+     * Display the SHA256 hash for the CSR that is being sent, in case someone
+     * wants to double check the request.
      */
     length = strlen(csrstr);
-    if ( (hashstr = hash(csrstr, &length, EVP_md5())) == NULL || length == 0 ) {
+    if ( (hashstr = hash(csrstr, &length, EVP_sha256())) == NULL || length == 0 ) {
         free(csrstr);
         return -1;
     }
@@ -399,7 +398,7 @@ static int send_csr(X509_REQ *request, char *collector, char *cacert) {
     free(hashstr);
 
     Log(LOG_INFO, "Sending certificate signing request to %s", url);
-    Log(LOG_INFO, "Request MD5: %s", fingerprint);
+    Log(LOG_INFO, "Request hash: %s", fingerprint);
 
     /* open the string as a file pointer to give to curl */
     if ( (csrfile = fmemopen(csrstr, strlen(csrstr), "r")) == NULL ) {
