@@ -76,7 +76,7 @@ static struct option long_options[] = {
     {"user-agent", required_argument, 0, 'a'},
     {"no-browser", no_argument, 0, 'b'},
     {"port", required_argument, 0, 'P'},
-    {"youtube", required_argument, 0, 'y'},
+    {"video-id", required_argument, 0, 'y'},
     {"max-runtime", required_argument, 0, 't'},
     {"dscp", required_argument, 0, 'Q'},
     {"interpacketgap", required_argument, 0, 'Z'},
@@ -1128,7 +1128,7 @@ static void usage(void) {
                 "           (default,small,medium,large,hd720,hd1080,hd1440,hd2160,highres)\n");
     fprintf(stderr, "  -t, --max-runtime   <seconds>  "
                 "Maximum duration of video playback\n");
-    fprintf(stderr, "  -y, --youtube       <video_id> "
+    fprintf(stderr, "  -y, --video-id      <video_id> "
                 "Youtube video ID to fetch\n");
     print_generic_usage();
 }
