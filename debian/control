@@ -35,8 +35,8 @@ Architecture: amd64 arm64 armhf
 Build-Profiles: <pkg.amplet2.build-youtube>
 Replaces: amplet2-chromium-libs
 Breaks: amplet2-chromium-libs
-Depends: ${shlibs:Depends}, ${misc:Depends}, amplet2-client (= ${source:Version}), chromium | chromium-browser, libwebsockets8 | libwebsockets16, libjansson4
-Recommends: chromium-codecs-ffmpeg-extra (= 71.0.3578.98-0ubuntu0.18.04.1)
+Depends: ${shlibs:Depends}, ${misc:Depends}, amplet2-client (= ${source:Version}), chromium | chromium-browser, libwebsockets8 | libwebsockets15 | libwebsockets16, libjansson4
+Recommends: chromium-codecs-ffmpeg-extra
 Description: AMP Network Performance Measurement Suite - YouTube test
  This package contains the YouTube test for the AMP Measurement Suite.
 
