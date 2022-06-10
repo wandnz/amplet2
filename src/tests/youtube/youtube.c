@@ -767,20 +767,19 @@ static char *new_browser_tab(char *dev_url) {
         curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteMemoryCallback);
         curl_easy_setopt(curl, CURLOPT_WRITEDATA, (void*)&chunk);
 
-        do {
-            Log(LOG_DEBUG, "Trying to connect to browser");
-            res = curl_easy_perform(curl);
-            if ( res == CURLE_OK ) {
-                /* response includes websocket location to interact with tab */
-                location = parse_tab_response(chunk);
-            } else {
-                Log(LOG_DEBUG, "%s", curl_easy_strerror(res));
-                sleep(1);
-            }
-        } while ( res == CURLE_COULDNT_CONNECT &&
-                attempts++ < MAX_CONNECT_ATTEMPTS );
+        Log(LOG_DEBUG, "Trying to connect to browser");
+        while ( (res = curl_easy_perform(curl)) == CURLE_COULDNT_CONNECT &&
+                attempts < MAX_RETRY_ATTEMPTS ) {
+            Log(LOG_DEBUG, "Couldn't connect to browser, will retry");
+            sleep(1 << attempts);
+            attempts++;
+        }
 
-        if ( res != CURLE_OK ) {
+        if ( res == CURLE_OK ) {
+            Log(LOG_DEBUG, "Connected to browser ok");
+            /* response includes websocket location to interact with tab */
+            location = parse_tab_response(chunk);
+        } else {
             Log(LOG_WARNING, "Error opening new browser tab: %s",
                     curl_easy_strerror(res));
         }
@@ -1214,14 +1213,16 @@ amp_test_result_t* run_youtube(int argc, char *argv[],
     }
 #endif
 
-    /* start the browser if required */
-    if ( options.run_browser ) {
-        start_browser(options.port, (log_level == LOG_DEBUG));
-    }
-
     if ( gettimeofday(&start_time, NULL) != 0 ) {
 	Log(LOG_ERR, "Could not gettimeofday(), aborting test");
 	exit(EXIT_FAILURE);
+    }
+
+    /* start the browser if required */
+    if ( options.run_browser ) {
+        start_browser(options.port, (log_level == LOG_DEBUG));
+        /* the browser doesn't start instantly, give it a chance */
+        sleep(1);
     }
 
     /* connect to the devtools port and open a new tab */
@@ -1258,16 +1259,13 @@ amp_test_result_t* run_youtube(int argc, char *argv[],
     }
 
     attempts = 0;
-    do {
-        Log(LOG_DEBUG, "Connecting to %s", connect_info->address);
-        wsi_yt = lws_client_connect_via_info(connect_info);
-        if ( wsi_yt == NULL ) {
-            Log(LOG_DEBUG, "Failed to connect to %s (attempt %d/%d)",
-                    connect_info->address, attempts + 1, MAX_CONNECT_ATTEMPTS);
-            attempts++;
-            sleep(1);
-        }
-    } while ( wsi_yt == NULL && attempts < MAX_CONNECT_ATTEMPTS );
+    Log(LOG_DEBUG, "Connecting to %s", connect_info->address);
+    while ( (wsi_yt = lws_client_connect_via_info(connect_info)) == NULL &&
+            attempts < MAX_RETRY_ATTEMPTS ) {
+        Log(LOG_DEBUG, "Failed to connect to %s", connect_info->address);
+        sleep(1 << attempts);
+        attempts++;
+    }
 
     /* if we haven't connected, skip and report empty results */
     while ( wsi_yt && !force_exit ) {

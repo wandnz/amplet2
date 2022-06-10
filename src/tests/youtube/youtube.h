@@ -51,7 +51,7 @@
 #define JSON_INT(json, name) (json_integer_value(json_object_get(json, name)))
 #define JSON_STR(json, name) (json_string_value(json_object_get(json, name)))
 
-#define MAX_CONNECT_ATTEMPTS 3
+#define MAX_RETRY_ATTEMPTS 3
 #define DEFAULT_DEVTOOLS_PORT 9222
 
 char *chrome_paths[] = {
