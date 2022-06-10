@@ -51,6 +51,7 @@
 
 //#define ctime_r(timep, buf) ctime_s(buf, sizeof(buf), timep)
 #define timegm(tm) _mkgmtime(tm)
+#define gmtime_r(timep, result) (gmtime_s(result, timep) == 0 ? result : NULL)
 #define mkdir(pathname, mode) mkdir(pathname)
 
 /* rename on windows won't overwrite an existing file, so make it */
@@ -68,8 +69,9 @@
 #define s6_addr16       u.Word
 #endif
 
+
 /* global reference to this event so that threads can fake sending a SIGUSR1 */
-struct event *signal_usr1;
+extern struct event *signal_usr1;
 
 /* reimplement glob using _findfirst and _findnext */
 typedef struct {

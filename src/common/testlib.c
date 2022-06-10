@@ -48,7 +48,6 @@
 #include <sys/stat.h>
 #include <signal.h>
 #include <getopt.h>
-#include <netinet/tcp.h>
 
 #include <google/protobuf-c/protobuf-c.h>
 
@@ -62,6 +61,7 @@
 #include <sys/ioctl.h>
 #include <linux/net_tstamp.h>
 #include <linux/errqueue.h>
+#include <netinet/tcp.h>
 #endif
 
 #include "config.h"

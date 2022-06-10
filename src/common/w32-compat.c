@@ -47,6 +47,9 @@
 #include "w32-compat.h"
 
 
+struct event *signal_usr1 = NULL;
+
+
 /*
  * XXX can we define a few things so that strerror(errno) can be used
  * everywhere? When should WSAGetLastError() and GetLastError() be used?
