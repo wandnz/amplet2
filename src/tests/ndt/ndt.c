@@ -364,7 +364,7 @@ static int callback_ndt7(struct lws *wsi, enum lws_callback_reasons reason,
         case LWS_CALLBACK_CLIENT_CONNECTION_ERROR: {
             Log(LOG_WARNING, "LWS_CALLBACK_CLIENT_CONNECTION_ERROR");
             if ( in ) {
-                Log(LOG_WARNING, "%*s", len, (char*)in);
+                Log(LOG_WARNING, "%.*s", len, (char*)in);
             }
             force_exit = 1;
             break;

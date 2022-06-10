@@ -624,7 +624,7 @@ static amp_test_result_t* run_sip_client_loop(struct opt_t *options) {
     gettimeofday(&start_time, NULL);
 
     /* make a call to the given uri */
-    Log(LOG_DEBUG, "Making call to %*s", options->uri.slen, options->uri.ptr);
+    Log(LOG_DEBUG, "Making call to %.*s", options->uri.slen, options->uri.ptr);
 
     /* disable video on this call */
     pjsua_call_setting call_settings;

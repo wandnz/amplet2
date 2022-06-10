@@ -580,7 +580,7 @@ static int callback_youtube(struct lws *wsi, enum lws_callback_reasons reason,
 
             if ( !binary ) {
                 ((char *)in)[len] = '\0';
-                Log(LOG_DEBUG, "rx '%*s'\n", (int)len, (char *)in);
+                Log(LOG_DEBUG, "rx '%.*s'\n", (int)len, (char *)in);
 
                 /* read response */
                 json_t *root;
@@ -686,7 +686,7 @@ static int callback_youtube(struct lws *wsi, enum lws_callback_reasons reason,
             wsi_yt = NULL;
             force_exit = 1;
             if ( in ) {
-                printf("ERROR: %*s\n", (int)len, (char*)in);
+                printf("ERROR: %.*s\n", (int)len, (char*)in);
             }
             break;
         }
@@ -708,7 +708,7 @@ static char *parse_tab_response(struct MemoryStruct chunk) {
     json_t *root, *ws_url;
     char *location;
 
-    Log(LOG_DEBUG, "Parse tab response: %s\n", chunk.memory);
+    Log(LOG_DEBUG, "Parse tab response: %.*s", chunk.size, chunk.memory);
 
     root = json_loadb(chunk.memory, chunk.size, 0, &error);
     if ( !root ) {

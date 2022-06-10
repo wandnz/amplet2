@@ -226,7 +226,7 @@ static pj_status_t start_playfile(pjsua_call_id call_id) {
     /* the wav file to play is attached to the account data */
     options = (struct opt_t*)pjsua_acc_get_user_data(pjsua_acc_get_default());
 
-    Log(LOG_DEBUG, "Creating wav player for %*s\n",
+    Log(LOG_DEBUG, "Creating wav player for %.*s\n",
             (int)options->filename.slen, options->filename.ptr);
 
     status = pjsua_player_create(&options->filename,
@@ -583,7 +583,7 @@ pj_status_t register_account(struct opt_t *options) {
 
     if ( acc_info.status != PJSIP_SC_OK ) {
         const pj_str_t *text = pjsip_get_status_text(status);
-        Log(LOG_WARNING, "Failed to register: %*s", text->slen, text->ptr);
+        Log(LOG_WARNING, "Failed to register: %.*s", text->slen, text->ptr);
         return PJ_EUNKNOWN;
     }
 
