@@ -407,25 +407,14 @@ static int ws_send(struct lws *wsi, struct command *cmd) {
     json_object_set_new(msg, "method", json_string(cmd->method));
 
     if ( cmd->params ) {
-        char *first;
-        struct json_t *params = json_object();
+        struct json_t *params;
+        struct json_error_t error;
 
-        /* split parameter list on each ';' */
-        char *param = strtok_r(cmd->params, ";", &first);
-        if ( param ) {
-            do {
-                /* split each parameter on the first '=' */
-                char *second;
-                char *key = strtok_r(param, "=", &second);
-                char *value = strtok_r(NULL, "", &second);
-
-                /* turn parameter into json key:value */
-                if ( strcmp(value, "true") == 0 ) {
-                    json_object_set_new(params, key, json_boolean(1));
-                } else {
-                    json_object_set_new(params, key, json_string(value));
-                }
-            } while( (param = strtok_r(NULL, ";", &first)) );
+        if ( (params = json_loads(cmd->params, 0, &error)) == NULL ) {
+            Log(LOG_WARNING, "failed to decode parameters: '%s': %s",
+                    cmd->params, error.text);
+            json_decref(msg);
+            return -1;
         }
 
         json_object_set_new(msg, "params", params);
@@ -498,7 +487,7 @@ static char *build_test_url(struct test_options *options) {
         debugstr = "&debug=true";
     }
 
-    if ( asprintf(&url, "url=%s?video=%s%s%s%s", baseurl,
+    if ( asprintf(&url, "{\"url\": \"%s?video=%s%s%s%s\"}", baseurl,
                 options->video, qualitystr, runtimestr, debugstr) < 0 ) {
         Log(LOG_WARNING, "Failed to build URL, aborting");
         exit(EXIT_FAILURE);
@@ -554,14 +543,15 @@ static int callback_youtube(struct lws *wsi, enum lws_callback_reasons reason,
             call(wsi, "Page.enable", NULL);
             if ( options->useragent ) {
                 char *arg;
-                if ( asprintf(&arg, "userAgent=%s", options->useragent) < 0 ) {
+                if ( asprintf(&arg, "{\"userAgent\": \"%s\"}",
+                            options->useragent) < 0 ) {
                     Log(LOG_WARNING, "Failed to build useragent argument");
                     return -1;
                 }
                 call(wsi, "Network.setUserAgentOverride", arg);
                 free(arg);
             }
-            call(wsi, "Runtime.evaluate", "expression=navigator.userAgent;returnByValue=true");
+            call(wsi, "Runtime.evaluate", "{\"expression\": \"navigator.userAgent\",\"returnByValue\": true}");
             call(wsi, "Page.navigate", urlparam);
             free(urlparam);
             break;
@@ -605,8 +595,8 @@ static int callback_youtube(struct lws *wsi, enum lws_callback_reasons reason,
                     /* no id, so not a response. See if it's an alert */
                     if ( is_javascript_dialog(root) ) {
                         /* handle alert and ask for results */
-                        call(wsi, "Page.handleJavaScriptDialog", "accept=true");
-                        call(wsi, "Runtime.evaluate", "expression=youtuberesults;returnByValue=true");
+                        call(wsi, "Page.handleJavaScriptDialog", "{\"accept\": true}");
+                        call(wsi, "Runtime.evaluate", "{\"expression\": \"youtuberesults\", \"returnByValue\": true}");
                     }
 
                     json_decref(root);
@@ -671,6 +661,10 @@ static int callback_youtube(struct lws *wsi, enum lws_callback_reasons reason,
                     int res = ws_send(wsi, cmd);
                     if ( cmd->params ) {
                         free(cmd->params);
+                    }
+                    if ( res < 0 ) {
+                        wsi_yt = NULL;
+                        force_exit = 1;
                     }
                     free(cmd->method);
                     free(cmd);
