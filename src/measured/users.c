@@ -64,18 +64,27 @@
 int change_user(char *username) {
     struct passwd *pwd;
     cap_t caps;
+    uid_t uid;
     cap_value_t cap_list[3] = {
         CAP_NET_RAW,
         CAP_NET_ADMIN,
         CAP_NET_BIND_SERVICE
     };
 
-    if ( !username || strcmp(username, "root") == 0 ) {
-        Log(LOG_INFO, "Continuing as root, not dropping permissions");
+    /* get the user we are currently running as */
+    uid = geteuid();
+    if ( (pwd = getpwuid(uid)) == NULL ) {
+        Log(LOG_WARNING, "Failed to lookup current user: %s", strerror(errno));
+        return -1;
+    }
+
+    /* check we aren't already the user we want to be */
+    if ( !username || strcmp(username, pwd->pw_name) == 0 ) {
+        Log(LOG_INFO, "Continuing as %s, not changing user", pwd->pw_name);
         return 0;
     }
 
-    Log(LOG_INFO, "Dropping permissions from root to %s", username);
+    Log(LOG_INFO, "Changing user from %s to %s", pwd->pw_name, username);
 
     if ( (pwd = getpwnam(username)) == NULL ) {
         Log(LOG_WARNING, "Failed to lookup user %s", username);
