@@ -479,7 +479,6 @@ char **parse_param_string(char *param_string) {
         return result;
     }
 
-    /* TODO we can realloc this as we go */
     result = (char**)malloc(sizeof(char*) * MAX_TEST_ARGS);
 
     for ( p = param_string; *p != '\0'; p++ ) {
@@ -564,6 +563,9 @@ char **parse_param_string(char *param_string) {
 
     /* param list should be null terminated */
     result[count] = NULL;
+
+    /* shrink buffer to the actual size used */
+    result = realloc(result, (count + 1) * sizeof(char*));
 
     return result;
 
@@ -872,6 +874,34 @@ static int merge_scheduled_tests(
 
 
 /*
+ * Get all of the test argument strings from the test schedule and join them
+ * together into a single string that can be sent to the parser.
+ */
+static char *join_test_arguments(yaml_document_t *document, yaml_node_t *node,
+        char *arguments, int *len) {
+
+    if ( node->type == YAML_SCALAR_NODE ) {
+        /* if we find a scalar then it is actual argument(s), add it */
+        assert(strlen((char*)node->data.scalar.value) < MAX_ARGUMENT_LENGTH);
+        *len += snprintf(&arguments[*len], MAX_ARGUMENT_LENGTH,
+                "%*s%s", *len > 0 ? 1 : 0, "", node->data.scalar.value);
+
+    } else if ( node->type == YAML_SEQUENCE_NODE ) {
+        /* args can included nested sequences arbitrarily deep, recurse */
+        yaml_node_item_t *item;
+        for ( item = node->data.sequence.items.start;
+                item != node->data.sequence.items.top; item++ ) {
+            arguments = join_test_arguments(document,
+                    yaml_document_get_node(document, *item), arguments, len);
+        }
+    }
+
+    return arguments;
+}
+
+
+
+/*
  * Get all of the target names from the "target" node in the test
  * configuration. They could be a single scalar, a sequence of scalars, or
  * indefinitely nested sequences eventually ending in scalars (this is what
@@ -1018,12 +1048,12 @@ static test_schedule_item_t *create_and_schedule_test(
     yaml_node_pair_t *pair;
     test_t *test_definition;
     int64_t start = 0, end = -1, frequency = -1;
-    char *period_str = NULL, *testname = NULL, **params = NULL;
+    char *period_str = NULL, *testname = NULL, *unparsed_params = NULL;
+    char **params = NULL;
     schedule_period_t period;
     char **targets = NULL, **remaining = NULL;
-    int target_len;
+    int target_len, param_len;
     struct timeval next;
-    int params_present = 0;
     int lineno = 0;
 
     /* make sure the node exists and is of the right type */
@@ -1038,7 +1068,6 @@ static test_schedule_item_t *create_and_schedule_test(
      * to point to the line before, so increment by one.
      */
     lineno = node->start_mark.line + 1;
-
 
     for ( pair = node->data.mapping.pairs.start;
             pair < node->data.mapping.pairs.top; pair++ ) {
@@ -1071,10 +1100,19 @@ static test_schedule_item_t *create_and_schedule_test(
         } else if ( strcmp((char*)key->data.scalar.value, "period") == 0 ) {
             assert(value->type == YAML_SCALAR_NODE);
             period_str = (char*)value->data.scalar.value;
-        } else if ( strcmp((char*)key->data.scalar.value, "args") == 0 ) {
-            assert(value->type == YAML_SCALAR_NODE);
-            params = parse_param_string((char*)value->data.scalar.value);
-            params_present = 1;
+        } else if ( strcmp((char*)key->data.scalar.value, "args") == 0 ||
+                strcmp((char*)key->data.scalar.value, "arguments") == 0 ) {
+            /*
+             * it's possible "args" could be defined multiple times, so build
+             * up a string collecting all the parts of the arguments
+             */
+            if ( unparsed_params == NULL ) {
+                unparsed_params = calloc(MAX_TEST_ARGS, MAX_ARGUMENT_LENGTH);
+                param_len = 0;
+            }
+
+            unparsed_params = join_test_arguments(document, value,
+                    unparsed_params, &param_len);
         } else if ( strcmp((char*)key->data.scalar.value, "target") == 0 ) {
             /* it's possible "target" could be defined multiple times */
             if ( targets == NULL ) {
@@ -1131,10 +1169,14 @@ static test_schedule_item_t *create_and_schedule_test(
         goto end;
     }
 
-    if ( params_present && params == NULL ) {
-        Log(LOG_WARNING, "Incorrectly formed argument string (from line %d)",
-                lineno);
-        goto end;
+    if ( unparsed_params ) {
+        params = parse_param_string(unparsed_params);
+        if ( params == NULL ) {
+            Log(LOG_WARNING,
+                    "Incorrectly formed argument string (from line %d)",
+                    lineno);
+            goto end;
+        }
     }
 
     /*
@@ -1213,6 +1255,10 @@ static test_schedule_item_t *create_and_schedule_test(
 end:
     if ( targets ) {
         free(targets);
+    }
+
+    if ( unparsed_params ) {
+        free(unparsed_params);
     }
 
     return test;
