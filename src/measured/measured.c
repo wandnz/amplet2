@@ -93,6 +93,7 @@ static struct option long_options[] = {
     {"ipv4", required_argument, 0, '4'},
     {"ipv6", required_argument, 0, '6'},
     {"interpacketgap", required_argument, 0, 'Z'},
+    {"rundir", required_argument, 0, 'n'},
     {0, 0, 0, 0}
 };
 
@@ -375,6 +376,7 @@ int actual_main(int argc, char *argv[]) {
 int main(int argc, char *argv[]) {
     struct event *signal_usr1 = NULL;
     int backgrounded = 0;
+    char *rundir = AMP_RUN_DIR;
 #endif
     char *config_file = NULL;
     char *pidfile = NULL;
@@ -415,7 +417,7 @@ int main(int argc, char *argv[]) {
     memset(&meta, 0, sizeof(meta));
     meta.inter_packet_delay = MIN_INTER_PACKET_DELAY;
 
-    while ( (opt = getopt_long(argc, argv, "dhp:vxc:rZ:I:4::6::",
+    while ( (opt = getopt_long(argc, argv, "dhn:p:vxc:rZ:I:4::6::",
                     long_options, NULL)) != -1 ) {
 
         switch ( opt ) {
@@ -444,6 +446,9 @@ int main(int argc, char *argv[]) {
             case 'c':
                 /* specify a configuration file */
                 config_file = optarg;
+                break;
+            case 'n':
+                rundir = optarg;
                 break;
             case 'p':
                 pidfile = optarg;
@@ -530,12 +535,12 @@ int main(int argc, char *argv[]) {
 
 #ifndef _WIN32
     /*
-     * Create AMP_RUN_DIR before pidfiles are written or local sockets
-     * are configured. They both expect AMP_RUN_DIR to exist, and it may
+     * Create rundir before pidfiles are written or local sockets
+     * are configured. They both expect rundir to exist, and it may
      * not if the run directory is mounted on a tmpfs.
      */
     username = get_change_user_config(cfg);
-    if ( mkdir_and_chown(username, AMP_RUN_DIR, 0755) != 0 ) {
+    if ( mkdir_and_chown(username, rundir, 0755) != 0 ) {
         Log(LOG_WARNING, "Failed to create run directory, aborting");
         exit(EXIT_FAILURE);
     }
@@ -706,14 +711,14 @@ int main(int argc, char *argv[]) {
     vars.asnsock = strdup("6654");
 #else
     /* construct our custom, per-client nameserver socket */
-    if ( asprintf(&vars.nssock, "%s/%s.sock", AMP_RUN_DIR, vars.ampname) < 0 ) {
+    if ( asprintf(&vars.nssock, "%s/%s.sock", rundir, vars.ampname) < 0 ) {
         Log(LOG_ALERT, "Failed to build local resolve socket path");
 	cfg_free(cfg);
         exit(EXIT_FAILURE);
     }
 
     /* construct our custom, per-client asn lookup socket */
-    if ( asprintf(&vars.asnsock, "%s/%s.asn", AMP_RUN_DIR, vars.ampname) < 0 ) {
+    if ( asprintf(&vars.asnsock, "%s/%s.asn", rundir, vars.ampname) < 0 ) {
         Log(LOG_ALERT, "Failed to build local asn socket path");
 	cfg_free(cfg);
         exit(EXIT_FAILURE);
