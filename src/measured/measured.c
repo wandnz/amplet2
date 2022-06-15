@@ -93,6 +93,7 @@ static struct option long_options[] = {
     {"ipv4", required_argument, 0, '4'},
     {"ipv6", required_argument, 0, '6'},
     {"interpacketgap", required_argument, 0, 'Z'},
+    {"pidfile", required_argument, 0, 'p'},
     {"rundir", required_argument, 0, 'n'},
     {0, 0, 0, 0}
 };
