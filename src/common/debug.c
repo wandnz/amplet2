@@ -53,6 +53,8 @@
 #else
 #include <arpa/inet.h>
 #include <netdb.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 #endif
 
 #include "config.h"
@@ -91,6 +93,8 @@ void Log(int priority, const char *fmt, ...)
     char *prefix;
     time_t ts;
     char date[32];
+    int use_stdout;
+    struct stat statbuf;
 
     /* don't print anything if priority doesn't meet minimum requirements */
     if ( priority > log_level ) {
@@ -105,9 +109,20 @@ void Log(int priority, const char *fmt, ...)
     if ( buffer[strlen(buffer)-1] == '\n' )
 	buffer[strlen(buffer)-1] = '\0';
 
+    /* try to figure out what stdout actually is */
+    fstat(STDOUT_FILENO, &statbuf);
+
+    /* lacking tty and being a char device points to being daemonised */
+    if ( !isatty(STDOUT_FILENO) && (statbuf.st_mode & S_IFMT) == S_IFCHR ) {
+        use_stdout = 0;
+    } else {
+        /* having tty and being a char device, or being a fifo/regular file */
+        use_stdout = 1;
+    }
+
 #if LOG_TO_SYSLOG
     /* log to syslog if enabled and the program is running without a tty */
-    if ( !isatty(fileno(stdout)) ) {
+    if ( !use_stdout ) {
         /*
          * TODO set ampname as part of the ident string in openlog()? Or
          * somehow route to different log files based on ampname?
@@ -151,8 +166,8 @@ void Log(int priority, const char *fmt, ...)
      * write the log message to the appropriate place: use stdout if it is
      * available to us, otherwise write to a log file
      */
-    if ( isatty(fileno(stdout)) ) {
-	fprintf(stderr, "%s %s: %s\n", date, prefix, buffer);
+    if ( use_stdout ) {
+	fprintf(stdout, "%s %s: %s\n", date, prefix, buffer);
     } else {
 	/* printing to a log file under our own control */
         /* TODO figure out the name of the current process for log message */

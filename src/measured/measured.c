@@ -512,6 +512,11 @@ int main(int argc, char *argv[]) {
     openlog(PACKAGE, LOG_PID, LOG_USER);
 #endif
 
+    if ( !backgrounded ) {
+        /* line buffer stdout to make logs appear quicker */
+        setvbuf(stdout, NULL, _IOLBF, 0);
+    }
+
     Log(LOG_INFO, "%s starting", PACKAGE_STRING);
 
     srandom(time(NULL));
