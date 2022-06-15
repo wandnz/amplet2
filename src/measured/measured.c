@@ -880,7 +880,6 @@ int main(int argc, char *argv[]) {
     event_base_free(meta.base);
 
     free_local_meta_vars(&meta);
-    free_global_vars(&vars);
 
     /* clean up the ASN socket, mutex, storage */
     Log(LOG_DEBUG, "Shutting down ASN lookup");
@@ -915,6 +914,8 @@ int main(int argc, char *argv[]) {
 #endif
 
     Log(LOG_DEBUG, "Shutdown complete");
+
+    free_global_vars(&vars);
 
     return EXIT_SUCCESS;
 }
