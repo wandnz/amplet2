@@ -167,7 +167,7 @@ void Log(int priority, const char *fmt, ...)
      * available to us, otherwise write to a log file
      */
     if ( use_stdout ) {
-	fprintf(stdout, "%s %s: %s\n", date, prefix, buffer);
+	fprintf(stdout, "%s [%d] %s: %s\n", date, getpid(), prefix, buffer);
     } else {
 	/* printing to a log file under our own control */
         /* TODO figure out the name of the current process for log message */
@@ -177,7 +177,7 @@ void Log(int priority, const char *fmt, ...)
 	    /* TODO something smart to report error in logging */
 	    return;
 	}
-	fprintf(out, "%s %s: %s\n", date, prefix, buffer);
+	fprintf(out, "%s [%d] %s: %s\n", date, getpid(), prefix, buffer);
 	fclose(out);
     }
 }
