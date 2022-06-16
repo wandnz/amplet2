@@ -26,7 +26,7 @@ dist_rabbit_DATA=rabbitmq/*
 
 if !MINGW
 install-exec-hook:
-	setcap 'CAP_NET_ADMIN=ep CAP_NET_BIND_SERVICE=ep CAP_NET_RAW=ep' $(DESTDIR)/$(sbindir)/amplet2
+	setcap 'CAP_NET_ADMIN=ep CAP_NET_BIND_SERVICE=ep CAP_NET_RAW=ep' $(DESTDIR)/$(sbindir)/amplet2 || true
 endif
 
 install-data-local:

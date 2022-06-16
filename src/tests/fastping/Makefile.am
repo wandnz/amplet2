@@ -17,7 +17,7 @@ nodist_fastping_la_SOURCES=fastping.pb-c.c
 fastping_la_LDFLAGS=-module -avoid-version -L../../common/ -lamp -lprotobuf-c -lm -lpcap
 
 install-exec-hook:
-	setcap 'CAP_NET_RAW=ep' $(DESTDIR)/$(bindir)/amp-fastping
+	setcap 'CAP_NET_RAW=ep' $(DESTDIR)/$(bindir)/amp-fastping || true
 
 endif
 

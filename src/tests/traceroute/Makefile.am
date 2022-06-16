@@ -15,7 +15,7 @@ nodist_trace_la_SOURCES=traceroute.pb-c.c
 trace_la_LDFLAGS=-module -avoid-version -L../../common/ -lamp -levent -lpthread -lunbound -lprotobuf-c
 
 install-exec-hook:
-	setcap 'CAP_NET_RAW=ep' $(DESTDIR)/$(bindir)/amp-trace
+	setcap 'CAP_NET_RAW=ep' $(DESTDIR)/$(bindir)/amp-trace || true
 
 traceroute.pb-c.c: traceroute.proto
 	protoc-c --c_out=. traceroute.proto

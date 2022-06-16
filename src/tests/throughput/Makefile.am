@@ -15,7 +15,7 @@ nodist_throughput_la_SOURCES=throughput.pb-c.c
 throughput_la_LDFLAGS=-module -avoid-version -L../../common/ -lamp -lprotobuf-c
 
 install-exec-hook:
-	setcap 'CAP_NET_BIND_SERVICE=ep' $(DESTDIR)/$(bindir)/amp-throughput
+	setcap 'CAP_NET_BIND_SERVICE=ep' $(DESTDIR)/$(bindir)/amp-throughput || true
 
 throughput.pb-c.c: throughput.proto
 	protoc-c --c_out=. throughput.proto

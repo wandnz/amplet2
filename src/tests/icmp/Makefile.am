@@ -18,7 +18,7 @@ if MINGW
 amp_icmp_LDFLAGS=-static
 else
 install-exec-hook:
-	setcap 'CAP_NET_RAW=ep' $(DESTDIR)/$(bindir)/amp-icmp
+	setcap 'CAP_NET_RAW=ep' $(DESTDIR)/$(bindir)/amp-icmp || true
 endif
 
 icmp.pb-c.c: icmp.proto

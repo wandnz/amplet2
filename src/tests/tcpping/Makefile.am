@@ -16,7 +16,7 @@ tcpping_la_LDFLAGS=-module -avoid-version -L../../common/ -lamp -lpcap -lprotobu
 
 if !MINGW
 install-exec-hook:
-	setcap 'CAP_NET_ADMIN=ep CAP_NET_RAW=ep' $(DESTDIR)/$(bindir)/amp-tcpping
+	setcap 'CAP_NET_ADMIN=ep CAP_NET_RAW=ep' $(DESTDIR)/$(bindir)/amp-tcpping || true
 endif
 
 tcpping.pb-c.c: tcpping.proto

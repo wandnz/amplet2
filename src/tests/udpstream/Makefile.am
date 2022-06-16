@@ -15,7 +15,7 @@ nodist_udpstream_la_SOURCES=udpstream.pb-c.c
 udpstream_la_LDFLAGS=-module -avoid-version -L../../common/ -lamp -lprotobuf-c -lm
 
 install-exec-hook:
-	setcap 'CAP_NET_BIND_SERVICE=ep' $(DESTDIR)/$(bindir)/amp-udpstream
+	setcap 'CAP_NET_BIND_SERVICE=ep' $(DESTDIR)/$(bindir)/amp-udpstream || true
 
 udpstream.pb-c.c: udpstream.proto
 	protoc-c --c_out=. udpstream.proto

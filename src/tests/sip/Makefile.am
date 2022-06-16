@@ -21,10 +21,6 @@ sip_la_LDFLAGS=-module -avoid-version -L../../common/ -lamp -lprotobuf-c -lpj -l
 install-exec-local:
 	mkdir -p $(DESTDIR)/$(libdir)/$(PACKAGE)/extra
 	cp extra/sip-test-8000.wav $(DESTDIR)/$(libdir)/$(PACKAGE)/extra
-
-install-exec-hook:
-	setcap 'CAP_NET_RAW=ep' $(DESTDIR)/$(bindir)/amp-sip
-
 endif
 
 sip.pb-c.c: sip.proto
