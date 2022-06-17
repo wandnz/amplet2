@@ -854,7 +854,9 @@ int bind_socket_to_address(int sock, struct addrinfo *address) {
 
     if ( bind(sock, ((struct sockaddr*)address->ai_addr),
                 address->ai_addrlen) < 0 ) {
+        int tmperrno = errno;
         Log(LOG_DEBUG, "Failed to bind socket to address: %s", strerror(errno));
+        errno = tmperrno;
         return -1;
     }
 
