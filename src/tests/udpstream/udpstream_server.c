@@ -210,6 +210,7 @@ static int serve_test(BIO *ctrl, struct sockopt_t *sockopts) {
     /* configure the new UDP test socket */
     sockopts->socktype = SOCK_DGRAM;
     sockopts->protocol = IPPROTO_UDP;
+    sockopts->reuse_addr = 0;
 
     /* No errors so far, make our new test socket with the given test options */
     do {
