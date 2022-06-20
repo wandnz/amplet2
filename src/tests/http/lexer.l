@@ -14,7 +14,7 @@ CHAR	    [a-zA-Z0-9_ ]
     static int url_index = 0;
 %}
 
-%x script scriptbody noscript comment img dbquote squote linktag style
+%x script scriptbody noscript comment img dbquote squote linktag style dbquote_data squote_data
 %%
 
 "<!--"				{ yy_push_state(comment); };
@@ -35,9 +35,11 @@ CHAR	    [a-zA-Z0-9_ ]
 <script>">"                     { yy_push_state(scriptbody); };
 <script>[^s<>\n]*		{ /* eat all non 's' or angle bracket */ };
 <script>\n			{ };
-<script,img>"s"			{ /* eat up 's's not followed by 'r's */ };
-<script,img>"src=\""		{ yy_push_state(dbquote); };
-<script,img>"src=\'"		{ yy_push_state(squote); };
+<script>"s"                     { /* eat up 's's not followed by 'r's */ };
+<script>"src=\""                { yy_push_state(dbquote); };
+<script>"src=\'"                { yy_push_state(squote); };
+<script>"src=\"data:"           { yy_push_state(dbquote_data); };
+<script>"src=\'data:"           { yy_push_state(squote_data); };
 
 <scriptbody>[^<]*               { /* eat anything that's not a '<' */ };
 <scriptbody>"<"[^/\n]*          { /* eat any '<'s not followed by '/' */ };
@@ -48,6 +50,11 @@ CHAR	    [a-zA-Z0-9_ ]
 <img>[^s>\n]*			{ /* eat anything that's not a '/' */ };
 <img>\n				{ };
 <img>">"			{ yy_pop_state(); };
+<img>"s"                        { /* eat up 's's not followed by 'r's */ };
+<img>"src=\""                   { yy_push_state(dbquote); };
+<img>"src=\'"                   { yy_push_state(squote); };
+<img>"src=\"data:"              { yy_push_state(dbquote_data); };
+<img>"src=\'data:"              { yy_push_state(squote_data); };
 
 "<link"				{ yy_push_state(linktag); };
 <linktag,style>[^hr>\n]*	{ /* anything that isnt href,rel or endtag */ };
@@ -121,6 +128,11 @@ CHAR	    [a-zA-Z0-9_ ]
                                     yy_pop_state();
 				};
 
+<dbquote_data>[^\"]{1}          { /* ignore everything except ending quote */};
+<dbquote_data>"\""              { yy_pop_state(); }
+
+<squote_data>[^']{1}            { /* ignore everything except ending quote */};
+<squote_data>"'"                { yy_pop_state(); }
 
 
 "</html>"			{ return 0; };
