@@ -521,6 +521,19 @@ static int is_javascript_dialog(json_t *root) {
 
 
 /*
+ * Check if the json message is informing about an inspector detached event.
+ */
+static int is_detach_event(json_t *root) {
+    if ( strcmp(JSON_STR(root, "method"), "Inspector.detached") == 0 ) {
+        return 1;
+    }
+
+    return 0;
+}
+
+
+
+/*
  * Websocket callback for connection state changes.
  */
 static int callback_youtube(struct lws *wsi, enum lws_callback_reasons reason,
@@ -597,6 +610,10 @@ static int callback_youtube(struct lws *wsi, enum lws_callback_reasons reason,
                         /* handle alert and ask for results */
                         call(wsi, "Page.handleJavaScriptDialog", "{\"accept\": true}");
                         call(wsi, "Runtime.evaluate", "{\"expression\": \"youtuberesults\", \"returnByValue\": true}");
+                    } else if ( is_detach_event(root) ) {
+                        Log(LOG_DEBUG, "Inspector detached, closing");
+                        wsi_yt = NULL;
+                        force_exit = 1;
                     }
 
                     json_decref(root);
@@ -632,10 +649,9 @@ static int callback_youtube(struct lws *wsi, enum lws_callback_reasons reason,
                     } else if ( strcmp(type, "object") == 0 ) {
                         // populate the context user data with the result
                         parse_result(wsi, result2);
-                        //call(wsi, "Browser.close", NULL);
-                        wsi_yt = NULL;
-                        force_exit = 1;
-                        //return 1;
+                        // XXX alternatively, send a GET to /json/close/<ID>
+                        // as this relies on the other end sending detach msg
+                        call(wsi, "Page.close", NULL);
                     }
                 }
 
