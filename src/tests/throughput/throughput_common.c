@@ -458,6 +458,9 @@ int sendStream(int sock_fd, struct test_request_t *test_opts,
         return -1;
     }
 
+    /* randomise the first packet */
+    randomMemset(packet_out, test_opts->write_size);
+
     /* Note starting time */
     run_time_ms = 0;
     res->start_ns = timeNanoseconds();
@@ -518,10 +521,10 @@ int sendStream(int sock_fd, struct test_request_t *test_opts,
                     addHttpHeaders(packet_out, bytes_to_send);
                 } else {
                     addHttpChunkHeader(packet_out, bytes_to_send,
-                            test_opts->randomise);
+                            test_opts->randomise && res->bytes > 0);
                 }
-            } else if ( test_opts->randomise || res->bytes == 0 ) {
-                /* randomise the first packet, or every packet if option set */
+            } else if ( test_opts->randomise && res->bytes > 0 ) {
+                /* randomise every packet if option set */
                 randomMemset(packet_out, bytes_to_send);
             }
 
