@@ -1537,7 +1537,6 @@ static int update_remote_schedule(fetch_schedule_item_t *fetch, int clobber) {
 
         curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &code);
         curl_easy_getinfo(curl, CURLINFO_FILETIME, &filetime);
-        curl_easy_getinfo(curl, CURLINFO_CONTENT_LENGTH_DOWNLOAD, &length);
 #if LIBCURL_VERSION_NUM >= 0x071309
         if ( clobber == 0 ) {
             curl_easy_getinfo(curl, CURLINFO_CONDITION_UNMET, &cond_unmet);
@@ -1548,6 +1547,15 @@ static int update_remote_schedule(fetch_schedule_item_t *fetch, int clobber) {
         cond_unmet = 0;
 #endif
         curl_easy_cleanup(curl);
+
+        /* check the length of the downloaded file on disk */
+        stat_result = stat(tmp_sched_file, &statbuf);
+        if ( stat_result < 0 ) {
+            Log(LOG_DEBUG, "Got zero length schedule file, ignoring");
+            return 0;
+        }
+
+        length = statbuf.st_size;
 
         Log(LOG_DEBUG, "HTTP %ld Last-Modified:%d Length:%.0f",
                 code, filetime, length);
