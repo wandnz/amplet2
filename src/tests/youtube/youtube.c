@@ -90,7 +90,7 @@ static struct option long_options[] = {
 };
 
 static struct lws *wsi_yt = NULL;
-static volatile int force_exit;
+static volatile int force_exit = 0;
 
 
 
