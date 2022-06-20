@@ -45,6 +45,7 @@
 #include "http.h"
 #include "servers.h"
 #include "parsers.h"
+#include "getinmemory.h"
 #include "debug.h"
 
 extern struct server_stats_t *server_list;
@@ -207,10 +208,9 @@ extern void* yy_scan_bytes(const char *, size_t len);
 void yy_delete_buffer(void *b);
 int yylex(void);
 
-size_t parse_response(void *ptr, size_t size, size_t nmemb,
-        __attribute__((unused))void *data) {
-    void *buffer = yy_scan_bytes(ptr, size * nmemb);
+/* parse a completed page */
+void parse_response(struct MemoryStruct *chunk) {
+    void *buffer = yy_scan_bytes(chunk->memory, chunk->size);
     yylex();
     yy_delete_buffer(buffer);
-    return size * nmemb;
 }

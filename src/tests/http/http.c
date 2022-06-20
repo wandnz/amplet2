@@ -65,6 +65,7 @@
 #include "debug.h"
 #include "usage.h"
 #include "dscp.h"
+#include "getinmemory.h"
 
 
 CURLM *multi;
@@ -74,7 +75,7 @@ int total_pipelines;
 int total_requests;
 struct opt_t options;
 struct global_stats global;
-
+struct MemoryStruct chunk;
 
 static struct option long_options[] = {
     {"user-agent", required_argument, 0, 'a'},
@@ -937,8 +938,12 @@ CURL *pipeline_next_object(CURLM *multi, struct server_stats_t *server) {
     }
 
     if ( options.parse && object->parse ) {
-        /* this is the main page, parse the result for more objects */
-        curl_easy_setopt(object->handle, CURLOPT_WRITEFUNCTION, parse_response);
+        /* this is the main page, keep page content to parse for more objects */
+        chunk.memory = malloc(1);
+        chunk.size = 0;
+        curl_easy_setopt(object->handle, CURLOPT_WRITEFUNCTION,
+                WriteMemoryCallback);
+        curl_easy_setopt(object->handle, CURLOPT_WRITEDATA, (void*)&chunk);
     } else {
         /* this isn't the main page, set the referer and don't parse result */
         curl_easy_setopt(object->handle, CURLOPT_REFERER, options.url);
@@ -1166,31 +1171,54 @@ static void check_messages(CURLM *multi, int *running_handles) {
         curl_easy_setopt(handle, CURLOPT_SHARE, NULL);
         curl_easy_cleanup(handle);
 
-        /* if this object was a redirect, then try to follow it */
+        /*
+         * if it's a redirect, queue the redirected item and, if different
+         * servers, the next item from the original server
+         */
         if ( object->location != NULL && (
                     object->code == 301 || object->code == 302 ||
                     object->code == 303 || /*object->code == 305 || */
                     object->code == 307 || object->code == 308) ) {
-            /* add the new location to the queue to be fetched */
             Log(LOG_DEBUG, "Following %d redirect to %s", object->code,
                     object->location);
+
+            get_server(host, server_list, &server);
             redirect = add_object(object->location, object->parse);
-        }
 
-        get_server(host, server_list, &server);
-        if ( server == NULL ) {
-            Log(LOG_ERR, "getServer() failed for '%s'\n", host);
-            exit(EXIT_FAILURE);
-        }
+            /* queue the redirected item if it is from another server */
+            if ( redirect != server ) {
+                if ( pipeline_next_object(multi, redirect) != NULL ) {
+                    (*running_handles)++;
+                }
+            }
 
-        /* queue the redirected item if it is from another server */
-        if ( redirect != server ) {
-            if ( pipeline_next_object(multi, redirect) != NULL ) {
+            /* queue any more objects that we have for this server */
+            if ( pipeline_next_object(multi, server) != NULL ) {
                 (*running_handles)++;
             }
+
+            continue;
         }
 
-        /* queue any more objects that we have for this server */
+
+        /*
+         * It's not a redirect and it's parsable, it must be the main page.
+         * Parse the completed page to find all the objects that make it up,
+         * then start fetching them.
+         */
+        if ( object->parse ) {
+            parse_response(&chunk);
+            for ( server = server_list; server != NULL; server = server->next ){
+                if ( pipeline_next_object(multi, server) != NULL ) {
+                    (*running_handles)++;
+                }
+            }
+
+            continue;
+        }
+
+        /* otherwise it's a normal object that finished, queue the next one */
+        get_server(host, server_list, &server);
         if ( pipeline_next_object(multi, server) != NULL ) {
             (*running_handles)++;
         }
@@ -1229,7 +1257,6 @@ static long get_wait_timeout(CURLM *multi) {
  * Fetch the given URL.
  */
 static int fetch(char *url) {
-    struct server_stats_t *server;
     int running_handles = -1;
     int max_fd;
     struct timeval timeout;
@@ -1239,13 +1266,9 @@ static int fetch(char *url) {
 
     /* add the primary server/path that is being fetched */
     add_object(url, 1);
+    pipeline_next_object(multi, server_list);
 
     while ( running_handles ) {
-        /* force start any connections that need it */
-        for ( server = server_list; server != NULL; server = server->next ) {
-            pipeline_next_object(multi, server);
-        }
-
         /* call curl_multi_perform() until it no longer wants to be run */
         while ( curl_multi_perform(multi, &running_handles) ==
                 CURLM_CALL_MULTI_PERFORM ) {
