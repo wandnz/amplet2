@@ -1187,13 +1187,13 @@ static void check_messages(CURLM *multi, int *running_handles) {
 
             /* queue the redirected item if it is from another server */
             if ( redirect != server ) {
-                if ( pipeline_next_object(multi, redirect) != NULL ) {
+                while ( pipeline_next_object(multi, redirect) != NULL ) {
                     (*running_handles)++;
                 }
             }
 
             /* queue any more objects that we have for this server */
-            if ( pipeline_next_object(multi, server) != NULL ) {
+            while ( pipeline_next_object(multi, server) != NULL ) {
                 (*running_handles)++;
             }
 
@@ -1209,7 +1209,7 @@ static void check_messages(CURLM *multi, int *running_handles) {
         if ( object->parse ) {
             parse_response(&chunk);
             for ( server = server_list; server != NULL; server = server->next ){
-                if ( pipeline_next_object(multi, server) != NULL ) {
+                while ( pipeline_next_object(multi, server) != NULL ) {
                     (*running_handles)++;
                 }
             }
@@ -1219,7 +1219,7 @@ static void check_messages(CURLM *multi, int *running_handles) {
 
         /* otherwise it's a normal object that finished, queue the next one */
         get_server(host, server_list, &server);
-        if ( pipeline_next_object(multi, server) != NULL ) {
+        while ( pipeline_next_object(multi, server) != NULL ) {
             (*running_handles)++;
         }
     }
