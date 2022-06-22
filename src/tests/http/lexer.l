@@ -25,7 +25,7 @@ CHAR	    [a-zA-Z0-9_ ]
 
 "<noscript>"			{ yy_push_state(noscript); };
 <noscript>[^<\n]*		{ };
-<noscript>"<"[^/\n]*		{ };
+<noscript>"<"[^/<\n]*		{ };
 <noscript>\n			{ /* do nothing */ };
 <noscript>"</noscript>"		{ yy_pop_state(); };
 
@@ -42,7 +42,7 @@ CHAR	    [a-zA-Z0-9_ ]
 <script>"src=\'data:"           { yy_push_state(squote_data); };
 
 <scriptbody>[^<]*               { /* eat anything that's not a '<' */ };
-<scriptbody>"<"[^/\n]*          { /* eat any '<'s not followed by '/' */ };
+<scriptbody>"<"[^/<\n]*         { /* eat any '<'s not followed by '/' */ };
 <scriptbody>"</script>"         { yy_pop_state(); yy_pop_state(); };
 
 
