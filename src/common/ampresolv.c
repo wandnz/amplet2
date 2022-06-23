@@ -169,48 +169,52 @@ static struct addrinfo* build_addrinfo(int qtype, char *qname, char *data,
  */
 static void amp_resolve_callback(void *d, int err, struct ub_result *result) {
     struct amp_resolve_data *data = (struct amp_resolve_data *)d;
-    struct addrinfo *item;
     int qcount;
-    int i;
 
-    assert(result);
+    assert(data);
 
     /* lock the data block, we are about to update the address list */
     pthread_mutex_lock(data->lock);
 
     assert(data->qcount > 0);
 
-    if ( err != 0 || !result->havedata ) {
-        Log(LOG_DEBUG, "Failed query %s (%x)", result->qname, result->qtype);
-        if ( err != 0 ) {
-            Log(LOG_DEBUG, "Resolve error: %s\n", ub_strerror(err));
+    if ( err == 0 ) {
+        assert(result);
+
+        if ( result->havedata ) {
+            struct addrinfo *item;
+            int i;
+
+            Log(LOG_DEBUG, "Got a DNS response for %s (%x)", result->qname,
+                    result->qtype);
+
+            /*
+             * Loop over all the results until we hit max or run out of
+             * results. Note that max is shared between the A and AAAA
+             * queries (if present) so that only that many results will
+             * be returned for the one name.
+             */
+            for ( i = 0; result->data[i] != NULL &&
+                    (data->max == -1 || data->max > 0); i++ ) {
+
+                item = build_addrinfo(result->qtype, result->qname,
+                        result->data[i], result->len[i]);
+                item->ai_next = *data->addrlist;
+                *data->addrlist = item;
+
+                /* track how many results we have so far */
+                if ( data->max > 0 ) {
+                    data->max--;
+                }
+            }
+
+            data->status = AMP_RESOLVE_OK;
         } else {
-            Log(LOG_DEBUG, "No results returned");
+            Log(LOG_DEBUG, "No results for DNS query %s (%x)", result->qname,
+                    result->qtype);
         }
     } else {
-        Log(LOG_DEBUG, "Got a DNS response for %s (%x)", result->qname,
-                result->qtype);
-
-        /*
-         * Loop over all the results until we hit max or run out of results.
-         * Note that max is shared between the A and AAAA queries (if present)
-         * so that only that many results will be returned for the one name.
-         */
-        for ( i = 0; result->data[i] != NULL &&
-                (data->max == -1 || data->max > 0); i++ ) {
-
-            item = build_addrinfo(result->qtype, result->qname,
-                    result->data[i], result->len[i]);
-            item->ai_next = *data->addrlist;
-            *data->addrlist = item;
-
-            /* consume a target if we care about the maximum number of them */
-            if ( data->max > 0 ) {
-                data->max--;
-            }
-        }
-
-        data->status = AMP_RESOLVE_OK;
+        Log(LOG_DEBUG, "Resolve error: %s\n", ub_strerror(err));
     }
 
     /* get outstanding queries for this name while we still have it locked */
@@ -224,6 +228,7 @@ static void amp_resolve_callback(void *d, int err, struct ub_result *result) {
      */
     if ( qcount <= 0 ) {
         if ( data->status != AMP_RESOLVE_OK ) {
+            struct addrinfo *item;
             Log(LOG_DEBUG, "No results for %s, creating dummy entries",
                     result->qname);
 

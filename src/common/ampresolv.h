@@ -44,7 +44,7 @@
 #include <pthread.h>
 #include <unbound.h>
 
-#define MAX_DNS_NAME_LEN 256
+#define MAX_DNS_NAME_LEN 255
 
 /* max wait between checking if all DNS responses have come in: 10ms */
 #define MAX_DNS_POLL_USEC 10000

@@ -51,7 +51,7 @@
 #include <netdb.h>
 #endif
 
-#define MAX_DNS_NAME_LEN 256
+#define MAX_DNS_NAME_LEN 255
 #define MAX_PATH_LEN 2048
 #define MAX_ADDR_LEN 46
 

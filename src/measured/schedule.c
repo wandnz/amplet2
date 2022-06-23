@@ -911,11 +911,18 @@ static char **parse_test_targets(yaml_document_t *document, yaml_node_t *node,
         char **targets, int *len) {
 
     if ( node->type == YAML_SCALAR_NODE ) {
+        char *name = (char*)node->data.scalar.value;
+
         /* if we find a scalar then it is an actual target, add it */
-        targets = realloc(targets, sizeof(char *) * (*len + 1));
-        targets[(*len) - 1] = (char*)node->data.scalar.value;
-        targets[*len] = NULL;
-        (*len)++;
+        if ( strlen(name) < MAX_DNS_NAME_LEN - 1 ) {
+            targets = realloc(targets, sizeof(char *) * (*len + 1));
+            targets[(*len) - 1] = name;
+            targets[*len] = NULL;
+            (*len)++;
+        } else {
+            /* hopefully the first part is enough to identify the target */
+            Log(LOG_WARNING, "Target name too long, ignoring '%.64s...'", name);
+        }
 
     } else if ( node->type == YAML_SEQUENCE_NODE ) {
         /* targets can included nested sequences arbitrarily deep, recurse */
