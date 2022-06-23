@@ -97,6 +97,10 @@ def get_data(data):
             "bytes": i.bytes if i.HasField("bytes") else None,
             "direction": direction_to_string(i.direction),
             "tcpreused": params["tcpreused"],
+            "retransmits": i.tcpinfo.total_retrans if i.HasField("tcpinfo") and i.tcpinfo.HasField("total_retrans") else None,
+            "rtt": i.tcpinfo.rtt if i.HasField("tcpinfo") and i.tcpinfo.HasField("rtt") else None,
+            "rttvar": i.tcpinfo.rttvar if i.HasField("tcpinfo") and i.tcpinfo.HasField("rttvar") else None,
+            "rttmin": i.tcpinfo.min_rtt if i.HasField("tcpinfo") and i.tcpinfo.HasField("min_rtt") else None,
         })
 
     # TODO confirm what happens if the test fails to connect
