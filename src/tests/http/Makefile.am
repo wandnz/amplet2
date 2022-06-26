@@ -1,7 +1,7 @@
 EXTRA_DIST=*.h lexer.l http.proto
 SUBDIRS= . test
-BUILT_SOURCES=http.pb-c.c
-CLEANFILES=http.pb-c.c http.pb-c.h
+BUILT_SOURCES=http.pb-c.c lexer.c
+CLEANFILES=http.pb-c.c http.pb-c.h lexer.c
 
 testdir=$(libdir)/$(PACKAGE)/tests
 
