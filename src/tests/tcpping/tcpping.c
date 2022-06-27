@@ -1055,7 +1055,7 @@ amp_test_result_t* run_tcpping(int argc, char *argv[], int count,
     /* Set defaults before processing options */
     globals->options.inter_packet_delay = MIN_INTER_PACKET_DELAY;
     globals->options.dscp = DEFAULT_DSCP_VALUE;
-    globals->options.packet_size = MIN_TCPPING_PROBE_LEN;
+    globals->options.packet_size = DEFAULT_TCPPING_PROBE_LEN;
     globals->options.random = 0;
     globals->options.perturbate = 0;
     globals->options.port = DEFAULT_TCPPING_PORT;

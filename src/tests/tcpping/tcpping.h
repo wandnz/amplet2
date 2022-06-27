@@ -57,6 +57,7 @@
 /* The extra 4 bytes allows us to at least include an MSS option in the SYN */
 #define MIN_TCPPING_PROBE_LEN ( \
     sizeof(struct ip6_hdr) + sizeof(struct tcphdr) + 4)
+#define DEFAULT_TCPPING_PROBE_LEN MAX(MIN_TCPPING_PROBE_LEN, 84)
 
 #define MAX_TCPPING_PROBE_LEN 1500
 

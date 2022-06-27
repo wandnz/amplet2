@@ -47,9 +47,6 @@
 #include "testlib.h"
 #include "measured.pb-c.h"
 
-#ifndef MIN
-#define MIN(X,Y) (((X) < (Y)) ? (X) : (Y))
-#endif
 #define MAXIMUM_SERVER_WAIT_TIME 60000000
 
 
