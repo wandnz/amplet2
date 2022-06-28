@@ -102,6 +102,10 @@ void run_test(const test_schedule_item_t * const item, BIO *ctrl) {
     assert(item->test);
     assert((item->dest_count + item->resolve_count) >= item->test->min_targets);
 
+    Log(LOG_DEBUG, "Running %s test", item->test->name);
+    printf("Running %s test at %d [%d]\n", item->test->name,
+            (int)time(NULL), getpid());
+
     /* Start the timer so the test will be killed if it runs too long */
     /* XXX should this start before or after DNS resolution, maybe after? */
 #if _WIN32
@@ -461,6 +465,10 @@ void run_test(const test_schedule_item_t * const item, BIO *ctrl) {
         free(port_str);
     }
 
+    Log(LOG_DEBUG, "Finishing %s test", item->test->name);
+    printf("Finishing %s test at %d [%d]\n", item->test->name,
+            (int)time(NULL), getpid());
+
     /* free the environment duped by set_proc_name() */
     free_duped_environ();
 
@@ -598,9 +606,6 @@ void run_scheduled_test(
     assert(item->type == EVENT_RUN_TEST);
 
     test_item = (test_schedule_item_t *)item->data.test;
-
-    Log(LOG_DEBUG, "Running %s test", test_item->test->name);
-    printf("running %s test at %d\n", test_item->test->name, (int)time(NULL));
 
     /*
      * run the test as soon as we know what it is, so it happens as close to
