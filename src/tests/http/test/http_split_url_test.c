@@ -60,9 +60,9 @@ int main(void) {
     char host[MAX_DNS_NAME_LEN];
     char path[MAX_PATH_LEN];
     struct expected data[] = {
-        /* first fetch is special and will assume http if no scheme given */
+        /* first fetch is special and will assume https if no scheme given */
         {"www.wand.net.nz/foo/bar/baz.html",
-            "http://www.wand.net.nz", "/foo/bar/baz.html"},
+            "https://www.wand.net.nz", "/foo/bar/baz.html"},
 
         /* check http urls, single path element */
         {"http://www.wand.net.nz", "http://www.wand.net.nz", "/"},

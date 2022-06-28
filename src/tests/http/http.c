@@ -440,8 +440,8 @@ static void split_url(char *orig_url, char *server, char *path, int set) {
         strncat(path, url, MAX_PATH_LEN - strlen(base_path) - 1);
         return;
     } else {
-        /* initial url, treat it as http */
-        scheme = "http";
+        /* initial url, treat it as https */
+        scheme = "https";
         if ( asprintf(&url, "%s://%s", scheme, orig_url) < 0 ) {
             Log(LOG_WARNING, "Failed to build full URL for %s", orig_url);
             exit(EXIT_FAILURE);
