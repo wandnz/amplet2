@@ -54,11 +54,40 @@
 #define MAX_RETRY_ATTEMPTS 3
 #define DEFAULT_DEVTOOLS_PORT 9222
 
-char *chrome_paths[] = {
+char *chromium_paths[] = {
     "/usr/bin/chromium-browser",
     "/usr/bin/chromium",
     "/usr/bin/google-chrome",
     NULL,
+};
+
+char *firefox_paths[] = {
+    "/usr/bin/firefox",
+    NULL,
+};
+
+char *chromium_argv[] = {
+    "chromium",
+    "--headless",
+    "--no-sandbox",
+    "--disable-dev-shm",
+    "--mute-audio",
+    NULL,
+    NULL
+};
+
+/*
+ * XXX firefox won't do anything on the remote debugging connection after
+ * calling Page.navigate for the first time? So navigate to a page as part
+ * of starting up the browser, and it will then work once we connect. Is
+ * this a firefox bug or am I using it wrong?
+ */
+char *firefox_argv[] = {
+    "firefox",
+    "--headless",
+    NULL,
+    "file://",
+    NULL
 };
 
 /*
@@ -77,6 +106,7 @@ struct test_options {
     uint16_t maxruntime;                        /* max video duration */
     int run_browser;                            /* start a new browser */
     int port;                                   /* devtools port */
+    Amplet2__Youtube__Browser browser;          /* browser type */
 };
 
 /* command queue for messages to the browser */

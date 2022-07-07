@@ -60,6 +60,7 @@ def get_data(data):
         "video": msg.header.video,
         "requested_quality": msg.header.quality,
         "dscp": getPrintableDscp(msg.header.dscp),
+        "browser": msg.header.browser,
         "useragent": msg.header.useragent,
         "max_runtime": msg.header.maxruntime,
         "title": msg.item.title,

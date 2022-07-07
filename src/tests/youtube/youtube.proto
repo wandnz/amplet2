@@ -34,6 +34,12 @@ enum EventType {
     ERROR = 7;
 }
 
+enum Browser {
+    UNKNOWN_BROWSER = 0;
+    CHROMIUM = 1;
+    FIREFOX = 2;
+}
+
 /**
  * An instance of the test will generate one Report message.
  */
@@ -55,6 +61,7 @@ message Header {
     optional uint32 dscp = 3 [default = 0];
     optional string useragent = 4;
     optional uint32 maxruntime = 5 [default = 0];
+    optional Browser browser = 6;
 }
 
 message Item {

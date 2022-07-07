@@ -74,7 +74,10 @@ static struct option long_options[] = {
     {"quality", required_argument, 0, 'q'},
     {"useragent", required_argument, 0, 'a'},
     {"user-agent", required_argument, 0, 'a'},
-    {"no-browser", no_argument, 0, 'b'},
+    {"use-existing-browser", no_argument, 0, 'e'},
+    /* deprecated, but still allowed for now */
+    {"no-browser", no_argument, 0, 'e'},
+    {"browser", required_argument, 0, 'b'},
     {"port", required_argument, 0, 'P'},
     {"youtube", required_argument, 0, 'y'},
     {"max-runtime", required_argument, 0, 't'},
@@ -91,6 +94,36 @@ static struct option long_options[] = {
 
 static struct lws *wsi_yt = NULL;
 static volatile int force_exit = 0;
+
+
+
+static Amplet2__Youtube__Browser parse_browser(const char *browser) {
+    if ( browser == NULL ) {
+        return AMPLET2__YOUTUBE__BROWSER__CHROMIUM;
+    }
+
+    if ( strcasecmp(browser, "chrome") == 0 ||
+            strcasecmp(browser, "chromium") == 0 ) {
+        return AMPLET2__YOUTUBE__BROWSER__CHROMIUM;
+    }
+
+    if ( strcasecmp(browser, "firefox") == 0 ) {
+        return AMPLET2__YOUTUBE__BROWSER__FIREFOX;
+    }
+
+    Log(LOG_WARNING, "Unknown browser '%s'", browser);
+    return AMPLET2__YOUTUBE__BROWSER__UNKNOWN_BROWSER;
+}
+
+
+
+static char* get_browser_string(Amplet2__Youtube__Browser browser) {
+    switch ( browser ) {
+        case AMPLET2__YOUTUBE__BROWSER__CHROMIUM: return "chromium";
+        case AMPLET2__YOUTUBE__BROWSER__FIREFOX: return "firefox";
+        default: return "unknown";
+    };
+}
 
 
 
@@ -553,6 +586,7 @@ static int callback_youtube(struct lws *wsi, enum lws_callback_reasons reason,
 
             // TODO do i need to activate tab?
             //call(wsi, "Network.enable", NULL);
+            call(wsi, "Runtime.enable", NULL);
             call(wsi, "Page.enable", NULL);
             if ( options->useragent ) {
                 char *arg;
@@ -609,7 +643,7 @@ static int callback_youtube(struct lws *wsi, enum lws_callback_reasons reason,
                     if ( is_javascript_dialog(root) ) {
                         /* handle alert and ask for results */
                         call(wsi, "Page.handleJavaScriptDialog", "{\"accept\": true}");
-                        call(wsi, "Runtime.evaluate", "{\"expression\": \"youtuberesults\", \"returnByValue\": true}");
+                        call(wsi, "Runtime.evaluate", "{\"expression\": \"youtuberesults\",\"returnByValue\": true}");
                     } else if ( is_detach_event(root) ) {
                         Log(LOG_DEBUG, "Inspector detached, closing");
                         wsi_yt = NULL;
@@ -647,11 +681,23 @@ static int callback_youtube(struct lws *wsi, enum lws_callback_reasons reason,
                             (struct test_options*)user;
                         options->useragent = strdup(JSON_STR(result2, "value"));
                     } else if ( strcmp(type, "object") == 0 ) {
+                        struct test_options *options =
+                            (struct test_options*)user;
                         // populate the context user data with the result
                         parse_result(wsi, result2);
-                        // XXX alternatively, send a GET to /json/close/<ID>
-                        // as this relies on the other end sending detach msg
-                        call(wsi, "Page.close", NULL);
+                        switch ( options->browser ) {
+                            case AMPLET2__YOUTUBE__BROWSER__CHROMIUM:
+                                // XXX alternatively, send a GET to
+                                // /json/close/<ID> as using Page.close relies
+                                // on the other end sending detach msg
+                                call(wsi, "Page.close", NULL);
+                                break;
+                            case AMPLET2__YOUTUBE__BROWSER__FIREFOX:
+                            default:
+                                wsi_yt = NULL;
+                                force_exit = 1;
+                                break;
+                        };
                     }
                 }
 
@@ -713,7 +759,8 @@ static int callback_youtube(struct lws *wsi, enum lws_callback_reasons reason,
 /*
  * Extract the websocket URL from the tab creation response message.
  */
-static char *parse_tab_response(struct MemoryStruct chunk) {
+static char *parse_tab_response(Amplet2__Youtube__Browser browser,
+        struct MemoryStruct chunk) {
     json_error_t error;
     json_t *root, *ws_url;
     char *location;
@@ -727,7 +774,29 @@ static char *parse_tab_response(struct MemoryStruct chunk) {
         return NULL;
     }
 
-    ws_url = json_object_get(root, "webSocketDebuggerUrl");
+    switch ( browser ) {
+        case AMPLET2__YOUTUBE__BROWSER__CHROMIUM: {
+            ws_url = json_object_get(root, "webSocketDebuggerUrl");
+            break;
+        }
+        case AMPLET2__YOUTUBE__BROWSER__FIREFOX: {
+            size_t index;
+            json_t *value;
+            /* XXX for now, just use the first available page */
+            ws_url = NULL;
+            json_array_foreach(root, index, value) {
+                if ( strcmp("page", JSON_STR(value, "type")) == 0 ) {
+                    ws_url = json_object_get(value, "webSocketDebuggerUrl");
+                    break;
+                }
+            }
+            break;
+        }
+        default:
+            Log(LOG_WARNING, "Unknown browser, exiting");
+            exit(EXIT_FAILURE);
+    };
+
     if ( !ws_url || !json_is_string(ws_url) ) {
         Log(LOG_WARNING, "Missing websocket url");
         json_decref(root);
@@ -746,7 +815,7 @@ static char *parse_tab_response(struct MemoryStruct chunk) {
 /*
  * Create a new browser tab and return its websocket URL.
  */
-static char *new_browser_tab(char *dev_url) {
+static char *new_browser_tab(Amplet2__Youtube__Browser browser, char *dev_url) {
     CURL *curl;
     char *url;
     char *location;
@@ -765,10 +834,24 @@ static char *new_browser_tab(char *dev_url) {
         int attempts = 0;
 
         /* GET this endpoint to open a new tab */
-        if ( asprintf(&url, "%s/json/new", dev_url) < 0 ) {
-            Log(LOG_WARNING, "Failed to create new browser tab url");
-            return NULL;
-        }
+        switch ( browser ) {
+            case AMPLET2__YOUTUBE__BROWSER__CHROMIUM:
+                if ( asprintf(&url, "%s/json/new", dev_url) < 0 ) {
+                    Log(LOG_WARNING, "Failed to create new browser tab url");
+                    return NULL;
+                }
+                break;
+            case AMPLET2__YOUTUBE__BROWSER__FIREFOX:
+                /* TODO how to create a new tab in firefox? */
+                if ( asprintf(&url, "%s/json/list", dev_url) < 0 ) {
+                    Log(LOG_WARNING, "Failed to create new browser tab url");
+                    return NULL;
+                }
+                break;
+            default:
+                Log(LOG_WARNING, "Unknown browser, exiting");
+                exit(EXIT_FAILURE);
+        };
 
         Log(LOG_DEBUG, "URL: %s", url);
 
@@ -788,7 +871,7 @@ static char *new_browser_tab(char *dev_url) {
         if ( res == CURLE_OK ) {
             Log(LOG_DEBUG, "Connected to browser ok");
             /* response includes websocket location to interact with tab */
-            location = parse_tab_response(chunk);
+            location = parse_tab_response(browser, chunk);
         } else {
             Log(LOG_WARNING, "Error opening new browser tab: %s",
                     curl_easy_strerror(res));
@@ -942,6 +1025,8 @@ static amp_test_result_t* report_results(struct timeval *start_time,
     header.useragent = opt->useragent;
     header.has_maxruntime = 1;
     header.maxruntime = opt->maxruntime;
+    header.has_browser = 1;
+    header.browser = opt->browser;
 
     video.title = stats->title;
     video.has_quality = 1;
@@ -1004,30 +1089,39 @@ static amp_test_result_t* report_results(struct timeval *start_time,
  * Try to run a chromium-browser that we can drive remotely.
  * TODO allow user to add arbitrary arguments?
  */
-static pid_t start_browser(int port, int debug) {
+static pid_t start_browser(Amplet2__Youtube__Browser browser, int port,
+        int debug) {
     pid_t pid;
     char *portstr;
-    char **chromium;
-    char *argv[] = {
-        "chromium",
-        "--headless",
-        "--no-sandbox",
-        "--disable-dev-shm",
-        "--mute-audio",
-        NULL,
-        NULL
+    char **paths;
+    char **path;
+    char **argv;
+    int i;
+
+    switch ( browser ) {
+        case AMPLET2__YOUTUBE__BROWSER__CHROMIUM:
+            paths = chromium_paths;
+            argv = chromium_argv;
+            break;
+        case AMPLET2__YOUTUBE__BROWSER__FIREFOX:
+            paths = firefox_paths;
+            argv = firefox_argv;
+            break;
+        default:
+            Log(LOG_WARNING, "Unknown browser, exiting");
+            exit(EXIT_FAILURE);
     };
 
     /* check that we can find and run the browser executable */
-    for ( chromium = chrome_paths; *chromium != NULL; chromium++ ) {
-        Log(LOG_DEBUG, "Checking for browser at: %s", *chromium);
-        if ( access(*chromium, X_OK) == 0 ) {
-            Log(LOG_DEBUG, "Found browser at: %s", *chromium);
+    for ( path = paths; *path != NULL; path++ ) {
+        Log(LOG_DEBUG, "Checking for browser at: %s", *path);
+        if ( access(*path, X_OK) == 0 ) {
+            Log(LOG_DEBUG, "Found browser at: %s", *path);
             break;
         }
     }
 
-    if ( !*chromium ) {
+    if ( !*path ) {
         Log(LOG_WARNING, "Can't find browser");
         exit(EXIT_FAILURE);
     }
@@ -1038,12 +1132,14 @@ static pid_t start_browser(int port, int debug) {
         exit(EXIT_FAILURE);
     }
 
-    /* add it to the argument list */
-    argv[5] = portstr;
+    /* add it to the argument list in the first null position */
+    for ( i = 0; argv[i] != NULL; i++ ) {}
+    argv[i] = portstr;
+
 
     pid = fork();
     if ( pid == 0 ) {
-        /* hide a bunch of warnings and errors from chromium */
+        /* hide a bunch of warnings and errors from the browser */
         if ( !debug ) {
             fclose(stdout);
             fclose(stderr);
@@ -1065,7 +1161,7 @@ static pid_t start_browser(int port, int debug) {
         }
 
         /* finally start the browser */
-        if ( execv(*chromium, argv) < 0 ) {
+        if ( execv(*path, argv) < 0 ) {
             Log(LOG_WARNING, "Failed to start browser: %s", strerror(errno));
             exit(EXIT_FAILURE);
         }
@@ -1129,16 +1225,18 @@ static void stop_browser(pid_t pid) {
  */
 static void usage(void) {
     fprintf(stderr,
-        "Usage: amp-youtube [-bhx] [-Q codepoint] [-Z interpacketgap]\n"
+        "Usage: amp-youtube [-ehx] [-Q codepoint] [-Z interpacketgap]\n"
         "                   [-I interface] [-4 [sourcev4]] [-6 [sourcev6]]\n"
         "                   [-a useragent] [-P port] [-t max-runtime]\n"
-        "                   [-q quality] -y video_id\n"
+        "                   [-q quality] [-b browser] -y video_id\n"
         "\n");
 
     fprintf(stderr, "Options:\n");
     fprintf(stderr, "  -a, --useragent     <useragent> "
             "Override browser User-Agent string\n");
-    fprintf(stderr, "  -b, --no-browser           "
+    fprintf(stderr, "  -b, --browser       <browser>   "
+            "chromium or firefox (default: chromium)\n");
+    fprintf(stderr, "  -e, --use-existing-browser     "
             "Don't start a web browser\n");
     fprintf(stderr, "  -P, --port          <port> "
             "Set remote-debugging-port (default %d)\n",
@@ -1181,10 +1279,11 @@ amp_test_result_t* run_youtube(int argc, char *argv[],
 
     memset(&options, 0, sizeof(options));
     options.run_browser = 1;
+    options.browser = AMPLET2__YOUTUBE__BROWSER__CHROMIUM;
     options.port = DEFAULT_DEVTOOLS_PORT;
     //options.device = NULL;
 
-    while ( (opt = getopt_long(argc, argv, "a:bP:q:t:Xy:I:Q:Z:4::6::hvx",
+    while ( (opt = getopt_long(argc, argv, "a:b:eP:q:t:Xy:I:Q:Z:4::6::hvx",
                     long_options, NULL)) != -1 ) {
         switch ( opt ) {
             case '4':
@@ -1195,7 +1294,8 @@ amp_test_result_t* run_youtube(int argc, char *argv[],
                 break;
             case 'Z': /* not used, but might be set globally */ break;
             case 'a': options.useragent = optarg; break;
-            case 'b': options.run_browser = 0; break;
+            case 'b': options.browser = parse_browser(optarg); break;
+            case 'e': options.run_browser = 0; break;
             case 'P': options.port = atoi(optarg); break;
             case 'q': options.quality = optarg; break;
             case 't': options.maxruntime = atoi(optarg); break;
@@ -1223,6 +1323,11 @@ amp_test_result_t* run_youtube(int argc, char *argv[],
         exit(EXIT_FAILURE);
     }
 
+    if ( options.browser == AMPLET2__YOUTUBE__BROWSER__UNKNOWN_BROWSER ) {
+        usage();
+        exit(EXIT_FAILURE);
+    }
+
     /* delay the start by a random amount if perturbate is set */
 #if 0
     if ( options.perturbate ) {
@@ -1241,7 +1346,7 @@ amp_test_result_t* run_youtube(int argc, char *argv[],
 
     /* start the browser if required */
     if ( options.run_browser ) {
-        start_browser(options.port, (log_level == LOG_DEBUG));
+        start_browser(options.browser, options.port, (log_level == LOG_DEBUG));
         /* the browser doesn't start instantly, give it a chance */
         sleep(1);
     }
@@ -1254,7 +1359,7 @@ amp_test_result_t* run_youtube(int argc, char *argv[],
     }
 
     char *ws_url;
-    ws_url = new_browser_tab(remote);
+    ws_url = new_browser_tab(options.browser, remote);
     free(remote);
     if ( ws_url == NULL ) {
         Log(LOG_WARNING, "Couldn't get websocket url for new tab");
@@ -1351,12 +1456,15 @@ void print_youtube(amp_test_result_t *result) {
     printf("\n");
     printf("AMP YouTube test, video: %s\n", msg->header->video);
     printf("Desired quality: %s\n", get_quality_string(msg->header->quality));
+    printf("Browser: %s\n", get_browser_string(msg->header->browser));
     if ( msg->header->useragent ) {
         printf("User Agent: \"%s\"\n", msg->header->useragent);
     }
     if ( msg->header->maxruntime > 0 ) {
         printf("Maximum Runtime: %u seconds\n", msg->header->maxruntime);
     }
+
+    printf("\n");
 
     print_video(msg->item);
 
