@@ -117,6 +117,11 @@ static void do_send(BIO *ctrl, int test_sock, struct sockaddr_storage *remote,
 
     Log(LOG_DEBUG, "got SEND command with port %d", port);
 
+    /* zero means try to reuse the same ports as the previous direction */
+    if ( port == 0 ) {
+        port = options->tport;
+    }
+
     /*
      * the target is the same host we are connected to on the control socket,
      * but over UDP and using the port we are told to use

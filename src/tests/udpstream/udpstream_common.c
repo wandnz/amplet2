@@ -327,6 +327,9 @@ int receive_udp_stream(int sock, struct opt_t *options, struct timeval *times) {
             return -1;
     };
 
+    /* we'll use it to pass back the remote port that was used */
+    options->tport = 0;
+
     Log(LOG_DEBUG, "Receiving UDP stream, packets:%d", options->packet_count);
 
     for ( i = 0; i < options->packet_count; i++ ) {
@@ -335,6 +338,11 @@ int receive_udp_stream(int sock, struct opt_t *options, struct timeval *times) {
 
         if ( (bytes = get_packet(&sockets, buffer, sizeof(buffer),
                         (struct sockaddr*)&ss, &timeout, &recv_time)) > 0 ) {
+            /* store the remote port so we can reuse it later */
+            if ( options->tport == 0 ) {
+                options->tport = ntohs(((struct sockaddr_in *)&ss)->sin_port);
+                Log(LOG_DEBUG, "Storing remote port %d", options->tport);
+            }
 
             payload = (struct payload_t*)&buffer;
 

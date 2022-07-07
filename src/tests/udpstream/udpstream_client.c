@@ -256,6 +256,14 @@ static amp_test_result_t* run_test(struct addrinfo *server,
         return NULL;
     }
 
+    /* bind test socket to same address as the control socket */
+    getsockname(BIO_get_fd(ctrl, NULL), (struct sockaddr *)&ss, &socklen);
+    ((struct sockaddr_in *)&ss)->sin_port = 0;
+    bind(test_socket, (struct sockaddr *)&ss, socklen);
+
+    /* zero the server port, we'll replace this later */
+    ((struct sockaddr_in *)server->ai_addr)->sin_port = 0;
+
     gettimeofday(&start_time, NULL);
 
     /* send hello */
@@ -301,15 +309,21 @@ static amp_test_result_t* run_test(struct addrinfo *server,
 
             case AMPLET2__UDPSTREAM__ITEM__DIRECTION__SERVER_TO_CLIENT:
                 in_times = calloc(options->packet_count,sizeof(struct timeval));
-                /* bind test socket to same address as the control socket */
-                getsockname(BIO_get_fd(ctrl, NULL), (struct sockaddr *)&ss,
-                        &socklen);
-                /* zero the port so it isn't the same as the control socket */
-                ((struct sockaddr_in *)&ss)->sin_port = 0;
-                bind(test_socket, (struct sockaddr *)&ss, socklen);
-                /* get the local port number so we can tell the remote host */
-                getsockname(test_socket, (struct sockaddr *)&ss, &socklen);
-                options->tport = ntohs(((struct sockaddr_in *)&ss)->sin_port);
+
+                /*
+                 * Default behaviour is client-to-server, then server-to-client
+                 * which can get around many NATs by reusing the port numbers.
+                 * If that's not the case, tell the server our local port and
+                 * hope it works.
+                 */
+                if ( ((struct sockaddr_in *)server->ai_addr)->sin_port == 0 ) {
+                    /* get the local port so we can tell the remote host */
+                    getsockname(test_socket, (struct sockaddr *)&ss, &socklen);
+                    options->tport = ntohs(((struct sockaddr_in *)&ss)->sin_port);
+                } else {
+                    /* otherwise reuse the existing ports (to help with NAT) */
+                    options->tport = 0;
+                }
 
                 send_control_send(AMP_TEST_UDPSTREAM, ctrl,
                         build_send(options));
