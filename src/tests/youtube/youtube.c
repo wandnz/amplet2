@@ -742,7 +742,7 @@ static int callback_youtube(struct lws *wsi, enum lws_callback_reasons reason,
             wsi_yt = NULL;
             force_exit = 1;
             if ( in ) {
-                printf("ERROR: %.*s\n", (int)len, (char*)in);
+                Log(LOG_WARNING, "%.*s", (int)len, (char*)in);
             }
             break;
         }
