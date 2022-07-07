@@ -840,8 +840,19 @@ static struct lws_client_connect_info* build_lws_connect_info(
 
     //Log(LOG_DEBUG, "Fixed URL, address:%s path:%s", info->address, info->path);
 
+    if ( (strcmp(scheme, "ws") == 0 && info->port == 80) ||
+            (strcmp(scheme, "wss") == 0 && info->port == 443) ) {
+        info->host = info->address;
+    } else {
+        char *host;
+        if ( asprintf(&host, "%s:%d", info->address, info->port) < 0 ) {
+            Log(LOG_WARNING, "Can't build host string");
+            exit(EXIT_FAILURE);
+        }
+        info->host = host;
+    }
+
     info->context = context;
-    info->host = info->address;
     info->origin = info->address;
     info->ietf_version_or_minus_one = -1;
 
