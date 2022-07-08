@@ -207,6 +207,26 @@ static int create_pidfile(char *pidfile) {
 
 
 
+static void load_tests(void) {
+    /* load all the test modules from the test directory */
+    if ( register_tests(AMP_TEST_DIRECTORY) < 0) {
+	Log(LOG_ALERT, "Failed to register tests, aborting.");
+	exit(EXIT_FAILURE);
+    }
+}
+
+
+
+static void load_schedules(amp_test_meta_t *meta) {
+    char schedule[PATH_MAX];
+
+    /* read schedule files from the global and client specific dirs */
+    read_schedule_dir(meta->base, SCHEDULE_DIR, meta);
+    snprintf((char*)&schedule, PATH_MAX, "%s/%s", SCHEDULE_DIR, meta->ampname);
+    read_schedule_dir(meta->base, schedule, meta);
+}
+
+
 /*
  * Call the method that will cause libevent to stop running the main event
  * loop and return control to us.
@@ -229,43 +249,22 @@ static void stop_running(
  * the new list of available tests.
  */
 static void reload(
-        __attribute__((unused))evutil_socket_t evsock,
+        evutil_socket_t evsock,
         __attribute__((unused))short flags,
         void *evdata) {
-    char schedule[PATH_MAX];
     amp_test_meta_t *meta = (amp_test_meta_t*)evdata;
 
-    /* signal > 0 is a real signal meaning "reload", signal == 0 is "load" */
-    if ( evsock > 0 ) {
-        Log(LOG_INFO, "Received signal %d, reloading all configuration",evsock);
+    Log(LOG_INFO, "Received signal %d, reloading all configuration", evsock);
 
-        /* cancel all scheduled tests (let running ones finish) */
-        clear_test_schedule(meta->base, 0);
+    /* cancel all scheduled tests (let running ones finish) */
+    clear_test_schedule(meta->base, 0);
 
-        /* unload all the test modules */
-        unregister_tests();
-    }
+    /* unload all the test modules */
+    unregister_tests();
 
-    /* load all test modules again, they may have changed */
-    if ( register_tests(AMP_TEST_DIRECTORY) == -1) {
-	Log(LOG_ALERT, "Failed to register tests, aborting.");
-	exit(EXIT_FAILURE);
-    }
-
-    /* re-read schedule files from the global and client specific dirs */
-    read_schedule_dir(meta->base, SCHEDULE_DIR, meta);
-    snprintf((char*)&schedule, PATH_MAX, "%s/%s", SCHEDULE_DIR, meta->ampname);
-    read_schedule_dir(meta->base, schedule, meta);
-}
-
-
-
-/*
- * Loading everything for the first time is almost the same as reloading all
- * the configuration after receiving a signal, just call through to reload().
- */
-static void load_tests_and_schedules(amp_test_meta_t *meta) {
-    reload(0, 0, meta);
+    /* load tests and schedules */
+    load_tests();
+    load_schedules(meta);
 }
 
 
@@ -382,7 +381,7 @@ int main(int argc, char *argv[]) {
     char *config_file = NULL;
     char *pidfile = NULL;
     int fetch_remote = 1;
-    struct amp_asn_info *asn_info;
+    struct amp_asn_info *asn_info = NULL;
     amp_test_meta_t meta;
     amp_control_t *control;
     fetch_schedule_item_t *fetch;
@@ -397,9 +396,10 @@ int main(int argc, char *argv[]) {
     struct event *asn_socket_event = NULL;
     struct event *signal_hup = NULL;
     struct event *signal_tmax = NULL;
-    struct ub_ctx *dns_ctx;
+    struct ub_ctx *dns_ctx = NULL;
     char nametable[PATH_MAX];
     char *username = NULL;
+    char *pkiserver = NULL;
 
 #if _WIN32
     WORD wVersionRequested;
@@ -571,7 +571,7 @@ int main(int argc, char *argv[]) {
     /* set up the dns resolver context */
     if ( (dns_ctx = get_dns_context_config(cfg, &meta)) == NULL ) {
         Log(LOG_ALERT, "Failed to configure resolver, aborting.");
-	cfg_free(cfg);
+        cfg_free(cfg);
         exit(EXIT_FAILURE);
     }
 
@@ -598,7 +598,8 @@ int main(int argc, char *argv[]) {
      * and keys are required to set that up too.
      * TODO determine which bits we can clean up and which bits we can't.
      */
-    if ( initialise_ssl(&vars.amqp_ssl, vars.collector) < 0 ) {
+    pkiserver = get_pki_server(cfg);
+    if ( initialise_ssl(&vars.amqp_ssl, pkiserver) < 0 ) {
         Log(LOG_WARNING, "Failed to initialise SSL, aborting");
 	cfg_free(cfg);
         exit(EXIT_FAILURE);
@@ -620,7 +621,7 @@ int main(int argc, char *argv[]) {
      * problems with this.
      */
     if ( (get_certificate(&vars.amqp_ssl, vars.ampname,
-                    vars.collector, should_wait_for_cert(cfg)) != 0 ||
+                    pkiserver, should_wait_for_cert(cfg)) != 0 ||
                 (ssl_ctx = initialise_ssl_context(&vars.amqp_ssl)) == NULL) ) {
         Log(LOG_ALERT, "Failed to load SSL keys/certificates, aborting");
 	cfg_free(cfg);
@@ -711,50 +712,6 @@ int main(int argc, char *argv[]) {
     meta.base = event_base_new();
     assert(meta.base);
 
-#if _WIN32
-    // TODO figure out what ports to use
-    vars.nssock = strdup("6653");
-    vars.asnsock = strdup("6654");
-#else
-    /* construct our custom, per-client nameserver socket */
-    if ( asprintf(&vars.nssock, "%s/%s.sock", rundir, vars.ampname) < 0 ) {
-        Log(LOG_ALERT, "Failed to build local resolve socket path");
-	cfg_free(cfg);
-        exit(EXIT_FAILURE);
-    }
-
-    /* construct our custom, per-client asn lookup socket */
-    if ( asprintf(&vars.asnsock, "%s/%s.asn", rundir, vars.ampname) < 0 ) {
-        Log(LOG_ALERT, "Failed to build local asn socket path");
-	cfg_free(cfg);
-        exit(EXIT_FAILURE);
-    }
-#endif
-
-    /* if remote fetching is enabled, try to get the config for it */
-    if ( fetch_remote && (fetch = get_remote_schedule_config(cfg)) ) {
-        /* TODO fetch gets leaked, has lots of parts needing to be freed */
-        if ( enable_remote_schedule_fetch(meta.base, fetch) < 0 ) {
-            Log(LOG_ALERT, "Failed to enable remote schedule fetching");
-            cfg_free(cfg);
-            exit(EXIT_FAILURE);
-        }
-
-#ifndef _WIN32
-        /* SIGUSR2 should trigger a refetch of any remote schedule files */
-        signal_load = event_new(meta.base, SIGUSR2,
-                EV_SIGNAL|EV_PERSIST, signal_fetch_callback, fetch);
-        event_add(signal_load, NULL);
-#endif
-    } else {
-#ifndef _WIN32
-        /* if fetching isn't enabled then just reload the current schedule */
-        signal_load = event_new(meta.base, SIGUSR2,
-                EV_SIGNAL|EV_PERSIST, reload, &meta);
-        event_add(signal_load, NULL);
-#endif
-    }
-
     /* set up a handler to deal with SIGINT/SIGTERM so we can shutdown nicely */
     signal_int = event_new(meta.base, SIGINT,
             EV_SIGNAL|EV_PERSIST, stop_running, meta.base);
@@ -770,7 +727,22 @@ int main(int argc, char *argv[]) {
     event_add(signal_chld, NULL);
 #endif
 
-    /* create the resolver/cache unix socket and add event listener for it */
+    /* register all the test modules */
+    load_tests();
+
+#if _WIN32
+    // TODO figure out what ports to use
+    vars.nssock = strdup("6653");
+#else
+    /* construct our custom, per-client nameserver socket */
+    if ( asprintf(&vars.nssock, "%s/%s.sock", rundir, vars.ampname) < 0 ) {
+        Log(LOG_ALERT, "Failed to build local resolve socket path");
+        cfg_free(cfg);
+        exit(EXIT_FAILURE);
+    }
+#endif
+
+    /* create the resolver/cache unix socket and add the event listener */
     if ( (vars.nssock_fd = initialise_local_socket(vars.nssock)) < 0 ) {
         Log(LOG_ALERT, "Failed to initialise local resolver, aborting");
         cfg_free(cfg);
@@ -780,19 +752,71 @@ int main(int argc, char *argv[]) {
             EV_READ|EV_PERSIST, resolver_socket_event_callback, dns_ctx);
     event_add(resolver_socket_event, NULL);
 
-    /* create the asn lookup unix socket and add event listener for it */
-    Log(LOG_DEBUG, "Creating local socket for ASN lookups");
-    if ( (vars.asnsock_fd = initialise_local_socket(vars.asnsock)) < 0 ) {
-        Log(LOG_ALERT, "Failed to initialise local asn resolver, aborting");
-	cfg_free(cfg);
-        exit(EXIT_FAILURE);
-    }
 
-    asn_info = initialise_asn_info();
-    //XXX can we move this and socket creation off into the function too?
-    asn_socket_event = event_new(meta.base, vars.asnsock_fd,
-            EV_READ|EV_PERSIST, asn_socket_event_callback, asn_info);
-    event_add(asn_socket_event, NULL);
+    /* only set up names and test schedules if there is a collector */
+    if ( vars.collector ) {
+
+        /* load the nametable files into unbound */
+        read_nametable_dir(dns_ctx, NAMETABLE_DIR);
+        snprintf((char*)&nametable, PATH_MAX, "%s/%s", NAMETABLE_DIR,
+                meta.ampname);
+        read_nametable_dir(dns_ctx, nametable);
+
+        /* if remote fetching is enabled, try to get the config for it */
+        if ( fetch_remote && (fetch = get_remote_schedule_config(cfg)) ) {
+            /* TODO fetch gets leaked, has lots of parts needing to be freed */
+            if ( enable_remote_schedule_fetch(meta.base, fetch) < 0 ) {
+                Log(LOG_ALERT, "Failed to enable remote schedule fetching");
+                cfg_free(cfg);
+                exit(EXIT_FAILURE);
+            }
+
+#ifndef _WIN32
+            /* SIGUSR2 should trigger a refetch of any remote schedule files */
+            signal_load = event_new(meta.base, SIGUSR2,
+                    EV_SIGNAL|EV_PERSIST, signal_fetch_callback, fetch);
+            event_add(signal_load, NULL);
+#endif
+        } else {
+#ifndef _WIN32
+            /* if fetching isn't enabled then just reload current schedule */
+            signal_load = event_new(meta.base, SIGUSR2,
+                    EV_SIGNAL|EV_PERSIST, reload, &meta);
+            event_add(signal_load, NULL);
+#endif
+        }
+
+        /* load schedule files from disk */
+        load_schedules(&meta);
+
+#if _WIN32
+        // TODO figure out what ports to use
+        vars.asnsock = strdup("6654");
+#else
+        /* construct our custom, per-client asn lookup socket */
+        if ( asprintf(&vars.asnsock, "%s/%s.asn", rundir, vars.ampname) < 0 ) {
+            Log(LOG_ALERT, "Failed to build local asn socket path");
+            cfg_free(cfg);
+            exit(EXIT_FAILURE);
+        }
+#endif
+
+        /* create the asn lookup unix socket and add event listener for it */
+        Log(LOG_DEBUG, "Creating local socket for ASN lookups");
+        if ( (vars.asnsock_fd = initialise_local_socket(vars.asnsock)) < 0 ) {
+            Log(LOG_ALERT, "Failed to initialise local asn resolver, aborting");
+            cfg_free(cfg);
+            exit(EXIT_FAILURE);
+        }
+
+        asn_info = initialise_asn_info();
+        //XXX can we move this and socket creation off into the function too?
+        asn_socket_event = event_new(meta.base, vars.asnsock_fd,
+                EV_READ|EV_PERSIST, asn_socket_event_callback, asn_info);
+        event_add(asn_socket_event, NULL);
+    } else {
+        Log(LOG_WARNING, "No collector address specified, disabling schedule");
+    }
 
     /* save the port, tests need to know where to connect */
     control = get_control_config(cfg, &meta);
@@ -808,14 +832,6 @@ int main(int argc, char *argv[]) {
     } else if ( ssl_ctx != NULL ) {
         Log(LOG_DEBUG, "Control socket is disabled, skipping");
     }
-
-    /* load the nametable files into unbound */
-    read_nametable_dir(dns_ctx, NAMETABLE_DIR);
-    snprintf((char*)&nametable, PATH_MAX, "%s/%s", NAMETABLE_DIR, meta.ampname);
-    read_nametable_dir(dns_ctx, nametable);
-
-    /* register all test modules, load schedules */
-    load_tests_and_schedules(&meta);
 
     /* get the default arguments that should be applied to each test */
     get_default_test_args(cfg);
@@ -881,14 +897,17 @@ int main(int argc, char *argv[]) {
 
     free_local_meta_vars(&meta);
 
-    /* clean up the ASN socket, mutex, storage */
-    Log(LOG_DEBUG, "Shutting down ASN lookup");
-    close(vars.asnsock_fd);
-    amp_asn_info_delete(asn_info);
+    if ( asn_info ) {
+        Log(LOG_DEBUG, "Shutting down ASN lookup");
+        close(vars.asnsock_fd);
+        amp_asn_info_delete(asn_info);
+    }
 
-    Log(LOG_DEBUG, "Shutting down DNS resolver");
-    close(vars.nssock_fd);
-    amp_resolver_context_delete(dns_ctx);
+    if ( dns_ctx ) {
+        Log(LOG_DEBUG, "Shutting down DNS resolver");
+        close(vars.nssock_fd);
+        amp_resolver_context_delete(dns_ctx);
+    }
 
     Log(LOG_DEBUG, "Cleaning up SSL");
     ssl_cleanup();

@@ -354,7 +354,7 @@ static char *get_csr_string(X509_REQ *request) {
 /*
  * POST the CSR to the server over HTTPS on a custom port.
  */
-static int send_csr(X509_REQ *request, char *collector, char *cacert) {
+static int send_csr(X509_REQ *request, char *pkiserver, char *cacert) {
     CURL *curl;
     CURLcode res;
     FILE *csrfile;
@@ -373,7 +373,7 @@ static int send_csr(X509_REQ *request, char *collector, char *cacert) {
     }
 
     /* we need to use an https url to get curl to use the cert/ssl options */
-    if ( asprintf(&url, "https://%s:%d/sign", collector,
+    if ( asprintf(&url, "https://%s:%d/sign", pkiserver,
                 AMP_PKI_SSL_PORT) < 0 ) {
         Log(LOG_WARNING, "Failed to build cert signing url");
         free(csrstr);
@@ -501,7 +501,7 @@ static unsigned char *sign(char *keyname, unsigned char *hashstr,
  *          2 if query failed non-permanently, try again later
  */
 static int fetch_certificate(amp_ssl_opt_t *sslopts, char *ampname,
-        char *collector) {
+        char *pkiserver) {
     CURL *curl;
     CURLcode res;
     FILE *certfile;
@@ -563,7 +563,7 @@ static int fetch_certificate(amp_ssl_opt_t *sslopts, char *ampname,
     free(signature);
 
     /* we need to use an https url to get curl to use the cert/ssl options */
-    if ( asprintf(&url, "https://%s:%d/cert/%s/%.*s", collector,
+    if ( asprintf(&url, "https://%s:%d/cert/%s/%.*s", pkiserver,
                 AMP_PKI_SSL_PORT, ampname, length, urlsig) < 0 ) {
         Log(LOG_ALERT, "Failed to build cert fetching url");
         BIO_free_all(bio);
@@ -572,7 +572,7 @@ static int fetch_certificate(amp_ssl_opt_t *sslopts, char *ampname,
 
     /* generally we don't want to expose the signature, don't log by default */
     Log(LOG_INFO, "Checking for signed certificate at https://%s:%d/cert/%s/",
-            collector, AMP_PKI_SSL_PORT, ampname);
+            pkiserver, AMP_PKI_SSL_PORT, ampname);
     Log(LOG_DEBUG, "Signature: %.*s", length, urlsig);
 
     /* open the file that the certificate will be written to */
@@ -709,7 +709,7 @@ static int get_next_timeout(int timeout) {
  * etc that exist. If they don't exist then we try to create them as best
  * as we can.
  */
-int get_certificate(amp_ssl_opt_t *sslopts, char *ampname, char *collector,
+int get_certificate(amp_ssl_opt_t *sslopts, char *ampname, char *pkiserver,
         int waitforcert) {
     X509_REQ *request = NULL;
     RSA *key;
@@ -721,6 +721,11 @@ int get_certificate(amp_ssl_opt_t *sslopts, char *ampname, char *collector,
             check_exists(sslopts->cert, 0) == 0 ) {
         Log(LOG_DEBUG, "Private key and certificate both exist");
         return 0;
+    }
+
+    if ( pkiserver == NULL ) {
+        Log(LOG_WARNING, "Missing SSL key/cert but no pki server configured");
+        return -1;
     }
 
     /* make sure the proper directories exist, so we can put files in them */
@@ -739,7 +744,7 @@ int get_certificate(amp_ssl_opt_t *sslopts, char *ampname, char *collector,
     }
 
     /* query for the certificate, a previous CSR might have been signed */
-    if ( fetch_certificate(sslopts, ampname, collector) == 0 ) {
+    if ( fetch_certificate(sslopts, ampname, pkiserver) == 0 ) {
         RSA_free(key);
         return 0;
     }
@@ -759,7 +764,7 @@ int get_certificate(amp_ssl_opt_t *sslopts, char *ampname, char *collector,
      * instead of immediately sending the CSR to a server we know is down?
      */
     timeout = AMP_MIN_PKI_QUERY_INTERVAL;
-    while ( (res = send_csr(request, collector, sslopts->cacert)) > 0 &&
+    while ( (res = send_csr(request, pkiserver, sslopts->cacert)) > 0 &&
             waitforcert ) {
         Log(LOG_INFO, "Sleeping for %d seconds before trying again", timeout);
         sleep(timeout);
@@ -781,7 +786,7 @@ int get_certificate(amp_ssl_opt_t *sslopts, char *ampname, char *collector,
      * get one or we run out of time
      */
     timeout = AMP_MIN_PKI_QUERY_INTERVAL;
-    while ( (res = fetch_certificate(sslopts, ampname, collector)) > 0 &&
+    while ( (res = fetch_certificate(sslopts, ampname, pkiserver)) > 0 &&
             waitforcert ) {
         Log(LOG_INFO, "Sleeping for %d seconds before trying again", timeout);
         sleep(timeout);

@@ -57,6 +57,7 @@ fetch_schedule_item_t* get_remote_schedule_config(cfg_t *cfg);
 amp_test_meta_t* get_interface_config(cfg_t *cfg, amp_test_meta_t *meta);
 struct ub_ctx* get_dns_context_config(cfg_t *cfg, amp_test_meta_t *meta);
 void get_default_test_args(cfg_t *cfg);
+char *get_pki_server(cfg_t *cfg);
 cfg_t* parse_config(char *filename, struct amp_global_t *vars);
 
 #endif

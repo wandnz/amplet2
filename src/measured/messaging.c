@@ -167,6 +167,11 @@ int report_to_broker(test_t *test, amp_test_result_t *result) {
     char *routingkey = vars.vialocal ? AMQP_LOCAL_ROUTING_KEY : vars.routingkey;
     amqp_connection_state_t conn;
 
+    if ( vars.collector == NULL ) {
+        Log(LOG_DEBUG, "No collector configured, discarding test result");
+        return 0;
+    }
+
     /*
      * Ideally this would only happen once and the same connection would be
      * reused for all tests, but with their own channel. A connection can't

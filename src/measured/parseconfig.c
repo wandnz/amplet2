@@ -239,7 +239,8 @@ int should_config_rabbit(cfg_t *cfg) {
     if ( cfg_sub ) {
         /* configuration needs to be enabled, and a local broker in use */
         return cfg_getbool(cfg_sub, "vialocal") &&
-            cfg_getbool(cfg_sub, "configrabbit");
+            cfg_getbool(cfg_sub, "configrabbit") &&
+            cfg_getstr(cfg_sub, "address");
     }
 
     return 0;
@@ -271,6 +272,32 @@ int should_wait_for_cert(cfg_t *cfg) {
 
     /* return the default value if neither option is set */
     return cfg_true;
+}
+
+
+
+/*
+ * The PKI server is either explicitly defined in the SSL block, or taken
+ * to be the same as the collector.
+ */
+char *get_pki_server(cfg_t *cfg) {
+    cfg_t *cfg_sub;
+
+    assert(cfg);
+
+    /* try the specific pkiserver option from the ssl section */
+    cfg_sub = cfg_getsec(cfg, "ssl");
+    if ( cfg_sub && cfg_getstr(cfg_sub, "pkiserver") ) {
+        return cfg_getstr(cfg_sub, "pkiserver");
+    }
+
+    /* otherwise use the collector server */
+    cfg_sub = cfg_getsec(cfg, "collector");
+    if ( cfg_sub && cfg_getstr(cfg_sub, "address") ) {
+        return cfg_getstr(cfg_sub, "address");
+    }
+
+    return NULL;
 }
 
 
@@ -637,6 +664,7 @@ cfg_t* parse_config(char *filename, struct amp_global_t *vars) {
          * exists. Use -1 so we can tell when it get set later
          */
         CFG_BOOL("waitforcert", -1, CFGF_NONE),
+        CFG_STR("pkiserver", NULL, CFGF_NONE),
         CFG_END()
     };
 
@@ -753,14 +781,11 @@ cfg_t* parse_config(char *filename, struct amp_global_t *vars) {
     /* parse the config for the collector we should report data to */
     cfg_sub = cfg_getsec(cfg, "collector");
     if ( cfg_sub ) {
-        if ( cfg_getstr(cfg_sub, "address") == NULL ) {
-            cfg_free(cfg);
-            Log(LOG_ALERT, "No collector address in config file '%s', aborting",
-                    filename);
-            return NULL;
+        if ( cfg_getstr(cfg_sub, "address") ) {
+            vars->collector = strdup(cfg_getstr(cfg_sub, "address"));
+        } else {
+            vars->collector = NULL;
         }
-
-        vars->collector = strdup(cfg_getstr(cfg_sub, "address"));
         vars->vialocal = cfg_getbool(cfg_sub, "vialocal");
         vars->local = strdup(cfg_getstr(cfg_sub, "local"));
         vars->port = cfg_getint(cfg_sub, "port");

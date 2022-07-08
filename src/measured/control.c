@@ -477,8 +477,12 @@ static void control_read_callback(evutil_socket_t evsock,
          * then things can get confusing (test threads end up holding the
          * socket open when it should be closed).
          */
-        close(vars.asnsock_fd);
-        close(vars.nssock_fd);
+        if ( vars.asnsock_fd ) {
+            close(vars.asnsock_fd);
+        }
+        if ( vars.nssock_fd ) {
+            close(vars.nssock_fd);
+        }
 
         /* unblock signals and remove handlers that the parent process added */
         if ( unblock_signals() < 0 ) {

@@ -84,11 +84,16 @@ static void log_ssl(char *msg) {
  * manually specified then the files need to exist, otherwise we don't
  * care either way, they will get created if they need to be.
  */
-static int check_key_locations(amp_ssl_opt_t *sslopts, char *collector) {
+static int check_key_locations(amp_ssl_opt_t *sslopts, char *pkiserver) {
 
     if ( sslopts->cert == NULL ) {
+        if ( pkiserver == NULL ) {
+            Log(LOG_ALERT, "No SSL cert file set, and no pki server to use");
+            return -1;
+        }
+
         if ( asprintf(&sslopts->cert, "%s/%s.cert",
-                    sslopts->keys_dir, collector) < 0 ) {
+                    sslopts->keys_dir, pkiserver) < 0 ) {
             Log(LOG_ALERT, "Failed to build custom certfile path");
             return -1;
         }
@@ -97,6 +102,11 @@ static int check_key_locations(amp_ssl_opt_t *sslopts, char *collector) {
     }
 
     if ( sslopts->key == NULL ) {
+        if ( pkiserver == NULL ) {
+            Log(LOG_ALERT, "No SSL key file set, and no pki server to use");
+            return -1;
+        }
+
         if ( asprintf(&sslopts->key, "%s/key.pem",
                     sslopts->keys_dir) < 0 ) {
             Log(LOG_ALERT, "Failed to build custom keyfile path");
@@ -108,7 +118,7 @@ static int check_key_locations(amp_ssl_opt_t *sslopts, char *collector) {
 
     if ( sslopts->cacert == NULL ) {
         if ( asprintf(&sslopts->cacert, "%s/%s.pem", AMP_KEYS_DIR,
-                    collector) < 0 ) {
+                    pkiserver) < 0 ) {
             Log(LOG_ALERT, "Failed to build custom cacert file path");
             return -1;
         }
@@ -175,7 +185,7 @@ int matches_common_name(const char *hostname, const X509 *cert) {
  * Do really basic SSL initialisation and make sure that the files we expect
  * to use (keys, certs, etc) are all available.
  */
-int initialise_ssl(amp_ssl_opt_t *sslopts, char *collector) {
+int initialise_ssl(amp_ssl_opt_t *sslopts, char *pkiserver) {
     Log(LOG_DEBUG, "Initialising global SSL options");
 
     /*
@@ -207,11 +217,9 @@ int initialise_ssl(amp_ssl_opt_t *sslopts, char *collector) {
      * with default values if unset, and will make sure they exist if manually
      * set.
      */
-    if ( collector ) {
-        if ( check_key_locations(sslopts, collector) < 0 ) {
-            ssl_cleanup();
-            return -1;
-        }
+    if ( check_key_locations(sslopts, pkiserver) < 0 ) {
+        ssl_cleanup();
+        return -1;
     }
 
     /*

@@ -46,7 +46,7 @@
 #define AMP_MIN_PKI_QUERY_INTERVAL 30
 #define AMP_MAX_PKI_QUERY_INTERVAL (30 << 7)
 
-int get_certificate(amp_ssl_opt_t *sslopts, char *ampname, char *collector,
+int get_certificate(amp_ssl_opt_t *sslopts, char *ampname, char *pkiserver,
         int timeout);
 
 #endif
