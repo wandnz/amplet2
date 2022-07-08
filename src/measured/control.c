@@ -456,6 +456,7 @@ static void control_read_callback(evutil_socket_t evsock,
     pid_t pid;
     struct acl_event *acl_e = evdata;
     struct acl_root *acl = acl_e->acl;
+    struct event_base *base = event_get_base(acl_e->control_read);
 
     /*
      * The main event loop shouldn't trigger on these events any more, once
@@ -484,6 +485,9 @@ static void control_read_callback(evutil_socket_t evsock,
             Log(LOG_WARNING, "Failed to unblock signals, aborting");
             exit(EXIT_FAILURE);
         }
+
+        /* free the event base from the parent so tests can create their own */
+        event_base_free(base);
 
         reseed_openssl_rng();
         process_control_message(evsock, acl);
