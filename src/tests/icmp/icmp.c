@@ -1016,6 +1016,9 @@ test_t *register_test() {
     /* don't give the icmp test a SIGINT warning, it should not take long! */
     new_test->sigint = 0;
 
+    /* resolve targets before passing them to the test */
+    new_test->do_resolve = 1;
+
     return new_test;
 }
 

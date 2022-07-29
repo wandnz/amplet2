@@ -952,10 +952,6 @@ static char **parse_test_targets(yaml_document_t *document, yaml_node_t *node,
 
 
 /*
- * Given a string array of targets from the schedule file, turn them all
- * into useful addresses from the nametable, or future addresses that need
- * to be resolved at test runtime.
- *
  * The schedule can determine how many addresses of what address families
  * are resolved:
  * www.foo.com	    -- resolve all addresses
@@ -966,9 +962,56 @@ static char **parse_test_targets(yaml_document_t *document, yaml_node_t *node,
  * www.foo.com!n!v4 -- resolve up to n ipv4 addresses
  * www.foo.com!n!v6 -- resolve up to n ipv6 addresses
  */
+static char *split_target_flags(char *target, int *family, uint16_t *count) {
+    char *addr_str, *count_str;
+
+    addr_str = strtok(target, "!");
+    *family = AF_UNSPEC;
+    *count = 0;
+
+    if ( (count_str=strtok(NULL, "!")) != NULL ) {
+        do {
+            if (strncmp(count_str, "*", 1) == 0 ) {
+                /* do nothing - backwards compatability */
+            } else if ( strncmp(count_str, "v4", 2) == 0 ) {
+                *family = AF_INET;
+            } else if ( strncmp(count_str, "v6", 2) == 0 ) {
+                *family = AF_INET6;
+            } else {
+                *count = (uint16_t)atoi(count_str);
+            }
+        } while ( (count_str=strtok(NULL, "!")) != NULL );
+    }
+
+    return addr_str;
+}
+
+
+
+/*
+ *
+ */
+static resolve_dest_t *build_resolve_target(char *name, int family,
+        uint16_t count) {
+    resolve_dest_t *dest = calloc(1, sizeof(resolve_dest_t));
+
+    dest->name = strdup(name);
+    dest->family = family;
+    dest->count = count;
+
+    return dest;
+}
+
+
+
+/*
+ * Given a string array of targets from the schedule file, turn them all
+ * into useful addresses from the nametable, or future addresses that need
+ * to be resolved at test runtime.
+ */
 char **populate_target_lists(test_schedule_item_t *test, char **targets) {
 
-    char *addr_str, *count_str;
+    char *addr_str;
     int family;
     nametable_t *addresses;
     uint16_t count;
@@ -984,64 +1027,60 @@ char **populate_target_lists(test_schedule_item_t *test, char **targets) {
     for ( ; targets != NULL && *targets != NULL && (max_targets == 0 ||
             (test->dest_count + test->resolve_count) < max_targets);
             targets++ ) {
-        addr_str = strtok(*targets, "!");
-        family = AF_UNSPEC;
-        count = 0;
-        if ( (count_str=strtok(NULL, "!")) != NULL ) {
-            do {
-                if (strncmp(count_str, "*", 1) == 0 ) {
-                    /* do nothing - backwards compatability with old format */
-                } else if ( strncmp(count_str, "v4", 2) == 0 ) {
-                    family = AF_INET;
-                } else if ( strncmp(count_str, "v6", 2) == 0 ) {
-                    family = AF_INET6;
-                } else {
-                    count = (uint16_t)atoi(count_str);
-                }
-            } while ( (count_str=strtok(NULL, "!")) != NULL );
-        }
 
-	/* check if the destination is in the nametable */
-        if ( (addresses = name_to_address(addr_str)) != NULL ) {
-            struct addrinfo *addr;
+        if ( test->test->do_resolve ) {
+            addr_str = split_target_flags(*targets, &family, &count);
 
-            /*
-             * Add all the addresses in the addrinfo chain that match the
-             * given family, up to the maximum count.
-             */
-            for ( addr=addresses->addr; addr != NULL; addr=addr->ai_next ) {
-                if ( (max_targets > 0 &&
-                        (test->dest_count + test->resolve_count) >= max_targets)
-                    ||
-                    (count > 0 &&
-                        (test->dest_count + test->resolve_count) >= count) ) {
-                    break;
+            /* check if the destination is in the nametable */
+            if ( (addresses = name_to_address(addr_str)) != NULL ) {
+                struct addrinfo *addr;
+                int total = 0;
+
+                /*
+                 * Add all the addresses in the addrinfo chain that match the
+                 * given family, up to the maximum count.
+                 */
+                for ( addr=addresses->addr; addr != NULL; addr=addr->ai_next ) {
+                    total = test->dest_count + test->resolve_count;
+
+                    if ( max_targets > 0 && total >= max_targets ) {
+                        break;
+                    }
+
+                    if ( count > 0 && total >= count ) {
+                        break;
+                    }
+
+                    if ( family == AF_UNSPEC || family == addr->ai_family ) {
+                        test->dests = (struct addrinfo **)realloc(test->dests,
+                                sizeof(struct addrinfo*) * (test->dest_count + 1));
+                        test->dests[test->dest_count] = addr;
+                        test->dest_count++;
+                    }
                 }
 
-                if ( family == AF_UNSPEC || family == addr->ai_family ) {
-                    test->dests = (struct addrinfo **)realloc(test->dests,
-                            sizeof(struct addrinfo*) * (test->dest_count + 1));
-                    test->dests[test->dest_count] = addr;
-                    test->dest_count++;
-                }
+            } else {
+                /* if it isn't then it will be resolved at test time */
+                resolve_dest_t *dest;
+
+                Log(LOG_DEBUG, "Unknown destination '%s' will be resolved",
+                        *targets);
+
+                dest = build_resolve_target(addr_str, family, count);
+                dest->next = test->resolve;
+                test->resolve = dest;
+                test->resolve_count++;
             }
+        } else {
+            /* put this target in as-is, it shouldn't be resolved */
+            struct addrinfo *addr = calloc(1, sizeof(struct addrinfo));
+            addr->ai_canonname = strdup(*targets);
 
-	} else {
-	    /* if it isn't then it will be resolved at test time */
-            resolve_dest_t *dest;
-
-	    Log(LOG_DEBUG, "Unknown destination '%s' will be resolved",
-                    *targets);
-
-            dest = (resolve_dest_t*)malloc(sizeof(resolve_dest_t));
-	    dest->name = strdup(addr_str);
-            dest->family = family;
-	    dest->addr = NULL;
-            dest->count = count;
-	    dest->next = test->resolve;
-            test->resolve = dest;
-            test->resolve_count++;
-	}
+            test->dests = (struct addrinfo **)realloc(test->dests,
+                    sizeof(struct addrinfo*) * (test->dest_count + 1));
+            test->dests[test->dest_count] = addr;
+            test->dest_count++;
+        }
     }
 
     Log(LOG_DEBUG, "%d known targets, %d to resolve", test->dest_count,

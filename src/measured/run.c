@@ -240,7 +240,7 @@ void run_test(const test_schedule_item_t * const item, BIO *ctrl) {
     }
 
     /* resolve any names that need to be done at test run time */
-    if ( item->resolve != NULL ) {
+    if ( item->resolve != NULL && item->test->do_resolve ) {
 	struct addrinfo *tmp;
         int resolver_fd;
         int seen_ipv4 = 0;

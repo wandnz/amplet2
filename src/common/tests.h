@@ -167,6 +167,13 @@ typedef struct test {
      */
     char **server_params;
     char **client_params;
+
+    /*
+     * Flag whether or not to resolve targets before passing them to the test.
+     * This might be helpful when targets are actually URLs or some other
+     * sort of identifier.
+     */
+    int do_resolve;
 } test_t;
 
 

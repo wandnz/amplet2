@@ -366,6 +366,9 @@ test_t *register_test() {
     /* don't give the external test a SIGINT warning */
     new_test->sigint = 0;
 
+    /* resolve targets before passing them to the test */
+    new_test->do_resolve = 1;
+
     return new_test;
 }
 

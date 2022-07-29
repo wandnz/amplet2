@@ -1439,14 +1439,12 @@ static void usage(void) {
 /*
  * TODO const up the dest arguments so cant be changed?
  */
-//XXX dests should not have anything in it?
-//XXX how about dests has the hostname/address and url just appends to that?
-amp_test_result_t* run_http(int argc, char *argv[],
-        __attribute__((unused))int count,
-        __attribute__((unused))struct addrinfo **dests) {
+amp_test_result_t* run_http(int argc, char *argv[], int count,
+        struct addrinfo **dests) {
     int opt;
     amp_test_result_t *result;
     //struct opt_t options;
+    char *url = NULL;
 
     Log(LOG_DEBUG, "Starting HTTP test");
 
@@ -1509,10 +1507,7 @@ amp_test_result_t* run_http(int argc, char *argv[],
             case 'r': options.pipelining_maxrequests = atoi(optarg); break;
 	    case 's': options.max_connections_per_server = atoi(optarg); break;
             case 'S': set_ssl_version(&options.sslversion, optarg); break;
-	    case 'u': split_url(optarg, options.host, options.path, 1);
-                      strncpy(options.url, options.host, MAX_DNS_NAME_LEN);
-                      strncat(options.url, options.path, MAX_PATH_LEN);
-                      break;
+            case 'u': url = optarg; break;
             case 'z': options.pipe_size_before_skip = atoi(optarg); break;
             case 'v': print_package_version(argv[0]); exit(EXIT_SUCCESS); break;
             case 'x': log_level = LOG_DEBUG;
@@ -1523,6 +1518,36 @@ amp_test_result_t* run_http(int argc, char *argv[],
 	};
     }
 
+    /* accept either a url or a target, but not both */
+    if ( dests && url ) {
+        Log(LOG_WARNING, "Option -u not valid when targets are set");
+        exit(EXIT_FAILURE);
+    }
+
+    // TODO this will need to loop over all destinations
+    // TODO allow specifying a path component to use with a destination
+
+    /* convert a target into a url if required */
+    if ( dests ) {
+        if ( count > 1 ) {
+            Log(LOG_WARNING, "Too many targets, ignoring all but the first");
+        }
+
+        /* build the url from the destination canonical name */
+        url = dests[0]->ai_canonname;
+    }
+
+    if ( !url ) {
+        Log(LOG_WARNING, "No URL specified for http test");
+        exit(EXIT_FAILURE);
+    }
+
+    /* build a normalised url */
+    split_url(url, options.host, options.path, 1);
+    strncpy(options.url, options.host, MAX_DNS_NAME_LEN);
+    strncat(options.url, options.path, MAX_PATH_LEN);
+
+    /* check we now have a useful url */
     if ( strlen(options.url) == 0 ||
             options.host == NULL || options.path == NULL ) {
         usage();
@@ -1561,6 +1586,7 @@ amp_test_result_t* run_http(int argc, char *argv[],
 
     /* TODO, free everything */
     //free(server_list);
+    free(chunk.memory);
 
     return result;
 }
@@ -1599,6 +1625,9 @@ test_t *register_test() {
 
     /* don't give the http test a SIGINT warning */
     new_test->sigint = 0;
+
+    /* don't resolve targets before passing them to the test */
+    new_test->do_resolve = 0;
 
     return new_test;
 }

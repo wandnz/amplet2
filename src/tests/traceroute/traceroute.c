@@ -1940,6 +1940,9 @@ test_t *register_test() {
      */
     new_test->sigint = 1;
 
+    /* resolve targets before passing them to the test */
+    new_test->do_resolve = 1;
+
     return new_test;
 }
 

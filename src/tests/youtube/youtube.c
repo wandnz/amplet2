@@ -1258,8 +1258,7 @@ static void usage(void) {
  * later be printed or sent across the network.
  */
 amp_test_result_t* run_youtube(int argc, char *argv[],
-        __attribute__((unused))int count,
-        __attribute__((unused))struct addrinfo **dests) {
+        int count, struct addrinfo **dests) {
 
     int opt;
     struct timeval start_time;
@@ -1309,6 +1308,21 @@ amp_test_result_t* run_youtube(int argc, char *argv[],
             case 'h': usage(); exit(EXIT_SUCCESS);
             default: usage(); exit(EXIT_FAILURE);
         };
+    }
+
+    /* accept either a video id or a target, but not both */
+    if ( dests && options.video ) {
+        Log(LOG_WARNING, "Option -y not valid when target is set");
+        exit(EXIT_FAILURE);
+    }
+
+    if ( dests ) {
+        if ( count > 1 ) {
+            Log(LOG_WARNING, "Too many targets, ignoring all but the first");
+        }
+
+        /* build the video id from the destination canonical name */
+        options.video = dests[0]->ai_canonname;
     }
 
     if ( options.video == NULL ) {
@@ -1486,7 +1500,7 @@ test_t *register_test() {
     new_test->name = strdup("youtube");
 
     /* how many targets a single instance of this test can have */
-    new_test->max_targets = 0;
+    new_test->max_targets = 1;
 
     /* minimum number of targets required to run this test */
     new_test->min_targets = 0;
@@ -1505,6 +1519,9 @@ test_t *register_test() {
 
     /* don't give the test a SIGINT warning, partial data isn't useful */
     new_test->sigint = 0;
+
+    /* don't resolve targets before passing them to the test */
+    new_test->do_resolve = 0;
 
     return new_test;
 }

@@ -81,6 +81,78 @@ struct option standalone_long_options[] = {
 };
 
 
+static struct addrinfo *no_resolve_target_list(test_t *test, char *args[]) {
+    struct addrinfo *addrlist = NULL;
+    struct addrinfo *addr;
+    int i;
+
+    for ( i = 0; args[i] != NULL; i++ ) {
+	if ( test->max_targets > 0 && i >= test->max_targets ) {
+	    Log(LOG_WARNING, "Too many destinations, skipping %s", args[i]);
+	    continue;
+        }
+
+        addr = calloc(1, sizeof(struct addrinfo));
+        addr->ai_canonname = strdup(args[i]);
+        addr->ai_next = addrlist;
+        addrlist = addr;
+    }
+
+    return addrlist;
+}
+
+
+
+static struct addrinfo *resolve_target_list(test_t *test, char *args[],
+        struct ub_ctx *dns_ctx, int family) {
+    struct addrinfo *addrlist = NULL, *rp;
+    pthread_mutex_t addrlist_lock;
+    int i;
+
+    pthread_mutex_init(&addrlist_lock, NULL);
+
+    /* process all destinations */
+    for ( i = 0; args[i] != NULL; i++ ) {
+	/* check if adding the new destination would be allowed by the test */
+	if ( test->max_targets > 0 && i >= test->max_targets ) {
+	    Log(LOG_WARNING, "Too many destinations, skipping resolving %s",
+                    args[i]);
+	    continue;
+	}
+
+        /* TODO update max targets and pass through to the resolver? */
+        amp_resolve_add(dns_ctx, &addrlist, &addrlist_lock, args[i],
+                family, -1);
+    }
+
+    if ( i > 0 ) {
+        /* wait for all the responses to come in */
+        ub_wait(dns_ctx);
+    }
+
+    /* check that the names that we tried to resolve were actually resolved */
+    for ( i = 0; args[i] != NULL; i++ ) {
+        /* stop once we hit max targets, after that they were skipped */
+        if ( test->max_targets > 0 && i >= test->max_targets ) {
+            break;
+        }
+
+        /* check the destination name is in the address list */
+        for ( rp = addrlist; rp != NULL; rp = rp->ai_next ) {
+            if ( strcmp(args[i], rp->ai_canonname) == 0 && rp->ai_addr ) {
+                break;
+            }
+        }
+
+        if ( rp == NULL ) {
+            Log(LOG_WARNING, "Failed to resolve destination %s", args[i]);
+        }
+    }
+
+    return addrlist;
+}
+
+
 
 /*
  * Generic main function to allow all tests to be run as both normal binaries
@@ -94,14 +166,13 @@ struct option standalone_long_options[] = {
  * ./foo -a 1 -b 2 -c -- 10.0.0.1 10.0.0.2 10.0.0.3
  */
 int main(int argc, char *argv[]) {
-    test_t *test_info;
+    test_t *test;
     struct addrinfo **dests;
     struct addrinfo *addrlist = NULL, *rp;
     int count;
     int opt;
     int i;
     char *nameserver = NULL;
-    pthread_mutex_t addrlist_lock;
     int forcev4 = 0;
     int forcev6 = 0;
     char *sourcev4 = NULL;
@@ -110,7 +181,6 @@ int main(int argc, char *argv[]) {
     int test_argc;
     char **test_argv;
     int do_ssl;
-    struct ub_ctx *dns_ctx;
 
 #if _WIN32
     WORD wVersionRequested;
@@ -127,7 +197,7 @@ int main(int argc, char *argv[]) {
 #endif
 
     /* there should be only a single test linked, so register it directly */
-    test_info = register_test();
+    test = register_test();
 
     /* suppress "invalid argument" errors from getopt */
     opterr = 0;
@@ -215,35 +285,26 @@ int main(int argc, char *argv[]) {
         do_ssl = 0;
     }
 
-    /* set the nameserver to our custom one if specified */
-    if ( nameserver ) {
-        /* TODO we could parse the string and get up to MAXNS servers */
-        dns_ctx = amp_resolver_context_init(&nameserver, 1, sourcev4,sourcev6);
-    } else {
-        dns_ctx = amp_resolver_context_init(NULL, 0, sourcev4, sourcev6);
-    }
-
-    if ( dns_ctx == NULL ) {
-        Log(LOG_ALERT, "Failed to configure resolver, aborting.");
-        exit(EXIT_FAILURE);
-    }
-
     dests = NULL;
     count = 0;
-    pthread_mutex_init(&addrlist_lock, NULL);
 
-    /* process all destinations */
-    for ( i=optind; i<argc; i++ ) {
+    if ( test->do_resolve ) {
+        struct ub_ctx *dns_ctx;
         int family;
 
-	/* check if adding the new destination would be allowed by the test */
-	if ( test_info->max_targets > 0 &&
-                (i-optind) >= test_info->max_targets ) {
-	    /* ignore any extra destinations but continue with the test */
-	    printf("Exceeded max of %d destinations, skipping remainder\n",
-		    test_info->max_targets);
-	    break;
-	}
+        /* set the nameserver to our custom one if specified */
+        if ( nameserver ) {
+            /* TODO we could parse the string and get up to MAXNS servers */
+            dns_ctx = amp_resolver_context_init(&nameserver, 1, sourcev4,
+                    sourcev6);
+        } else {
+            dns_ctx = amp_resolver_context_init(NULL, 0, sourcev4, sourcev6);
+        }
+
+        if ( dns_ctx == NULL ) {
+            Log(LOG_ALERT, "Failed to configure resolver, aborting.");
+            exit(EXIT_FAILURE);
+        }
 
         /* limit name resolution if address families are specified */
         if ( forcev4 && !forcev6 ) {
@@ -254,55 +315,24 @@ int main(int argc, char *argv[]) {
             family = AF_UNSPEC;
         }
 
-        /* TODO update max targets and pass through to the resolver? */
-        amp_resolve_add(dns_ctx, &addrlist, &addrlist_lock, argv[i],
-                family, -1);
+        addrlist = resolve_target_list(test, &argv[optind], dns_ctx, family);
+        ub_ctx_delete(dns_ctx);
+    } else {
+        addrlist = no_resolve_target_list(test, &argv[optind]);
     }
 
-    if ( optind < argc ) {
-        /* wait for all the responses to come in */
-        ub_wait(dns_ctx);
-    }
-
-    /* add all the results of to the list of destinations */
-    for ( rp=addrlist; rp != NULL; rp=rp->ai_next ) {
-	if ( test_info->max_targets > 0 && count >= test_info->max_targets ) {
-	    /* ignore any extra destinations but continue with the test */
-	    printf("Exceeded max of %d destinations, skipping remainder\n",
-		    test_info->max_targets);
+    /* add all the results of name resolution to the list of destinations */
+    for ( rp = addrlist; rp != NULL; rp = rp->ai_next ) {
+        if ( test->max_targets > 0 && count >= test->max_targets ) {
+            /* ignore any extra destinations but continue with the test */
+            printf("Exceeded max of %d destinations, skipping remainder\n",
+		    test->max_targets);
 	    break;
-	}
+        }
 
-        /* make room for a new destination and fill it */
         dests = realloc(dests, (count + 1) * sizeof(struct addrinfo*));
         dests[count] = rp;
         count++;
-
-        /*
-         * Remove the destination from the argument list if it is still
-         * present. Involves iterating over argv once for each address, but
-         * there shouldn't be too many when run interactively. The usefulness
-         * of the error checking will hopefully outweigh the time spent doing
-         * this.
-         */
-        for ( i=optind; i<argc; i++ ) {
-            if ( argv[i] == NULL ) {
-                continue;
-            }
-
-            /* null the destination to mark it as resolved */
-            if ( strcmp(argv[i], rp->ai_canonname) == 0 ) {
-                argv[i] = NULL;
-                continue;
-            }
-        }
-    }
-
-    /* check if any destinations didn't resolve so we can warn the user */
-    for ( i=optind; i<argc; i++ ) {
-        if ( argv[i] != NULL ) {
-            Log(LOG_WARNING, "Host '%s' did not resolve!", argv[i]);
-        }
     }
 
     /*
@@ -311,7 +341,7 @@ int main(int argc, char *argv[]) {
      * remote server on an amplet client, or to talk securely to a standalone
      * test server.
      */
-    if ( test_info->server_callback != NULL && do_ssl ) {
+    if ( test->server_callback != NULL && do_ssl ) {
         /*
          * These need values for standalone tests to work with remote servers,
          * but there aren't really any good default values we can use. If the
@@ -340,16 +370,15 @@ int main(int argc, char *argv[]) {
     srandom(time(NULL));
 
     /* pass arguments and destinations through to the main test run function */
-    result = test_info->run_callback(test_argc, test_argv, count, dests);
+    result = test->run_callback(test_argc, test_argv, count, dests);
 
     if ( result ) {
-        test_info->print_callback(result);
+        test->print_callback(result);
         free(result->data);
         free(result);
     }
 
     amp_resolve_freeaddr(addrlist);
-
 
     /* tidy up after ourselves */
     if ( dests ) {
@@ -358,14 +387,12 @@ int main(int argc, char *argv[]) {
 
     free(test_argv);
 
-    ub_ctx_delete(dns_ctx);
-
     if ( ssl_ctx != NULL ) {
         ssl_cleanup();
     }
 
-    free(test_info->name);
-    free(test_info);
+    free(test->name);
+    free(test);
 
 #if _WIN32
     WSACleanup();
