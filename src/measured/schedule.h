@@ -191,6 +191,8 @@ time_t amp_test_get_period_start(char repeat, time_t *now);
 struct timeval amp_test_get_next_schedule_time(struct timeval *time_pass,
         schedule_period_t period, uint64_t start, uint64_t end,
         uint64_t frequency, int run, struct timeval *abstime);
+int amp_test_merge_scheduled_tests(struct event_base *base,
+        test_schedule_item_t *test);
 #endif
 
 #endif

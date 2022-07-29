@@ -853,16 +853,28 @@ static int merge_scheduled_tests(
         assert(sched_test != test);
 
         if ( test->dest_count > 0 ) {
-            /* add a new pre-resolved address */
+            /* merge the pre-resolved addresses */
             sched_test->dests = realloc(sched_test->dests,
-                    (sched_test->dest_count+1) *
+                    (sched_test->dest_count + test->dest_count) *
                     sizeof(struct addrinfo *));
-            sched_test->dests[sched_test->dest_count++] = test->dests[0];
-        } else {
-            /* add a new address we will need to resolve later */
-            test->resolve->next = sched_test->resolve;
-            sched_test->resolve = test->resolve;
-            sched_test->resolve_count++;
+            memcpy(&sched_test->dests[sched_test->dest_count], test->dests,
+                    test->dest_count * sizeof(struct addrinfo *));
+            sched_test->dest_count += test->dest_count;
+        }
+
+        if ( test->resolve_count > 0 ) {
+            /* add the address to resolve on to the end of the existing list */
+            if ( sched_test->resolve == NULL ) {
+                sched_test->resolve = test->resolve;
+            } else {
+                resolve_dest_t *tmp;
+                for ( tmp = sched_test->resolve;
+                        tmp->next != NULL;
+                        tmp = tmp->next ) {}
+                tmp->next = test->resolve;
+            }
+
+            sched_test->resolve_count += test->resolve_count;
         }
 
         return 1;
@@ -1777,5 +1789,9 @@ struct timeval amp_test_get_next_schedule_time(struct timeval *time_pass,
         uint64_t frequency, int run, struct timeval *abstime) {
     return get_next_schedule_time_internal(time_pass, period, start, end, frequency,
             run, abstime);
+}
+int amp_test_merge_scheduled_tests(struct event_base *base,
+        test_schedule_item_t *test) {
+    return merge_scheduled_tests(base, test);
 }
 #endif
