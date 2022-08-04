@@ -51,11 +51,6 @@
 /* debug schedule output file location */
 #define DEBUG_SCHEDULE_DUMP_FILE "/tmp/amplet2.schedule.dump"
 
-/* maximum line length for a single schedule line */
-#define MAX_SCHEDULE_LINE 1024
-/* character delimiting fields in the schedule file */
-#define SCHEDULE_DELIMITER ","
-
 /* TODO move config file defines elsewhere, point at sensible places */
 #define SCHEDULE_DIR AMP_CONFIG_DIR "/schedules"
 #define REMOTE_SCHEDULE_FILE "/fetched.sched"
