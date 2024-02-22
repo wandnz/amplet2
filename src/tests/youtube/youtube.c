@@ -52,6 +52,7 @@
 #include <inttypes.h>
 #include <signal.h>
 #include <sys/prctl.h>
+#include <sys/stat.h>
 
 #include "config.h"
 #include "tests.h"
