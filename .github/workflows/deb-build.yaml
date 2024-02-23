@@ -26,9 +26,11 @@ jobs:
           - { distro: debian, codename: stretch }
           - { distro: debian, codename: buster }
           - { distro: debian, codename: bullseye }
+          - { distro: debian, codename: bookworm }
           - { distro: ubuntu, codename: xenial }
           - { distro: ubuntu, codename: bionic }
           - { distro: ubuntu, codename: focal }
+          - { distro: ubuntu, codename: jammy }
         exclude:
           - arch: arm64
             target: { distro: ubuntu, codename: focal }
