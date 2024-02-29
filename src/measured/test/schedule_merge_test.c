@@ -175,13 +175,18 @@ static int check_destinations(
  * Test the test argument parsing.
  */
 int main(void) {
-    struct event_base *base = event_base_new();
-
+    struct event_base *base;
+    const char *event_noepoll = "1";
     test_schedule_item_t *test0, *test1a, *test1b;
     schedule_item_t *schedule;
     test_t *module;
 
     module = new_test_module();
+
+    assert(setenv("EVENT_NOEPOLL", event_noepoll, 0) == 0);
+
+    base = event_base_new();
+    assert(base);
 
     /* single test, can't merge */
     test0 = new_test(module, 0);
