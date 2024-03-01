@@ -14,7 +14,7 @@ Architecture: any
 Replaces: amplet2-client-lite (<< 0.8.0)
 Breaks: amplet2-client-lite (<< 0.8.0)
 Conflicts: amplet2-chromium-libs
-Depends: ${shlibs:Depends}, ${misc:Depends}, libevent-2.0-5 (>= 2.0.21)|libevent-2.1-6|libevent-2.1-7, libcurl3|libcurl4, librabbitmq4 (>= 0.7.1), libunbound2|libunbound8, libpcap0.8 (>= 1.7.4), rsyslog, libprotobuf-c1, lsb-base (>= 3.0-6), init-system-helpers (>= 1.22), adduser, libcap2-bin, procps
+Depends: ${shlibs:Depends}, ${misc:Depends}, libevent-2.0-5 (>= 2.0.21)|libevent-2.1-6|libevent-2.1-7, libcurl3|libcurl4, librabbitmq4 (>= 0.7.1), libunbound2|libunbound8, libpcap0.8 (>= 1.7.4), rsyslog, libprotobuf-c1, sysvinit-utils (>= 2.93-8), init-system-helpers (>= 1.22), adduser, libcap2-bin, procps
 Recommends: rabbitmq-server (>= 3.4.0)
 Suggests: amplet2-client-sip <pkg.amplet2.build-sip>, amplet2-client-youtube <pkg.amplet2.build-youtube>
 Description: AMP Network Performance Measurement Suite - Client Tools
