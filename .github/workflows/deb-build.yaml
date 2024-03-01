@@ -35,6 +35,8 @@ jobs:
             target: { distro: ubuntu, codename: focal }
           - arch: 386
             target: { distro: ubuntu, codename: focal }
+          - arch: 386
+            target: { distro: ubuntu, codename: jammy }
 
     env:
       DIRNAME: ${{ matrix.target.distro }}_${{ matrix.target.codename }}
