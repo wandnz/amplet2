@@ -2,13 +2,13 @@
 
 . tests/test_helper.sh
 
-operator="+"
-allcaps=" = "
+operator="="
+allcaps=" "
 
-# getcap output changed in v2.41, which is currently only used by bullseye
-if [ "$CODENAME" = "bullseye" ]; then
-    operator="="
-    allcaps=" "
+# getcap output changed in v2.41, but we still support some older versions
+if [ "$CODENAME" == "centos_7" ] || [ "$CODENAME" = "buster" ] || [ "$CODENAME" = "focal" ]; then
+    operator="+"
+    allcaps=" = "
 fi
 
 # check capabilities of installed binaries are correct
