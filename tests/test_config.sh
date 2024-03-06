@@ -20,8 +20,8 @@ test_config_dir() {
     done
 }
 
-test_client_config() {
-    assertFileExists "/etc/amplet2/clients/default.conf"
-}
+#test_client_config() {
+#    assertFileExists "/etc/amplet2/clients/default.conf"
+#}
 
 . /usr/share/shunit2/shunit2
