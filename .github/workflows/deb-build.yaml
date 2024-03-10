@@ -21,7 +21,7 @@ jobs:
           - amd64
           - 386
           - arm64
-          - arm/v7
+          - armhf
         target:
           - { distro: debian, codename: buster }
           - { distro: debian, codename: bullseye }
@@ -31,7 +31,7 @@ jobs:
         exclude:
           - arch: arm64
             target: { distro: ubuntu, codename: focal }
-          - arch: arm/v7
+          - arch: armhf
             target: { distro: ubuntu, codename: focal }
           - arch: 386
             target: { distro: ubuntu, codename: focal }
