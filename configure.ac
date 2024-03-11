@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.67])
-AC_INIT([amplet2], [0.11.7], [amp@wand.net.nz])
+AC_INIT([amplet2], [0.12.0], [amp@wand.net.nz])
 #AC_CONFIG_SRCDIR([src/measured/measured.c])
 AM_INIT_AUTOMAKE([subdir-objects])
 AC_CONFIG_HEADERS([config.h])
@@ -57,7 +57,8 @@ AM_CONDITIONAL([MINGW], [test x$mingw = xtrue])
 #   amplet2-0.11.5: 6:2:0 (ABI version 6)
 #   amplet2-0.11.6: 6:3:0 (ABI version 6)
 #   amplet2-0.11.7: 7:0:1
-LIBAMP_LIBTOOL_VERSION=7:0:1
+#   amplet2-0.12.0: 7:0:1
+LIBAMP_LIBTOOL_VERSION=8:0:0
 AC_SUBST(LIBAMP_LIBTOOL_VERSION)
 
 # Checks for programs.

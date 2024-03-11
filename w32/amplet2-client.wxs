@@ -2,7 +2,7 @@
 <Wix xmlns='http://schemas.microsoft.com/wix/2006/wi'>
 
     <?define ProductName="amplet2-client" ?>
-    <?define ProductVersion="0.11.7" ?>
+    <?define ProductVersion="0.12.0" ?>
     <?define UpgradeCode="D11C61E3-532E-4946-BE48-41B67A616CF7" ?>
     <?define SourceDir='install' ?>
     <?define MingwBinDir='mingw64/bin/' ?>

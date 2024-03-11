@@ -1,3 +1,72 @@
+amplet2 (0.12.0-1) unstable; urgency=low
+
+  * throughput: change argument --sequence to --schedule to match docs.
+  * package: no longer build python2 packages.
+  * package: add Debian Bookworm and Ubuntu Jammy to the list of build targets.
+  * package: remove Xenial, Bionic, Stretch from the list of build targets.
+  * package: fix various dependencies.
+  * youtube: change argument --youtube to --video-id.
+
+ -- Brendon Jones <brendon.jones@gmail.com>  Mon, 11 Mar 2024 21:52:23 +1300
+
+amplet2 (0.11.8-1~btm9) unstable; urgency=low
+
+  * amplet2: fix missing destinations when merging scheduled tests.
+  * http: allow passing target URL as a normal test target.
+  * youtube: allow passing target video ID as a normal test target.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Fri, 29 Jul 2022 17:00:10 +1200
+
+amplet2 (0.11.8-1~btm8) unstable; urgency=low
+
+  * amplet2: allow configuring collector and pki server addresses separately.
+  * amplet2: free parent event base before starting a remote controlled test.
+  * youtube: add port to the host header if it's non standard for the scheme.
+  * youtube: add basic support for firefox instead of chromium to play videos.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Fri,  8 Jul 2022 12:08:20 +1200
+
+amplet2 (0.11.8-1~btm7) unstable; urgency=low
+
+  * udpstream: speculative fix for using incorrect port when behind NAT.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Mon, 27 Jun 2022 16:52:54 +1200
+
+amplet2 (0.11.8-1~btm6) unstable; urgency=low
+
+  * amplet2: add option to set the user the client should run as.
+  * amplet2: create run dir in amplet2-client rather than in the init script.
+  * amplet2: display the full SHA256 hash of a certificate signing request.
+  * amplet2: restrict target DNS queries based on long command line options too.
+  * amplet2: allow test arguments to be given as yaml lists.
+  * amplet2: don't try to change user if already running as that user.
+  * amplet2: add command line option to set rundir.
+  * amplet2: add missing long option for pidfile.
+  * amplet2: be smarter about logging to stdout to work with pipes/redirection.
+  * amplet2: don't free global variables until after they are finished with.
+  * amplet2: add pid to log messages that don't use syslog.
+  * amplet2: ensure errno gets reported correctly when binding sockets.
+  * amplet2: use size of schedule on disk rather than content-length header.
+  * amplet2: better prevent long target names in schedule breaking the resolver.
+  * http: update default test connections to levels of a modern browser.
+  * http: parse the whole html page only after it has finished fetching.
+  * http: update the html parser to try to deal with data urls.
+  * http: don't keep consuming '<' characters without checking they end the tag.
+  * package: put example client config in examples dir rather than config dir.
+  * package: fix checks for existing rabbitmq config before installing sample.
+  * package: add flex-generated files to the list of built sources.
+  * throughput: randomise the first write buffer before starting timing.
+  * throughput: expose test rtt and retransmit information via ampsave.
+  * updstream: use right address family and sockaddr length to reflect packets.
+  * udpstream: unset SO_REUSEADDR on the test data socket.
+  * youtube: update dependencies.
+  * youtube: tidy up browser reconnect logic.
+  * youtube: pass pre-formed json as command parameters
+  * youtube: close the tab once the test is finished.
+  * youtube: make sure force_exit flag is initialised.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Mon, 27 Jun 2022 11:29:19 +1200
+
 amplet2 (0.11.7-1) unstable; urgency=low
 
   * amplet2: make tcpinfo functions available for all tests to use.

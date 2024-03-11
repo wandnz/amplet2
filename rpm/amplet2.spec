@@ -1,5 +1,5 @@
 Name: amplet2
-Version: 0.11.7
+Version: 0.12.0
 Release: 1%{?dist}
 Summary: AMP Network Performance Measurement Suite
 
@@ -185,6 +185,10 @@ fi
 
 
 %changelog
+* Mon Mar 11 2024 Brendon Jones <brendon.jones@gmail.com> 0.12.0-1
+- throughput: change argument --sequence to --schedule to match docs.
+- youtube: change argument --youtube to --video-id.
+
 * Wed Jun  1 2022 Brendon Jones <brendonj@waikato.ac.nz> 0.11.7-1
 - amplet2: make tcpinfo functions available for all tests to use.
 - ndt: add new NDT test client code (temporarily disabled).
