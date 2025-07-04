@@ -1,3 +1,10 @@
+amplet2 (0.12.0-2) unstable; urgency=low
+
+  * package: add fakeroot as a build dependency for the debian package.
+  * package: build packages for Ubuntu Noble.
+
+ -- Brendon Jones <brendon.jones@gmail.com>  Fri,  4 Jul 2025 21:53:18 +1200
+
 amplet2 (0.12.0-1) unstable; urgency=low
 
   * throughput: change argument --sequence to --schedule to match docs.
